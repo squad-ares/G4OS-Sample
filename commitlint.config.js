@@ -23,6 +23,8 @@ export default {
       2,
       'always',
       [
+        // Foundation
+        'foundation',
         // Por pacote
         'kernel',
         'platform',
@@ -31,6 +33,7 @@ export default {
         'ui',
         'agents',
         'sources',
+        'features',
         // Features
         'chat',
         'sessions',
