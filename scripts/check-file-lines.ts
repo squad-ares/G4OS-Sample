@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { globSync } from 'glob';
 
 const MAX_LINES = 500;
-const EXEMPTIONS = new Set([
+const EXEMPTIONS: Set<string> = new Set([
   // Arquivos gerados ou auto-documentados podem ser excluídos
   // ex: 'packages/kernel/src/generated-types.ts'
 ]);
@@ -26,7 +26,7 @@ for (const file of files) {
 
 if (violations.length > 0) {
   // biome-ignore lint/suspicious/noConsole: build script output
-  console.error(`\n❌ ${violations.length} files exceed ${MAX_LINES} lines:\n`);
+  console.error(`\n- ${violations.length} files exceed ${MAX_LINES} lines:\n`);
   for (const { file, lines } of violations) {
     // biome-ignore lint/suspicious/noConsole: build script output
     console.error(`  ${file}: ${lines} lines`);
@@ -39,4 +39,4 @@ if (violations.length > 0) {
 }
 
 // biome-ignore lint/suspicious/noConsole: build script output
-console.log(`✅ All ${files.length} files under ${MAX_LINES} lines`);
+console.log(`[OK] All ${files.length} files under ${MAX_LINES} lines`);

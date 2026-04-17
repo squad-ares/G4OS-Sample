@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
+function process(value: string): string {
+  return value.toUpperCase();
+}
+
 describe('TypeScript strict mode compliance', () => {
   it('should have noImplicitAny enforced', () => {
     // This test verifies that the code compiles correctly under strict mode
@@ -27,10 +31,6 @@ describe('TypeScript strict mode compliance', () => {
   });
 
   it('should enforce type safety in functions', () => {
-    function process(value: string): string {
-      return value.toUpperCase();
-    }
-
     const result = process('hello');
     expect(result).toBe('HELLO');
   });
