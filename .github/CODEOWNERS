@@ -5,62 +5,62 @@
 # Referencia: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
 
 # ========== GLOBAL FALLBACK ==========
-*                                   @tech-lead
+*                                   @squad-ares
 
 # ========== FOUNDATION ==========
-/.github/                           @tech-lead @devops-lead
-/.github/workflows/                 @tech-lead @devops-lead
-/.dependency-cruiser.cjs            @tech-lead
-/biome.json                         @tech-lead
-/tsconfig.base.json                 @tech-lead
-/turbo.json                         @tech-lead
-/pnpm-workspace.yaml                @tech-lead
+/.github/                           @squad-ares
+/.github/workflows/                 @squad-ares
+/.dependency-cruiser.cjs            @squad-ares
+/biome.json                         @squad-ares
+/tsconfig.base.json                 @squad-ares
+/turbo.json                         @squad-ares
+/pnpm-workspace.yaml                @squad-ares
 
 # ========== CORE PACKAGES ==========
-/packages/kernel/                   @tech-lead @senior-1
-/packages/platform/                 @tech-lead @platform-lead
-/packages/ipc/                      @tech-lead @senior-1
-/packages/credentials/              @tech-lead @security-lead
-/packages/ui/                       @frontend-lead @senior-2
+/packages/kernel/                   @squad-ares 
+/packages/platform/                 @squad-ares
+/packages/ipc/                      @squad-ares
+/packages/credentials/              @squad-ares
+/packages/ui/                       @squad-ares
 
 # ========== AGENTS / AI ==========
-/packages/agents/                   @ai-lead @senior-1
-/packages/agents/agent-interface/   @tech-lead @ai-lead
+/packages/agents/                   @squad-ares
+/packages/agents/agent-interface/   @squad-ares
 
 # ========== SOURCES / INTEGRATIONS ==========
-/packages/sources/                  @integrations-lead
-/packages/sources/mcp-supervisor/   @tech-lead @integrations-lead
+/packages/sources/                  @squad-ares
+/packages/sources/mcp-supervisor/   @squad-ares
 
 # ========== FEATURES ==========
 # Cada feature pode ter donos diferentes
-/packages/features/chat/            @chat-squad-lead
-/packages/features/sessions/        @chat-squad-lead
-/packages/features/projects/        @projects-squad-lead
-/packages/features/marketplace/     @marketplace-squad-lead
-/packages/features/company-context/ @admin-squad-lead
-/packages/features/scheduler/       @automation-squad-lead
-/packages/features/vigia/           @automation-squad-lead
-/packages/features/remote-control/  @mobile-squad-lead
-/packages/features/voice/           @voice-squad-lead
+/packages/features/chat/            @squad-ares
+/packages/features/sessions/        @squad-ares
+/packages/features/projects/        @squad-ares
+/packages/features/marketplace/     @squad-ares
+/packages/features/company-context/ @squad-ares
+/packages/features/scheduler/       @squad-ares
+/packages/features/vigia/           @squad-ares
+/packages/features/remote-control/  @squad-ares
+/packages/features/voice/           @squad-ares
 
 # ========== APPS ==========
-/apps/desktop/                      @frontend-lead
-/apps/desktop/src/main/             @tech-lead @frontend-lead
-/apps/desktop/src/renderer/         @frontend-lead @senior-2
-/apps/viewer/                       @frontend-lead
+/apps/desktop/                      @squad-ares 
+/apps/desktop/src/main/             @squad-ares 
+/apps/desktop/src/renderer/         @squad-ares
+/apps/viewer/                       @squad-ares 
 
 # ========== INFRA / RELEASE ==========
-/scripts/                           @tech-lead @devops-lead
-/apps/desktop/scripts/              @tech-lead @devops-lead
+/scripts/                           @squad-ares
+/apps/desktop/scripts/              @squad-ares
 
 # ========== SECURITY ==========
 # Security team aprova qualquer coisa que toque credenciais, crypto, auth
-**/credentials/**                   @security-lead
-**/*auth*.ts                        @security-lead
-**/*oauth*.ts                       @security-lead
-**/*crypto*.ts                      @security-lead
-/packages/credentials/              @security-lead
+**/credentials/**                   @squad-ares
+**/*auth*.ts                        @squad-ares
+**/*oauth*.ts                       @squad-ares
+**/*crypto*.ts                      @squad-ares
+/packages/credentials/              @squad-ares
 
 # ========== DOCUMENTAÇãO ==========
-/docs/                              @tech-lead
-/docs/adrs/                         @tech-lead @staff-engineer
+/docs/                              @squad-ares
+/docs/adrs/                         @squad-ares
