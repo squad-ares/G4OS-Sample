@@ -44,6 +44,7 @@
     "@types/node": "25.6.0",
     "dependency-cruiser": "17.3.10",
     "esbuild": "0.28.0",
+    "glob": "13.0.6",
     "knip": "6.4.1",
     "lefthook": "2.1.6",
     "madge": "8.0.0",
@@ -51,6 +52,7 @@
     "size-limit": "12.1.0",
     "ts-prune": "0.10.3",
     "tsup": "8.5.1",
+    "tsx": "4.21.0",
     "turbo": "2.9.6",
     "typescript": "6.0.3",
     "vitest": "4.1.4"
