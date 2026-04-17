@@ -1,2 +1,3 @@
-// @g4os/ipc
-export {}
+const TODO = 'Implement package';
+
+export { TODO };

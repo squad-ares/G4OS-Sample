@@ -16,20 +16,6 @@ pre-commit:
       run: pnpm biome check --write --no-errors-on-unmatched {staged_files}
       stage_fixed: true
 
-    typecheck:
-      glob: "*.{ts,tsx}"
-      run: pnpm turbo run typecheck || true
-      skip:
-        - merge
-        - rebase
-
-    unit-tests:
-      glob: "*.{ts,tsx}"
-      run: pnpm turbo run test || true
-      skip:
-        - merge
-        - rebase
-
 commit-msg:
   commands:
     commitlint:

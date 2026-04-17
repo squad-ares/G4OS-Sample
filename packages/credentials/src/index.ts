@@ -1,2 +1,3 @@
-// @g4os/credentials
-export {}
+const TODO = 'Implement package';
+
+export { TODO };

@@ -3,11 +3,7 @@
     "target": "ES2023",
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
-    "lib": [
-      "ES2023",
-      "DOM",
-      "DOM.Iterable"
-    ],
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "strict": true,
     "noImplicitAny": true,
     "strictNullChecks": true,
@@ -36,11 +32,7 @@
     "removeComments": false,
     "ignoreDeprecations": "6.0"
   },
-  "exclude": [
-    "**/node_modules",
-    "**/dist",
-    "**/.turbo"
-  ],
+  "exclude": ["**/node_modules", "**/dist", "**/.turbo"],
   "files": [],
   "references": [
     {

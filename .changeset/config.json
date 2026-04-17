@@ -1,20 +1,11 @@
 {
   "$schema": "https://unpkg.com/@changesets/config@3.0.3/schema.json",
-  "changelog": [
-    "@changesets/changelog-github",
-    { "repo": "g4educacao/g4os" }
-  ],
+  "changelog": ["@changesets/changelog-github", { "repo": "g4educacao/g4os" }],
   "commit": false,
-  "fixed": [
-    ["@g4os/desktop", "@g4os/kernel", "@g4os/platform", "@g4os/ipc"]
-  ],
-  "linked": [
-    ["@g4os/features-*"]
-  ],
+  "fixed": [["@g4os/desktop", "@g4os/kernel", "@g4os/platform", "@g4os/ipc"]],
+  "linked": [["@g4os/features-*"]],
   "access": "restricted",
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
-  "ignore": [
-    "@g4os/scripts-internal"
-  ]
+  "ignore": ["@g4os/scripts-internal"]
 }

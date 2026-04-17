@@ -1,2 +1,3 @@
-// @g4os/ui
-export {}
+const TODO = 'Implement package';
+
+export { TODO };

@@ -1,3 +1,3 @@
-const TODO = "Implement package";
+const TODO = 'Implement package';
 
 export { TODO };

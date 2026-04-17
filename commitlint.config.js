@@ -6,17 +6,17 @@ export default {
       2,
       'always',
       [
-        'feat',     // nova feature
-        'fix',      // bug fix
-        'perf',     // melhoria de performance
+        'feat', // nova feature
+        'fix', // bug fix
+        'perf', // melhoria de performance
         'refactor', // refatoração sem mudança de comportamento
-        'docs',     // apenas documentação
-        'style',    // formatação, sem mudança de código
-        'test',     // adição/correção de testes
-        'build',    // mudança em build system, deps
-        'ci',       // CI/CD
-        'chore',    // manutenção geral
-        'revert',   // reverter commit
+        'docs', // apenas documentação
+        'style', // formatação, sem mudança de código
+        'test', // adição/correção de testes
+        'build', // mudança em build system, deps
+        'ci', // CI/CD
+        'chore', // manutenção geral
+        'revert', // reverter commit
       ],
     ],
     'scope-enum': [
@@ -24,15 +24,36 @@ export default {
       'always',
       [
         // Por pacote
-        'kernel', 'platform', 'ipc', 'credentials', 'ui', 'agents', 'sources',
+        'kernel',
+        'platform',
+        'ipc',
+        'credentials',
+        'ui',
+        'agents',
+        'sources',
         // Features
-        'chat', 'sessions', 'workspaces', 'projects', 'marketplace',
-        'company-context', 'scheduler', 'vigia', 'remote-control',
-        'voice', 'skills', 'browser',
+        'chat',
+        'sessions',
+        'workspaces',
+        'projects',
+        'marketplace',
+        'company-context',
+        'scheduler',
+        'vigia',
+        'remote-control',
+        'voice',
+        'skills',
+        'browser',
         // Apps
-        'desktop', 'viewer',
+        'desktop',
+        'viewer',
         // Infra
-        'deps', 'ci', 'build', 'release', 'docs', 'config',
+        'deps',
+        'ci',
+        'build',
+        'release',
+        'docs',
+        'config',
       ],
     ],
     'scope-empty': [2, 'never'],

@@ -1,2 +1,3 @@
-// @g4os/kernel
-export {}
+const TODO = 'Implement package';
+
+export { TODO };

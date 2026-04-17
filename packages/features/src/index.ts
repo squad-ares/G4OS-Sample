@@ -1,2 +1,3 @@
-// @g4os/features
-export {}
+const TODO = 'Implement package';
+
+export { TODO };

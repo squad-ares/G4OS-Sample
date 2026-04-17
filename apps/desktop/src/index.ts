@@ -1,2 +1,2 @@
 // @g4os/desktop
-export {}
+export {};

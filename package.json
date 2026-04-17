@@ -52,6 +52,7 @@
     "ts-prune": "0.10.3",
     "tsup": "8.5.1",
     "turbo": "2.9.6",
-    "typescript": "6.0.3"
+    "typescript": "6.0.3",
+    "vitest": "4.1.4"
   }
 }
