@@ -1,0 +1,7 @@
+- `@g4os/tech-lead`
+- `@g4os/senior-devs`
+- `@g4os/security`
+- `@g4os/devops`
+- `@g4os/frontend`
+- `@g4os/ai-team`
+- `@g4os/integrations`

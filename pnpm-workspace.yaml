@@ -1,0 +1,10 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+  - "packages/features/*"
+  - "packages/sources/*"
+  - "packages/agents/*"
+  - "packages/platform/*"
+allowBuilds:
+  esbuild: true
+  lefthook: false

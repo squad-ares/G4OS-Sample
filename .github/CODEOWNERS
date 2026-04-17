@@ -1,0 +1,66 @@
+# CODEOWNERS — G4 OS v2
+#
+# Cada linha define quem DEVE revisar PRs que mexem na area.
+# Ordem importa: match mais especifico vence.
+# Referencia: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# ========== GLOBAL FALLBACK ==========
+*                                   @tech-lead
+
+# ========== FOUNDATION ==========
+/.github/                           @tech-lead @devops-lead
+/.github/workflows/                 @tech-lead @devops-lead
+/.dependency-cruiser.cjs            @tech-lead
+/biome.json                         @tech-lead
+/tsconfig.base.json                 @tech-lead
+/turbo.json                         @tech-lead
+/pnpm-workspace.yaml                @tech-lead
+
+# ========== CORE PACKAGES ==========
+/packages/kernel/                   @tech-lead @senior-1
+/packages/platform/                 @tech-lead @platform-lead
+/packages/ipc/                      @tech-lead @senior-1
+/packages/credentials/              @tech-lead @security-lead
+/packages/ui/                       @frontend-lead @senior-2
+
+# ========== AGENTS / AI ==========
+/packages/agents/                   @ai-lead @senior-1
+/packages/agents/agent-interface/   @tech-lead @ai-lead
+
+# ========== SOURCES / INTEGRATIONS ==========
+/packages/sources/                  @integrations-lead
+/packages/sources/mcp-supervisor/   @tech-lead @integrations-lead
+
+# ========== FEATURES ==========
+# Cada feature pode ter donos diferentes
+/packages/features/chat/            @chat-squad-lead
+/packages/features/sessions/        @chat-squad-lead
+/packages/features/projects/        @projects-squad-lead
+/packages/features/marketplace/     @marketplace-squad-lead
+/packages/features/company-context/ @admin-squad-lead
+/packages/features/scheduler/       @automation-squad-lead
+/packages/features/vigia/           @automation-squad-lead
+/packages/features/remote-control/  @mobile-squad-lead
+/packages/features/voice/           @voice-squad-lead
+
+# ========== APPS ==========
+/apps/desktop/                      @frontend-lead
+/apps/desktop/src/main/             @tech-lead @frontend-lead
+/apps/desktop/src/renderer/         @frontend-lead @senior-2
+/apps/viewer/                       @frontend-lead
+
+# ========== INFRA / RELEASE ==========
+/scripts/                           @tech-lead @devops-lead
+/apps/desktop/scripts/              @tech-lead @devops-lead
+
+# ========== SECURITY ==========
+# Security team aprova qualquer coisa que toque credenciais, crypto, auth
+**/credentials/**                   @security-lead
+**/*auth*.ts                        @security-lead
+**/*oauth*.ts                       @security-lead
+**/*crypto*.ts                      @security-lead
+/packages/credentials/              @security-lead
+
+# ========== DOCUMENTAÇãO ==========
+/docs/                              @tech-lead
+/docs/adrs/                         @tech-lead @staff-engineer

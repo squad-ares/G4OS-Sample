@@ -1,0 +1,52 @@
+# lefthook.yml - Git hooks manager
+# Docs: https://github.com/evilmartians/lefthook
+
+# Garante que lefthook e instalado em novo clone
+min_version: 1.7.0
+
+# Cores nos outputs
+colors: true
+no_tty: false
+
+pre-commit:
+  parallel: true
+  commands:
+    lint:
+      glob: "*.{ts,tsx,js,jsx,json}"
+      run: pnpm biome check --write --no-errors-on-unmatched {staged_files}
+      stage_fixed: true
+
+    typecheck:
+      glob: "*.{ts,tsx}"
+      run: pnpm turbo run typecheck || true
+      skip:
+        - merge
+        - rebase
+
+    unit-tests:
+      glob: "*.{ts,tsx}"
+      run: pnpm turbo run test || true
+      skip:
+        - merge
+        - rebase
+
+commit-msg:
+  commands:
+    commitlint:
+      run: pnpm commitlint --edit {1}
+
+pre-push:
+  parallel: false
+  commands:
+    full-lint:
+      run: pnpm lint
+    full-typecheck:
+      run: pnpm typecheck
+    test-affected:
+      run: pnpm turbo run test --filter=...[origin/main]
+
+post-merge:
+  commands:
+    install:
+      glob: "{pnpm-lock.yaml,package.json,packages/*/package.json,apps/*/package.json}"
+      run: pnpm install

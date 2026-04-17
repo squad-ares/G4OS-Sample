@@ -1,0 +1,65 @@
+{
+    "$schema": "https://turbo.build/schema.json",
+    "ui": "stream",
+    "globalDependencies": [
+        ".env",
+        "tsconfig.base.json"
+    ],
+    "tasks": {
+        "build": {
+            "dependsOn": [
+                "^build"
+            ],
+            "inputs": [
+                "src/**",
+                "tsconfig.json",
+                "package.json"
+            ],
+            "outputs": [
+                "dist/**"
+            ]
+        },
+        "typecheck": {
+            "dependsOn": [
+                "^build"
+            ],
+            "inputs": [
+                "src/**",
+                "tsconfig.json"
+            ],
+            "outputs": []
+        },
+       "lint": {
+            "inputs": [
+                "src/**",
+                "biome.json",
+                "../../biome.json"
+            ],
+            "outputs": []
+        },
+        "test": {
+            "dependsOn": [
+                "^build"
+            ],
+            "inputs": [
+                "src/**",
+                "test/**",
+                "vitest.config.ts"
+            ],
+            "outputs": [
+                "coverage/**"
+            ]
+        },
+        "test:e2e": {
+            "dependsOn": [
+                "build"
+            ],
+            "cache": false,
+            "persistent": false
+        },
+        "dev": {
+            "cache": false,
+            "persistent": true
+        }
+    }
+}

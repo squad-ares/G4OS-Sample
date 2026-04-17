@@ -1,0 +1,65 @@
+{
+  "compilerOptions": {
+    "target": "ES2023",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": [
+      "ES2023",
+      "DOM",
+      "DOM.Iterable"
+    ],
+    "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "strictFunctionTypes": true,
+    "strictBindCallApply": true,
+    "strictPropertyInitialization": true,
+    "noImplicitThis": true,
+    "useUnknownInCatchVariables": true,
+    "alwaysStrict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitOverride": true,
+    "noPropertyAccessFromIndexSignature": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "allowSyntheticDefaultImports": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "skipLibCheck": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "removeComments": false,
+    "ignoreDeprecations": "6.0"
+  },
+  "exclude": [
+    "**/node_modules",
+    "**/dist",
+    "**/.turbo"
+  ],
+  "files": [],
+  "references": [
+    {
+      "path": "./packages/kernel"
+    },
+    {
+      "path": "./packages/platform"
+    },
+    {
+      "path": "./packages/ipc"
+    },
+    {
+      "path": "./packages/credentials"
+    },
+    {
+      "path": "./packages/ui"
+    },
+    {
+      "path": "./apps/desktop"
+    }
+  ]
+}
