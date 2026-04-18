@@ -94,6 +94,19 @@ importers:
 
   packages/credentials: {}
 
+  packages/data:
+    dependencies:
+      '@g4os/kernel':
+        specifier: workspace:^
+        version: link:../kernel
+      '@g4os/platform':
+        specifier: workspace:^
+        version: link:../platform
+    devDependencies:
+      '@types/node':
+        specifier: 25.6.0
+        version: 25.6.0
+
   packages/features: {}
 
   packages/ipc:

@@ -1,7 +1,7 @@
 {
-  "name": "@g4os/credentials",
+  "name": "@g4os/data",
   "version": "0.0.0",
-  "description": "Vault",
+  "description": "Data layer: SQLite persistence, schemas, repositories",
   "private": true,
   "type": "module",
   "main": "./src/index.ts",
@@ -10,6 +10,10 @@
     ".": {
       "types": "./src/index.ts",
       "import": "./src/index.ts"
+    },
+    "./sqlite": {
+      "types": "./src/sqlite/index.ts",
+      "import": "./src/sqlite/index.ts"
     }
   },
   "scripts": {
@@ -24,5 +28,12 @@
   },
   "engines": {
     "node": ">=24.0.0"
+  },
+  "dependencies": {
+    "@g4os/kernel": "workspace:^",
+    "@g4os/platform": "workspace:^"
+  },
+  "devDependencies": {
+    "@types/node": "25.6.0"
   }
 }
