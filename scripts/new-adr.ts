@@ -6,7 +6,6 @@ const ADR_DIR = 'docs/adrs';
 const title = process.argv.slice(2).join(' ');
 
 if (!title) {
-  // biome-ignore lint/suspicious/noConsole: build script output
   console.error('Usage: pnpm adr:new "Short title here"');
   process.exit(1);
 }
@@ -28,5 +27,4 @@ const template = readFileSync(join(ADR_DIR, '_template.md'), 'utf-8')
   .replace(/YYYY-MM-DD/g, new Date().toISOString().split('T')[0]);
 
 writeFileSync(join(ADR_DIR, filename), template);
-// biome-ignore lint/suspicious/noConsole: build script output
 console.log(`Created: ${ADR_DIR}/${filename}`);

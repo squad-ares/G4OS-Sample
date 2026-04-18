@@ -25,18 +25,14 @@ for (const file of files) {
 }
 
 if (violations.length > 0) {
-  // biome-ignore lint/suspicious/noConsole: build script output
   console.error(`\n- ${violations.length} files exceed ${MAX_LINES} lines:\n`);
   for (const { file, lines } of violations) {
-    // biome-ignore lint/suspicious/noConsole: build script output
     console.error(`  ${file}: ${lines} lines`);
   }
-  // biome-ignore lint/suspicious/noConsole: build script output
   console.error(
     `\nSplit into smaller modules. If legitimate, add to EXEMPTIONS with ADR justification.\n`,
   );
   process.exit(1);
 }
 
-// biome-ignore lint/suspicious/noConsole: build script output
 console.log(`[OK] All ${files.length} files under ${MAX_LINES} lines`);
