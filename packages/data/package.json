@@ -14,6 +14,14 @@
     "./sqlite": {
       "types": "./src/sqlite/index.ts",
       "import": "./src/sqlite/index.ts"
+    },
+    "./schema": {
+      "types": "./src/schema/index.ts",
+      "import": "./src/schema/index.ts"
+    },
+    "./drizzle": {
+      "types": "./src/drizzle.ts",
+      "import": "./src/drizzle.ts"
     }
   },
   "scripts": {
@@ -31,9 +39,11 @@
   },
   "dependencies": {
     "@g4os/kernel": "workspace:^",
-    "@g4os/platform": "workspace:^"
+    "@g4os/platform": "workspace:^",
+    "drizzle-orm": "1.0.0-beta.17-8a36f93"
   },
   "devDependencies": {
-    "@types/node": "25.6.0"
+    "@types/node": "25.6.0",
+    "drizzle-kit": "1.0.0-beta.17-8a36f93"
   }
 }

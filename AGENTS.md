@@ -57,7 +57,7 @@ packages/
 ├── platform/      # OS abstraction — paths (env-paths), keychain, runtime-paths, spawn
 ├── ipc/           # tRPC v11 + electron-trpc + superjson (router central)
 ├── credentials/   # scaffolding — gateway único via safeStorage (TASK-05)
-├── data/          # node:sqlite (Node 24) via Db wrapper (WAL, FK, mmap); drizzle em TASK-04-02
+├── data/          # node:sqlite (Node 24) via Db wrapper (WAL, FK, mmap) + Drizzle ORM (beta 1.0 pinado, ADR-0042) + schemas + migrations baseline
 ├── agents/        # scaffolding — IAgent + Claude/Codex/Pi plugins (TASK-07)
 ├── sources/       # scaffolding — ISource + MCP stdio/http + managed (TASK-08)
 ├── features/      # scaffolding — Feature-Sliced Design por domínio (TASK-11)
@@ -128,7 +128,7 @@ SIGINT/SIGTERM disparam o mesmo fluxo via `app.quit()`.
 | File watching | `@parcel/watcher` | `chokidar` tem leak documentado no Windows |
 | Subprocess | `execa` + `tree-kill` (filhos morrem limpos) | Substitui `child_process.spawn` cru |
 | Concorrência | `p-queue` + `p-retry` + `p-timeout` | Thundering herd controlado, timeouts em toda chamada externa |
-| ORM (sobre SQLite) | `drizzle-orm` | Migrations versionadas, SQL via TS |
+| ORM (sobre SQLite) | `drizzle-orm@1.0.0-beta.17-8a36f93` + `drizzle-kit` matching — _beta pinado até 1.0 GA (ADR-0042); só exceção autorizada à política "sem beta"_ | 0042 |
 | Server state (renderer) | TanStack Query | GC automática resolve leak do renderer |
 | Client state (renderer) | Jotai (manter do v1) | Granular; `atomFamily` nativo (não usar `jotai-family`) |
 | Forms | React Hook Form + `@hookform/resolvers` + Zod | Padrão, performance |
@@ -160,7 +160,7 @@ strip-markdown            # parte do remark
 marked, markdown-it       # padronizar em remark/rehype + react-markdown
 ```
 
-Pacotes em alpha/RC **não entram em `dependencies`**. Gate `pnpm why` no CI bloqueia.
+Pacotes em alpha/RC/beta **não entram em `dependencies`**, salvo exceção com ADR próprio documentando trade-off, pin exato e plano de migração para GA. Única exceção ativa: `drizzle-orm@1.0.0-beta.17-8a36f93` (ADR-0042, rastreado em [`docs/TODO-DRIZZLE-GA.md`](docs/TODO-DRIZZLE-GA.md)). Nova lib beta → novo ADR; não pode piggy-back em exceção existente.
 
 ---
 

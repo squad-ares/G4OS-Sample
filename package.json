@@ -41,7 +41,9 @@
         "madge>typescript": "6.0.3"
       },
       "ignoreMissing": [
-        "electron"
+        "electron",
+        "mssql",
+        "@types/mssql"
       ]
     }
   },

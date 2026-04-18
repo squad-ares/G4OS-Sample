@@ -54,6 +54,7 @@ Escreva ADR quando:
 | 0032 | Graceful shutdown with deadline and backoff | Accepted | 2026-04-18 | 03-process-architecture |
 | 0040 | SQLite persistence with better-sqlite3 | Superseded by 0040a | 2026-04-18 | 04-data-layer |
 | 0040a | Node.js `node:sqlite` as SQLite driver | Accepted | 2026-04-18 | 04-data-layer |
+| 0042 | Drizzle ORM 1.0 beta pinado até GA (desvio controlado) | Accepted with caveat | 2026-04-18 | 04-data-layer |
 
 ## Status
 
@@ -97,6 +98,7 @@ Definem arquitetura de processos, isolamento e lifecycle:
 Definem persistência, schemas e migrations:
 - **0040:** SQLite com better-sqlite3 — _superseded no mesmo dia por 0040a, mantida como registro histórico_
 - **0040a:** `node:sqlite` nativo (Node 24 LTS) — zero binding externo, elimina vetor de runtime Windows perdido
+- **0042:** Drizzle ORM 1.0 beta pinado até GA — única exceção autorizada à política "sem beta em deps"; rastreada em [`docs/TODO-DRIZZLE-GA.md`](../TODO-DRIZZLE-GA.md)
 
 ## Histórico de Alterações
 
