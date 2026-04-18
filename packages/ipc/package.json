@@ -1,7 +1,7 @@
 {
   "name": "@g4os/ipc",
   "version": "0.0.0",
-  "description": "tRCP",
+  "description": "tRPC router contract shared between Electron main and renderer",
   "private": true,
   "type": "module",
   "main": "./src/index.ts",
@@ -10,6 +10,14 @@
     ".": {
       "types": "./src/index.ts",
       "import": "./src/index.ts"
+    },
+    "./server": {
+      "types": "./src/server/index.ts",
+      "import": "./src/server/index.ts"
+    },
+    "./shared": {
+      "types": "./src/shared/index.ts",
+      "import": "./src/shared/index.ts"
     }
   },
   "scripts": {
@@ -24,5 +32,17 @@
   },
   "engines": {
     "node": ">=20.10.0"
+  },
+  "dependencies": {
+    "@g4os/kernel": "workspace:^",
+    "@trpc/client": "11.16.0",
+    "@trpc/server": "11.16.0",
+    "electron-trpc": "0.7.1",
+    "neverthrow": "8.2.0",
+    "superjson": "2.2.6",
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "25.6.0"
   }
 }

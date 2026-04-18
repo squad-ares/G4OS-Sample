@@ -83,11 +83,14 @@ jobs:
       - name: Check max file lines
         run: pnpm check:file-lines
 
+      - name: Check main process size budget
+        run: pnpm check:main-size
+
       - name: Check circular dependencies
         run: pnpm check:circular
 
       - name: Check layer boundaries
-        run: pnpm check:boundaries
+        run: pnpm check:cruiser
 
       - name: Check dead code
         run: pnpm check:dead-code
@@ -189,7 +192,7 @@ jobs:
           cache: 'pnpm'
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
-      - run: pnpm size-limit
+      - run: pnpm check:size
 
   # Gate final: todos os checks obrigatórios
   all-checks:

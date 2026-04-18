@@ -1,0 +1,94 @@
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
+import { AppError, ErrorCode } from '@g4os/kernel/errors';
+import { getPlatformInfo } from './platform-info.ts';
+
+interface RuntimeLocation {
+  /** Runtime directory base (ex: resourcesPath/runtime em packaged, dist/runtime em dev) */
+  readonly runtimeDir: string;
+  /** Vendor directory (bundled binaries como node, git, uv) */
+  readonly vendorDir: string;
+}
+
+let _location: RuntimeLocation | null = null;
+
+export function initRuntimePaths(location: RuntimeLocation): void {
+  if (_location !== null) {
+    throw new Error('Runtime paths already initialized');
+  }
+  _location = location;
+}
+
+function requireLocation(): RuntimeLocation {
+  if (_location === null) {
+    throw new AppError({
+      code: ErrorCode.UNKNOWN_ERROR,
+      message: 'Runtime paths not initialized. Call initRuntimePaths() on app start.',
+    });
+  }
+  return _location;
+}
+
+export const runtime = {
+  /** Claude Agent SDK CLI */
+  claudeSdkCli(): string {
+    const loc = requireLocation();
+    return join(loc.runtimeDir, 'claude-agent-sdk', 'cli.js');
+  },
+
+  /** Network interceptor */
+  interceptor(): string {
+    const loc = requireLocation();
+    return join(loc.runtimeDir, 'interceptor', 'network-interceptor.cjs');
+  },
+
+  /** MCP servers bundled */
+  sessionMcpServer(): string {
+    const loc = requireLocation();
+    return join(loc.runtimeDir, 'session-mcp-server', 'index.js');
+  },
+
+  bridgeMcpServer(): string {
+    const loc = requireLocation();
+    return join(loc.runtimeDir, 'bridge-mcp-server', 'index.js');
+  },
+
+  /** Vendored binaries */
+  git(): string {
+    const { family, executableSuffix } = getPlatformInfo();
+    const loc = requireLocation();
+    if (family === 'windows') {
+      return join(loc.vendorDir, 'git', 'cmd', `git${executableSuffix}`);
+    }
+    return join(loc.vendorDir, 'git', 'bin', 'git');
+  },
+
+  node(): string {
+    const { executableSuffix } = getPlatformInfo();
+    const loc = requireLocation();
+    return join(loc.vendorDir, 'node', `node${executableSuffix}`);
+  },
+
+  uv(): string {
+    const { executableSuffix } = getPlatformInfo();
+    const loc = requireLocation();
+    return join(loc.vendorDir, 'uv', `uv${executableSuffix}`);
+  },
+} as const;
+
+/** Valida que todos os runtime paths críticos existem. Chamar em startup. */
+export function validateRuntimeIntegrity(): { ok: boolean; missing: string[] } {
+  const checks: Array<[string, string]> = [
+    ['claude-sdk-cli', runtime.claudeSdkCli()],
+    ['interceptor', runtime.interceptor()],
+    ['session-mcp-server', runtime.sessionMcpServer()],
+    ['bridge-mcp-server', runtime.bridgeMcpServer()],
+  ];
+  const missing: string[] = [];
+  for (const [name, path] of checks) {
+    if (!existsSync(path)) {
+      missing.push(`${name}: ${path}`);
+    }
+  }
+  return { ok: missing.length === 0, missing };
+}

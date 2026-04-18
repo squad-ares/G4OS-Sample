@@ -1,0 +1,40 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "workspaces": {
+    ".": {
+      "entry": ["scripts/*.ts"],
+      "ignoreDependencies": [
+        "esbuild",
+        "publint",
+        "ts-prune",
+        "@commitlint/types",
+        "@arethetypeswrong/cli",
+        "size-limit"
+      ]
+    },
+    "apps/desktop": {
+      "entry": [
+        "src/index.ts",
+        "src/preload.ts",
+        "src/main/index.ts",
+        "src/main/workers/session-worker.ts",
+        "src/main/workers/cpu-pool/tasks.ts"
+      ]
+    },
+    "packages/ipc": {
+      "ignoreDependencies": ["@trpc/client", "electron-trpc"]
+    },
+    "packages/kernel": {
+      "ignoreDependencies": ["pino-pretty"]
+    },
+    "packages/ui": {
+      "ignoreDependencies": [
+        "@tanstack/react-query",
+        "@trpc/react-query",
+        "react-dom",
+        "@types/react-dom"
+      ]
+    }
+  },
+  "ignoreExportsUsedInFile": true
+}

@@ -19,10 +19,17 @@
     "lint:fix": "biome check --write src",
     "format": "biome format --write src",
     "check": "biome check --write src",
-    "test": "vitest run",
+    "test": "vitest run --passWithNoTests",
     "test:watch": "vitest"
   },
   "engines": {
     "node": ">=20.10.0"
+  },
+  "dependencies": {
+    "@g4os/kernel": "workspace:^",
+    "env-paths": "4.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "25.6.0"
   }
 }
