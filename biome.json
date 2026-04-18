@@ -154,6 +154,16 @@
       }
     },
     {
+      "includes": ["scripts/**/*.ts"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noConsole": "off"
+          }
+        }
+      }
+    },
+    {
       "includes": ["**/apps/desktop/src/main/**"],
       "linter": {
         "rules": {
@@ -173,7 +183,8 @@
         "**/validation/env.ts",
         "**/logger/logger.ts",
         "**/platform-info.ts",
-        "**/paths.ts"
+        "**/paths.ts",
+        "**/routers/health-router.ts"
       ],
       "linter": {
         "rules": {

@@ -3,7 +3,6 @@
   "version": "0.0.001-beta",
   "private": true,
   "description": "G4 OS - Multi-session AI agent management desktop app",
-  "main": "index.js",
   "scripts": {
     "build": "turbo run build",
     "typecheck": "turbo run typecheck",
@@ -19,7 +18,8 @@
     "check:boundaries": "depcruise --config .dependency-cruiser.cjs packages apps",
     "check:dead-code": "knip",
     "check:unused-deps": "knip --dependencies",
-    "check:exports": "pnpm -r exec attw --pack .",
+    "check:exports": "tsx scripts/check-exports.ts",
+    "check:size": "tsx scripts/check-size.ts",
     "changeset": "changeset",
     "changeset:version": "changeset version && pnpm install --lockfile-only",
     "changeset:publish": "changeset publish",

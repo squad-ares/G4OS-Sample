@@ -1,5 +1,27 @@
 {
   "name": "@g4os/desktop",
   "version": "0.0.0",
-  "description": "G4 OS - Desktop App"
+  "description": "G4 OS - Aplicativo desktop (Electron)",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit --project tsconfig.json",
+    "lint": "biome check src",
+    "lint:fix": "biome check --write src",
+    "format": "biome format --write src",
+    "check": "biome check --write src",
+    "test": "vitest run --passWithNoTests",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@g4os/ipc": "workspace:^",
+    "@g4os/kernel": "workspace:^",
+    "neverthrow": "8.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "25.6.0"
+  },
+  "engines": {
+    "node": ">=20.10.0"
+  }
 }

@@ -48,6 +48,7 @@ Escreva ADR quando:
 | 0011 | Result pattern with neverthrow | Proposed | 2026-04-17 | 01-kernel |
 | 0012 | Disposable pattern for resource management | Proposed | 2026-04-17 | 01-kernel |
 | 0013 | Platform abstraction layer | Proposed | 2026-04-17 | 01-kernel |
+| 0020 | IPC layer with tRPC v11 + electron-trpc + superjson | Accepted | 2026-04-18 | 02-ipc |
 
 ## Status
 
@@ -76,6 +77,10 @@ Definem padrões de código e abstrações:
 - **0011:** Result pattern (neverthrow)
 - **0012:** Disposable para limpeza de recursos
 - **0013:** Platform abstraction (macOS/Windows/Linux)
+
+### ADRs de IPC (02-ipc)
+Definem protocolo de comunicação entre main e renderer:
+- **0020:** tRPC v11 + electron-trpc + superjson
 
 ## Histórico de Alterações
 

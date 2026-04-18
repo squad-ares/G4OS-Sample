@@ -127,6 +127,7 @@ module.exports = {
           '(^|/)tsconfig\\.json$',
           '(^|/)\\.[^/]+\\.(js|cjs|mjs|ts)$',
           '(src|dist)/index\\.(ts|js|d\\.(ts|cts|mts)|cjs)$',  // package exports
+          'apps/desktop/src/preload\\.ts$',  // Electron preload entry point
         ],
       },
       to: {},
