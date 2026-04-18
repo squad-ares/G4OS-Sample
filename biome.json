@@ -35,6 +35,8 @@
       },
       "complexity": {
         "recommended": true,
+        "noUselessCatch": "error",
+        "useLiteralKeys": "off",
         "noExcessiveCognitiveComplexity": {
           "level": "error",
           "options": {
@@ -104,8 +106,7 @@
         "useErrorMessage": "error",
         "noVar": "error",
         "noTsIgnore": "error"
-      },
-      "nursery": {}
+      }
     }
   },
   "javascript": {
@@ -126,14 +127,18 @@
   },
   "overrides": [
     {
-      "includes": ["**/*.test.ts", "**/*.test.tsx", "**/__tests__/**"],
+      "includes": ["**/*.test.ts", "**/*.test.tsx", "**/__tests__/**", "**/src/__tests__/**"],
       "linter": {
         "rules": {
           "suspicious": {
             "noConsole": "off"
           },
           "style": {
-            "noDefaultExport": "off"
+            "noDefaultExport": "off",
+            "noProcessEnv": "off"
+          },
+          "performance": {
+            "noDelete": "off"
           }
         }
       }
@@ -149,6 +154,16 @@
       }
     },
     {
+      "includes": ["scripts/**/*.ts"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noConsole": "off"
+          }
+        }
+      }
+    },
+    {
       "includes": ["**/apps/desktop/src/main/**"],
       "linter": {
         "rules": {
@@ -159,6 +174,22 @@
                 "allow": ["error"]
               }
             }
+          }
+        }
+      }
+    },
+    {
+      "includes": [
+        "**/validation/env.ts",
+        "**/logger/logger.ts",
+        "**/platform-info.ts",
+        "**/paths.ts",
+        "**/routers/health-router.ts"
+      ],
+      "linter": {
+        "rules": {
+          "style": {
+            "noProcessEnv": "off"
           }
         }
       }

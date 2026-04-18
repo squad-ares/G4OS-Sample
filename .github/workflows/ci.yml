@@ -189,7 +189,7 @@ jobs:
           cache: 'pnpm'
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
-      - run: pnpm size-limit
+      - run: pnpm check:size
 
   # Gate final: todos os checks obrigatórios
   all-checks:

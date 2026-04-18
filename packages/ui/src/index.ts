@@ -1,3 +1,1 @@
-const TODO = 'Implement package';
-
-export { TODO };
+export { useDisposable } from './hooks/use-disposable.ts';
