@@ -35,6 +35,7 @@
       },
       "complexity": {
         "recommended": true,
+        "noUselessCatch": "error",
         "noExcessiveCognitiveComplexity": {
           "level": "error",
           "options": {
@@ -104,8 +105,7 @@
         "useErrorMessage": "error",
         "noVar": "error",
         "noTsIgnore": "error"
-      },
-      "nursery": {}
+      }
     }
   },
   "javascript": {
@@ -126,14 +126,18 @@
   },
   "overrides": [
     {
-      "includes": ["**/*.test.ts", "**/*.test.tsx", "**/__tests__/**"],
+      "includes": ["**/*.test.ts", "**/*.test.tsx", "**/__tests__/**", "**/src/__tests__/**"],
       "linter": {
         "rules": {
           "suspicious": {
             "noConsole": "off"
           },
           "style": {
-            "noDefaultExport": "off"
+            "noDefaultExport": "off",
+            "noProcessEnv": "off"
+          },
+          "performance": {
+            "noDelete": "off"
           }
         }
       }
@@ -159,6 +163,21 @@
                 "allow": ["error"]
               }
             }
+          }
+        }
+      }
+    },
+    {
+      "includes": [
+        "**/validation/env.ts",
+        "**/logger/logger.ts",
+        "**/platform-info.ts",
+        "**/paths.ts"
+      ],
+      "linter": {
+        "rules": {
+          "style": {
+            "noProcessEnv": "off"
           }
         }
       }

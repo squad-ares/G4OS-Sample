@@ -24,5 +24,12 @@
   },
   "engines": {
     "node": ">=20.10.0"
+  },
+  "dependencies": {
+    "@g4os/kernel": "workspace:^",
+    "env-paths": "4.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "25.6.0"
   }
 }
