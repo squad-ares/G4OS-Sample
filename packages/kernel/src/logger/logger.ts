@@ -51,7 +51,6 @@ const REDACT_PATHS = [
 ];
 
 const baseLogger = pino({
-  // biome-ignore lint/complexity/useLiteralKeys: TypeScript strict mode requires bracket notation for process.env
   level: (process.env['LOG_LEVEL'] ?? 'info') as Level,
   redact: {
     paths: REDACT_PATHS,
