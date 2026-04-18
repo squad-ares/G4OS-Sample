@@ -154,7 +154,7 @@
       }
     },
     {
-      "includes": ["scripts/**/*.ts"],
+      "includes": ["scripts/**/*.ts", "scripts/**/*.mts"],
       "linter": {
         "rules": {
           "suspicious": {

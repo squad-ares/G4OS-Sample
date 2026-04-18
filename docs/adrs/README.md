@@ -55,6 +55,9 @@ Escreva ADR quando:
 | 0040 | SQLite persistence with better-sqlite3 | Superseded by 0040a | 2026-04-18 | 04-data-layer |
 | 0040a | Node.js `node:sqlite` as SQLite driver | Accepted | 2026-04-18 | 04-data-layer |
 | 0042 | Drizzle ORM 1.0 beta pinado até GA (desvio controlado) | Accepted with caveat | 2026-04-18 | 04-data-layer |
+| 0043 | Formato do event store (JSONL + multi-consumer checkpoints) | Accepted | 2026-04-18 | 04-data-layer |
+| 0044 | Attachment storage content-addressed com refcount + GC | Accepted | 2026-04-18 | 04-data-layer |
+| 0045 | Backup/restore ZIP v1 + scheduler 7/4/3 | Accepted | 2026-04-18 | 04-data-layer |
 
 ## Status
 

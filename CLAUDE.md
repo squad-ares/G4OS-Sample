@@ -57,7 +57,7 @@ packages/
 ├── platform/      # OS abstraction — paths (env-paths), keychain, runtime-paths, spawn
 ├── ipc/           # tRPC v11 + electron-trpc + superjson (router central)
 ├── credentials/   # scaffolding — gateway único via safeStorage (TASK-05)
-├── data/          # node:sqlite (Node 24) via Db wrapper (WAL, FK, mmap) + Drizzle ORM (beta 1.0 pinado, ADR-0042) + schemas + migrations baseline
+├── data/          # node:sqlite (Node 24) + Drizzle (beta 1.0 pinado, ADR-0042), migrations com backup pré-migration, `events/` (JSONL append-only + replay + checkpoints multi-consumer, ADR-0043), `attachments/` (content-addressed SHA-256 + refcount + GC, ADR-0044), `backup/` (ZIP v1: export/restore + manifest Zod, ADR-0045)
 ├── agents/        # scaffolding — IAgent + Claude/Codex/Pi plugins (TASK-07)
 ├── sources/       # scaffolding — ISource + MCP stdio/http + managed (TASK-08)
 ├── features/      # scaffolding — Feature-Sliced Design por domínio (TASK-11)
@@ -116,6 +116,9 @@ SIGINT/SIGTERM disparam o mesmo fluxo via `app.quit()`.
 | Main thin | <2000 LOC total, ≤300 por arquivo (gate CI) | 0031 |
 | Shutdown | Signal → deadline → SIGKILL; exponential backoff em restart | 0032 |
 | SQLite | `node:sqlite` nativo (Node 24 LTS) — zero binding externo, WAL, FK ON, synchronous=NORMAL, mmap 256MB | 0040a |
+| Event store | JSONL append-only por sessão + replay + checkpoints multi-consumer `(consumer_name, session_id)` | 0043 |
+| Attachments | Content-addressed (SHA-256, 2-char prefix) + refcount + GC; write antes da tx, delete depois do commit | 0044 |
+| Backup/restore | ZIP v1 (manifest Zod + `sessions/<id>/events.jsonl` + `attachments/<hash>`); scheduler 7/4/3 (diário/semanal/mensal) | 0045 |
 
 ### Credenciais, logging, watchers, testes (implementação próxima)
 
@@ -316,7 +319,7 @@ Workflow sugerido:
 6. Commit atômico com Conventional Commits (`feat(data): ...`, `fix(electron): ...`, `chore: ...`).
 7. Atualizar ADR/docs **no mesmo PR** se comportamento mudou.
 
-Tasks concluídas até agora: 00-foundation inteiro, 01-kernel inteiro, 02-ipc-layer inteiro, 03-process-architecture inteiro (TASK-03-01 a 03-06), 04-data-layer TASK-04-01 (SQLite setup). Próxima ordem sugerida: TASK-04-02 (Drizzle ORM) → TASK-04-03 (migrations) → TASK-05-01 (Vault API) → TASK-06-01 (pino).
+Tasks concluídas até agora: 00-foundation inteiro, 01-kernel inteiro, 02-ipc-layer inteiro, 03-process-architecture inteiro (TASK-03-01 a 03-06), 04-data-layer inteiro (TASK-04-01 SQLite, 04-02 Drizzle, 04-03 migrations, 04-04 event-sourced sessions, 04-05 attachments, 04-06 backup/restore). Próxima ordem sugerida: TASK-05-01 (Vault API) → TASK-06-01 (pino) → wiring de `db-service`/`backup-scheduler` em `apps/desktop/src/main/index.ts`.
 
 ---
 
@@ -324,7 +327,10 @@ Tasks concluídas até agora: 00-foundation inteiro, 01-kernel inteiro, 02-ipc-l
 
 - **Processo/worker issues:** `apps/desktop/src/main/process/*`, `apps/desktop/src/main/services/session-manager.ts`, `apps/desktop/src/main/workers/*`
 - **IPC contract:** `packages/ipc/src/server/routers/*` — cada domínio em um arquivo ≤300 LOC
-- **Event store / índices:** `packages/data/src/sqlite/database.ts` (wrapper) + futuras `packages/data/src/events/*`
+- **Event store / índices:** `packages/data/src/sqlite/database.ts` (wrapper) + `packages/data/src/events/*` (store JSONL, replay, checkpoints) + `packages/data/src/schema/*` (projection sessions/messages/FTS5)
+- **Attachments:** `packages/data/src/attachments/storage.ts` (content-addressed) + `gateway.ts` (refcount + GC via transação sync)
+- **Backup/restore:** `packages/data/src/backup/{export,import,manifest}.ts` (ZIP v1 + Zod) + `apps/desktop/src/main/services/backup-scheduler.ts` (retenção 7/4/3)
+- **Migrations:** `packages/data/drizzle/` + `packages/data/src/migrations/` + `apps/desktop/src/main/services/db-service.ts` + `pnpm db:migrate:status`
 - **Credenciais:** `packages/credentials/` (ainda scaffolding — ponto único para `credentials.enc`)
 - **Platform/paths:** `packages/platform/src/paths.ts` (único lugar que importa `env-paths`)
 - **Kernel helpers:** `packages/kernel/src/{disposable,logger,errors,schemas,validation}/`

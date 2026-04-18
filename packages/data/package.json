@@ -22,6 +22,22 @@
     "./drizzle": {
       "types": "./src/drizzle.ts",
       "import": "./src/drizzle.ts"
+    },
+    "./migrations": {
+      "types": "./src/migrations/index.ts",
+      "import": "./src/migrations/index.ts"
+    },
+    "./events": {
+      "types": "./src/events/index.ts",
+      "import": "./src/events/index.ts"
+    },
+    "./attachments": {
+      "types": "./src/attachments/index.ts",
+      "import": "./src/attachments/index.ts"
+    },
+    "./backup": {
+      "types": "./src/backup/index.ts",
+      "import": "./src/backup/index.ts"
     }
   },
   "scripts": {
@@ -40,10 +56,15 @@
   "dependencies": {
     "@g4os/kernel": "workspace:^",
     "@g4os/platform": "workspace:^",
-    "drizzle-orm": "1.0.0-beta.17-8a36f93"
+    "archiver": "7.0.1",
+    "drizzle-orm": "1.0.0-beta.17-8a36f93",
+    "yauzl": "3.3.0",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@types/archiver": "7.0.0",
     "@types/node": "25.6.0",
+    "@types/yauzl": "2.10.3",
     "drizzle-kit": "1.0.0-beta.17-8a36f93"
   }
 }

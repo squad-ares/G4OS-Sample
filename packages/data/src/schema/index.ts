@@ -1,3 +1,4 @@
+export * from './attachments.ts';
 export * from './event-checkpoints.ts';
 export * from './messages-index.ts';
 export * from './sessions.ts';

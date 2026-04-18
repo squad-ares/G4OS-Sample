@@ -26,6 +26,7 @@
     "codegen",
     "commitados",
     "commitlint",
+    "dedup",
     "depcruise",
     "devs",
     "educacao",

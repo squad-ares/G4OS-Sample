@@ -14,8 +14,10 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@g4os/data": "workspace:^",
     "@g4os/ipc": "workspace:^",
     "@g4os/kernel": "workspace:^",
+    "@g4os/platform": "workspace:^",
     "neverthrow": "8.2.0"
   },
   "devDependencies": {
