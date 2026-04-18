@@ -28,8 +28,10 @@ pre-push:
       run: pnpm lint
     full-typecheck:
       run: pnpm typecheck
-    test-affected:
-      run: pnpm turbo run test --filter=...[origin/main]
+    # test-affected: removed — defer to CI for comprehensive test runs
+    # When packages have tests, uncomment with:
+    # test-affected:
+    #   run: pnpm turbo run test --filter=...[origin/main]
 
 post-merge:
   commands:

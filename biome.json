@@ -36,6 +36,7 @@
       "complexity": {
         "recommended": true,
         "noUselessCatch": "error",
+        "useLiteralKeys": "off",
         "noExcessiveCognitiveComplexity": {
           "level": "error",
           "options": {

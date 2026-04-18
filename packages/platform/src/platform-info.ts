@@ -24,7 +24,6 @@ export interface PlatformInfo {
 }
 
 function detectOsFamily(): OsFamily {
-  // biome-ignore lint/style/noProcessEnv: única exceção autorizada para process.platform
   switch (process.platform) {
     case 'darwin':
       return 'macos';
@@ -60,19 +59,18 @@ export function getPlatformInfo(): PlatformInfo {
   const family = detectOsFamily();
   const arch = detectArch();
 
-  // biome-ignore lint/style/noProcessEnv: única exceção autorizada
-  const homeDir = process.env.HOME ?? process.env.USERPROFILE ?? '';
+  const homeDir = process.env['HOME'] ?? process.env['USERPROFILE'] ?? '';
   // Electron sets process.defaultApp; cast to any to avoid requiring electron types
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const isPackaged =
-    typeof process.versions.electron === 'string' &&
-    !(process as unknown as Record<string, unknown>).defaultApp;
+    typeof process.versions['electron'] === 'string' &&
+    !(process as unknown as Record<string, unknown>)['defaultApp'];
 
   _platformInfo = Object.freeze<PlatformInfo>({
     family,
     arch,
     version: process.version,
-    isDev: process.env.NODE_ENV !== 'production',
+    isDev: process.env['NODE_ENV'] !== 'production',
     isPackaged,
     isWsl: detectWsl(),
     homeDir,

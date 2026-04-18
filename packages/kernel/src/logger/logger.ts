@@ -51,7 +51,8 @@ const REDACT_PATHS = [
 ];
 
 const baseLogger = pino({
-  level: process.env.LOG_LEVEL ?? 'info',
+  // biome-ignore lint/complexity/useLiteralKeys: TypeScript strict mode requires bracket notation for process.env
+  level: (process.env['LOG_LEVEL'] ?? 'info') as Level,
   redact: {
     paths: REDACT_PATHS,
     censor: '[REDACTED]',
@@ -60,7 +61,7 @@ const baseLogger = pino({
     level: (label) => ({ level: label }),
   },
   timestamp: pino.stdTimeFunctions.isoTime,
-  ...(process.env.NODE_ENV === 'development' && {
+  ...(process.env['NODE_ENV'] === 'development' && {
     transport: {
       target: 'pino-pretty',
       options: {

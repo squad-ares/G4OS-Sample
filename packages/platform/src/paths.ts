@@ -1,7 +1,7 @@
 import { join } from 'node:path';
 import envPaths from 'env-paths';
 
-const FLAVOR = process.env.G4OS_DISTRIBUTION_FLAVOR ?? 'public';
+const FLAVOR = process.env['G4OS_DISTRIBUTION_FLAVOR'] ?? 'public';
 const APP_NAME = FLAVOR === 'g4' ? 'g4os-internal' : 'g4os';
 
 // Single instance
