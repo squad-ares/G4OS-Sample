@@ -61,6 +61,7 @@ export function getPlatformInfo(): PlatformInfo {
 
   const homeDir = process.env['HOME'] ?? process.env['USERPROFILE'] ?? '';
   // Electron sets process.defaultApp; cast to any to avoid requiring electron types
+  // Definição se a aplicação está rodando em desenvolvimento, ou é de fato uma instalação
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const isPackaged =
     typeof process.versions['electron'] === 'string' &&

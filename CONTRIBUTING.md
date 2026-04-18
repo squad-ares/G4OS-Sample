@@ -62,7 +62,7 @@ pnpm test         # Vitest
 # Opcional: CI gates completos localmente
 pnpm check:file-lines     # Max 500 linhas/arquivo
 pnpm check:circular       # Sem ciclos
-pnpm check:boundaries     # Fronteiras respeitadas
+pnpm check:cruiser     # Fronteiras respeitadas
 pnpm check:dead-code      # Sem exports mortos
 pnpm check:unused-deps    # Sem deps não usadas
 ```

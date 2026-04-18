@@ -13,7 +13,13 @@
       ]
     },
     "apps/desktop": {
-      "entry": ["src/index.ts", "src/preload.ts"]
+      "entry": [
+        "src/index.ts",
+        "src/preload.ts",
+        "src/main/index.ts",
+        "src/main/workers/session-worker.ts",
+        "src/main/workers/cpu-pool/tasks.ts"
+      ]
     },
     "packages/ipc": {
       "ignoreDependencies": ["@trpc/client", "electron-trpc"]

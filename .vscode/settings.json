@@ -38,9 +38,12 @@
     "nvmrc",
     "openai",
     "OPENAI",
+    "pidusage",
     "publint",
     "Rezende",
     "Serialização",
+    "Spawna",
+    "tipável",
     "tsup",
     "Turborepo",
     "vitest"

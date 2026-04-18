@@ -128,6 +128,8 @@ module.exports = {
           '(^|/)\\.[^/]+\\.(js|cjs|mjs|ts)$',
           '(src|dist)/index\\.(ts|js|d\\.(ts|cts|mts)|cjs)$',  // package exports
           'apps/desktop/src/preload\\.ts$',  // Electron preload entry point
+          'apps/desktop/src/main/index\\.ts$',  // Main entry point
+          'apps/desktop/src/main/workers/',  // utilityProcess / Piscina worker entries
         ],
       },
       to: {},

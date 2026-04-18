@@ -5,9 +5,7 @@ import { useEffect, useRef } from 'react';
 export const useDisposable = (): ((d: IDisposable) => void) => {
   const storeRef = useRef<DisposableStore | null>(null);
 
-  if (!storeRef.current) {
-    storeRef.current = new DisposableStore();
-  }
+  if (!storeRef.current) storeRef.current = new DisposableStore();
 
   useEffect(() => {
     return () => {

@@ -40,7 +40,7 @@ pnpm test                   # Roda testes
 # CI gates locais (recomendado antes de PR)
 pnpm check:file-lines       # Max 500 linhas por arquivo
 pnpm check:circular         # Detecta ciclos
-pnpm check:boundaries       # Valida fronteiras entre pacotes
+pnpm check:cruiser       # Valida fronteiras entre pacotes
 pnpm check:dead-code        # Encontra exports não usados
 pnpm check:unused-deps      # Encontra deps não usadas
 ```
