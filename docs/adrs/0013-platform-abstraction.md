@@ -5,8 +5,7 @@
 - **Numero:** 0013
 - **Status:** Proposed
 - **Data:** 2026-04-17
-- **Autor(es):** @tech-lead, @platform-lead
-- **Stakeholders:** @frontend-lead, @devops-lead
+- **Autor(es):** @squad-ares
 - **Épico:** 01-kernel (TASK-01-04)
 
 ## Contexto

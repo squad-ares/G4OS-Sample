@@ -49,6 +49,9 @@ Escreva ADR quando:
 | 0012 | Disposable pattern for resource management | Proposed | 2026-04-17 | 01-kernel |
 | 0013 | Platform abstraction layer | Proposed | 2026-04-17 | 01-kernel |
 | 0020 | IPC layer with tRPC v11 + electron-trpc + superjson | Accepted | 2026-04-18 | 02-ipc |
+| 0030 | Electron utilityProcess for worker isolation | Accepted | 2026-04-18 | 03-process-architecture |
+| 0031 | Main process thin-layer architecture (<2000 LOC) | Accepted | 2026-04-18 | 03-process-architecture |
+| 0032 | Graceful shutdown with deadline and backoff | Accepted | 2026-04-18 | 03-process-architecture |
 
 ## Status
 
@@ -82,7 +85,14 @@ Definem padrões de código e abstrações:
 Definem protocolo de comunicação entre main e renderer:
 - **0020:** tRPC v11 + electron-trpc + superjson
 
+### ADRs de Process Architecture (03-process-architecture)
+Definem arquitetura de processos, isolamento e lifecycle:
+- **0030:** Electron utilityProcess para isolamento de workers
+- **0031:** Main thin-layer (<2000 LOC, ≤300 per file)
+- **0032:** Graceful shutdown com deadline e exponential backoff
+
 ## Histórico de Alterações
 
+- 2026-04-18: Adicionadas ADRs 0030-0032 (process-architecture)
 - 2026-04-17: Adicionadas ADRs 0010-0013 (kernel)
 - 2026-04-16: Adicionadas ADRs 0001-0009 (foundation)

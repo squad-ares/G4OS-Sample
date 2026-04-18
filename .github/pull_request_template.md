@@ -1,4 +1,4 @@
-## Descricao
+## Descrição
 
 <!-- O que esta PR faz e por que -->
 
@@ -6,33 +6,33 @@
 
 - TASK-XX-YY
 
-## Tipo de mudanca
+## Tipo de mudança
 
 - [ ] feat (nova feature)
 - [ ] fix (bug fix)
-- [ ] refactor (sem mudanca funcional)
+- [ ] refactor (sem mudança funcional)
 - [ ] docs
 - [ ] test
 - [ ] chore
 
 ## Checklist
 
-### Codigo
-- [ ] Codigo segue padroes do projeto (lint + typecheck verdes)
+### Código
+- [ ] Código segue padrões do projeto (lint + typecheck verdes)
 - [ ] Nenhum arquivo > 500 linhas
 - [ ] Sem `any`, `console.*`, `@ts-ignore`
 
 ### Testes
-- [ ] Cobertura ≥ 80% no dominio tocado
+- [ ] Cobertura ≥ 80% no domínio tocado
 - [ ] Testes passam em CI (mac/win/linux)
-- [ ] E2E atualizado se fluxo de usuario mudou
+- [ ] E2E atualizado se fluxo de usuário mudou
 
 ### Documentacao
 - [ ] README do pacote atualizado se API publica mudou
-- [ ] ADR escrita se decisao arquitetural
+- [ ] ADR escrita se decisão arquitetural
 - [ ] Changelog entry via `pnpm changeset`
 
-### Seguranca (se aplicavel)
+### Segurança (se aplicável)
 - [ ] Sem secrets commitados
 - [ ] Inputs validados com Zod
 - [ ] Security-lead aprovou (auth/credentials/crypto)

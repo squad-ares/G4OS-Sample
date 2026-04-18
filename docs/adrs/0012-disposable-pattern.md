@@ -5,8 +5,7 @@
 - **Numero:** 0012
 - **Status:** Proposed
 - **Data:** 2026-04-17
-- **Autor(es):** @tech-lead, @platform-lead
-- **Stakeholders:** @frontend-lead, @backend-lead, @qa-lead
+- **Autor(es):** @squad-ares
 - **Épico:** 01-kernel (TASK-01-03)
 
 ## Contexto
