@@ -6,6 +6,7 @@
 - **Status:** Proposed
 - **Data:** 2026-04-17
 - **Autor(es):** @squad-ares
+- **Stakeholders:** @frontend-lead, @devops-lead
 - **Épico:** 01-kernel (TASK-01-04)
 
 ## Contexto
