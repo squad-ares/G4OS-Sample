@@ -38,6 +38,7 @@ scripts/
  - check-file-lines.ts - Script para calcular o número de linhas de cada arquivo, evitando arquivos grandes
  - check-main-size.ts - Script de monitoramento do `main` principal, evitando sobrecarga de processos
  - check-size.ts - Script de desenvolvimento auxiliar para o uso da lib size-limit
+ - db-migrate-status.mts - Script auxiliar para monitorar o status atual de migração do banco de dados
  - new-adr.ts - Script de geração de adr seguindo um template mínimo
 ----------
 .dependency-cruiser.cjs - Definição das regras de fronteira do código, impedindo que determinados pacotes importem outros. Isso preserva a integridade do código.

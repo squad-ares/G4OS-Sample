@@ -9,13 +9,13 @@
  *     inteira (ver `replay.ts`).
  *
  * Checkpoints:
- *   - Todo evento atualiza `event_checkpoints` para o consumer
+ *   - Todos eventos atualizam `event_checkpoints` para o consumer
  *     `messages-index`. Se o processo crashar após escrever no JSONL
  *     mas antes do commit, o próximo boot detecta `lastSequence` < última
  *     linha do log e reaplica o delta.
  *
  * Extensibilidade: novos tipos de evento precisam de:
- *   1. Novo branch no switch (com field select exhaustivo)
+ *   1. Novo branch no switch (com field select exaustivo)
  *   2. Se alterar projection, nova migration
  *   3. Teste de replay idempotente
  */

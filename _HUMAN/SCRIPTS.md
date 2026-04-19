@@ -54,3 +54,5 @@ O script `check-exports.ts`, é um auxiliar criado para exitar que pacotes em et
 ---------- 
 * adr:new - Criar um novo documento de ADR (Architecture Decision Record) seguindo um template mínimo.
 ----------  
+* db:migrate:status - Verifica o estado atual das migrações do banco de dados
+----------  
