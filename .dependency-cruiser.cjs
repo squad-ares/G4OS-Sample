@@ -27,6 +27,12 @@ module.exports = {
       from: { path: '^packages/credentials' },
       to: { path: '^packages/(?!(kernel|platform|credentials))' },
     },
+    {
+      name: 'observability-isolated',
+      severity: 'error',
+      from: { path: '^packages/observability' },
+      to: { path: '^packages/(?!(kernel|platform|observability))' },
+    },
 
     // ========== FEATURES ==========
     {

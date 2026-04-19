@@ -35,6 +35,7 @@ export default {
         'sources',
         'features',
         'data',
+        'observability',
         // Features
         'chat',
         'sessions',
