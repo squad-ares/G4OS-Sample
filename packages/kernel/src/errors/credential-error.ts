@@ -33,4 +33,20 @@ export class CredentialError extends AppError {
       cause,
     });
   }
+
+  static expired(key: string): CredentialError {
+    return new CredentialError({
+      code: ErrorCode.CREDENTIAL_EXPIRED,
+      message: `Credential expired: ${key}`,
+      context: { key },
+    });
+  }
+
+  static invalidKey(key: string): CredentialError {
+    return new CredentialError({
+      code: ErrorCode.CREDENTIAL_NOT_FOUND,
+      message: `Invalid credential key: ${key}`,
+      context: { key },
+    });
+  }
 }

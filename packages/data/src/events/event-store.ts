@@ -2,7 +2,7 @@
  * Event store append-only em JSONL (1 arquivo por sessão).
  *
  * Fonte de verdade da sessão é o log de eventos; projections em SQLite
- * (sessions, messages_index, FTS5) são reconstruíveis via replay. Ver
+ * (sessions, messages_index, FTS5) são reconstruídos via replay. Ver
  * ADR-0010 (event sourcing) e ADR-0043 (JSONL format).
  *
  * Contrato:

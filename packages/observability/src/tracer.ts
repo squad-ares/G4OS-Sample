@@ -1,0 +1,37 @@
+import { type Attributes, type Span, SpanStatusCode, type Tracer, trace } from '@opentelemetry/api';
+
+export function getTracer(name: string, version?: string): Tracer {
+  return trace.getTracer(name, version);
+}
+
+export interface WithSpanOptions {
+  readonly attributes?: Attributes;
+  readonly tracerName?: string;
+}
+
+export function withSpan<T>(
+  name: string,
+  options: WithSpanOptions,
+  fn: (span: Span) => Promise<T>,
+): Promise<T> {
+  const tracer = getTracer(options.tracerName ?? 'g4os');
+  return tracer.startActiveSpan(
+    name,
+    options.attributes ? { attributes: options.attributes } : {},
+    (span) =>
+      fn(span)
+        .then((result) => {
+          span.setStatus({ code: SpanStatusCode.OK });
+          return result;
+        })
+        .catch((err: unknown) => {
+          span.recordException(err as Error);
+          span.setStatus({
+            code: SpanStatusCode.ERROR,
+            message: err instanceof Error ? err.message : String(err),
+          });
+          throw err;
+        })
+        .finally(() => span.end()),
+  );
+}

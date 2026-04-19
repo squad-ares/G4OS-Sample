@@ -1,0 +1,65 @@
+{
+  "name": "@g4os/observability",
+  "version": "0.0.0",
+  "description": "Tracing + metrics",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./src/index.ts"
+    },
+    "./metrics": {
+      "types": "./src/metrics/index.ts",
+      "import": "./src/metrics/index.ts"
+    },
+    "./sdk": {
+      "types": "./src/sdk/index.ts",
+      "import": "./src/sdk/index.ts"
+    },
+    "./sentry": {
+      "types": "./src/sentry/index.ts",
+      "import": "./src/sentry/index.ts"
+    },
+    "./memory": {
+      "types": "./src/memory/index.ts",
+      "import": "./src/memory/index.ts"
+    },
+    "./debug": {
+      "types": "./src/debug/index.ts",
+      "import": "./src/debug/index.ts"
+    }
+  },
+  "dependencies": {
+    "@g4os/kernel": "workspace:*",
+    "@opentelemetry/api": "1.9.0",
+    "archiver": "7.0.1",
+    "prom-client": "15.1.3"
+  },
+  "devDependencies": {
+    "@opentelemetry/context-async-hooks": "2.7.0",
+    "@opentelemetry/core": "2.7.0",
+    "@opentelemetry/exporter-trace-otlp-http": "0.215.0",
+    "@opentelemetry/resources": "2.7.0",
+    "@opentelemetry/sdk-node": "0.215.0",
+    "@opentelemetry/sdk-trace-base": "2.7.0",
+    "@types/archiver": "6.0.3",
+    "@types/node": "25.6.0",
+    "vitest": "4.1.4"
+  },
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit --project tsconfig.json",
+    "lint": "biome check src",
+    "lint:fix": "biome check --write src",
+    "format": "biome format --write src",
+    "check": "biome check --write src",
+    "test": "vitest run --passWithNoTests",
+    "test:watch": "vitest"
+  },
+  "engines": {
+    "node": ">=24.0.0"
+  }
+}

@@ -27,7 +27,10 @@
       "ignoreDependencies": ["@trpc/client", "electron-trpc"]
     },
     "packages/kernel": {
-      "ignoreDependencies": ["pino-pretty"]
+      "ignoreDependencies": ["pino-pretty", "pino-roll"]
+    },
+    "packages/observability": {
+      "ignoreDependencies": ["@opentelemetry/sdk-node", "@opentelemetry/exporter-trace-otlp-http"]
     },
     "packages/ui": {
       "ignoreDependencies": [

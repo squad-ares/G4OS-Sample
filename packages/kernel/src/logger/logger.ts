@@ -1,66 +1,69 @@
 import { type Level, type Logger as PinoLogger, pino } from 'pino';
 
 export interface LogContext {
-  // Identificação
   workspaceId?: string;
   sessionId?: string;
   messageId?: string;
   userId?: string;
 
-  // Request tracing
   requestId?: string;
   traceId?: string;
   spanId?: string;
 
-  // Componente
   component?: string;
   operation?: string;
 
-  // Metrics
   durationMs?: number;
   [key: string]: unknown;
 }
 
-const REDACT_PATHS = [
-  // API keys
-  '*.apiKey',
-  '*.api_key',
-  '*.anthropicApiKey',
-  '*.ANTHROPIC_API_KEY',
-  '*.openaiApiKey',
-  '*.OPENAI_API_KEY',
-  '*.geminiApiKey',
-  '*.GEMINI_API_KEY',
-  // Tokens
-  '*.accessToken',
-  '*.access_token',
-  '*.refreshToken',
-  '*.refresh_token',
-  '*.authToken',
-  '*.auth_token',
-  '*.token',
-  // Passwords
-  '*.password',
-  '*.pwd',
-  // Headers
-  '*.authorization',
-  '*.Authorization',
-  '*.cookie',
-  '*.Cookie',
-  '*.x-api-key',
+const SENSITIVE_KEYS = [
+  'apiKey',
+  'api_key',
+  'anthropicApiKey',
+  'ANTHROPIC_API_KEY',
+  'openaiApiKey',
+  'OPENAI_API_KEY',
+  'geminiApiKey',
+  'GEMINI_API_KEY',
+  'accessToken',
+  'access_token',
+  'refreshToken',
+  'refresh_token',
+  'authToken',
+  'auth_token',
+  'token',
+  'password',
+  'pwd',
+  'authorization',
+  'Authorization',
+  'cookie',
+  'Cookie',
+  'x-api-key',
 ];
 
+export const REDACT_PATHS: readonly string[] = [
+  ...SENSITIVE_KEYS,
+  ...SENSITIVE_KEYS.map((k) => `*.${k}`),
+  ...SENSITIVE_KEYS.map((k) => `*.*.${k}`),
+];
+
+export const REDACT_CENSOR = '[REDACTED]';
+
+const defaultLevel: Level = (process.env['LOG_LEVEL'] ?? 'info') as Level;
+const isDev = process.env['NODE_ENV'] === 'development';
+
 const baseLogger = pino({
-  level: (process.env['LOG_LEVEL'] ?? 'info') as Level,
+  level: defaultLevel,
   redact: {
-    paths: REDACT_PATHS,
-    censor: '[REDACTED]',
+    paths: [...REDACT_PATHS],
+    censor: REDACT_CENSOR,
   },
   formatters: {
     level: (label) => ({ level: label }),
   },
   timestamp: pino.stdTimeFunctions.isoTime,
-  ...(process.env['NODE_ENV'] === 'development' && {
+  ...(isDev && {
     transport: {
       target: 'pino-pretty',
       options: {
@@ -82,7 +85,7 @@ export interface Logger {
   fatal(ctx: LogContext | string, msg?: string): void;
 }
 
-function wrap(inner: PinoLogger): Logger {
+export function wrapPinoLogger(inner: PinoLogger): Logger {
   const log =
     (level: Level) =>
     (ctx: LogContext | string, msg?: string): void => {
@@ -94,7 +97,7 @@ function wrap(inner: PinoLogger): Logger {
     };
 
   return {
-    child: (context) => wrap(inner.child(context)),
+    child: (context) => wrapPinoLogger(inner.child(context)),
     trace: log('trace'),
     debug: log('debug'),
     info: log('info'),
@@ -104,7 +107,7 @@ function wrap(inner: PinoLogger): Logger {
   };
 }
 
-export const logger = wrap(baseLogger);
+export const logger = wrapPinoLogger(baseLogger);
 export function createLogger(component: string): Logger {
   return logger.child({ component });
 }

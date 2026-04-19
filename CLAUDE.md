@@ -56,8 +56,9 @@ packages/
 ├── kernel/        # Tipos, Result, Disposable, logger, schemas (Zod), validation
 ├── platform/      # OS abstraction — paths (env-paths), keychain, runtime-paths, spawn
 ├── ipc/           # tRPC v11 + electron-trpc + superjson (router central)
-├── credentials/   # scaffolding — gateway único via safeStorage (TASK-05)
+├── credentials/   # `CredentialVault` gateway (mutex + backups 3x + metadata), backends in-memory/file/safeStorage, migrador v1→v2, `RotationOrchestrator` (ADRs 0050–0053)
 ├── data/          # node:sqlite (Node 24) + Drizzle (beta 1.0 pinado, ADR-0042), migrations com backup pré-migration, `events/` (JSONL append-only + replay + checkpoints multi-consumer, ADR-0043), `attachments/` (content-addressed SHA-256 + refcount + GC, ADR-0044), `backup/` (ZIP v1: export/restore + manifest Zod, ADR-0045)
+├── observability/ # pino transports (via @g4os/kernel logger), OTel tracer/propagation + lazy SDK, Sentry scrub/init, memory monitor + leak detector, prom-client metrics registry, debug ZIP export (ADRs 0060–0065)
 ├── agents/        # scaffolding — IAgent + Claude/Codex/Pi plugins (TASK-07)
 ├── sources/       # scaffolding — ISource + MCP stdio/http + managed (TASK-08)
 ├── features/      # scaffolding — Feature-Sliced Design por domínio (TASK-11)
@@ -119,15 +120,18 @@ SIGINT/SIGTERM disparam o mesmo fluxo via `app.quit()`.
 | Event store | JSONL append-only por sessão + replay + checkpoints multi-consumer `(consumer_name, session_id)` | 0043 |
 | Attachments | Content-addressed (SHA-256, 2-char prefix) + refcount + GC; write antes da tx, delete depois do commit | 0044 |
 | Backup/restore | ZIP v1 (manifest Zod + `sessions/<id>/events.jsonl` + `attachments/<hash>`); scheduler 7/4/3 (diário/semanal/mensal) | 0045 |
+| Logging | `pino` estruturado JSON (único) + `pino-roll` app.log/error.log (rotação diária, 100M, hist 7) + wrapper `createLogger(scope)` em `@g4os/kernel` | 0060 |
+| Tracing | OpenTelemetry API runtime + SDK Node lazy-loaded (`@opentelemetry/api`, NOOP sem `otlpEndpoint`); `withSpan`, `injectTraceContext`, propagation W3C | 0061 |
+| Crash reporting | `@sentry/electron` (main + renderer + worker/node) com `beforeSend`/`beforeBreadcrumb` central via `scrubSentryEvent` (`scrubObject`/`scrubString`); sem DSN → NOOP | 0062 |
+| Memória | `MemoryMonitor` (DisposableBase, `setInterval().unref()`, thresholds RSS + heap growth, `auditProcessListeners`) + `ListenerLeakDetector` (WeakMap + WeakRef + `reportStale`) | 0063 |
+| Métricas | `prom-client` com `Registry` novo por `createMetrics()`; catálogo IPC/session/agent/MCP/worker em `metrics/registry.ts`; `startHistogramTimer` via `hrtime.bigint` | 0064 |
+| Debug export | `exportDebugInfo` em `@g4os/observability/debug`: ZIP com `system.json`+`config.json`+`logs/*`+`metrics.prom`+`crashes/`+`processes.json`; redação dupla (shape + texto), janela de retenção default 7d, cap `10 MiB`/log | 0065 |
 
-### Credenciais, logging, watchers, testes (implementação próxima)
+### Credenciais, watchers, testes (implementação próxima)
 
 | Camada | Escolha | Por que |
 |---|---|---|
-| Credenciais | Electron `safeStorage` (Keychain/DPAPI/libsecret) + gateway único `CredentialVault` | Nunca grava chave em texto plano; serializa escritas via mutex |
-| Logging | `pino` estruturado JSON (único) | Bloqueia `console.*`; transporte para Sentry + OTel |
-| Crash | `@sentry/electron` (main + renderer + child) | Já em uso no v1; manter |
-| Tracing | OpenTelemetry (renderer → main → worker → MCP) | Correlation ID propagado |
+| Credenciais | Electron `safeStorage` (Keychain/DPAPI/libsecret) + gateway único `CredentialVault` + backup rotation (3x) + metadata por chave + migrador v1→v2 não-destrutivo (ADRs 0050–0053) | Nunca grava chave em texto plano; serializa escritas via mutex; corrupção recupera via backup; migração de usuários v1 sem perda |
 | File watching | `@parcel/watcher` | `chokidar` tem leak documentado no Windows |
 | Subprocess | `execa` + `tree-kill` (filhos morrem limpos) | Substitui `child_process.spawn` cru |
 | Concorrência | `p-queue` + `p-retry` + `p-timeout` | Thundering herd controlado, timeouts em toda chamada externa |
@@ -319,7 +323,7 @@ Workflow sugerido:
 6. Commit atômico com Conventional Commits (`feat(data): ...`, `fix(electron): ...`, `chore: ...`).
 7. Atualizar ADR/docs **no mesmo PR** se comportamento mudou.
 
-Tasks concluídas até agora: 00-foundation inteiro, 01-kernel inteiro, 02-ipc-layer inteiro, 03-process-architecture inteiro (TASK-03-01 a 03-06), 04-data-layer inteiro (TASK-04-01 SQLite, 04-02 Drizzle, 04-03 migrations, 04-04 event-sourced sessions, 04-05 attachments, 04-06 backup/restore). Próxima ordem sugerida: TASK-05-01 (Vault API) → TASK-06-01 (pino) → wiring de `db-service`/`backup-scheduler` em `apps/desktop/src/main/index.ts`.
+Tasks concluídas até agora: 00-foundation inteiro, 01-kernel inteiro, 02-ipc-layer inteiro, 03-process-architecture inteiro (TASK-03-01 a 03-06), 04-data-layer inteiro (TASK-04-01 SQLite, 04-02 Drizzle, 04-03 migrations, 04-04 event-sourced sessions, 04-05 attachments, 04-06 backup/restore), 05-credentials inteiro (TASK-05-01 vault, 05-02 safeStorage/backends/factory, 05-03 migração v1→v2, 05-04 rotation — ADRs 0050–0053), 06-observability inteiro (TASK-06-01 pino, 06-02 OTel, 06-03 Sentry, 06-04 memory monitor + leak detector, 06-05 Prometheus metrics, 06-06 debug export — ADRs 0060–0065). Próxima ordem sugerida: wiring do `createLogger`/`initTelemetry`/`initSentry`/`MemoryMonitor`/`createMetrics`/`exportDebugInfo` em `apps/desktop/src/main/index.ts`, seguido de TASK-07 (agents scaffolding).
 
 ---
 
@@ -331,7 +335,8 @@ Tasks concluídas até agora: 00-foundation inteiro, 01-kernel inteiro, 02-ipc-l
 - **Attachments:** `packages/data/src/attachments/storage.ts` (content-addressed) + `gateway.ts` (refcount + GC via transação sync)
 - **Backup/restore:** `packages/data/src/backup/{export,import,manifest}.ts` (ZIP v1 + Zod) + `apps/desktop/src/main/services/backup-scheduler.ts` (retenção 7/4/3)
 - **Migrations:** `packages/data/drizzle/` + `packages/data/src/migrations/` + `apps/desktop/src/main/services/db-service.ts` + `pnpm db:migrate:status`
-- **Credenciais:** `packages/credentials/` (ainda scaffolding — ponto único para `credentials.enc`)
+- **Credenciais:** `packages/credentials/src/vault.ts` (CredentialVault + mutex + backups) + `backends/*` (in-memory, file+codec, safeStorage via dynamic import) + `factory.ts` (`createVault({ mode })`) + `migration/*` (v1→v2 AES-256-GCM reader + dry-run/idempotente/não-destrutivo) + `rotation/*` (`RotationHandler`, `OAuthRotationHandler`, `RotationOrchestrator` DisposableBase). tRPC `credentials` expõe `get/set/delete/list/rotate`. ADRs 0050–0053.
+- **Observability:** `packages/kernel/src/logger/*` (pino wrapper + `createLogger(scope)` + `createProductionTransport`/`createProductionLogger`, ADR-0060) + `packages/observability/src/tracer.ts` + `propagation.ts` (OTel API + `withSpan`, ADR-0061) + `src/sdk/init.ts` (`initTelemetry` lazy) + `src/sentry/{init,scrub}.ts` (`initSentry` lazy + `scrubSentryEvent`/`scrubObject`/`scrubString`, ADR-0062) + `src/memory/{memory-monitor,leak-detector}.ts` (DisposableBase + WeakMap/WeakRef, ADR-0063) + `src/metrics/{registry,timers}.ts` (`createMetrics`/`getMetrics`/`startHistogramTimer`, ADR-0064) + `src/debug/{export,redact}.ts` (`exportDebugInfo` ZIP sanitizado, ADR-0065). Subpath exports: `@g4os/observability/{sdk,sentry,memory,metrics,debug}`.
 - **Platform/paths:** `packages/platform/src/paths.ts` (único lugar que importa `env-paths`)
 - **Kernel helpers:** `packages/kernel/src/{disposable,logger,errors,schemas,validation}/`
 - **Main entry:** `apps/desktop/src/main/index.ts` + `app-lifecycle.ts` + `window-manager.ts`

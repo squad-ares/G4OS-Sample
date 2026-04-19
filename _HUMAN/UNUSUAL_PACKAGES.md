@@ -6,3 +6,4 @@
 - madge - Focado em encontrar dependência circular, seguindo as regras descritas no arquivo de configuração `.dependency-cruiser.cjs`
 - publint - Utilizado para seguir as regras de vizinhança do NPM. Detecta erros como inexistência de caminhos, confusões entre .js e .mjs. Ele foca no `package.json` e não no código.
 - size-limit - Garante que o pacote final no exceda os limites definidos no arquivo `.size-limit.json`
+- pino-roll - Rotaciona arquivos de log, faz limpezas e comprime

@@ -55,10 +55,25 @@ export interface ProjectsService {
   list(workspaceId: WorkspaceId): Promise<Result<readonly unknown[], AppError>>;
 }
 
+export interface CredentialMetaView {
+  readonly key: string;
+  readonly createdAt: number;
+  readonly updatedAt: number;
+  readonly expiresAt?: number;
+  readonly tags: readonly string[];
+}
+
+export interface CredentialSetOptions {
+  readonly expiresAt?: number;
+  readonly tags?: readonly string[];
+}
+
 export interface CredentialsService {
   get(key: string): Promise<Result<string, AppError>>;
-  set(key: string, value: string): Promise<Result<void, AppError>>;
+  set(key: string, value: string, options?: CredentialSetOptions): Promise<Result<void, AppError>>;
   delete(key: string): Promise<Result<void, AppError>>;
+  list(): Promise<Result<readonly CredentialMetaView[], AppError>>;
+  rotate(key: string, newValue: string): Promise<Result<void, AppError>>;
 }
 
 export interface SourcesService {

@@ -48,6 +48,10 @@ Escreva ADR quando:
 | 0011 | Result pattern with neverthrow | Proposed | 2026-04-17 | 01-kernel |
 | 0012 | Disposable pattern for resource management | Proposed | 2026-04-17 | 01-kernel |
 | 0013 | Platform abstraction layer | Proposed | 2026-04-17 | 01-kernel |
+| 0050 | Credential Vault API (mutex + backups + metadata) | Accepted | 2026-04-18 | 05-credentials |
+| 0051 | Credential backends + Electron safeStorage | Accepted | 2026-04-18 | 05-credentials |
+| 0052 | Credential migration v1 → v2 (não-destrutiva + idempotente) | Accepted | 2026-04-18 | 05-credentials |
+| 0053 | Credential rotation (handlers + orchestrator DisposableBase) | Accepted | 2026-04-18 | 05-credentials |
 | 0020 | IPC layer with tRPC v11 + electron-trpc + superjson | Accepted | 2026-04-18 | 02-ipc |
 | 0030 | Electron utilityProcess for worker isolation | Accepted | 2026-04-18 | 03-process-architecture |
 | 0031 | Main process thin-layer architecture (<2000 LOC) | Accepted | 2026-04-18 | 03-process-architecture |
@@ -58,6 +62,12 @@ Escreva ADR quando:
 | 0043 | Formato do event store (JSONL + multi-consumer checkpoints) | Accepted | 2026-04-18 | 04-data-layer |
 | 0044 | Attachment storage content-addressed com refcount + GC | Accepted | 2026-04-18 | 04-data-layer |
 | 0045 | Backup/restore ZIP v1 + scheduler 7/4/3 | Accepted | 2026-04-18 | 04-data-layer |
+| 0060 | pino como logger estruturado único (com transports produção) | Accepted | 2026-04-19 | 06-observability |
+| 0061 | OpenTelemetry para tracing distribuído (lazy SDK + propagation W3C) | Accepted | 2026-04-19 | 06-observability |
+| 0062 | Sentry para crash reporting (scrub centralizado + lazy init) | Accepted | 2026-04-19 | 06-observability |
+| 0063 | Memory monitoring + listener leak detection (WeakMap + WeakRef + Disposable) | Accepted | 2026-04-19 | 06-observability |
+| 0064 | Métricas de performance no formato Prometheus (registry isolado) | Accepted | 2026-04-19 | 06-observability |
+| 0065 | Debug info export (ZIP sanitizado com redação dupla) | Accepted | 2026-04-19 | 06-observability |
 
 ## Status
 
@@ -103,8 +113,18 @@ Definem persistência, schemas e migrations:
 - **0040a:** `node:sqlite` nativo (Node 24 LTS) — zero binding externo, elimina vetor de runtime Windows perdido
 - **0042:** Drizzle ORM 1.0 beta pinado até GA — única exceção autorizada à política "sem beta em deps"; rastreada em [`docs/TODO-DRIZZLE-GA.md`](../TODO-DRIZZLE-GA.md)
 
+### ADRs de Observability (06-observability)
+Definem logger, tracing, crash reporting, memória, métricas e debug export:
+- **0060:** pino estruturado + `pino-roll` produção (único logger)
+- **0061:** OpenTelemetry API runtime + SDK Node lazy-loaded
+- **0062:** Sentry (main/renderer/node) com `beforeSend` central sanitizador
+- **0063:** MemoryMonitor + ListenerLeakDetector (DisposableBase, WeakRef)
+- **0064:** `prom-client` com Registry injetável, catálogo em `registry.ts`
+- **0065:** Debug ZIP export com redação dupla (shape + texto)
+
 ## Histórico de Alterações
 
+- 2026-04-19: Adicionadas ADRs 0060-0065 (06-observability)
 - 2026-04-18: Adicionada ADR 0040 (data-layer)
 - 2026-04-18: Adicionadas ADRs 0030-0032 (process-architecture)
 - 2026-04-17: Adicionadas ADRs 0010-0013 (kernel)
