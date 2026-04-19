@@ -63,17 +63,18 @@ describe('logger redaction', () => {
 
 describe('createProductionTransport', () => {
   it('emits app.log and error.log targets with daily rotation defaults', () => {
-    const transport = createProductionTransport({ logsDir: '/tmp/g4-logs' });
+    const logsDir = '/tmp/g4-logs';
+    const transport = createProductionTransport({ logsDir });
     expect(transport.targets).toHaveLength(2);
     const [app, err] = transport.targets;
     expect(app?.target).toBe('pino-roll');
     expect(app?.level).toBe('info');
-    expect(app?.options['file']).toBe('/tmp/g4-logs/app.log');
+    expect(String(app?.options['file'])).toMatch(/g4-logs[\\/]app\.log$/);
     expect(app?.options['frequency']).toBe('daily');
     expect(app?.options['size']).toBe('100M');
     expect(app?.options['limit']).toEqual({ count: 7 });
     expect(err?.level).toBe('error');
-    expect(err?.options['file']).toBe('/tmp/g4-logs/error.log');
+    expect(String(err?.options['file'])).toMatch(/g4-logs[\\/]error\.log$/);
   });
 
   it('honors overrides', () => {
