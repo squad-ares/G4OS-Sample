@@ -68,6 +68,7 @@ Escreva ADR quando:
 | 0063 | Memory monitoring + listener leak detection (WeakMap + WeakRef + Disposable) | Accepted | 2026-04-19 | 06-observability |
 | 0064 | Métricas de performance no formato Prometheus (registry isolado) | Accepted | 2026-04-19 | 06-observability |
 | 0065 | Debug info export (ZIP sanitizado com redação dupla) | Accepted | 2026-04-19 | 06-observability |
+| 0070 | Agent plugin architecture (IAgent interface + registry com Result) | Accepted | 2026-04-19 | 07-agent-framework |
 
 ## Status
 
@@ -113,6 +114,10 @@ Definem persistência, schemas e migrations:
 - **0040a:** `node:sqlite` nativo (Node 24 LTS) — zero binding externo, elimina vetor de runtime Windows perdido
 - **0042:** Drizzle ORM 1.0 beta pinado até GA — única exceção autorizada à política "sem beta em deps"; rastreada em [`docs/TODO-DRIZZLE-GA.md`](../TODO-DRIZZLE-GA.md)
 
+### ADRs de Agent Framework (07-agent-framework)
+Definem contrato entre `SessionManager` e implementações de agente (plugin architecture):
+- **0070:** `IAgent` + `AgentRegistry` em `@g4os/agents/interface`; implementações ficam em pacotes irmãos; erros de resolução viram Result
+
 ### ADRs de Observability (06-observability)
 Definem logger, tracing, crash reporting, memória, métricas e debug export:
 - **0060:** pino estruturado + `pino-roll` produção (único logger)
@@ -124,6 +129,7 @@ Definem logger, tracing, crash reporting, memória, métricas e debug export:
 
 ## Histórico de Alterações
 
+- 2026-04-19: Adicionada ADR 0070 (07-agent-framework)
 - 2026-04-19: Adicionadas ADRs 0060-0065 (06-observability)
 - 2026-04-18: Adicionada ADR 0040 (data-layer)
 - 2026-04-18: Adicionadas ADRs 0030-0032 (process-architecture)

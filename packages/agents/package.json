@@ -1,7 +1,7 @@
 {
   "name": "@g4os/agents",
   "version": "0.0.0",
-  "description": "AI Agents",
+  "description": "IAgent interface, registry, and plugin contract (implementations ship as separate packages)",
   "private": true,
   "type": "module",
   "main": "./src/index.ts",
@@ -10,6 +10,10 @@
     ".": {
       "types": "./src/index.ts",
       "import": "./src/index.ts"
+    },
+    "./interface": {
+      "types": "./src/interface/index.ts",
+      "import": "./src/interface/index.ts"
     }
   },
   "scripts": {
@@ -24,5 +28,15 @@
   },
   "engines": {
     "node": ">=24.0.0"
+  },
+  "dependencies": {
+    "@g4os/kernel": "workspace:*",
+    "neverthrow": "8.2.0",
+    "rxjs": "7.8.2",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/node": "25.6.0",
+    "vitest": "4.1.4"
   }
 }

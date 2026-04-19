@@ -17,6 +17,7 @@
         "src/index.ts",
         "src/preload.ts",
         "src/main/index.ts",
+        "src/main/agents-bootstrap.ts",
         "src/main/services/db-service.ts",
         "src/main/services/backup-scheduler.ts",
         "src/main/workers/session-worker.ts",
