@@ -5,7 +5,7 @@
 **Accepted**
 
 Data: 2026-04-17
-Revisado por: Tech Lead
+Revisado por: Igor Rezende
 Relacionado: TASK-00-04
 
 ## Contexto
@@ -15,7 +15,7 @@ G4 OS v1 usa **Husky** para git hooks. Problemas:
 1. **Frágil:**
    - Baseia-se em `node_modules/.bin/husky`
    - Quebra em fork/WSL devido a paths hardcoded
-   - Requer `prepare` script que devs esquecam
+   - Requer `prepare` script que devs esqueçam
 
 2. **Sem Conventional Commits:**
    - Mensagens de commit são caóticas

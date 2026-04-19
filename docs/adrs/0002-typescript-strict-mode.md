@@ -5,7 +5,7 @@
 **Accepted**
 
 Data: 2026-04-17
-Revisado por: Tech Lead
+Revisado por: Igor Rezende
 Relacionado: TASK-00-02
 
 ## Contexto

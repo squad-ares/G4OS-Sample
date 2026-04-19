@@ -49,6 +49,9 @@
       "path": "./packages/credentials"
     },
     {
+      "path": "./packages/data"
+    },
+    {
       "path": "./packages/ui"
     },
     {

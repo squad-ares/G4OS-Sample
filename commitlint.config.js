@@ -34,6 +34,7 @@ export default {
         'agents',
         'sources',
         'features',
+        'data',
         // Features
         'chat',
         'sessions',

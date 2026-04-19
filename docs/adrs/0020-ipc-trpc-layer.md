@@ -5,7 +5,7 @@
 - **Número:** 0020
 - **Status:** Accepted
 - **Data:** 2026-04-18
-- **Autor(es):** @tech-lead, @backend-lead
+- **Autor(es):** @squad-ares
 - **Stakeholders:** @frontend-lead, @devops-lead, @security-lead
 - **Épico:** 02-ipc (TASK-02-01 a TASK-02-06)
 

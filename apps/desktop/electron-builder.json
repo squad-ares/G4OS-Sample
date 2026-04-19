@@ -1,0 +1,23 @@
+{
+  "$schema": "https://raw.githubusercontent.com/electron-userland/electron-builder/master/packages/app-builder-lib/scheme.json",
+  "appId": "com.g4educacao.g4os",
+  "productName": "G4 OS",
+  "directories": {
+    "output": "release",
+    "buildResources": "build"
+  },
+  "files": ["dist/**/*", "package.json"],
+  "asar": true,
+  "asarUnpack": [],
+  "npmRebuild": true,
+  "mac": {
+    "category": "public.app-category.productivity",
+    "hardenedRuntime": true
+  },
+  "win": {
+    "target": ["nsis"]
+  },
+  "linux": {
+    "target": ["AppImage"]
+  }
+}
