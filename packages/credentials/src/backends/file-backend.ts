@@ -1,5 +1,5 @@
 /**
- * FileKeychain — backend sobre arquivos encryptados via um codec
+ * FileKeychain — backend sobre arquivos encriptados via um codec
  * fornecido (Electron `safeStorage` em produção, noop em dev).
  *
  * Layout: `<baseDir>/<base64url(key)>.enc`. Cada escrita é atômica
