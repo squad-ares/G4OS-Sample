@@ -18,6 +18,10 @@
     "./claude": {
       "types": "./src/claude/index.ts",
       "import": "./src/claude/index.ts"
+    },
+    "./codex": {
+      "types": "./src/codex/index.ts",
+      "import": "./src/codex/index.ts"
     }
   },
   "scripts": {
