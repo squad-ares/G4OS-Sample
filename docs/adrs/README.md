@@ -69,6 +69,7 @@ Escreva ADR quando:
 | 0064 | Métricas de performance no formato Prometheus (registry isolado) | Accepted | 2026-04-19 | 06-observability |
 | 0065 | Debug info export (ZIP sanitizado com redação dupla) | Accepted | 2026-04-19 | 06-observability |
 | 0070 | Agent plugin architecture (IAgent interface + registry com Result) | Accepted | 2026-04-19 | 07-agent-framework |
+| 0071 | ClaudeAgent — DI providers + pure stream mapping + prompt cache 1h | Accepted | 2026-04-19 | 07-agent-framework |
 
 ## Status
 
@@ -117,6 +118,7 @@ Definem persistência, schemas e migrations:
 ### ADRs de Agent Framework (07-agent-framework)
 Definem contrato entre `SessionManager` e implementações de agente (plugin architecture):
 - **0070:** `IAgent` + `AgentRegistry` em `@g4os/agents/interface`; implementações ficam em pacotes irmãos; erros de resolução viram Result
+- **0071:** `ClaudeAgent` modular (9 arquivos ≤ 200 LOC, total ~925 LOC vs 4716 em v1); `ClaudeProvider` injetável (direct / bedrock / compat, lazy-import); prompt cache 1h só em direct + modelos capazes; AbortSignal propagado em dispose / interrupt / unsubscribe
 
 ### ADRs de Observability (06-observability)
 Definem logger, tracing, crash reporting, memória, métricas e debug export:
@@ -129,6 +131,7 @@ Definem logger, tracing, crash reporting, memória, métricas e debug export:
 
 ## Histórico de Alterações
 
+- 2026-04-19: Adicionada ADR 0071 (07-agent-framework — ClaudeAgent)
 - 2026-04-19: Adicionada ADR 0070 (07-agent-framework)
 - 2026-04-19: Adicionadas ADRs 0060-0065 (06-observability)
 - 2026-04-18: Adicionada ADR 0040 (data-layer)

@@ -14,6 +14,10 @@
     "./interface": {
       "types": "./src/interface/index.ts",
       "import": "./src/interface/index.ts"
+    },
+    "./claude": {
+      "types": "./src/claude/index.ts",
+      "import": "./src/claude/index.ts"
     }
   },
   "scripts": {
