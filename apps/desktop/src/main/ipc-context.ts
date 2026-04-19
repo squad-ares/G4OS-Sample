@@ -94,6 +94,8 @@ const notImplementedCredentials: CredentialsService = {
   get: async () => err(notImplemented('credentials.get')),
   set: async () => err(notImplemented('credentials.set')),
   delete: async () => err(notImplemented('credentials.delete')),
+  list: async () => err(notImplemented('credentials.list')),
+  rotate: async () => err(notImplemented('credentials.rotate')),
 };
 
 const notImplementedSources: SourcesService = {

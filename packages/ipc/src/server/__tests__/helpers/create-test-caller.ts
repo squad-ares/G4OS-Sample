@@ -77,6 +77,8 @@ function createCredentialsMock(): CredentialsService {
     get: async () => err(notImplemented('credentials.get')),
     set: async () => ok(undefined),
     delete: async () => ok(undefined),
+    list: async () => ok([]),
+    rotate: async () => ok(undefined),
   };
 }
 

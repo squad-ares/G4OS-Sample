@@ -56,7 +56,7 @@ packages/
 ├── kernel/        # Tipos, Result, Disposable, logger, schemas (Zod), validation
 ├── platform/      # OS abstraction — paths (env-paths), keychain, runtime-paths, spawn
 ├── ipc/           # tRPC v11 + electron-trpc + superjson (router central)
-├── credentials/   # scaffolding — gateway único via safeStorage (TASK-05)
+├── credentials/   # `CredentialVault` gateway (mutex + backups 3x + metadata), backends in-memory/file/safeStorage, migrador v1→v2, `RotationOrchestrator` (ADRs 0050–0053)
 ├── data/          # node:sqlite (Node 24) + Drizzle (beta 1.0 pinado, ADR-0042), migrations com backup pré-migration, `events/` (JSONL append-only + replay + checkpoints multi-consumer, ADR-0043), `attachments/` (content-addressed SHA-256 + refcount + GC, ADR-0044), `backup/` (ZIP v1: export/restore + manifest Zod, ADR-0045)
 ├── agents/        # scaffolding — IAgent + Claude/Codex/Pi plugins (TASK-07)
 ├── sources/       # scaffolding — ISource + MCP stdio/http + managed (TASK-08)
@@ -124,7 +124,7 @@ SIGINT/SIGTERM disparam o mesmo fluxo via `app.quit()`.
 
 | Camada | Escolha | Por que |
 |---|---|---|
-| Credenciais | Electron `safeStorage` (Keychain/DPAPI/libsecret) + gateway único `CredentialVault` | Nunca grava chave em texto plano; serializa escritas via mutex |
+| Credenciais | Electron `safeStorage` (Keychain/DPAPI/libsecret) + gateway único `CredentialVault` + backup rotation (3x) + metadata por chave + migrador v1→v2 não-destrutivo (ADRs 0050–0053) | Nunca grava chave em texto plano; serializa escritas via mutex; corrupção recupera via backup; migração de usuários v1 sem perda |
 | Logging | `pino` estruturado JSON (único) | Bloqueia `console.*`; transporte para Sentry + OTel |
 | Crash | `@sentry/electron` (main + renderer + child) | Já em uso no v1; manter |
 | Tracing | OpenTelemetry (renderer → main → worker → MCP) | Correlation ID propagado |
@@ -319,7 +319,7 @@ Workflow sugerido:
 6. Commit atômico com Conventional Commits (`feat(data): ...`, `fix(electron): ...`, `chore: ...`).
 7. Atualizar ADR/docs **no mesmo PR** se comportamento mudou.
 
-Tasks concluídas até agora: 00-foundation inteiro, 01-kernel inteiro, 02-ipc-layer inteiro, 03-process-architecture inteiro (TASK-03-01 a 03-06), 04-data-layer inteiro (TASK-04-01 SQLite, 04-02 Drizzle, 04-03 migrations, 04-04 event-sourced sessions, 04-05 attachments, 04-06 backup/restore). Próxima ordem sugerida: TASK-05-01 (Vault API) → TASK-06-01 (pino) → wiring de `db-service`/`backup-scheduler` em `apps/desktop/src/main/index.ts`.
+Tasks concluídas até agora: 00-foundation inteiro, 01-kernel inteiro, 02-ipc-layer inteiro, 03-process-architecture inteiro (TASK-03-01 a 03-06), 04-data-layer inteiro (TASK-04-01 SQLite, 04-02 Drizzle, 04-03 migrations, 04-04 event-sourced sessions, 04-05 attachments, 04-06 backup/restore), 05-credentials inteiro (TASK-05-01 vault, 05-02 safeStorage/backends/factory, 05-03 migração v1→v2, 05-04 rotation — ADRs 0050–0053). Próxima ordem sugerida: TASK-06-01 (pino logger) → wiring de `db-service`/`backup-scheduler`/`CredentialVault` em `apps/desktop/src/main/index.ts`.
 
 ---
 
@@ -331,7 +331,7 @@ Tasks concluídas até agora: 00-foundation inteiro, 01-kernel inteiro, 02-ipc-l
 - **Attachments:** `packages/data/src/attachments/storage.ts` (content-addressed) + `gateway.ts` (refcount + GC via transação sync)
 - **Backup/restore:** `packages/data/src/backup/{export,import,manifest}.ts` (ZIP v1 + Zod) + `apps/desktop/src/main/services/backup-scheduler.ts` (retenção 7/4/3)
 - **Migrations:** `packages/data/drizzle/` + `packages/data/src/migrations/` + `apps/desktop/src/main/services/db-service.ts` + `pnpm db:migrate:status`
-- **Credenciais:** `packages/credentials/` (ainda scaffolding — ponto único para `credentials.enc`)
+- **Credenciais:** `packages/credentials/src/vault.ts` (CredentialVault + mutex + backups) + `backends/*` (in-memory, file+codec, safeStorage via dynamic import) + `factory.ts` (`createVault({ mode })`) + `migration/*` (v1→v2 AES-256-GCM reader + dry-run/idempotente/não-destrutivo) + `rotation/*` (`RotationHandler`, `OAuthRotationHandler`, `RotationOrchestrator` DisposableBase). tRPC `credentials` expõe `get/set/delete/list/rotate`. ADRs 0050–0053.
 - **Platform/paths:** `packages/platform/src/paths.ts` (único lugar que importa `env-paths`)
 - **Kernel helpers:** `packages/kernel/src/{disposable,logger,errors,schemas,validation}/`
 - **Main entry:** `apps/desktop/src/main/index.ts` + `app-lifecycle.ts` + `window-manager.ts`

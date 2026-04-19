@@ -48,6 +48,10 @@ Escreva ADR quando:
 | 0011 | Result pattern with neverthrow | Proposed | 2026-04-17 | 01-kernel |
 | 0012 | Disposable pattern for resource management | Proposed | 2026-04-17 | 01-kernel |
 | 0013 | Platform abstraction layer | Proposed | 2026-04-17 | 01-kernel |
+| 0050 | Credential Vault API (mutex + backups + metadata) | Accepted | 2026-04-18 | 05-credentials |
+| 0051 | Credential backends + Electron safeStorage | Accepted | 2026-04-18 | 05-credentials |
+| 0052 | Credential migration v1 → v2 (não-destrutiva + idempotente) | Accepted | 2026-04-18 | 05-credentials |
+| 0053 | Credential rotation (handlers + orchestrator DisposableBase) | Accepted | 2026-04-18 | 05-credentials |
 | 0020 | IPC layer with tRPC v11 + electron-trpc + superjson | Accepted | 2026-04-18 | 02-ipc |
 | 0030 | Electron utilityProcess for worker isolation | Accepted | 2026-04-18 | 03-process-architecture |
 | 0031 | Main process thin-layer architecture (<2000 LOC) | Accepted | 2026-04-18 | 03-process-architecture |

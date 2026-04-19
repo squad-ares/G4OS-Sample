@@ -104,7 +104,27 @@ importers:
 
   packages/agents: {}
 
-  packages/credentials: {}
+  packages/credentials:
+    dependencies:
+      '@g4os/kernel':
+        specifier: workspace:*
+        version: link:../kernel
+      '@g4os/platform':
+        specifier: workspace:*
+        version: link:../platform
+      async-mutex:
+        specifier: 0.5.0
+        version: 0.5.0
+      neverthrow:
+        specifier: 8.2.0
+        version: 8.2.0
+    devDependencies:
+      '@types/node':
+        specifier: 25.6.0
+        version: 25.6.0
+      vitest:
+        specifier: 4.1.4
+        version: 4.1.4(@types/node@25.6.0)(esbuild@0.28.0)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.3)
 
   packages/data:
     dependencies:
@@ -1794,6 +1814,9 @@ packages:
   ast-module-types@6.0.1:
     resolution: {integrity: sha512-WHw67kLXYbZuHTmcdbIrVArCq5wxo6NEuj3hiYAWr8mwJeC+C2mMCIBIWCiDoCye/OF/xelc+teJ1ERoWmnEIA==}
     engines: {node: '>=18'}
+
+  async-mutex@0.5.0:
+    resolution: {integrity: sha512-1A94B18jkJ3DYq284ohPxoXbfTA5HsQ7/Mf4DEhcyLx3Bz27Rh59iScbB6EPiP+B+joue6YCxcMXSbFC1tZKwA==}
 
   async@3.2.6:
     resolution: {integrity: sha512-htCUDlxyyCLMgaM3xXg0C0LW2xqfuQ6p05pCEIsXuyQ+a1koYKTuBMzRNwmybfLgvJDMd0r1LTn4+E0Ti6C2AA==}
@@ -5157,6 +5180,10 @@ snapshots:
 
   ast-module-types@6.0.1: {}
 
+  async-mutex@0.5.0:
+    dependencies:
+      tslib: 2.8.1
+
   async@3.2.6: {}
 
   atomic-sleep@1.0.0: {}
@@ -6964,8 +6991,7 @@ snapshots:
       minimist: 1.2.8
       strip-bom: 3.0.0
 
-  tslib@2.8.1:
-    optional: true
+  tslib@2.8.1: {}
 
   tsup@8.5.1(jiti@2.6.1)(postcss@8.5.10)(tsx@4.21.0)(typescript@6.0.3)(yaml@2.8.3):
     dependencies:
