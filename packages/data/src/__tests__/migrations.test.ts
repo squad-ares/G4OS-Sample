@@ -1,6 +1,6 @@
 import { copyFile, mkdtemp, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createDrizzle, Db } from '../index.ts';
@@ -128,8 +128,8 @@ describe('backupBeforeMigration', () => {
 
     const result = await backupBeforeMigration({ source });
     expect(result).not.toBeNull();
-    expect(result).toMatch(/\/app\.db\.backup-\d+$/);
     if (result) {
+      expect(basename(result)).toMatch(/^app\.db\.backup-\d+$/);
       await stat(result);
     }
   });
