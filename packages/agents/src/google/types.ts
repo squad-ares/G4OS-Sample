@@ -92,8 +92,67 @@ export interface GeminiRequestOptions {
   readonly strategy?: GeminiTurnStrategy;
 }
 
-/** Build a Gemini-safe tool name: [A-Za-z0-9_.] max 64 chars, prefixed g4_ */
+/**
+ * FNV-1a (32-bit) of `input`, returned as base-36 string.
+ * Bit-identical to the V1 hashToolName() in pi-agent.ts.
+ */
+function fnv1aBase36(input: string): string {
+  let hash = 2166136261;
+  for (let i = 0; i < input.length; i++) {
+    hash ^= input.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(36);
+}
+
+/**
+ * Build the canonical (stateless) safe name for a tool.
+ * Format: g4_<normalizedBase>_<hash8>
+ * No collision resolution — always the same result for the same input.
+ * Used for history remapping (where the same name must be idempotent).
+ */
 export function toGeminiSafeToolName(name: string): string {
-  const sanitized = name.replace(/[^A-Za-z0-9_.]/g, '_').slice(0, 60);
-  return `g4_${sanitized}`;
+  const normalized = name
+    .replace(/[^A-Za-z0-9_.-]+/g, '_')
+    .replace(/^[^A-Za-z_]+/, '')
+    .replace(/_+/g, '_')
+    .replace(/\.+/g, '.')
+    .replace(/-+/g, '-')
+    .replace(/^[_.-]+/, '');
+
+  const hash = fnv1aBase36(name).slice(0, 8);
+  const base = normalized.length > 0 ? normalized : 'tool';
+  const maxBaseLength = 63 - 'g4_'.length - 1 - hash.length;
+  return `g4_${base.slice(0, maxBaseLength)}_${hash}`;
+}
+
+/**
+ * Build a Gemini-safe tool name with collision detection.
+ * Used for tool DECLARATIONS within a single request.
+ * Bit-identical to buildGeminiSafeToolName() in V1 pi-agent.ts.
+ * `usedNames` must be a per-request Set (never reused across turns).
+ */
+export function toGeminiSafeToolNameUnique(name: string, usedNames: Set<string>): string {
+  let candidate = toGeminiSafeToolName(name);
+  let counter = 1;
+
+  while (usedNames.has(candidate)) {
+    const hash = fnv1aBase36(name).slice(0, 8);
+    const normalized = name
+      .replace(/[^A-Za-z0-9_.-]+/g, '_')
+      .replace(/^[^A-Za-z_]+/, '')
+      .replace(/_+/g, '_')
+      .replace(/\.+/g, '.')
+      .replace(/-+/g, '-')
+      .replace(/^[_.-]+/, '');
+    const base = normalized.length > 0 ? normalized : 'tool';
+    const suffix = `_${counter}`;
+    const maxBaseLength = 63 - 'g4_'.length - 1 - hash.length;
+    const truncatedBase = base.slice(0, Math.max(1, maxBaseLength - suffix.length));
+    candidate = `g4_${truncatedBase}_${hash}${suffix}`;
+    counter += 1;
+  }
+
+  usedNames.add(candidate);
+  return candidate;
 }

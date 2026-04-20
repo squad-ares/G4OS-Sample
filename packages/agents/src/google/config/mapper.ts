@@ -7,6 +7,7 @@ import {
   type GeminiStreamParams,
   type GeminiTool,
   toGeminiSafeToolName,
+  toGeminiSafeToolNameUnique,
 } from '../types.ts';
 
 const CLASSIFIER_SYSTEM_PROMPT = [
@@ -114,10 +115,13 @@ function buildToolResultParts(msg: Message): GeminiPart[] {
   ];
 }
 
-export function mapToolsToGemini(tools: readonly ToolDefinition[]): GeminiTool[] {
+export function mapToolsToGemini(
+  tools: readonly ToolDefinition[],
+  usedNames: Set<string>,
+): GeminiTool[] {
   if (tools.length === 0) return [];
   const declarations: GeminiFunctionDeclaration[] = tools.map((t) => ({
-    name: toGeminiSafeToolName(t.name),
+    name: toGeminiSafeToolNameUnique(t.name, usedNames),
     description: t.description,
     ...(t.inputSchema === undefined ? {} : { parameters: t.inputSchema }),
   }));
@@ -128,11 +132,14 @@ export function buildGeminiStreamParams(
   config: AgentConfig,
   messages: readonly Message[],
 ): Pick<GeminiStreamParams, 'model' | 'systemInstruction' | 'contents' | 'tools'> {
+  const usedNames = new Set<string>();
   return {
     model: config.modelId.replace(/^pi\//, ''),
     ...(config.systemPrompt ? { systemInstruction: config.systemPrompt } : {}),
     contents: mapMessagesToGemini(messages),
-    ...(config.tools && config.tools.length > 0 ? { tools: mapToolsToGemini(config.tools) } : {}),
+    ...(config.tools && config.tools.length > 0
+      ? { tools: mapToolsToGemini(config.tools, usedNames) }
+      : {}),
   };
 }
 

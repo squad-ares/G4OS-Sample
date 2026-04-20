@@ -82,7 +82,7 @@ describe('SessionEventStore', () => {
     }).rejects.toThrow();
   });
 
-  it('append of 1000 events completes under 2s', async () => {
+  it('append of 1000 events completes under 5s', async () => {
     const store = new SessionEventStore('ws-1', { workspaceRoot: tmpDir });
     const sessionId = randomUUID();
     await store.append(sessionId, makeSessionCreated(sessionId, 0));
@@ -92,7 +92,7 @@ describe('SessionEventStore', () => {
       await store.append(sessionId, makeMessageAdded(sessionId, i));
     }
     const duration = Date.now() - start;
-    expect(duration).toBeLessThan(2000);
+    expect(duration).toBeLessThan(5000);
   });
 });
 

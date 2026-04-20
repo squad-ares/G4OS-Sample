@@ -5,6 +5,7 @@ import {
   mapMessagesToGemini,
   mapToolsToGemini,
 } from '../../google/config/mapper.ts';
+import { toGeminiSafeToolName, toGeminiSafeToolNameUnique } from '../../google/types.ts';
 
 const FAKE_SESSION_ID = '00000000-0000-0000-0000-000000000001' as const;
 
@@ -22,6 +23,52 @@ function makeMsg(role: 'user' | 'assistant' | 'tool', content: Message['content'
 }
 
 describe('google/config/mapper', () => {
+  describe('toGeminiSafeToolName (stateless, for history)', () => {
+    it('produces g4_<base>_<hash> format', () => {
+      const name = toGeminiSafeToolName('read_file');
+      expect(name).toMatch(/^g4_read_file_[a-z0-9]{1,8}$/);
+    });
+
+    it('is idempotent — same input always same output', () => {
+      const a = toGeminiSafeToolName('bash');
+      const b = toGeminiSafeToolName('bash');
+      expect(a).toBe(b);
+    });
+
+    it('stays within 64 chars for long names', () => {
+      const longName = 'a'.repeat(200);
+      expect(toGeminiSafeToolName(longName).length).toBeLessThanOrEqual(64);
+    });
+
+    it('sanitizes non-Gemini chars', () => {
+      const name = toGeminiSafeToolName('mcp__github__create_pr');
+      expect(name).toMatch(/^g4_/);
+      expect(name).toMatch(/^[A-Za-z0-9g4_.]+$/);
+    });
+  });
+
+  describe('toGeminiSafeToolNameUnique (with collision detection)', () => {
+    it('returns base name on first call', () => {
+      const usedNames = new Set<string>();
+      const name = toGeminiSafeToolNameUnique('myTool', usedNames);
+      expect(name).toBe(toGeminiSafeToolName('myTool'));
+    });
+
+    it('adds suffix on collision', () => {
+      const usedNames = new Set<string>();
+      const first = toGeminiSafeToolNameUnique('myTool', usedNames);
+      const second = toGeminiSafeToolNameUnique('myTool', usedNames);
+      expect(first).not.toBe(second);
+      expect(second).toMatch(/^g4_/);
+    });
+
+    it('adds candidate to usedNames Set', () => {
+      const usedNames = new Set<string>();
+      const name = toGeminiSafeToolNameUnique('bash', usedNames);
+      expect(usedNames.has(name)).toBe(true);
+    });
+  });
+
   describe('mapMessagesToGemini', () => {
     it('maps user text messages correctly', () => {
       const messages = [makeMsg('user', [{ type: 'text', text: 'Hello Gemini!' }])];
@@ -54,47 +101,50 @@ describe('google/config/mapper', () => {
       expect(result[0]?.parts).toContainEqual({ text: 'Yes.' });
     });
 
-    it('maps tool uses into functionCall parts', () => {
+    it('maps tool uses into functionCall parts with FNV-1a safe name', () => {
       const messages = [
         makeMsg('assistant', [
           { type: 'tool_use', toolUseId: 'tu1', toolName: 'bash', input: { cmd: 'ls' } },
         ]),
       ];
       const result = mapMessagesToGemini(messages);
+      const expectedName = toGeminiSafeToolName('bash');
 
       expect(result[0]?.parts).toEqual([
-        { functionCall: { name: 'g4_bash', args: { cmd: 'ls' } } },
+        { functionCall: { name: expectedName, args: { cmd: 'ls' } } },
       ]);
     });
 
-    it('maps tool results into role=user functionResponse', () => {
+    it('maps tool results into role=user functionResponse with FNV-1a safe name', () => {
       const msg = makeMsg('tool', [
         { type: 'tool_result', toolUseId: 'tu1', content: 'bin', isError: false },
       ]);
-      // Patching toolName like mapper does temporarily
       (msg as unknown as { toolName: string }).toolName = 'bash';
 
       const result = mapMessagesToGemini([msg]);
+      const expectedName = toGeminiSafeToolName('bash');
 
       expect(result[0]?.role).toBe('user');
       expect(result[0]?.parts).toEqual([
-        { functionResponse: { name: 'g4_bash', response: { result: 'bin' } } },
+        { functionResponse: { name: expectedName, response: { result: 'bin' } } },
       ]);
     });
   });
 
   describe('mapToolsToGemini', () => {
     it('returns empty array when no tools', () => {
-      expect(mapToolsToGemini([])).toEqual([]);
+      expect(mapToolsToGemini([], new Set())).toEqual([]);
     });
 
     it('maps tools to functionDeclarations array inside a single tool block', () => {
+      const usedNames = new Set<string>();
       const tools = [{ name: 'myTool', description: 'desc', inputSchema: {} }];
-      const result = mapToolsToGemini(tools);
+      const result = mapToolsToGemini(tools, usedNames);
+      const expectedName = toGeminiSafeToolName('myTool');
 
       expect(result).toHaveLength(1);
       expect(result[0]?.functionDeclarations).toHaveLength(1);
-      expect(result[0]?.functionDeclarations?.[0]?.name).toBe('g4_myTool');
+      expect(result[0]?.functionDeclarations?.[0]?.name).toBe(expectedName);
     });
   });
 
@@ -109,6 +159,17 @@ describe('google/config/mapper', () => {
       const config = { connectionSlug: 'g', modelId: 'gemini', systemPrompt: 'Sys prompt' };
       const params = buildGeminiStreamParams(config, []);
       expect(params.systemInstruction).toBe('Sys prompt');
+    });
+
+    it('includes tools with FNV-1a safe names', () => {
+      const config = {
+        connectionSlug: 'g',
+        modelId: 'gemini',
+        tools: [{ name: 'read_file', description: 'Read', inputSchema: {} }],
+      };
+      const params = buildGeminiStreamParams(config, []);
+      const decls = params.tools?.[0]?.functionDeclarations ?? [];
+      expect(decls[0]?.name).toMatch(/^g4_read_file_/);
     });
   });
 });
