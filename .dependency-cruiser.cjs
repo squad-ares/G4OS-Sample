@@ -40,6 +40,13 @@ module.exports = {
       from: { path: '^packages/agents' },
       to: { path: '^packages/(?!(kernel|agents))' },
     },
+    {
+      name: 'auth-isolated',
+      comment: '@g4os/auth may depend only on kernel/platform/auth',
+      severity: 'error',
+      from: { path: '^packages/auth' },
+      to: { path: '^packages/(?!(kernel|platform|auth))' },
+    },
 
     // ========== FEATURES ==========
     {

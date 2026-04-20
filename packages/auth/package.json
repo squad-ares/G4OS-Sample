@@ -1,7 +1,7 @@
 {
-  "name": "@g4os/sources",
+  "name": "@g4os/auth",
   "version": "0.0.0",
-  "description": "Source plugin contract, MCP stdio/http, managed connectors, OAuth kit, lifecycle manager",
+  "description": "Auth: Supabase OTP, managed login state machine, entitlement service, session refresher",
   "private": true,
   "type": "module",
   "main": "./src/index.ts",
@@ -11,29 +11,25 @@
       "types": "./src/index.ts",
       "import": "./src/index.ts"
     },
-    "./interface": {
-      "types": "./src/interface/index.ts",
-      "import": "./src/interface/index.ts"
+    "./types": {
+      "types": "./src/types.ts",
+      "import": "./src/types.ts"
     },
-    "./mcp-stdio": {
-      "types": "./src/mcp-stdio/index.ts",
-      "import": "./src/mcp-stdio/index.ts"
+    "./otp": {
+      "types": "./src/otp/index.ts",
+      "import": "./src/otp/index.ts"
     },
-    "./mcp-http": {
-      "types": "./src/mcp-http/index.ts",
-      "import": "./src/mcp-http/index.ts"
+    "./managed-login": {
+      "types": "./src/managed-login/index.ts",
+      "import": "./src/managed-login/index.ts"
     },
-    "./managed": {
-      "types": "./src/managed/index.ts",
-      "import": "./src/managed/index.ts"
+    "./entitlement": {
+      "types": "./src/entitlement/index.ts",
+      "import": "./src/entitlement/index.ts"
     },
-    "./oauth": {
-      "types": "./src/oauth/index.ts",
-      "import": "./src/oauth/index.ts"
-    },
-    "./lifecycle": {
-      "types": "./src/lifecycle/index.ts",
-      "import": "./src/lifecycle/index.ts"
+    "./refresh": {
+      "types": "./src/refresh/index.ts",
+      "import": "./src/refresh/index.ts"
     }
   },
   "scripts": {

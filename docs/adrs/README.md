@@ -76,6 +76,16 @@ Escreva ADR quando:
 | 0075 | GoogleAgent — Gemini native routing + safe tool names + GenAI SDK | Accepted | 2026-04-19 | 07-agent-framework |
 | 0076 | Streaming com batching de deltas e backpressure policy | Accepted | 2026-04-19 | 07-agent-framework |
 | 0077 | Permission system — três modos + remember store + queue não-bloqueante | Accepted | 2026-04-19 | 07-agent-framework |
+| 0081 | ISource interface + SourceRegistry pluginável | Accepted | 2026-04-20 | 08-sources-mcp |
+| 0082 | McpStdioSource — supervisor + protected/compat runtime mode | Accepted | 2026-04-20 | 08-sources-mcp |
+| 0083 | McpHttpSource — SSE transport + backoff exponencial + needs_auth detection | Accepted | 2026-04-20 | 08-sources-mcp |
+| 0084 | ManagedConnectorBase — decomposição do God File de 1991 LOC | Accepted | 2026-04-20 | 08-sources-mcp |
+| 0085 | OAuth Kit — PKCE S256 + deep-link + loopback server + token exchanger | Accepted | 2026-04-20 | 08-sources-mcp |
+| 0086 | SourceLifecycleManager — intent detection + sticky/rejected por sessão | Accepted | 2026-04-20 | 08-sources-mcp |
+| 0091 | Supabase OTP flow — fallback email→signup + looksLikeInvalidOtp | Accepted | 2026-04-20 | 09-auth |
+| 0092 | ManagedLoginService — FSM discriminado + DisposableBase | Accepted | 2026-04-20 | 09-auth |
+| 0093 | EntitlementService — dev bypass opt-in + onBypassUsed callback | Accepted | 2026-04-20 | 09-auth |
+| 0094 | SessionRefresher — timer injetável + reauth_required em falha | Accepted | 2026-04-20 | 09-auth |
 
 ## Status
 
@@ -143,6 +153,7 @@ Definem logger, tracing, crash reporting, memória, métricas e debug export:
 
 ## Histórico de Alterações
 
+- 2026-04-20: Criados ADRs granulares por task: 0081-0086 (08-sources-mcp) e 0091-0094 (09-auth)
 - 2026-04-19: Adicionadas ADRs 0073-0077 (07-agent-framework — shared broker, OpenAI, Google, streaming, permissions)
 - 2026-04-19: Adicionada ADR 0072 (07-agent-framework — CodexAgent)
 - 2026-04-19: Adicionada ADR 0071 (07-agent-framework — ClaudeAgent)
