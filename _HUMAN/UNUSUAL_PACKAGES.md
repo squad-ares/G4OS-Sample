@@ -7,3 +7,4 @@
 - publint - Utilizado para seguir as regras de vizinhança do NPM. Detecta erros como inexistência de caminhos, confusões entre .js e .mjs. Ele foca no `package.json` e não no código.
 - size-limit - Garante que o pacote final no exceda os limites definidos no arquivo `.size-limit.json`
 - pino-roll - Rotaciona arquivos de log, faz limpezas e comprime
+- rxjs - Apenas uma decisão técnica que trata o evento como uma "Transmissão ao vivo". Útil para agentes de IA resolvendo, Multi-Eventos, Streaming, Cancelamentos.

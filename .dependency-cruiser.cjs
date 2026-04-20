@@ -33,6 +33,13 @@ module.exports = {
       from: { path: '^packages/observability' },
       to: { path: '^packages/(?!(kernel|platform|observability))' },
     },
+    {
+      name: 'agents-interface-isolated',
+      comment: '@g4os/agents (contract package) must depend only on kernel',
+      severity: 'error',
+      from: { path: '^packages/agents' },
+      to: { path: '^packages/(?!(kernel|agents))' },
+    },
 
     // ========== FEATURES ==========
     {

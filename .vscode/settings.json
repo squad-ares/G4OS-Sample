@@ -19,6 +19,7 @@
     "attw",
     "autoincrement",
     "backpressure",
+    "Backpressured",
     "bgcolor",
     "biomejs",
     "bumpar",
@@ -40,8 +41,10 @@
     "emnapi",
     "esbuild",
     "gemini",
+    "genai",
     "github",
     "Gmail",
+    "HITL",
     "idempotentemente",
     "impls",
     "knip",
@@ -72,6 +75,9 @@
     "tipável",
     "tsup",
     "Turborepo",
-    "vitest"
+    "unparseable",
+    "vitest",
+    "youtu",
+    "youtube"
   ]
 }

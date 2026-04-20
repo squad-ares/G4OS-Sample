@@ -68,6 +68,14 @@ Escreva ADR quando:
 | 0063 | Memory monitoring + listener leak detection (WeakMap + WeakRef + Disposable) | Accepted | 2026-04-19 | 06-observability |
 | 0064 | Métricas de performance no formato Prometheus (registry isolado) | Accepted | 2026-04-19 | 06-observability |
 | 0065 | Debug info export (ZIP sanitizado com redação dupla) | Accepted | 2026-04-19 | 06-observability |
+| 0070 | Agent plugin architecture (IAgent interface + registry com Result) | Accepted | 2026-04-19 | 07-agent-framework |
+| 0071 | ClaudeAgent — DI providers + pure stream mapping + prompt cache 1h | Accepted | 2026-04-19 | 07-agent-framework |
+| 0072 | CodexAgent — subprocess NDJSON + Subprocess DI + bridge MCP skeleton | Accepted | 2026-04-19 | 07-agent-framework |
+| 0073 | @g4os/agents/shared — proxy broker + thinking resolver | Accepted | 2026-04-19 | 07-agent-framework |
+| 0074 | OpenAIAgent — completions + responses API + prompt cache keys | Accepted | 2026-04-19 | 07-agent-framework |
+| 0075 | GoogleAgent — Gemini native routing + safe tool names + GenAI SDK | Accepted | 2026-04-19 | 07-agent-framework |
+| 0076 | Streaming com batching de deltas e backpressure policy | Accepted | 2026-04-19 | 07-agent-framework |
+| 0077 | Permission system — três modos + remember store + queue não-bloqueante | Accepted | 2026-04-19 | 07-agent-framework |
 
 ## Status
 
@@ -113,6 +121,17 @@ Definem persistência, schemas e migrations:
 - **0040a:** `node:sqlite` nativo (Node 24 LTS) — zero binding externo, elimina vetor de runtime Windows perdido
 - **0042:** Drizzle ORM 1.0 beta pinado até GA — única exceção autorizada à política "sem beta em deps"; rastreada em [`docs/TODO-DRIZZLE-GA.md`](../TODO-DRIZZLE-GA.md)
 
+### ADRs de Agent Framework (07-agent-framework)
+Definem contrato entre `SessionManager` e implementações de agente (plugin architecture):
+- **0070:** `IAgent` + `AgentRegistry` em `@g4os/agents/interface`; implementações ficam em pacotes irmãos; erros de resolução viram Result
+- **0071:** `ClaudeAgent` modular (9 arquivos ≤ 200 LOC, total ~925 LOC vs 4716 em v1); `ClaudeProvider` injetável (direct / bedrock / compat, lazy-import); prompt cache 1h só em direct + modelos capazes; AbortSignal propagado em dispose / interrupt / unsubscribe
+- **0072:** `CodexAgent` via subprocess NDJSON; `Subprocess`/`SubprocessSpawner` contract com adapter default `NodeSubprocessSpawner` (`node:child_process`, zero nova dep); framing NDJSON puro; multi-turn isolation por `requestId`; bridge MCP skeleton
+- **0073:** `@g4os/agents/shared` — broker layer (McpPoolClient, SessionToolProfile, PermissionHandler, source-activation) + thinking resolver cross-provider; zero dep em Electron
+- **0074:** `OpenAIAgent` in-process com SDK `openai` oficial; dois protocolos (completions/responses); prompt cache key por fingerprint; tool search namespacing para gpt-5.4+; OpenAI-compat via baseURL
+- **0075:** `GoogleAgent` in-process com `@google/genai` oficial; turn classifier LLM pré-turn para native routing (search/url_context/youtube/custom_tools); Gemini safe tool names `[A-Za-z0-9_.]` max 64; thinking config por geração de modelo
+- **0076:** `batchTextDeltas(16ms)` + `dropIfBackpressured(100)` como operadores RxJS compostos; text deltas coalescidos a ~60fps; eventos estruturais jamais descartados; timers limpos em teardown
+- **0077:** `DefaultPermissionResolver` com três modos (allow-all/ask/safe); `PermissionQueue` não-bloqueante (enqueue/decide/onRequest/dispose); safe mode allowlist imutável; remember scope (once/session/always)
+
 ### ADRs de Observability (06-observability)
 Definem logger, tracing, crash reporting, memória, métricas e debug export:
 - **0060:** pino estruturado + `pino-roll` produção (único logger)
@@ -124,6 +143,10 @@ Definem logger, tracing, crash reporting, memória, métricas e debug export:
 
 ## Histórico de Alterações
 
+- 2026-04-19: Adicionadas ADRs 0073-0077 (07-agent-framework — shared broker, OpenAI, Google, streaming, permissions)
+- 2026-04-19: Adicionada ADR 0072 (07-agent-framework — CodexAgent)
+- 2026-04-19: Adicionada ADR 0071 (07-agent-framework — ClaudeAgent)
+- 2026-04-19: Adicionada ADR 0070 (07-agent-framework)
 - 2026-04-19: Adicionadas ADRs 0060-0065 (06-observability)
 - 2026-04-18: Adicionada ADR 0040 (data-layer)
 - 2026-04-18: Adicionadas ADRs 0030-0032 (process-architecture)
