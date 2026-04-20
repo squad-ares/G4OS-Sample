@@ -22,6 +22,26 @@
     "./codex": {
       "types": "./src/codex/index.ts",
       "import": "./src/codex/index.ts"
+    },
+    "./shared": {
+      "types": "./src/shared/index.ts",
+      "import": "./src/shared/index.ts"
+    },
+    "./streaming": {
+      "types": "./src/streaming/index.ts",
+      "import": "./src/streaming/index.ts"
+    },
+    "./permissions": {
+      "types": "./src/permissions/index.ts",
+      "import": "./src/permissions/index.ts"
+    },
+    "./openai": {
+      "types": "./src/openai/index.ts",
+      "import": "./src/openai/index.ts"
+    },
+    "./google": {
+      "types": "./src/google/index.ts",
+      "import": "./src/google/index.ts"
     }
   },
   "scripts": {
