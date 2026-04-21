@@ -1,17 +1,3 @@
-/**
- * Entry point executado em `utilityProcess` isolado para uma sessão.
- *
- * Cada sessão ativa spawnsa um worker deste tipo. O sessionId chega
- * via `process.argv[2]` (configurado pelo `SessionManager`), evitando
- * leitura de `process.env` bloqueada pelo lint.
- *
- * Protocolo (parent ↔ worker):
- *   - `send-message` / `interrupt` vindos do main → eventos emitidos de
- *     volta como `session-event`.
- *   - `health-check` → `health-response` com memória atual.
- *   - `shutdown` → flush + `process.exit(0)`.
- */
-
 import { createLogger } from '@g4os/kernel/logger';
 
 interface WorkerMessage {

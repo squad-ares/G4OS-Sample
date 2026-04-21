@@ -120,3 +120,7 @@ Formato curto:
 - `STUDY/Audit/analise-causas-e-solucoes.md` — por que v2 existe (3 dores do cliente)
 - `STUDY/Audit/packages.md` — mapa biblioteca → problema que resolve
 - `scripts/check-*.ts` — gates customizados (ler antes de "contornar")
+
+## Proibições
+
+- Não execute os scripts de teste como lint, e outros gatilhos de build. Não escreva ADRs. Ao finalizar a execução, apenas avise que essas etapas precisam ser executadas. Assim o usuário poderá alterar modelos para tarefas mais simples

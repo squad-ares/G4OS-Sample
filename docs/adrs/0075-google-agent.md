@@ -5,7 +5,7 @@
 - **Numero:** 0075
 - **Status:** Accepted
 - **Data:** 2026-04-19
-- **Autor(es):** @g4os-core
+- **Autor(es):** @squad-ares
 - **Stakeholders:** @tech-lead
 - **Task relacionada:** TASK-07-04-google (epic 07-agent-framework)
 

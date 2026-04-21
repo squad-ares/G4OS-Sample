@@ -5,7 +5,7 @@
 - **Numero:** 0077
 - **Status:** Accepted
 - **Data:** 2026-04-19
-- **Autor(es):** @g4os-core
+- **Autor(es):** @squad-ares
 - **Stakeholders:** @tech-lead
 - **Task relacionada:** TASK-07-06 (epic 07-agent-framework)
 

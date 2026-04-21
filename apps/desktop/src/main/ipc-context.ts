@@ -1,126 +1,61 @@
-/**
- * Monta o `IpcContext` concreto consumido pelos routers tRPC.
- *
- * Cada serviço (`workspaces`, `sessions`, ...) é injetado como
- * dependência para manter o ponto de composição único. Por ora os
- * serviços são stubs que retornam erros tipados; implementações reais
- * chegam nas tasks de features/agents/sources.
- */
-
-import type {
-  AgentsService,
-  AuthService,
-  CredentialsService,
-  IpcContext,
-  IpcInvokeEventLike,
-  MarketplaceService,
-  MessagesService,
-  ProjectsService,
-  SchedulerService,
-  SessionsService,
-  SourcesService,
-  UpdatesService,
-  WorkspacesService,
+import {
+  type AgentsService,
+  type AuthService,
+  type CredentialsService,
+  createNullServices,
+  type IpcContext,
+  type IpcInvokeEventLike,
+  type MarketplaceService,
+  type MessagesService,
+  type ProjectsService,
+  type SchedulerService,
+  type SessionsService,
+  type SourcesService,
+  type UpdatesService,
+  type WorkspacesService,
 } from '@g4os/ipc/server';
-import { AppError, ErrorCode } from '@g4os/kernel/errors';
-import { err } from 'neverthrow';
 
 export interface CreateContextInput {
   readonly event?: IpcInvokeEventLike;
+  readonly services?: IpcServiceOverrides;
 }
 
-export function createContext(input: CreateContextInput = {}): IpcContext {
+export interface IpcServiceOverrides {
+  readonly workspaces?: WorkspacesService;
+  readonly sessions?: SessionsService;
+  readonly messages?: MessagesService;
+  readonly projects?: ProjectsService;
+  readonly credentials?: CredentialsService;
+  readonly sources?: SourcesService;
+  readonly agents?: AgentsService;
+  readonly auth?: AuthService;
+  readonly marketplace?: MarketplaceService;
+  readonly scheduler?: SchedulerService;
+  readonly updates?: UpdatesService;
+}
+
+export async function createContext(input: CreateContextInput = {}): Promise<IpcContext> {
+  const nulls = createNullServices();
+  const services = {
+    workspaces: input.services?.workspaces ?? nulls.workspaces,
+    sessions: input.services?.sessions ?? nulls.sessions,
+    messages: input.services?.messages ?? nulls.messages,
+    projects: input.services?.projects ?? nulls.projects,
+    credentials: input.services?.credentials ?? nulls.credentials,
+    sources: input.services?.sources ?? nulls.sources,
+    agents: input.services?.agents ?? nulls.agents,
+    auth: input.services?.auth ?? nulls.auth,
+    marketplace: input.services?.marketplace ?? nulls.marketplace,
+    scheduler: input.services?.scheduler ?? nulls.scheduler,
+    updates: input.services?.updates ?? nulls.updates,
+  };
+
+  const sessionResult = await services.auth.getMe();
+
   return {
     ...(input.event ? { event: input.event } : {}),
-    traceId: generateTraceId(),
-    workspaces: notImplementedWorkspaces,
-    sessions: notImplementedSessions,
-    messages: notImplementedMessages,
-    projects: notImplementedProjects,
-    credentials: notImplementedCredentials,
-    sources: notImplementedSources,
-    agents: notImplementedAgents,
-    auth: notImplementedAuth,
-    marketplace: notImplementedMarketplace,
-    scheduler: notImplementedScheduler,
-    updates: notImplementedUpdates,
+    ...(sessionResult.isOk() ? { session: sessionResult.value } : {}),
+    traceId: `trace_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`,
+    ...services,
   };
 }
-
-function generateTraceId(): string {
-  return `trace_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
-}
-
-function notImplemented(scope: string): AppError {
-  return new AppError({
-    code: ErrorCode.UNKNOWN_ERROR,
-    message: `Serviço ${scope} ainda não implementado neste scaffold`,
-    context: { scope },
-  });
-}
-
-const notImplementedWorkspaces: WorkspacesService = {
-  list: async () => err(notImplemented('workspaces.list')),
-  get: async () => err(notImplemented('workspaces.get')),
-  create: async () => err(notImplemented('workspaces.create')),
-  update: async () => err(notImplemented('workspaces.update')),
-  delete: async () => err(notImplemented('workspaces.delete')),
-};
-
-const notImplementedSessions: SessionsService = {
-  list: async () => err(notImplemented('sessions.list')),
-  get: async () => err(notImplemented('sessions.get')),
-  create: async () => err(notImplemented('sessions.create')),
-  update: async () => err(notImplemented('sessions.update')),
-  delete: async () => err(notImplemented('sessions.delete')),
-  subscribe: () => ({
-    dispose: () => {
-      // Stub: nenhum recurso a liberar enquanto o serviço real não chega.
-    },
-  }),
-};
-
-const notImplementedMessages: MessagesService = {
-  list: async () => err(notImplemented('messages.list')),
-  get: async () => err(notImplemented('messages.get')),
-  append: async () => err(notImplemented('messages.append')),
-};
-
-const notImplementedProjects: ProjectsService = {
-  list: async () => err(notImplemented('projects.list')),
-};
-
-const notImplementedCredentials: CredentialsService = {
-  get: async () => err(notImplemented('credentials.get')),
-  set: async () => err(notImplemented('credentials.set')),
-  delete: async () => err(notImplemented('credentials.delete')),
-  list: async () => err(notImplemented('credentials.list')),
-  rotate: async () => err(notImplemented('credentials.rotate')),
-};
-
-const notImplementedSources: SourcesService = {
-  list: async () => err(notImplemented('sources.list')),
-};
-
-const notImplementedAgents: AgentsService = {
-  list: async () => err(notImplemented('agents.list')),
-};
-
-const notImplementedAuth: AuthService = {
-  getMe: async () => err(notImplemented('auth.getMe')),
-  sendOtp: async () => err(notImplemented('auth.sendOtp')),
-  verifyOtp: async () => err(notImplemented('auth.verifyOtp')),
-  signOut: async () => err(notImplemented('auth.signOut')),
-};
-
-const notImplementedMarketplace: MarketplaceService = {
-  list: async () => err(notImplemented('marketplace.list')),
-};
-
-const notImplementedScheduler: SchedulerService = {
-  list: async () => err(notImplemented('scheduler.list')),
-};
-
-const notImplementedUpdates: UpdatesService = {
-  check: async () => err(notImplemented('updates.check')),
-};

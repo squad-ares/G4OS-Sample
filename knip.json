@@ -9,7 +9,9 @@
         "ts-prune",
         "@commitlint/types",
         "@arethetypeswrong/cli",
-        "size-limit"
+        "size-limit",
+        "electron",
+        "electron-vite"
       ]
     },
     "apps/desktop": {
@@ -21,7 +23,23 @@
         "src/main/services/db-service.ts",
         "src/main/services/backup-scheduler.ts",
         "src/main/workers/session-worker.ts",
-        "src/main/workers/cpu-pool/tasks.ts"
+        "src/main/workers/cpu-pool/tasks.ts",
+        "src/renderer/index.html",
+        "src/renderer/**/*.tsx",
+        "src/renderer/**/*.ts",
+        "electron.vite.config.ts"
+      ],
+      "ignoreDependencies": ["pino-pretty", "pino-roll", "@supabase/supabase-js", "pino"]
+    },
+    "packages/features": {
+      "entry": ["src/**/*.tsx", "src/**/*.ts"],
+      "ignoreDependencies": [
+        "@g4os/ipc",
+        "@g4os/kernel",
+        "@tanstack/react-router",
+        "@trpc/client",
+        "react-dom",
+        "@types/react-dom"
       ]
     },
     "packages/ipc": {
@@ -34,12 +52,8 @@
       "ignoreDependencies": ["@opentelemetry/sdk-node", "@opentelemetry/exporter-trace-otlp-http"]
     },
     "packages/ui": {
-      "ignoreDependencies": [
-        "@tanstack/react-query",
-        "@trpc/react-query",
-        "react-dom",
-        "@types/react-dom"
-      ]
+      "entry": ["src/**/*.tsx", "src/**/*.ts"],
+      "ignoreDependencies": ["@tanstack/react-query", "@trpc/react-query"]
     }
   },
   "ignoreExportsUsedInFile": true

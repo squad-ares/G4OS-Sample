@@ -1,19 +1,10 @@
-/**
- * Registro central de processos filhos do main process.
- *
- * - Spawna `utilityProcess` com política de restart, health checks e
- *   limites de memória.
- * - Mantém inventário consultável por `kind` para debugging e shutdown.
- * - Shutdown ordeiro: sinaliza graceful, aguarda deadline, força kill.
- */
-
 import { randomUUID } from 'node:crypto';
 import { DisposableBase, toDisposable } from '@g4os/kernel/disposable';
 import { createLogger } from '@g4os/kernel/logger';
+import type { ProcessHandle, ProcessKind, SpawnConfig } from '@g4os/platform';
 import type { ElectronRuntime } from '../electron-runtime.ts';
 import { HealthMonitor } from './health-monitor.ts';
 import { ManagedProcess } from './managed-process.ts';
-import type { ProcessHandle, ProcessKind, SpawnConfig } from './types.ts';
 
 const log = createLogger('process-supervisor');
 

@@ -17,7 +17,7 @@ v1 shipped three categories of user-visible incidents. v2 replaces the **archite
 | Dor reportada | Root cause in v1 | v2 structural fix |
 |---|---|---|
 | Perda do runtime Claude SDK (Windows) | Binários externos (`node`, `pnpm`, `uv`, `python3`, `git`) resolvidos via `PATH` do usuário | Runtimes **empacotados** com checksums SHA-256, validados no boot, installer identity autoritativo |
-| Travamento por memória (Windows) | Main process monolítico (1461 LOC / 151 arquivos), sem isolamento por sessão, `chokidar` vazando handles | Main thin (<2000 LOC), worker-per-session via `utilityProcess`, supervisor com health checks, `@parcel/watcher` |
+| Travamento por memória (Windows) | Main process monolítico (1461 LOC / 151 arquivos), sem isolamento por sessão, `chokidar` vazando handles | Main thin (<3000 LOC), worker-per-session via `utilityProcess`, supervisor com health checks, `@parcel/watcher` |
 | Perda de credenciais | 93 arquivos tocando `credentials.enc`, escrita sem lock, AES custom com chave derivada de valor estático | `CredentialVault` como gateway único, Electron `safeStorage` (Keychain/DPAPI/libsecret), escrita atômica `write→fsync→rename` com `credentials.backup.enc` |
 
 v2 não é uma reescrita cosmética. É a substituição de três decisões estruturais da v1 por padrões já validados em Electron de produção (VS Code, Slack, Discord, 1Password).
@@ -66,7 +66,7 @@ packages/
 
 apps/
 ├── desktop/       # Electron main (thin) + renderer
-│   └── src/main/  # < 2000 LOC total, ≤ 300 por arquivo (gate `check:main-size`)
+│   └── src/main/  # < 3000 LOC total, ≤ 300 por arquivo (gate `check:main-size`)
 └── viewer/        # Web viewer/admin (existente do v1, mantido)
 
 scripts/           # Gates customizados (check-file-lines, check-exports, check-main-size, new-adr)
@@ -114,7 +114,7 @@ SIGINT/SIGTERM disparam o mesmo fluxo via `app.quit()`.
 | Lifecycle | `IDisposable` + `DisposableBase` + `DisposableStore` (VS Code pattern) | 0012 |
 | Platform | `@g4os/platform` como ponto único de `process.platform`, `env-paths` | 0013 |
 | Process isolation | Electron `utilityProcess` por sessão + `piscina` para CPU-bound | 0030 |
-| Main thin | <2000 LOC total, ≤300 por arquivo (gate CI) | 0031 |
+| Main thin | <3000 LOC total, ≤300 por arquivo (gate CI) | 0031 |
 | Shutdown | Signal → deadline → SIGKILL; exponential backoff em restart | 0032 |
 | SQLite | `node:sqlite` nativo (Node 24 LTS) — zero binding externo, WAL, FK ON, synchronous=NORMAL, mmap 256MB | 0040a |
 | Event store | JSONL append-only por sessão + replay + checkpoints multi-consumer `(consumer_name, session_id)` | 0043 |
@@ -190,7 +190,7 @@ Pacotes em alpha/RC/beta **não entram em `dependencies`**, salvo exceção com 
 ### Limites e organização
 
 - **Max 500 LOC por arquivo** (gate `check:file-lines`). Exceções via `EXEMPTIONS` com justificativa.
-- **Main process total < 2000 LOC** (gate `check:main-size`), arquivos em `apps/desktop/src/main/` ≤ 300 LOC cada.
+- **Main process total < 3000 LOC** (gate `check:main-size`), arquivos em `apps/desktop/src/main/` ≤ 300 LOC cada. Orçamento elevado de 2000 para 3000 em 2026-04-21 (Epic 10b-wiring) para acomodar composição real de observability/credentials/auth/data/agents/sources.
 - **Zero dependências circulares** (gate `check:circular` via madge).
 - **Boundaries enforcadas** (gate `check:cruiser` via dependency-cruiser):
   - `kernel` não depende de nada interno
@@ -284,7 +284,7 @@ pnpm lint                          # biome check
 pnpm test                          # vitest run
 pnpm build                         # tsup em todos os pacotes
 pnpm check:file-lines              # gate max-500 LOC
-pnpm check:main-size               # gate main <2000 LOC, ≤300/arquivo
+pnpm check:main-size               # gate main <3000 LOC, ≤300/arquivo
 pnpm check:circular                # madge — 0 ciclos
 pnpm check:cruiser                 # dependency-cruiser — boundaries
 pnpm check:dead-code               # knip
@@ -328,7 +328,7 @@ Workflow sugerido:
 6. Commit atômico com Conventional Commits (`feat(data): ...`, `fix(electron): ...`, `chore: ...`).
 7. Atualizar ADR/docs **no mesmo PR** se comportamento mudou.
 
-Tasks concluídas até agora: 00-foundation inteiro, 01-kernel inteiro, 02-ipc-layer inteiro, 03-process-architecture inteiro (TASK-03-01 a 03-06), 04-data-layer inteiro (TASK-04-01 SQLite, 04-02 Drizzle, 04-03 migrations, 04-04 event-sourced sessions, 04-05 attachments, 04-06 backup/restore), 05-credentials inteiro (TASK-05-01 vault, 05-02 safeStorage/backends/factory, 05-03 migração v1→v2, 05-04 rotation — ADRs 0050–0053), 06-observability inteiro (TASK-06-01 pino, 06-02 OTel, 06-03 Sentry, 06-04 memory monitor + leak detector, 06-05 Prometheus metrics, 06-06 debug export — ADRs 0060–0065), 07-agent-framework inteiro (TASK-07-01 IAgent + AgentRegistry — ADR-0070; TASK-07-02 ClaudeAgent — ADR-0071; TASK-07-03 CodexAgent — ADR-0072; TASK-07-04 broker shared — ADR-0073), 08-sources-mcp inteiro (TASK-08-01 a 08-06 — ADRs 0081-0086: ISource + registry, MCP stdio/http, managed connectors base, OAuth kit, SourceLifecycleManager), 09-auth inteiro (TASK-09-01 OTP fix, 09-02 ManagedLoginService FSM, 09-03 EntitlementService + dev bypass, 09-04 SessionRefresher — ADRs 0091-0094). Próxima ordem sugerida: wiring real de auth/MCP/subprocess/OAuth em `apps/desktop`; logger/telemetry/Sentry/memory/metrics ainda pendente em `apps/desktop/src/main/index.ts`.
+Tasks concluídas até agora: 00-foundation inteiro, 01-kernel inteiro, 02-ipc-layer inteiro, 03-process-architecture inteiro (TASK-03-01 a 03-06), 04-data-layer inteiro (TASK-04-01 SQLite, 04-02 Drizzle, 04-03 migrations, 04-04 event-sourced sessions, 04-05 attachments, 04-06 backup/restore), 05-credentials inteiro (TASK-05-01 vault, 05-02 safeStorage/backends/factory, 05-03 migração v1→v2, 05-04 rotation — ADRs 0050–0053), 06-observability inteiro (TASK-06-01 pino, 06-02 OTel, 06-03 Sentry, 06-04 memory monitor + leak detector, 06-05 Prometheus metrics, 06-06 debug export — ADRs 0060–0065), 07-agent-framework inteiro (TASK-07-01 IAgent + AgentRegistry — ADR-0070; TASK-07-02 ClaudeAgent — ADR-0071; TASK-07-03 CodexAgent — ADR-0072; TASK-07-04 broker shared — ADR-0073), 08-sources-mcp inteiro (TASK-08-01 a 08-06 — ADRs 0081-0086: ISource + registry, MCP stdio/http, managed connectors base, OAuth kit, SourceLifecycleManager), 09-auth inteiro (TASK-09-01 OTP fix, 09-02 ManagedLoginService FSM, 09-03 EntitlementService + dev bypass, 09-04 SessionRefresher — ADRs 0091-0094), 10-ui-shell + 10a-ajustes. **Epic 10b-wiring** em andamento (ver `STUDY/Audit/Tasks/10b-wiring/README.md`): `@g4os/auth` agora tem subpath `./supabase` (adapter + env loader); main usa `ManagedLoginService`+`SessionRefresher` reais com `AuthTokenStore` backed pelo `CredentialVault`; `@g4os/observability` inicializado no boot (Sentry/OTel/MemoryMonitor — opt-in por env); renderer tem `AuthStateStore` (TanStack Query compartilhado) com `beforeLoad` síncronos, eliminando o login loop. **Pendente em 10b**: wiring de `@g4os/data`, registries de `@g4os/agents` + `@g4os/sources`, observability no renderer — todos deferidos para quando Epic 11 (features) precisar.
 
 ---
 

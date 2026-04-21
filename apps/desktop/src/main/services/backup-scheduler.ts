@@ -1,12 +1,3 @@
-/**
- * BackupScheduler — gera snapshots periódicos de cada workspace e aplica
- * retenção 7 diários + 4 semanais + 3 mensais.
- *
- * Não inclui UI nem triggers manuais (expostos via tRPC router em outra
- * task); apenas o timer + pruning. Erros em um workspace não abortam o
- * ciclo completo.
- */
-
 import { mkdir, readdir, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import {
@@ -65,7 +56,6 @@ export class BackupScheduler extends DisposableBase {
     return disposer;
   }
 
-  /** Executa um ciclo completo (exposto para testes e triggers manuais). */
   async runOnce(): Promise<void> {
     if (this.running) {
       log.warn('backup cycle already running — skipping');
@@ -105,11 +95,6 @@ export class BackupScheduler extends DisposableBase {
     );
   }
 
-  /**
-   * Política: preserva os N mais recentes diários, 1 por semana nas últimas
-   * `weekly` semanas, 1 por mês nos últimos `monthly` meses. Nomes seguem
-   * `<workspaceId>-<timestamp>.zip`; timestamp guia classificação.
-   */
   private async prune(): Promise<void> {
     const entries = await readdir(this.outputDir);
     const groups = groupBackupsByWorkspace(entries, this.outputDir);
@@ -160,7 +145,6 @@ function groupBackupsByWorkspace(
   return groups;
 }
 
-/** Escolhe no máximo `limit` arquivos, 1 por bucket de `bucketMs`. */
 function pickByBucket(
   list: readonly { path: string; ts: number }[],
   bucketMs: number,

@@ -1,30 +1,31 @@
 # @g4os/auth
 
-Managed authentication for G4 OS v2. Implements OTP-based login, session state machine, entitlement checks and background token refresh — all behind injected ports so the package has no dependency on `@supabase/supabase-js` or `@g4os/credentials`.
+Autenticação gerenciada do G4 OS v2. Implementa login por OTP, máquina de estados de sessão, checagem de entitlement e refresh de token em background — tudo atrás de portas injetadas, de modo que o pacote não depende de `@supabase/supabase-js` nem de `@g4os/credentials`.
 
-## Subpath exports
+## Sub-paths de importação
 
-| Subpath | Contents |
+| Subpath | Conteúdo |
 |---|---|
-| `@g4os/auth` | Re-exports everything |
-| `@g4os/auth/types` | `AuthSession`, `SupabaseAuthPort`, `AuthTokenStore`, key constants |
-| `@g4os/auth/otp` | `sendOtp`, `verifyOtp` (email → signup fallback, V1 bug fix) |
-| `@g4os/auth/managed-login` | `ManagedLoginService`, `ManagedLoginState` FSM |
+| `@g4os/auth` | Re-exporta tudo |
+| `@g4os/auth/types` | `AuthSession`, `SupabaseAuthPort`, `AuthTokenStore`, constantes de chaves |
+| `@g4os/auth/otp` | `sendOtp`, `verifyOtp` (com fallback email → signup, fix do bug V1) |
+| `@g4os/auth/managed-login` | `ManagedLoginService`, FSM `ManagedLoginState` |
 | `@g4os/auth/entitlement` | `EntitlementService`, `Entitlements`, `DEV_ENTITLEMENTS` |
-| `@g4os/auth/refresh` | `SessionRefresher` (background refresh + `reauth_required`) |
+| `@g4os/auth/refresh` | `SessionRefresher` (refresh em background + `reauth_required`) |
+| `@g4os/auth/supabase` | Adapter do SDK Supabase (lazy import) + validação/loader de `.env` |
 
-## Boundaries
+## Fronteiras
 
-`@g4os/auth` depends only on `@g4os/kernel` and `neverthrow`/`rxjs`. It never imports `@supabase/supabase-js`, `@g4os/credentials`, or `electron` — those are wired by `apps/desktop` at startup.
+`@g4os/auth` depende apenas de `@g4os/kernel`, `neverthrow` e `rxjs`. Nunca importa `@supabase/supabase-js`, `@g4os/credentials` ou `electron` — essas são amarrações feitas pelo `apps/desktop` no boot.
 
-## DI ports
+## Portas DI
 
-All integration points are injected at construction:
+Todos os pontos de integração são injetados na construção:
 
-- `SupabaseAuthPort` — wraps Supabase client for OTP send/verify/refresh
-- `AuthTokenStore` — wraps `CredentialVault` for token persistence
-- `EntitlementClient` — wraps the `/api/entitlements` HTTP call
+- `SupabaseAuthPort` — embrulha o cliente Supabase para OTP send/verify/refresh
+- `AuthTokenStore` — embrulha o `CredentialVault` para persistência de tokens
+- `EntitlementClient` — embrulha a chamada HTTP `/api/entitlements`
 
 ## Dev bypass
 
-`EntitlementService` accepts `devBypass: true` (env-flag only; blocked in release by CI gate). Returns `DEV_ENTITLEMENTS` without network call and invokes optional `onBypassUsed` callback for observability. See ADR-0093.
+`EntitlementService` aceita `devBypass: true` (opt-in via env; bloqueado em release por gate de CI). Devolve `DEV_ENTITLEMENTS` sem chamar a rede e dispara o callback opcional `onBypassUsed` para observability. Ver ADR-0093.

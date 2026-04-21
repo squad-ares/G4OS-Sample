@@ -14,6 +14,7 @@
       "!**/.turbo",
       "!**/coverage",
       "!**/*.generated.ts",
+      "!**/routeTree.gen.ts",
       "!**/*.snap"
     ]
   },
@@ -125,6 +126,14 @@
       "enabled": true
     }
   },
+  "css": {
+    "parser": {
+      "tailwindDirectives": true
+    },
+    "formatter": {
+      "enabled": true
+    }
+  },
   "overrides": [
     {
       "includes": ["**/*.test.ts", "**/*.test.tsx", "**/__tests__/**", "**/src/__tests__/**"],
@@ -191,6 +200,16 @@
         "rules": {
           "style": {
             "noProcessEnv": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": ["**/apps/desktop/src/renderer/routes/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "useFilenamingConvention": "off"
           }
         }
       }

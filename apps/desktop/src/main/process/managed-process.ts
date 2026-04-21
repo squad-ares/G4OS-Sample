@@ -1,23 +1,14 @@
-/**
- * Representa um subprocesso gerenciado. Encapsula o ciclo de vida do
- * `utilityProcess` — spawn, stdio, shutdown, restart com backoff — e
- * expõe a interface `ProcessHandle` consumida pelo `ProcessSupervisor`.
- *
- * Memory stats são obtidas via `pidusage` quando disponível; fora disso
- * retornamos zeros (CI/scaffolding sem a dependência instalada).
- */
-
 import type { IDisposable } from '@g4os/kernel/disposable';
 import { DisposableBase, toDisposable } from '@g4os/kernel/disposable';
 import { createLogger } from '@g4os/kernel/logger';
-import type { ElectronRuntime, UtilityProcessInstance } from '../electron-runtime.ts';
 import type {
   ProcessHandle,
   ProcessKind,
   ProcessStats,
   ProcessStatus,
   SpawnConfig,
-} from './types.ts';
+} from '@g4os/platform';
+import type { ElectronRuntime, UtilityProcessInstance } from '../electron-runtime.ts';
 
 const log = createLogger('managed-process');
 
@@ -183,19 +174,14 @@ export class ManagedProcess extends DisposableBase implements ProcessHandle {
   }
 }
 
-interface UtilityProcessForkInvocation {
-  stdio: 'pipe';
-  env?: Record<string, string>;
-}
-
-interface PidStatsModule {
-  default: (pid: number) => Promise<{ cpu: number; memory: number }>;
-}
+type UtilityProcessForkInvocation = { stdio: 'pipe'; env?: Record<string, string> };
 
 async function loadPidStats(pid: number): Promise<ProcessStats | null> {
   try {
     const specifier = 'pidusage';
-    const mod = (await import(/* @vite-ignore */ specifier)) as PidStatsModule;
+    const mod = (await import(/* @vite-ignore */ specifier)) as {
+      default: (pid: number) => Promise<{ cpu: number; memory: number }>;
+    };
     const result = await mod.default(pid);
     return { cpu: result.cpu, memoryRss: result.memory };
   } catch {

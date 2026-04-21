@@ -1,37 +1,37 @@
 # @g4os/observability
 
-Observability layer: distributed tracing (OpenTelemetry), crash reporting (Sentry), memory + listener monitoring, Prometheus metrics, and one-click debug info export.
+Camada de observability: tracing distribuído (OpenTelemetry), crash reporting (Sentry), monitoramento de memória e listeners, métricas Prometheus e export one-click de debug info.
 
-Structured logging lives in [`@g4os/kernel`](../kernel) (`createLogger(scope)`, `createProductionLogger`) — pino is the shared base for every module; this package builds on top.
+Logging estruturado vive em [`@g4os/kernel`](../kernel) (`createLogger(scope)`, `createProductionLogger`) — pino é a base compartilhada; este pacote constrói em cima.
 
-## Modules
+## Módulos
 
-- **`tracer.ts` + `propagation.ts`** — OpenTelemetry API helpers: `withSpan`, `getTracer`, `injectTraceContext`, `runWithExtractedContext`, `getActiveTraceIds`.
-- **`sdk/`** — `initTelemetry(options)` lazy-loads `@opentelemetry/sdk-node` + OTLP exporter. NOOP when no `otlpEndpoint` is configured.
-- **`sentry/`** — `initSentry(options)` lazy-loads `@sentry/electron/main|renderer` or `@sentry/node`. `scrubSentryEvent` / `scrubObject` / `scrubString` sanitize events and breadcrumbs.
-- **`memory/`** — `MemoryMonitor extends DisposableBase` (RSS + heap growth thresholds, `auditProcessListeners`) + `ListenerLeakDetector` (WeakMap + WeakRef, `reportStale`).
-- **`metrics/`** — `createMetrics()` returns an isolated `prom-client` Registry with the IPC / session / agent / MCP / worker catalog. `startHistogramTimer` measures via `hrtime.bigint()`.
-- **`debug/`** — `exportDebugInfo` produces a sanitized ZIP (`system.json`, `config.json`, `logs/*`, `metrics.prom`, `crashes/`, `processes.json`) with dual redaction (shape + text).
+- **`tracer.ts` + `propagation.ts`** — helpers de API OpenTelemetry: `withSpan`, `getTracer`, `injectTraceContext`, `runWithExtractedContext`, `getActiveTraceIds`.
+- **`sdk/`** — `initTelemetry(options)` faz lazy-load de `@opentelemetry/sdk-node` + exporter OTLP. NOOP quando não há `otlpEndpoint`.
+- **`sentry/`** — `initSentry(options)` faz lazy-load de `@sentry/electron/main|renderer` ou `@sentry/node`. `scrubSentryEvent`/`scrubObject`/`scrubString` sanitizam eventos e breadcrumbs.
+- **`memory/`** — `MemoryMonitor extends DisposableBase` (thresholds RSS + growth de heap, `auditProcessListeners`) + `ListenerLeakDetector` (WeakMap + WeakRef, `reportStale`).
+- **`metrics/`** — `createMetrics()` devolve um `Registry` isolado de `prom-client` com catálogo IPC/session/agent/MCP/worker. `startHistogramTimer` mede via `hrtime.bigint()`.
+- **`debug/`** — `exportDebugInfo` produz ZIP sanitizado (`system.json`, `config.json`, `logs/*`, `metrics.prom`, `crashes/`, `processes.json`) com redação dupla (shape + texto).
 
 ## Stack
 
-- [`@opentelemetry/api@1.9.0`](https://opentelemetry.io/docs/languages/js/) (runtime; NOOP when SDK not initialized)
-- [`@opentelemetry/sdk-node@0.215.0`](https://opentelemetry.io/docs/languages/js/instrumentation/) (devDependency, lazy-imported by `initTelemetry`)
+- [`@opentelemetry/api@1.9.0`](https://opentelemetry.io/docs/languages/js/) (runtime; NOOP sem SDK inicializada)
+- [`@opentelemetry/sdk-node@0.215.0`](https://opentelemetry.io/docs/languages/js/instrumentation/) (devDependency, lazy-importada por `initTelemetry`)
 - [`@opentelemetry/exporter-trace-otlp-http@0.215.0`](https://opentelemetry.io/docs/specs/otlp/) (devDependency, lazy)
-- [`prom-client@15.1.3`](https://github.com/siimon/prom-client) (runtime, Prometheus text format)
-- [`archiver@7.0.1`](https://github.com/archiverjs/node-archiver) (ZIP export for debug bundles)
-- `@sentry/electron` / `@sentry/node` are **not** declared here — consumers (apps/desktop) install them. `initSentry` resolves the specifier dynamically.
+- [`prom-client@15.1.3`](https://github.com/siimon/prom-client) (runtime)
+- [`archiver@7.0.1`](https://github.com/archiverjs/node-archiver) (ZIP para debug)
+- `@sentry/electron` / `@sentry/node` **não** são declarados aqui — consumidores (apps/desktop) instalam. `initSentry` resolve o specifier dinamicamente.
 
-## Key ADRs
+## ADRs principais
 
-- **ADR-0060:** pino as the single structured logger (wrapper + `pino-roll` transports) — implemented in `@g4os/kernel`
-- **ADR-0061:** OpenTelemetry API runtime + SDK Node lazy-loaded + W3C Trace Context propagation
-- **ADR-0062:** Sentry with central `beforeSend`/`beforeBreadcrumb` scrub; lazy init; NOOP without DSN
+- **ADR-0060:** pino como único logger estruturado (wrapper + transports `pino-roll`) — implementado em `@g4os/kernel`
+- **ADR-0061:** OpenTelemetry API em runtime + SDK Node lazy + propagação W3C Trace Context
+- **ADR-0062:** Sentry com `beforeSend`/`beforeBreadcrumb` centrais + init lazy + NOOP sem DSN
 - **ADR-0063:** MemoryMonitor + ListenerLeakDetector (DisposableBase, WeakMap + WeakRef)
-- **ADR-0064:** `prom-client` with injectable `Registry`, catalog in `metrics/registry.ts`
-- **ADR-0065:** Debug info export (ZIP + dual redaction)
+- **ADR-0064:** `prom-client` com `Registry` injetável, catálogo em `metrics/registry.ts`
+- **ADR-0065:** Export de debug info (ZIP + redação dupla)
 
-## Usage
+## Uso
 
 ### Tracing (`withSpan`)
 
@@ -48,26 +48,26 @@ const user = await withSpan(
 );
 ```
 
-`withSpan` sets OK status on resolve, records the exception and ERROR status on reject, and always ends the span.
+`withSpan` seta status OK no resolve, registra a exception + status ERROR no reject, e sempre finaliza o span.
 
-### Context propagation (IPC / HTTP)
+### Propagação de contexto (IPC / HTTP)
 
 ```ts
 import { getActiveTraceIds, injectTraceContext, runWithExtractedContext } from '@g4os/observability';
 
-// Outbound (main → worker or main → HTTP)
+// Saída (main → worker ou main → HTTP)
 const headers: Record<string, string> = {};
 injectTraceContext(headers);
 worker.postMessage({ type: 'job', headers, payload });
 
-// Inbound (worker receiving the message)
+// Entrada (worker recebe)
 runWithExtractedContext(message.headers, async () => {
   const { traceId, spanId } = getActiveTraceIds();
-  // ... work runs inside the parent trace
+  // ... trabalho roda dentro do trace pai
 });
 ```
 
-### OpenTelemetry SDK bootstrap
+### Bootstrap OTel SDK
 
 ```ts
 import { initTelemetry } from '@g4os/observability/sdk';
@@ -75,16 +75,16 @@ import { initTelemetry } from '@g4os/observability/sdk';
 const telemetry = await initTelemetry({
   serviceName: 'g4os-main',
   serviceVersion: app.getVersion(),
-  process: 'main',
+  processType: 'main',
   otlpEndpoint: process.env['OTLP_ENDPOINT'], // undefined → NOOP
-  tracesSampleRate: 0.1,
+  sampleRatio: 0.1,
 });
 
-// on graceful shutdown
+// no shutdown graceful
 await telemetry.shutdown();
 ```
 
-### Sentry bootstrap
+### Bootstrap Sentry
 
 ```ts
 import { initSentry } from '@g4os/observability/sentry';
@@ -98,12 +98,8 @@ const sentry = await initSentry({
 
 sentry.setUser({ id: userId, email: userEmail });
 sentry.setTag('workspace_id', workspaceId);
-
-// graceful shutdown
 await sentry.close();
 ```
-
-`scrubSentryEvent` is wired by default as both `beforeSend` and `beforeBreadcrumb`.
 
 ### Memory monitor
 
@@ -122,114 +118,70 @@ const monitor = new MemoryMonitor({
   },
 });
 monitor.start();
-
-// on shutdown
 monitor.dispose();
-
-// one-off listener audit
-const hot = auditProcessListeners(['uncaughtException', 'unhandledRejection'], 5);
 ```
 
-### Listener leak detector
-
-```ts
-import { ListenerLeakDetector } from '@g4os/observability/memory';
-
-const detector = new ListenerLeakDetector();
-
-emitter.on('message', handler);
-detector.track(emitter, 'message', handler);
-
-// later
-emitter.off('message', handler);
-detector.untrack(emitter, 'message', handler);
-
-// periodic scan
-const stale = detector.reportStale(60_000);
-for (const { target, event, ageMs } of stale) {
-  log.warn({ event, ageMs }, 'stale listener');
-}
-```
-
-### Metrics
+### Métricas
 
 ```ts
 import { getMetrics, exportMetrics, startHistogramTimer } from '@g4os/observability/metrics';
 
 const metrics = getMetrics();
-
-// Counter + Gauge
 metrics.sessionActive.inc();
 metrics.ipcRequestTotal.labels({ procedure: 'sessions.list', type: 'query', status: 'ok' }).inc();
 
-// Histogram via timer
-const timer = startHistogramTimer(metrics.ipcRequestDuration, {
-  procedure: 'sessions.list',
-  type: 'query',
-});
+const timer = startHistogramTimer(metrics.ipcRequestDuration, { procedure: 'sessions.list', type: 'query' });
 const result = await doWork();
 timer.end({ status: 'ok' });
 
-// HTTP or tRPC endpoint for Prometheus scraping
 const body = await exportMetrics();
 ```
 
-Catalog (labels shown in parentheses):
+Catálogo:
 - `g4os_ipc_request_duration_seconds` / `g4os_ipc_request_total` (`procedure`, `type`, `status`)
 - `g4os_session_active_count`
 - `g4os_agent_request_duration_seconds` (`agent`, `status`) / `g4os_agent_tokens_total` (`agent`, `type`)
 - `g4os_mcp_subprocess_count` / `g4os_mcp_tool_call_duration_seconds` (`tool`, `source`, `status`) / `g4os_mcp_subprocess_crash_total` (`source`)
 - `g4os_worker_memory_rss_bytes` (`session_id`) / `g4os_worker_restart_total` (`session_id`, `reason`)
 
-### Debug info export
+### Export de debug info
 
 ```ts
 import { exportDebugInfo } from '@g4os/observability/debug';
 
 const result = await exportDebugInfo({
   outputPath: '/tmp/g4os-debug.zip',
-  systemInfo: {
-    app: { name: app.getName(), version: app.getVersion() },
-    platform: {
-      os: process.platform,
-      arch: process.arch,
-      nodeVersion: process.version,
-      electronVersion: process.versions.electron,
-      memoryTotalBytes: os.totalmem(),
-      cpus: os.cpus().length,
-    },
-  },
-  config: await loadConfig(),              // scrubbed by shape
-  logsDir: getAppPaths().logs,             // re-scrubbed by text (default last 7 days, cap 10 MiB/log)
+  systemInfo: { ... },
+  config: await loadConfig(),
+  logsDir: getAppPaths().logs,
   crashesDir: app.getPath('crashDumps'),
   processSnapshot: await getProcessTree(),
 });
-// → { outputPath, byteLength, entries }
 ```
 
-Redaction happens in two layers:
-1. `scrubObject(config)` — removes sensitive keys (`apiKey`, `token`, `password`, …) at any depth.
-2. `scrubString(logContent)` — regex-redacts `sk-*`, `AIza*`, and JWT patterns in raw log text.
+Redação em duas camadas:
+1. `scrubObject(config)` — remove chaves sensíveis (`apiKey`, `token`, `password`, …) em qualquer profundidade.
+2. `scrubString(logContent)` — regex redige `sk-*`, `AIza*` e JWTs em texto puro.
 
-## Testing
+## Testes
 
 ```bash
 pnpm --filter @g4os/observability test
 ```
 
-Test files in `src/__tests__/*.test.ts` cover: tracer + propagation, Sentry scrub (depth/circular/patterns/immutability), memory monitor (fake clock, thresholds, dispose), leak detector, Prometheus registry, debug ZIP export (entries + zero-secrets validation).
+Cobertura: tracer + propagação, scrub do Sentry, memory monitor (fake clock + thresholds + dispose), leak detector, registry Prometheus, debug ZIP.
 
 ## Exports
 
 ```ts
-import { ... } from '@g4os/observability'          // tracer + propagation + type re-exports
+import { ... } from '@g4os/observability'          // tracer + propagação + tipos
 import { ... } from '@g4os/observability/sdk'      // initTelemetry (lazy OTel SDK)
-import { ... } from '@g4os/observability/sentry'   // initSentry + scrub helpers
+import { ... } from '@g4os/observability/sentry'   // initSentry + scrub
 import { ... } from '@g4os/observability/memory'   // MemoryMonitor + ListenerLeakDetector
 import { ... } from '@g4os/observability/metrics'  // createMetrics + timers
-import { ... } from '@g4os/observability/debug'    // exportDebugInfo + redact helpers
+import { ... } from '@g4os/observability/debug'    // exportDebugInfo + redactors
 ```
 
-## Boundary
+## Fronteira
 
-`@g4os/observability` may depend only on `@g4os/kernel` and `@g4os/platform` (enforced by `dependency-cruiser` rule `observability-isolated`). Features and agents consume observability via these subpath exports — they do not import implementation files directly.
+`@g4os/observability` pode depender apenas de `@g4os/kernel` e `@g4os/platform` (regra `observability-isolated`). Features e agentes consomem via subpaths — não importam arquivos de implementação diretamente.

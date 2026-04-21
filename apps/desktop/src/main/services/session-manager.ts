@@ -1,26 +1,13 @@
-/**
- * Gerenciador de sessões ativas como `utilityProcess` isolados.
- *
- * - `getOrSpawn` garante um worker vivo por `sessionId`.
- * - `sendMessage`/`interrupt` delegam ao worker.
- * - `subscribe` reenvia `session-event` do worker ao consumidor.
- * - `stopInactive` descarta workers parados a mais de `olderThanMs`.
- */
-
 import { fileURLToPath } from 'node:url';
 import type { IDisposable } from '@g4os/kernel/disposable';
 import { DisposableBase, toDisposable } from '@g4os/kernel/disposable';
 import { createLogger } from '@g4os/kernel/logger';
+import type { ProcessHandle } from '@g4os/platform';
 import type { ProcessSupervisor } from '../process/supervisor.ts';
-import type { ProcessHandle } from '../process/types.ts';
 
 const log = createLogger('session-manager');
 
-const NO_OP_DISPOSABLE: IDisposable = toDisposable(noop);
-
-function noop(): void {
-  return;
-}
+const NO_OP_DISPOSABLE: IDisposable = toDisposable(() => undefined);
 
 const SESSION_MEMORY_LIMIT_MB = 500;
 const SESSION_MAX_RESTARTS = 2;

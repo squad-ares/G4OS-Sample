@@ -1,16 +1,15 @@
-/**
- * Ligação fina entre o `WindowManager` e o roteador tRPC. Mantida aqui
- * para que `index.ts` permaneça pequeno e `ipc-server.ts` continue
- * responsável apenas pela integração com `electron-trpc/main`.
- */
-
+import type { IpcServiceOverrides } from './ipc-context.ts';
 import { createIpcServer } from './ipc-server.ts';
 import type { WindowManager } from './window-manager.ts';
 
 export interface IpcBootstrapOptions {
   readonly windowManager: WindowManager;
+  readonly services?: IpcServiceOverrides;
 }
 
 export async function initIpcServer(options: IpcBootstrapOptions): Promise<void> {
-  await createIpcServer({ windows: options.windowManager.list() });
+  await createIpcServer({
+    windows: options.windowManager.list(),
+    ...(options.services ? { services: options.services } : {}),
+  });
 }

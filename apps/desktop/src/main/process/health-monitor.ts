@@ -1,14 +1,8 @@
-/**
- * Monitor ativo de saúde de um `ProcessHandle`. Envia `health-check`
- * periódico e aciona `onUnhealthy` após `unhealthyThreshold` falhas
- * consecutivas (timeout, resposta `degraded` ou RSS acima do limite).
- */
-
 import { randomUUID } from 'node:crypto';
 import type { IDisposable } from '@g4os/kernel/disposable';
 import { toDisposable } from '@g4os/kernel/disposable';
 import { createLogger } from '@g4os/kernel/logger';
-import type { ProcessHandle } from './types.ts';
+import type { ProcessHandle } from '@g4os/platform';
 
 const log = createLogger('health-monitor');
 

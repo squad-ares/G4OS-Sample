@@ -3,7 +3,9 @@
   "compilerOptions": {
     "noEmit": true,
     "outDir": "./dist",
-    "rootDir": "./src"
+    "rootDir": "./src",
+    "jsx": "react-jsx",
+    "types": ["vite/client"]
   },
   "include": ["src/**/*"],
   "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx", "src/__tests__/**"]

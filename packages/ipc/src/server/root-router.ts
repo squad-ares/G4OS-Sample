@@ -4,6 +4,7 @@ import { credentialsRouter } from './routers/credentials-router.ts';
 import { healthRouter } from './routers/health-router.ts';
 import { marketplaceRouter } from './routers/marketplace-router.ts';
 import { messagesRouter } from './routers/messages-router.ts';
+import { platformRouter } from './routers/platform-router.ts';
 import { projectsRouter } from './routers/projects-router.ts';
 import { schedulerRouter } from './routers/scheduler-router.ts';
 import { sessionsRouter } from './routers/sessions-router.ts';
@@ -23,6 +24,7 @@ export const appRouter = router({
   agents: agentsRouter,
   auth: authRouter,
   marketplace: marketplaceRouter,
+  platform: platformRouter,
   scheduler: schedulerRouter,
   updates: updatesRouter,
 });

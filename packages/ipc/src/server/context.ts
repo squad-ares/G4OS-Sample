@@ -103,6 +103,13 @@ export interface UpdatesService {
   check(): Promise<Result<{ hasUpdate: boolean; version?: string }, AppError>>;
 }
 
+export interface PlatformService {
+  readFileAsDataUrl?(path: string): Promise<string>;
+  openExternal?(url: string): Promise<void>;
+  copyToClipboard?(text: string): Promise<void>;
+  showItemInFolder?(path: string): Promise<void>;
+}
+
 export interface IpcContext {
   readonly event?: IpcInvokeEventLike;
   readonly traceId: string;
@@ -119,4 +126,5 @@ export interface IpcContext {
   readonly marketplace: MarketplaceService;
   readonly scheduler: SchedulerService;
   readonly updates: UpdatesService;
+  readonly platform?: PlatformService;
 }

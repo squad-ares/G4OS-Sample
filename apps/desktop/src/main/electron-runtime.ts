@@ -1,24 +1,22 @@
-/**
- * Loader central do runtime do Electron e tipos mínimos usados pelos
- * serviços do main process.
- *
- * Mantemos interfaces locais para que o pacote `@g4os/desktop` faça
- * typecheck/lint mesmo sem `electron` instalado (fase atual do
- * scaffolding). O runtime real é acoplado via `import()` dinâmico
- * resolvido em runtime pelo Electron.
- */
+import electron from 'electron';
 
 export interface ElectronEvent {
   preventDefault(): void;
 }
 
 export interface ElectronApp {
+  readonly isPackaged: boolean;
+  getVersion(): string;
   whenReady(): Promise<void>;
   quit(): void;
   exit(code: number): void;
   on(event: 'window-all-closed', listener: () => void): void;
   on(event: 'before-quit', listener: (event: ElectronEvent) => void): void;
   on(event: 'open-url', listener: (event: ElectronEvent, url: string) => void): void;
+}
+
+export interface ElectronDialog {
+  showErrorBox(title: string, content: string): void;
 }
 
 export interface BrowserWindowWebPreferences {
@@ -37,7 +35,7 @@ export interface BrowserWindowOptions {
 export interface BrowserWindowInstance {
   loadURL(url: string): Promise<void>;
   close(): void;
-  readonly webContents: { readonly id: number };
+  readonly webContents: { readonly id: number; openDevTools(options?: { mode?: 'detach' }): void };
   isDestroyed(): boolean;
 }
 
@@ -72,16 +70,26 @@ export interface UtilityProcessFactory {
 
 export interface ElectronRuntime {
   readonly app: ElectronApp;
+  readonly dialog?: ElectronDialog;
   readonly BrowserWindow: new (options: BrowserWindowOptions) => BrowserWindowInstance;
   readonly utilityProcess: UtilityProcessFactory;
 }
 
-export async function loadElectron(): Promise<ElectronRuntime | null> {
-  try {
-    const specifier = 'electron';
-    const mod = (await import(/* @vite-ignore */ specifier)) as unknown;
-    return mod as ElectronRuntime;
-  } catch {
-    return null;
+export function loadElectron(): Promise<ElectronRuntime | null> {
+  const mod = (electron ?? {}) as {
+    app?: ElectronApp;
+    dialog?: ElectronDialog;
+    BrowserWindow?: ElectronRuntime['BrowserWindow'];
+    utilityProcess?: UtilityProcessFactory;
+  };
+  const { app, dialog, BrowserWindow, utilityProcess } = mod;
+  if (!app || typeof app.whenReady !== 'function' || !BrowserWindow || !utilityProcess) {
+    return Promise.resolve(null);
   }
+  return Promise.resolve({
+    app,
+    ...(dialog ? { dialog } : {}),
+    BrowserWindow,
+    utilityProcess,
+  });
 }

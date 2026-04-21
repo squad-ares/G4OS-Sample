@@ -123,7 +123,14 @@ module.exports = {
           '\\.(config|vitest\\.config)\\.(ts|js)$',
         ],
       },
-      to: { dependencyTypes: ['npm-dev'] },
+      to: {
+        dependencyTypes: ['npm-dev'],
+        // electron é devDependency idiomático — binário é embutido pelo
+        // electron-builder no pacote final, mas o código-fonte precisa
+        // importá-lo diretamente. Sem essa exceção o gate força mover
+        // electron para dependencies, o que infla o pacote publicado.
+        pathNot: '^node_modules/(.pnpm/)?electron@',
+      },
     },
 
     // ========== CICLOS ==========
@@ -160,6 +167,9 @@ module.exports = {
     doNotFollow: {
       path: 'node_modules',
       dependencyTypes: ['npm', 'npm-dev', 'npm-optional', 'npm-peer'],
+    },
+    exclude: {
+      path: '(^|/)(dist|out|build|coverage)/',
     },
     tsPreCompilationDeps: true,
     tsConfig: { fileName: 'tsconfig.base.json' },

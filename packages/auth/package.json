@@ -30,6 +30,10 @@
     "./refresh": {
       "types": "./src/refresh/index.ts",
       "import": "./src/refresh/index.ts"
+    },
+    "./supabase": {
+      "types": "./src/supabase/index.ts",
+      "import": "./src/supabase/index.ts"
     }
   },
   "scripts": {

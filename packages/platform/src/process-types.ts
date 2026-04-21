@@ -1,8 +1,3 @@
-/**
- * Contrato compartilhado entre `ProcessSupervisor`, `ManagedProcess` e
- * `HealthMonitor`. Todas as interações com subprocessos passam por aqui.
- */
-
 import type { IDisposable } from '@g4os/kernel/disposable';
 
 export type ProcessKind = 'session' | 'mcp' | 'cpu-worker';

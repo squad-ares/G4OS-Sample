@@ -86,6 +86,17 @@ Escreva ADR quando:
 | 0092 | ManagedLoginService — FSM discriminado + DisposableBase | Accepted | 2026-04-20 | 09-auth |
 | 0093 | EntitlementService — dev bypass opt-in + onBypassUsed callback | Accepted | 2026-04-20 | 09-auth |
 | 0094 | SessionRefresher — timer injetável + reauth_required em falha | Accepted | 2026-04-20 | 09-auth |
+| 0100 | WindowManager — estado de janela persistido por workspace | Accepted | 2026-04-21 | 10-ui-shell |
+| 0101 | TanStack Router — roteamento file-based type-safe no renderer | Accepted | 2026-04-21 | 10-ui-shell |
+| 0102 | Theme system — Context API + CSS custom properties, sem next-themes | Accepted | 2026-04-21 | 10-ui-shell |
+| 0103 | @g4os/ui — consolidação Radix + shadcn/ui como biblioteca única | Accepted | 2026-04-21 | 10-ui-shell |
+| 0104 | PlatformProvider — isolamento do renderer de APIs Electron | Accepted | 2026-04-21 | 10-ui-shell |
+| 0105 | App Shell + Auth Guard — layout autenticado e bootstrap do SessionRefresher | Accepted | 2026-04-21 | 10-ui-shell |
+| 0106 | Startup preflight + env contract compartilhado para build e runtime | Accepted | 2026-04-21 | 10A-ajustes |
+| 0107 | Shell autenticado com matriz canônica de navegação antes das features | Accepted | 2026-04-21 | 10A-ajustes |
+| 0108 | Core visual do shell inspirado na V1, mas tokenizado para a V2 | Accepted | 2026-04-21 | 10A-ajustes |
+| 0109 | Package de tradução + política de zero strings diretas em UI monitorada | Accepted | 2026-04-21 | 10A-ajustes |
+| 0110 | Action registry global + baseline de teclado e acessibilidade para o shell | Accepted | 2026-04-21 | 10A-ajustes |
 
 ## Status
 
@@ -151,8 +162,32 @@ Definem logger, tracing, crash reporting, memória, métricas e debug export:
 - **0064:** `prom-client` com Registry injetável, catálogo em `registry.ts`
 - **0065:** Debug ZIP export com redação dupla (shape + texto)
 
+### ADRs de Sources + Auth (08-09)
+Definem runtime de fontes e autenticação base:
+- **0081-0086:** Source interface, supervisors MCP, OAuth kit e lifecycle manager
+- **0091-0094:** OTP Supabase, managed login FSM, entitlement service e session refresh
+
+### ADRs de UI Shell (10-ui-shell)
+Faixa `0100–0105` — decisões de implementação do épico 10:
+- **0100:** WindowManager com estado persistido por workspace (TASK-10-01)
+- **0101:** TanStack Router file-based type-safe no renderer (TASK-10-02)
+- **0102:** Theme system Context API + CSS vars, sem next-themes (TASK-10-03)
+- **0103:** `@g4os/ui` consolidação Radix + shadcn/ui (TASK-10-04)
+- **0104:** PlatformProvider — renderer isolado de APIs Electron (TASK-10-05)
+- **0105:** App Shell + Auth Guard — layout autenticado + SessionRefresher bootstrap (TASK-10-08)
+
+### ADRs de 10A-ajustes (gate pré-épico 11)
+Faixa `0106–0110` — decisões de alinhamento arquitetural antes do épico 11:
+- **0106:** Startup preflight + env contract compartilhado (TASK-10A-04)
+- **0107:** Matriz de navegação do shell autenticado (TASK-10A-05)
+- **0108:** Core visual inspirado na V1 e tokenizado em `@g4os/ui` (TASK-10A-06)
+- **0109:** `@g4os/translate` + política de zero strings diretas (TASK-10A-07)
+- **0110:** Action registry global + baseline de teclado/acessibilidade (TASK-10A-08)
+
 ## Histórico de Alterações
 
+- 2026-04-21: Renumeradas ADRs 0095-0099 → 0106-0110 (épico 10A-ajustes, após 10-ui-shell)
+- 2026-04-21: Adicionadas ADRs 0100-0105 (10-ui-shell — WindowManager, TanStack Router, theme, @g4os/ui, PlatformProvider, AppShell)
 - 2026-04-20: Criados ADRs granulares por task: 0081-0086 (08-sources-mcp) e 0091-0094 (09-auth)
 - 2026-04-19: Adicionadas ADRs 0073-0077 (07-agent-framework — shared broker, OpenAI, Google, streaming, permissions)
 - 2026-04-19: Adicionada ADR 0072 (07-agent-framework — CodexAgent)

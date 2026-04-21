@@ -1,10 +1,3 @@
-/**
- * Pool Piscina para tarefas CPU-bound (parsing de JSONL, render de
- * markdown em lote, compressão). Carregado via import dinâmico para
- * manter `@g4os/desktop` tipável quando `piscina` ainda não está
- * instalado no workspace (fase atual do scaffolding).
- */
-
 import { cpus } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { createLogger } from '@g4os/kernel/logger';

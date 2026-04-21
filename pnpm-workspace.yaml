@@ -5,6 +5,12 @@ packages:
   - "packages/sources/*"
   - "packages/agents/*"
   - "packages/platform/*"
-allowBuilds:
-  esbuild: true
-  lefthook: false
+
+onlyBuiltDependencies:
+  - "@sentry/cli"
+  - "@tailwindcss/oxide"
+  - electron
+  - electron-winstaller
+  - esbuild
+  - koffi
+  - protobufjs
