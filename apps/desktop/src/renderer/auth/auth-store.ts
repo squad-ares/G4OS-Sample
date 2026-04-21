@@ -14,7 +14,6 @@
  */
 
 import type { QueryClient } from '@tanstack/react-query';
-import { TRPCClientError } from '@trpc/client';
 import { trpc } from '../ipc/trpc-client.ts';
 
 export type IpcSession = Awaited<ReturnType<typeof trpc.auth.getMe.query>>;
@@ -83,8 +82,21 @@ async function fetchAuthState(): Promise<AuthState> {
 }
 
 function isUnauthorizedError(error: unknown): boolean {
-  if (error instanceof TRPCClientError) {
-    return error.data?.code === 'UNAUTHORIZED' || error.shape?.data?.code === 'UNAUTHORIZED';
-  }
-  return false;
+  // Duck-type + walk the cause chain: electron-trpc bundles its own
+  // TRPCClientError class, so @trpc/client's `TRPCClientError.from` fails its
+  // internal instanceof check and wraps the bundled error as a plain cause,
+  // stripping `.data`/`.shape` from the outer error. The UNAUTHORIZED code
+  // lives on the bundled inner error.
+  if (!error || typeof error !== 'object') return false;
+  if ((error as { name?: unknown }).name !== 'TRPCClientError') return false;
+  if (hasUnauthorizedCode(error)) return true;
+  return hasUnauthorizedCode((error as { cause?: unknown }).cause);
+}
+
+function hasUnauthorizedCode(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const data = (error as { data?: { code?: unknown } }).data;
+  if (data?.code === 'UNAUTHORIZED') return true;
+  const shape = (error as { shape?: { data?: { code?: unknown } } }).shape;
+  return shape?.data?.code === 'UNAUTHORIZED';
 }
