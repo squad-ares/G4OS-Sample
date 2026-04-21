@@ -70,6 +70,7 @@ export {
 } from './components/dropdown-menu.tsx';
 export { Input } from './components/input.tsx';
 export { Label } from './components/label.tsx';
+export { LanguageSwitcher, type LanguageSwitcherProps } from './components/language-switcher.tsx';
 export { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from './components/popover.tsx';
 export { ScrollArea, ScrollBar } from './components/scroll-area.tsx';
 export {
@@ -96,6 +97,8 @@ export {
   type FieldWrapperProps,
   InputField,
   type InputFieldProps,
+  OtpField,
+  type OtpFieldProps,
   SwitchField,
   type SwitchFieldProps,
   TextareaField,

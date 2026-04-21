@@ -42,7 +42,7 @@
     "@g4os/kernel": "workspace:^",
     "@g4os/translate": "workspace:^",
     "@g4os/ui": "workspace:^",
-    "@hookform/resolvers": "^3.10.0",
+    "@hookform/resolvers": "^5.2.2",
     "@tanstack/react-router": "1.168.23",
     "lucide-react": "^0.511.0",
     "@trpc/client": "11.16.0",

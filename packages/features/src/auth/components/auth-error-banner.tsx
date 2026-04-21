@@ -1,3 +1,5 @@
+import { AlertCircle } from 'lucide-react';
+
 interface AuthErrorBannerProps {
   readonly message: string;
 }
@@ -7,9 +9,10 @@ export function AuthErrorBanner({ message }: AuthErrorBannerProps) {
     <div
       role="alert"
       aria-live="polite"
-      className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+      className="flex items-start gap-2 rounded-[14px] border border-destructive/25 bg-destructive/10 px-3 py-2.5 text-sm text-destructive"
     >
-      {message}
+      <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+      <span className="leading-5">{message}</span>
     </div>
   );
 }

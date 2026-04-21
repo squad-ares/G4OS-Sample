@@ -19,9 +19,9 @@ export function useGlobalShortcuts(bindings: readonly ShellActionBinding[]): voi
       handleKeyDown(event);
     };
 
-    window.addEventListener('keydown', listener);
+    globalThis.window.addEventListener('keydown', listener);
     return () => {
-      window.removeEventListener('keydown', listener);
+      globalThis.window.removeEventListener('keydown', listener);
     };
   }, []);
 }

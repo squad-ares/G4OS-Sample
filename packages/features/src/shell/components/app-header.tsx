@@ -1,4 +1,4 @@
-import { Button, useTranslate } from '@g4os/ui';
+import { Button, LanguageSwitcher, useTranslate } from '@g4os/ui';
 
 export interface AppHeaderProps {
   readonly title: string;
@@ -19,38 +19,50 @@ export function AppHeader({
 }: AppHeaderProps) {
   const { t } = useTranslate();
   return (
-    <header className="border-b border-foreground/10 bg-background/76 px-6 py-4 backdrop-blur-xl">
-      <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-        <div className="min-w-0 space-y-1">
-          <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-accent">
-            {t('shell.header.productBadge')}
-          </div>
-          <div className="text-2xl font-semibold tracking-[-0.04em] text-foreground">{title}</div>
-          <p className="max-w-2xl text-sm leading-6 text-muted-foreground">{description}</p>
-        </div>
+    <header className="flex h-14 shrink-0 items-center gap-4 border-b border-foreground/10 bg-foreground-2 pl-4 pr-3">
+      <div className="min-w-0 flex-1">
+        <div className="truncate text-sm font-semibold tracking-tight text-foreground">{title}</div>
+        {description ? (
+          <p className="truncate text-xs text-muted-foreground">{description}</p>
+        ) : null}
+      </div>
 
-        <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-          {onOpenCommandPalette ? (
-            <Button variant="outline" size="sm" onClick={onOpenCommandPalette}>
-              {t('shell.header.commandPalette')}
-            </Button>
-          ) : null}
-          {onOpenShortcuts ? (
-            <Button variant="outline" size="sm" onClick={onOpenShortcuts}>
-              {t('shell.header.shortcuts')}
-            </Button>
-          ) : null}
-          {userEmail ? (
-            <span className="hidden rounded-full border border-foreground/10 bg-background/80 px-3 py-1.5 sm:inline-flex">
-              {userEmail}
-            </span>
-          ) : null}
-          {onSignOut ? (
-            <Button variant="outline" size="sm" onClick={onSignOut}>
-              {t('shell.header.signOut')}
-            </Button>
-          ) : null}
-        </div>
+      <div className="titlebar-no-drag flex items-center gap-2">
+        {onOpenCommandPalette ? (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onOpenCommandPalette}
+            aria-label={t('shell.header.commandPalette')}
+            title={t('shell.header.commandPalette')}
+          >
+            {t('shell.header.commandPalette')}
+          </Button>
+        ) : null}
+        {onOpenShortcuts ? (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onOpenShortcuts}
+            aria-label={t('shell.header.shortcuts')}
+            title={t('shell.header.shortcuts')}
+          >
+            {t('shell.header.shortcuts')}
+          </Button>
+        ) : null}
+
+        <LanguageSwitcher variant="ghost" size="sm" />
+
+        {userEmail ? (
+          <span className="hidden max-w-[16rem] truncate rounded-full border border-foreground/10 px-3 py-1 text-xs text-muted-foreground sm:inline-block">
+            {userEmail}
+          </span>
+        ) : null}
+        {onSignOut ? (
+          <Button variant="outline" size="sm" onClick={onSignOut}>
+            {t('shell.header.signOut')}
+          </Button>
+        ) : null}
       </div>
     </header>
   );

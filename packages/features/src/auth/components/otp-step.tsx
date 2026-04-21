@@ -1,4 +1,4 @@
-import { Button, Input, Spinner, StepFormLayout, useTranslate } from '@g4os/ui';
+import { Button, OtpField, Spinner, StepFormLayout, useTranslate } from '@g4os/ui';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { ShieldCheck } from 'lucide-react';
 import { useForm } from 'react-hook-form';
@@ -8,21 +8,38 @@ import { AuthErrorBanner } from './auth-error-banner.tsx';
 interface OtpStepProps {
   readonly email: string;
   readonly isLoading: boolean;
+  readonly cooldownSeconds: number;
+  readonly isResending: boolean;
   readonly error?: string;
   readonly onSubmit: (code: string) => void;
+  readonly onResend: () => void;
   readonly onBack: () => void;
 }
 
-export function OtpStep({ email, isLoading, error, onSubmit, onBack }: OtpStepProps) {
+export function OtpStep({
+  email,
+  isLoading,
+  cooldownSeconds,
+  isResending,
+  error,
+  onSubmit,
+  onResend,
+  onBack,
+}: OtpStepProps) {
   const { t } = useTranslate();
   const schema = z.object({
     code: z.string().regex(/^\d{6}$/u, t('auth.otp.invalidFormat')),
   });
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<z.infer<typeof schema>>({ resolver: zodResolver(schema) });
+  type FormValues = z.infer<typeof schema>;
+  const { control, handleSubmit } = useForm<FormValues>({
+    resolver: zodResolver(schema),
+    defaultValues: { code: '' },
+  });
+
+  const resendLabel =
+    cooldownSeconds > 0
+      ? t('auth.otp.resendWithSeconds', { seconds: cooldownSeconds })
+      : t('auth.otp.resend');
 
   return (
     <form onSubmit={handleSubmit((v) => onSubmit(v.code))} className="w-full">
@@ -49,37 +66,40 @@ export function OtpStep({ email, isLoading, error, onSubmit, onBack }: OtpStepPr
             <Button
               type="button"
               variant="ghost"
+              onClick={onResend}
+              disabled={isLoading || isResending || cooldownSeconds > 0}
+              className="h-9 text-xs text-muted-foreground hover:text-foreground"
+            >
+              {isResending ? (
+                <span className="inline-flex items-center gap-2">
+                  <Spinner size="sm" />
+                  {t('auth.otp.resending')}
+                </span>
+              ) : (
+                resendLabel
+              )}
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
               onClick={onBack}
-              disabled={isLoading}
+              disabled={isLoading || isResending}
               className="h-9 text-xs text-muted-foreground hover:underline"
             >
-              {t('auth.otp.useAnotherEmail')}
+              {t('auth.otp.changeEmail')}
             </Button>
           </>
         }
       >
-        <div className="flex flex-col gap-2">
-          <label htmlFor="login-otp" className="text-center text-sm font-semibold text-foreground">
-            {t('auth.otp.label')}
-          </label>
-          <Input
-            id="login-otp"
-            type="text"
-            inputMode="numeric"
-            autoComplete="one-time-code"
-            maxLength={6}
-            placeholder={t('auth.otp.placeholder')}
-            autoFocus={true}
-            aria-invalid={errors.code ? true : undefined}
-            className="text-center font-mono text-lg tracking-[0.5em]"
-            {...register('code')}
-          />
-          {errors.code ? (
-            <p className="text-center text-xs text-destructive" aria-live="polite">
-              {errors.code.message}
-            </p>
-          ) : null}
-        </div>
+        <OtpField
+          control={control}
+          name="code"
+          label={t('auth.otp.label')}
+          centerLabel={true}
+          autoFocus={true}
+          disabled={isLoading}
+        />
+        <p className="text-center text-xs text-muted-foreground">{t('auth.otp.spamHint')}</p>
 
         {error ? <AuthErrorBanner message={error} /> : null}
       </StepFormLayout>

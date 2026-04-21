@@ -23,7 +23,7 @@ export function OnboardingWizard({ ports, onComplete }: OnboardingWizardProps) {
 
   return (
     <div className="flex h-full w-full items-center justify-center px-4 py-10">
-      <div className="w-full max-w-4xl rounded-[32px] border border-foreground/10 bg-background/78 p-6 shadow-[0_24px_80px_rgba(0,31,53,0.10)] backdrop-blur-xl sm:p-8">
+      <div className="w-full max-w-4xl rounded-4xl border border-foreground/10 bg-background/78 p-6 shadow-[0_24px_80px_rgba(0,31,53,0.10)] backdrop-blur-xl sm:p-8">
         <div className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
           <OnboardingIntro />
 

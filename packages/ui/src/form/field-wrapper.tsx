@@ -64,11 +64,11 @@ export function FieldWrapper({
         role="alert"
         aria-live="polite"
         className={cn(
-          'text-xs text-destructive transition-opacity duration-200',
+          'text-xs text-destructive transition-opacity duration-200 h-1',
           error ? 'opacity-100' : 'opacity-0 pointer-events-none',
         )}
       >
-        {error ?? ' '}
+        {error}
       </p>
     </div>
   );
