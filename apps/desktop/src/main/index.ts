@@ -3,6 +3,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createVault } from '@g4os/credentials';
 import { createLogger } from '@g4os/kernel/logger';
+import { isMacOS } from '@g4os/platform';
 import { AppLifecycle } from './app-lifecycle.ts';
 import { DeepLinkHandler } from './deep-link-handler.ts';
 import { loadElectron } from './electron-runtime.ts';
@@ -83,6 +84,9 @@ export async function bootstrapMain(options: BootstrapOptions = {}): Promise<voi
   const cpuPool = new CpuPool();
   const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), '../../../..');
   const iconPath = resolveIconPath({ isPackaged: electron.app.isPackaged, rootDir });
+  if (iconPath && isMacOS() && !electron.app.isPackaged && electron.app.dock) {
+    electron.app.dock.setIcon(iconPath);
+  }
   const windowManager = new WindowManager(electron, { ...(iconPath ? { iconPath } : {}) });
 
   const credentialVault = await createVault({

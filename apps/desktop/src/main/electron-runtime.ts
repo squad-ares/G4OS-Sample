@@ -4,8 +4,13 @@ export interface ElectronEvent {
   preventDefault(): void;
 }
 
+export interface ElectronDock {
+  setIcon(icon: string): void;
+}
+
 export interface ElectronApp {
   readonly isPackaged: boolean;
+  readonly dock?: ElectronDock;
   getVersion(): string;
   whenReady(): Promise<void>;
   quit(): void;
