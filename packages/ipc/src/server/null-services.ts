@@ -11,6 +11,7 @@ import type {
   SessionsService,
   SourcesService,
   UpdatesService,
+  VoiceService,
   WorkspacesService,
 } from './context.ts';
 
@@ -34,6 +35,7 @@ export interface NullServices {
   readonly marketplace: MarketplaceService;
   readonly scheduler: SchedulerService;
   readonly updates: UpdatesService;
+  readonly voice: VoiceService;
 }
 
 export function createNullServices(): NullServices {
@@ -52,11 +54,15 @@ export function createNullServices(): NullServices {
       update: async () => err(notImplemented('sessions.update')),
       delete: async () => err(notImplemented('sessions.delete')),
       subscribe: () => ({ dispose: () => undefined }),
+      stopTurn: async () => err(notImplemented('sessions.stopTurn')),
+      retryLastTurn: async () => err(notImplemented('sessions.retryLastTurn')),
+      truncateAfter: async () => err(notImplemented('sessions.truncateAfter')),
     },
     messages: {
       list: async () => err(notImplemented('messages.list')),
       get: async () => err(notImplemented('messages.get')),
       append: async () => err(notImplemented('messages.append')),
+      search: async () => ok([]),
     },
     projects: {
       list: async () => err(notImplemented('projects.list')),
@@ -88,6 +94,9 @@ export function createNullServices(): NullServices {
     },
     updates: {
       check: async () => err(notImplemented('updates.check')),
+    },
+    voice: {
+      transcribe: () => Promise.reject(notImplemented('voice.transcribe')),
     },
   };
 }

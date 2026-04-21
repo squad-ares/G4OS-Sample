@@ -1,9 +1,13 @@
-import { MessageIdSchema, MessageSchema } from '@g4os/kernel/schemas';
+import { MessageIdSchema, MessageSchema, SearchMatchSchema } from '@g4os/kernel/schemas';
 import { z } from 'zod';
 import { authed } from '../middleware/authed.ts';
 import { router } from '../trpc.ts';
 
 const SessionIdSchema = z.uuid();
+const SearchQueryInput = z.object({
+  sessionId: SessionIdSchema,
+  query: z.string().min(1).max(200),
+});
 
 export const messagesRouter = router({
   list: authed
@@ -31,5 +35,14 @@ export const messagesRouter = router({
       const result = await ctx.messages.append(input);
       if (result.isErr()) throw result.error;
       return result.value;
+    }),
+
+  search: authed
+    .input(SearchQueryInput)
+    .output(z.array(SearchMatchSchema))
+    .query(async ({ input, ctx }) => {
+      const result = await ctx.messages.search(input.sessionId, input.query);
+      if (result.isErr()) throw result.error;
+      return [...result.value];
     }),
 });

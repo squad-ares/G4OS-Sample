@@ -15,6 +15,10 @@
       "types": "./src/auth/index.ts",
       "import": "./src/auth/index.ts"
     },
+    "./chat": {
+      "types": "./src/chat/index.ts",
+      "import": "./src/chat/index.ts"
+    },
     "./shell": {
       "types": "./src/shell/index.ts",
       "import": "./src/shell/index.ts"
@@ -44,11 +48,16 @@
     "@g4os/ui": "workspace:^",
     "@hookform/resolvers": "^5.2.2",
     "@tanstack/react-router": "1.168.23",
-    "lucide-react": "^0.511.0",
+    "@tanstack/react-virtual": "3.13.24",
     "@trpc/client": "11.16.0",
+    "lucide-react": "^0.511.0",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
     "react-hook-form": "^7.56.0",
+    "react-markdown": "10.1.0",
+    "rehype-raw": "7.0.0",
+    "remark-gfm": "4.0.1",
+    "shiki": "4.0.2",
     "zod": "^4.3.6"
   },
   "devDependencies": {

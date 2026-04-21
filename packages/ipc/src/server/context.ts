@@ -3,6 +3,7 @@ import type { AppError, Result } from '@g4os/kernel/errors';
 import type {
   Message,
   MessageId,
+  SearchMatch,
   Session,
   SessionEvent,
   SessionId,
@@ -41,6 +42,12 @@ export interface SessionsService {
   update(id: SessionId, patch: Partial<Session>): Promise<Result<void, AppError>>;
   delete(id: SessionId): Promise<Result<void, AppError>>;
   subscribe(id: SessionId, handler: (event: SessionEvent) => void): IDisposable;
+  stopTurn(id: SessionId): Promise<Result<void, AppError>>;
+  retryLastTurn(id: SessionId): Promise<Result<void, AppError>>;
+  truncateAfter(
+    id: SessionId,
+    afterSequence: number,
+  ): Promise<Result<{ removed: number }, AppError>>;
 }
 
 export interface MessagesService {
@@ -49,6 +56,7 @@ export interface MessagesService {
   append(
     input: Pick<Message, 'sessionId' | 'role' | 'content'>,
   ): Promise<Result<Message, AppError>>;
+  search(sessionId: SessionId, query: string): Promise<Result<readonly SearchMatch[], AppError>>;
 }
 
 export interface ProjectsService {
@@ -110,6 +118,10 @@ export interface PlatformService {
   showItemInFolder?(path: string): Promise<void>;
 }
 
+export interface VoiceService {
+  transcribe(audioBuffer: Buffer, mimeType: string): Promise<string>;
+}
+
 export interface IpcContext {
   readonly event?: IpcInvokeEventLike;
   readonly traceId: string;
@@ -126,5 +138,6 @@ export interface IpcContext {
   readonly marketplace: MarketplaceService;
   readonly scheduler: SchedulerService;
   readonly updates: UpdatesService;
+  readonly voice: VoiceService;
   readonly platform?: PlatformService;
 }

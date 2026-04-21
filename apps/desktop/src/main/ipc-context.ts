@@ -12,6 +12,7 @@ import {
   type SessionsService,
   type SourcesService,
   type UpdatesService,
+  type VoiceService,
   type WorkspacesService,
 } from '@g4os/ipc/server';
 
@@ -32,6 +33,7 @@ export interface IpcServiceOverrides {
   readonly marketplace?: MarketplaceService;
   readonly scheduler?: SchedulerService;
   readonly updates?: UpdatesService;
+  readonly voice?: VoiceService;
 }
 
 export async function createContext(input: CreateContextInput = {}): Promise<IpcContext> {
@@ -48,6 +50,7 @@ export async function createContext(input: CreateContextInput = {}): Promise<Ipc
     marketplace: input.services?.marketplace ?? nulls.marketplace,
     scheduler: input.services?.scheduler ?? nulls.scheduler,
     updates: input.services?.updates ?? nulls.updates,
+    voice: input.services?.voice ?? nulls.voice,
   };
 
   const sessionResult = await services.auth.getMe();

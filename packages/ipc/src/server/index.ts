@@ -13,6 +13,7 @@ export type {
   SessionsService,
   SourcesService,
   UpdatesService,
+  VoiceService,
   WorkspacesService,
 } from './context.ts';
 export {

@@ -101,6 +101,7 @@ Formato curto:
 - **ADRs adicionados** se houver
 - **Gates** (uma linha: "typecheck ✓ lint ✓ test ✓ build ✓ circular ✓ boundaries ✓ main-size (X/2000)")
 - **Próximo passo sugerido** (se task anterior desbloqueou uma específica)
+- **Atualizar .env.example** se novas variáveis forem necessárias
 
 ## Armadilhas que eu mesmo tento cair
 

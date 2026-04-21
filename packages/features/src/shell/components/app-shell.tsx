@@ -27,7 +27,7 @@ export function AppShell({
 
   return (
     <div className="relative flex h-dvh min-h-0 overflow-hidden bg-foreground-2 text-foreground">
-      <div className="titlebar-drag-region pointer-events-none fixed inset-x-0 top-0 z-10 h-[38px]" />
+      <div className="titlebar-drag-region pointer-events-none fixed inset-x-0 top-0 z-10 h-9.5" />
 
       <a
         href="#app-main-content"

@@ -3,6 +3,58 @@ import type { TranslationKey } from './en-us.ts';
 export const ptBR: Readonly<Record<TranslationKey, string>> = {
   'app.name': 'G4 OS',
   'app.mark': 'G4',
+
+  'chat.composer.placeholder': 'No que gostaria de trabalhar?',
+  'chat.composer.ariaLabel': 'Campo de mensagem',
+  'chat.composer.send': 'Enviar mensagem',
+  'chat.composer.stop': 'Parar resposta',
+  'chat.composer.submitHint.enter': 'Enter para enviar · Shift+Enter para nova linha',
+  'chat.composer.submitHint.cmdEnter': '⌘/Ctrl + Enter para enviar · Enter para nova linha',
+  'chat.composer.attachFiles': 'Anexar arquivos',
+  'chat.composer.dropZone.ariaLabel': 'Área de soltar arquivos',
+  'chat.composer.dropZone.dropHint': 'Solte os arquivos aqui',
+  'chat.composer.removeAttachment': 'Remover anexo',
+
+  'chat.transcript.ariaLabel': 'Transcrição da conversa',
+  'chat.transcript.empty': 'Nenhuma mensagem ainda.',
+
+  'chat.search.open': 'Buscar na conversa',
+  'chat.search.close': 'Fechar busca',
+  'chat.search.ariaLabel': 'Buscar na conversa',
+  'chat.search.placeholder': 'Buscar…',
+  'chat.search.noResults': 'Sem resultados',
+  'chat.search.prevMatch': 'Resultado anterior',
+  'chat.search.nextMatch': 'Próximo resultado',
+
+  'chat.actions.retry': 'Tentar novamente a partir desta mensagem',
+  'chat.actions.branch': 'Criar ramificação a partir daqui',
+  'chat.actions.cancel': 'Cancelar',
+  'chat.actions.confirmDestructive': 'Excluir',
+  'chat.actions.truncateTitle': 'Excluir mensagens a partir daqui?',
+  'chat.actions.truncateDescription':
+    'Isso removerá permanentemente todas as mensagens após este ponto. Essa ação não pode ser desfeita.',
+
+  'chat.modelSelector.ariaLabel': 'Selecionar modelo',
+  'chat.modelSelector.placeholder': 'Selecionar modelo',
+  'chat.modelSelector.searchPlaceholder': 'Buscar modelos…',
+
+  'chat.thinkingLevel.ariaLabel': 'Nível de raciocínio',
+
+  'chat.permission.title': 'Solicitação de permissão',
+  'chat.permission.description': 'O agente quer executar',
+  'chat.permission.moreQueued': '{{count}} mais na fila',
+  'chat.permission.deny': 'Negar',
+  'chat.permission.allowOnce': 'Permitir uma vez',
+  'chat.permission.allowSession': 'Permitir na sessão',
+  'chat.permission.alwaysAllow': 'Sempre permitir',
+  'chat.permission.shortcutDeny': 'N',
+  'chat.permission.shortcutAllow': 'P',
+
+  'chat.composer.voice.ariaLabel': 'Entrada de voz',
+  'chat.composer.voice.cancelAriaLabel': 'Cancelar gravação',
+  'chat.composer.voice.transcribing': 'Transcrevendo…',
+  'chat.composer.voice.maxDuration': 'Duração máxima de gravação atingida',
+
   'routing.notFound.title': 'Pagina nao encontrada',
   'routing.notFound.description': 'A tela solicitada ainda nao esta disponível nesta build.',
 

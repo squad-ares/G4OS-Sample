@@ -23,6 +23,10 @@
     "./form": {
       "types": "./src/form/index.ts",
       "import": "./src/form/index.ts"
+    },
+    "./markdown": {
+      "types": "./src/markdown/index.ts",
+      "import": "./src/markdown/index.ts"
     }
   },
   "scripts": {
@@ -62,6 +66,10 @@
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
     "react-hook-form": "^7.56.0",
+    "react-markdown": "10.1.0",
+    "rehype-raw": "7.0.0",
+    "remark-gfm": "4.0.1",
+    "shiki": "4.0.2",
     "sonner": "^2.0.3",
     "tailwind-merge": "^3.3.1",
     "vaul": "^1.1.2"

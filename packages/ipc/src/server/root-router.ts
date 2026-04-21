@@ -10,6 +10,7 @@ import { schedulerRouter } from './routers/scheduler-router.ts';
 import { sessionsRouter } from './routers/sessions-router.ts';
 import { sourcesRouter } from './routers/sources-router.ts';
 import { updatesRouter } from './routers/updates-router.ts';
+import { voiceRouter } from './routers/voice-router.ts';
 import { workspacesRouter } from './routers/workspaces-router.ts';
 import { router } from './trpc.ts';
 
@@ -27,6 +28,7 @@ export const appRouter = router({
   platform: platformRouter,
   scheduler: schedulerRouter,
   updates: updatesRouter,
+  voice: voiceRouter,
 });
 
 export type AppRouter = typeof appRouter;

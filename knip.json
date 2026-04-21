@@ -22,6 +22,7 @@
         "src/main/agents-bootstrap.ts",
         "src/main/services/db-service.ts",
         "src/main/services/backup-scheduler.ts",
+        "src/main/services/transcription.ts",
         "src/main/workers/session-worker.ts",
         "src/main/workers/cpu-pool/tasks.ts",
         "src/renderer/index.html",
@@ -35,11 +36,12 @@
       "entry": ["src/**/*.tsx", "src/**/*.ts"],
       "ignoreDependencies": [
         "@g4os/ipc",
-        "@g4os/kernel",
         "@tanstack/react-router",
         "@trpc/client",
-        "react-dom",
-        "@types/react-dom"
+        "react-markdown",
+        "rehype-raw",
+        "remark-gfm",
+        "shiki"
       ]
     },
     "packages/ipc": {

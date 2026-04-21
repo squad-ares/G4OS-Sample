@@ -58,6 +58,37 @@ export const sessionsRouter = router({
       if (result.isErr()) throw result.error;
     }),
 
+  stopTurn: authed
+    .input(z.object({ id: SessionIdSchema }))
+    .output(z.void())
+    .mutation(async ({ input, ctx }) => {
+      const result = await ctx.sessions.stopTurn(input.id);
+      if (result.isErr()) throw result.error;
+    }),
+
+  retryLastTurn: authed
+    .input(z.object({ id: SessionIdSchema }))
+    .output(z.void())
+    .mutation(async ({ input, ctx }) => {
+      const result = await ctx.sessions.retryLastTurn(input.id);
+      if (result.isErr()) throw result.error;
+    }),
+
+  truncateAfter: authed
+    .input(
+      z.object({
+        id: SessionIdSchema,
+        afterSequence: z.number().int().min(-1),
+        confirm: z.literal(true),
+      }),
+    )
+    .output(z.object({ removed: z.number().int().nonnegative() }))
+    .mutation(async ({ input, ctx }) => {
+      const result = await ctx.sessions.truncateAfter(input.id, input.afterSequence);
+      if (result.isErr()) throw result.error;
+      return result.value;
+    }),
+
   /**
    * Subscription de streaming usando o padrão async-generator (tRPC v11).
    * Backpressure é aplicado via uma fila limitada de eventos; a espera

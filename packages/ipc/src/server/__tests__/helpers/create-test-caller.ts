@@ -14,6 +14,7 @@ import type {
   SessionsService,
   SourcesService,
   UpdatesService,
+  VoiceService,
   WorkspacesService,
 } from '../../context.ts';
 import { appRouter } from '../../root-router.ts';
@@ -57,6 +58,9 @@ function createSessionsMock(): SessionsService {
       toDisposable(() => {
         /* no-op: mock disposable */
       }),
+    stopTurn: async () => ok(undefined),
+    retryLastTurn: async () => ok(undefined),
+    truncateAfter: async () => ok({ removed: 0 }),
   };
 }
 
@@ -65,6 +69,13 @@ function createMessagesMock(): MessagesService {
     list: async () => ok([]),
     get: async () => err(notImplemented('messages.get')),
     append: async () => err(notImplemented('messages.append')),
+    search: async () => ok([]),
+  };
+}
+
+function createVoiceMock(): VoiceService {
+  return {
+    transcribe: () => Promise.reject(notImplemented('voice.transcribe')),
   };
 }
 
@@ -128,6 +139,7 @@ export function createTestCaller(
     marketplace: createMarketplaceMock(),
     scheduler: createSchedulerMock(),
     updates: createUpdatesMock(),
+    voice: createVoiceMock(),
     ...overrides,
   };
   return appRouter.createCaller(ctx);

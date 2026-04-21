@@ -97,6 +97,16 @@ Escreva ADR quando:
 | 0108 | Core visual do shell inspirado na V1, mas tokenizado para a V2 | Accepted | 2026-04-21 | 10A-ajustes |
 | 0109 | Package de tradução + política de zero strings diretas em UI monitorada | Accepted | 2026-04-21 | 10A-ajustes |
 | 0110 | Action registry global + baseline de teclado e acessibilidade para o shell | Accepted | 2026-04-21 | 10A-ajustes |
+| 0111 | Chat composer architecture — textarea + DraftStore + submit-mode | Accepted | 2026-04-21 | 11-features |
+| 0112 | Transcript rendering com virtualização + ações de sessão | Accepted | 2026-04-21 | 11-features |
+| 0113 | Tool renderer plugin registry + fallback com marker de erro | Accepted | 2026-04-21 | 11-features |
+| 0114 | Attachment pipeline (drop/paperclip/paste + validação na borda) | Accepted | 2026-04-21 | 11-features |
+| 0115 | Markdown rendering stack (remark + rehype-raw + Shiki lazy + custom blocks) | Accepted | 2026-04-21 | 11-features |
+| 0116 | Permission modal — fila não-bloqueante + 4 escopos + atalhos A/D | Accepted | 2026-04-21 | 11-features |
+| 0117 | Model selector + catalog estático com capabilities tipadas | Accepted | 2026-04-21 | 11-features |
+| 0118 | Voice input — features transport-agnostic + TranscriptionService fallback | Accepted | 2026-04-21 | 11-features |
+| 0119 | Transcript search — reuso FTS5 + SearchFn injection | Accepted | 2026-04-21 | 11-features |
+| 0120 | Legacy transcript parity — snapshot harness via SSR | Accepted | 2026-04-21 | 11-features |
 
 ## Status
 
@@ -184,8 +194,22 @@ Faixa `0106–0110` — decisões de alinhamento arquitetural antes do épico 11
 - **0109:** `@g4os/translate` + política de zero strings diretas (TASK-10A-07)
 - **0110:** Action registry global + baseline de teclado/acessibilidade (TASK-10A-08)
 
+### ADRs de 11-features / 00-chat (épico do chat)
+Faixa `0111–0120` — decisões de produto/UX do chat da v2:
+- **0111:** Chat composer — textarea nativa + DraftStore + submit-mode (TASK-11-00-01)
+- **0112:** Transcript com virtualização (`@tanstack/react-virtual`) + ações de sessão (TASK-11-00-02 / 11-00-08)
+- **0113:** Tool renderer registry + dispatcher + `FallbackRenderer` com marker de erro (TASK-11-00-03)
+- **0114:** Attachment pipeline unificado (drop/paperclip/paste + validação) (TASK-11-00-04)
+- **0115:** Markdown stack (`react-markdown` + `remark-gfm` + `rehype-raw` + Shiki lazy + `customBlockRegistry`) (TASK-11-00-05)
+- **0116:** Permission modal — fila, 4 escopos (`once`/`session`/`forever`/`deny`), atalhos (TASK-11-00-06)
+- **0117:** Model selector + catálogo estático com `capabilities` e `thinkingLevels` tipados (TASK-11-00-07)
+- **0118:** Voice input — `VoiceButton.transcribe` injetado + `TranscriptionService` OpenAI → managed (TASK-11-00-09)
+- **0119:** Transcript search — FTS5 existente + `SearchFn` injetado + virtualizer-aware scroll (TASK-11-00-10)
+- **0120:** Legacy transcript parity — snapshot harness SSR sem jsdom (TASK-11-00-11)
+
 ## Histórico de Alterações
 
+- 2026-04-21: Adicionadas ADRs 0111-0120 (11-features/00-chat — composer, transcript, tool renderers, attachments, markdown, permissions, model selector, voice input, search, legacy parity)
 - 2026-04-21: Renumeradas ADRs 0095-0099 → 0106-0110 (épico 10A-ajustes, após 10-ui-shell)
 - 2026-04-21: Adicionadas ADRs 0100-0105 (10-ui-shell — WindowManager, TanStack Router, theme, @g4os/ui, PlatformProvider, AppShell)
 - 2026-04-20: Criados ADRs granulares por task: 0081-0086 (08-sources-mcp) e 0091-0094 (09-auth)

@@ -1,6 +1,57 @@
 export const enUS = {
   'app.name': 'G4 OS',
   'app.mark': 'G4',
+
+  'chat.composer.placeholder': 'What would you like to work on?',
+  'chat.composer.ariaLabel': 'Message composer',
+  'chat.composer.send': 'Send message',
+  'chat.composer.stop': 'Stop response',
+  'chat.composer.submitHint.enter': 'Enter to send · Shift+Enter for new line',
+  'chat.composer.submitHint.cmdEnter': '⌘/Ctrl + Enter to send · Enter for new line',
+  'chat.composer.attachFiles': 'Attach files',
+  'chat.composer.dropZone.ariaLabel': 'File drop area',
+  'chat.composer.dropZone.dropHint': 'Drop files here',
+  'chat.composer.removeAttachment': 'Remove attachment',
+
+  'chat.transcript.ariaLabel': 'Conversation transcript',
+  'chat.transcript.empty': 'No messages yet.',
+
+  'chat.search.open': 'Search in transcript',
+  'chat.search.close': 'Close search',
+  'chat.search.ariaLabel': 'Search in transcript',
+  'chat.search.placeholder': 'Search…',
+  'chat.search.noResults': 'No matches',
+  'chat.search.prevMatch': 'Previous match',
+  'chat.search.nextMatch': 'Next match',
+
+  'chat.actions.retry': 'Retry from this message',
+  'chat.actions.branch': 'Branch conversation from here',
+  'chat.actions.cancel': 'Cancel',
+  'chat.actions.confirmDestructive': 'Delete',
+  'chat.actions.truncateTitle': 'Delete messages from here?',
+  'chat.actions.truncateDescription':
+    'This will permanently remove all messages after this point. This action cannot be undone.',
+
+  'chat.modelSelector.ariaLabel': 'Select model',
+  'chat.modelSelector.placeholder': 'Select model',
+  'chat.modelSelector.searchPlaceholder': 'Search models…',
+
+  'chat.thinkingLevel.ariaLabel': 'Thinking level',
+
+  'chat.permission.title': 'Permission request',
+  'chat.permission.description': 'The agent wants to execute',
+  'chat.permission.moreQueued': '{{count}} more queued',
+  'chat.permission.deny': 'Deny',
+  'chat.permission.allowOnce': 'Allow once',
+  'chat.permission.allowSession': 'Allow session',
+  'chat.permission.alwaysAllow': 'Always allow',
+  'chat.permission.shortcutDeny': 'D',
+  'chat.permission.shortcutAllow': 'A',
+
+  'chat.composer.voice.ariaLabel': 'Voice input',
+  'chat.composer.voice.cancelAriaLabel': 'Cancel recording',
+  'chat.composer.voice.transcribing': 'Transcribing…',
+  'chat.composer.voice.maxDuration': 'Max recording duration reached',
   'routing.notFound.title': 'Page not found',
   'routing.notFound.description': 'The view you requested is not available in this build yet.',
 
