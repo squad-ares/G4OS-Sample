@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createVault } from '@g4os/credentials';
@@ -28,6 +29,19 @@ function resolveRendererTargets(): { preloadPath: string; rendererUrl: string } 
   const devServer = readRuntimeEnv('ELECTRON_RENDERER_URL');
   const rendererUrl = devServer ? devServer : `file://${resolve(here, '../renderer/index.html')}`;
   return { preloadPath, rendererUrl };
+}
+
+function resolveIconPath({
+  isPackaged,
+  rootDir,
+}: {
+  readonly isPackaged: boolean;
+  readonly rootDir: string;
+}): string | undefined {
+  const candidates = isPackaged
+    ? [resolve(process.resourcesPath, 'resources/icon.png')]
+    : [resolve(rootDir, 'apps/desktop/resources/icon.png')];
+  return candidates.find((path) => existsSync(path));
 }
 
 export async function bootstrapMain(options: BootstrapOptions = {}): Promise<void> {
@@ -67,8 +81,9 @@ export async function bootstrapMain(options: BootstrapOptions = {}): Promise<voi
   const supervisor = new ProcessSupervisor(electron);
   const sessions = new SessionManager(supervisor);
   const cpuPool = new CpuPool();
-  const windowManager = new WindowManager(electron);
   const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), '../../../..');
+  const iconPath = resolveIconPath({ isPackaged: electron.app.isPackaged, rootDir });
+  const windowManager = new WindowManager(electron, { ...(iconPath ? { iconPath } : {}) });
 
   const credentialVault = await createVault({
     mode: electron.app.isPackaged ? 'prod' : 'dev',

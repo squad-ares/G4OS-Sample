@@ -1,4 +1,18 @@
 import type { TranslationKey } from '@g4os/translate';
+import {
+  Bell,
+  Building2,
+  CalendarClock,
+  FolderKanban,
+  type LucideIcon,
+  MessagesSquare,
+  Newspaper,
+  Plug,
+  Settings,
+  Sparkles,
+  Store,
+  Workflow,
+} from 'lucide-react';
 
 export type ShellNavigationId =
   | 'workspaces'
@@ -16,6 +30,7 @@ export type ShellNavigationId =
 
 export type ShellNavigationSection = 'workspace' | 'automation' | 'system';
 export type ShellNavigationStatus = 'ready' | 'planned';
+export type ShellNavigationPlacement = 'rail' | 'panel';
 
 export interface ShellNavigationEntry {
   readonly id: ShellNavigationId;
@@ -24,6 +39,8 @@ export interface ShellNavigationEntry {
   readonly labelKey: TranslationKey;
   readonly descriptionKey: TranslationKey;
   readonly status: ShellNavigationStatus;
+  readonly icon: LucideIcon;
+  readonly placement: ShellNavigationPlacement;
 }
 
 export const shellNavigationEntries: readonly ShellNavigationEntry[] = [
@@ -34,6 +51,8 @@ export const shellNavigationEntries: readonly ShellNavigationEntry[] = [
     labelKey: 'shell.nav.workspaces.label',
     descriptionKey: 'shell.nav.workspaces.description',
     status: 'ready',
+    icon: MessagesSquare,
+    placement: 'rail',
   },
   {
     id: 'sources',
@@ -42,6 +61,8 @@ export const shellNavigationEntries: readonly ShellNavigationEntry[] = [
     labelKey: 'shell.nav.sources.label',
     descriptionKey: 'shell.nav.sources.description',
     status: 'planned',
+    icon: Plug,
+    placement: 'rail',
   },
   {
     id: 'projects',
@@ -50,6 +71,8 @@ export const shellNavigationEntries: readonly ShellNavigationEntry[] = [
     labelKey: 'shell.nav.projects.label',
     descriptionKey: 'shell.nav.projects.description',
     status: 'planned',
+    icon: FolderKanban,
+    placement: 'rail',
   },
   {
     id: 'marketplace',
@@ -58,6 +81,8 @@ export const shellNavigationEntries: readonly ShellNavigationEntry[] = [
     labelKey: 'shell.nav.marketplace.label',
     descriptionKey: 'shell.nav.marketplace.description',
     status: 'planned',
+    icon: Store,
+    placement: 'rail',
   },
   {
     id: 'company-context',
@@ -66,6 +91,8 @@ export const shellNavigationEntries: readonly ShellNavigationEntry[] = [
     labelKey: 'shell.nav.companyContext.label',
     descriptionKey: 'shell.nav.companyContext.description',
     status: 'planned',
+    icon: Building2,
+    placement: 'panel',
   },
   {
     id: 'skills',
@@ -74,6 +101,8 @@ export const shellNavigationEntries: readonly ShellNavigationEntry[] = [
     labelKey: 'shell.nav.skills.label',
     descriptionKey: 'shell.nav.skills.description',
     status: 'planned',
+    icon: Sparkles,
+    placement: 'rail',
   },
   {
     id: 'workflows',
@@ -82,6 +111,8 @@ export const shellNavigationEntries: readonly ShellNavigationEntry[] = [
     labelKey: 'shell.nav.workflows.label',
     descriptionKey: 'shell.nav.workflows.description',
     status: 'planned',
+    icon: Workflow,
+    placement: 'panel',
   },
   {
     id: 'scheduler',
@@ -90,6 +121,8 @@ export const shellNavigationEntries: readonly ShellNavigationEntry[] = [
     labelKey: 'shell.nav.scheduler.label',
     descriptionKey: 'shell.nav.scheduler.description',
     status: 'planned',
+    icon: CalendarClock,
+    placement: 'panel',
   },
   {
     id: 'vigia',
@@ -98,6 +131,8 @@ export const shellNavigationEntries: readonly ShellNavigationEntry[] = [
     labelKey: 'shell.nav.vigia.label',
     descriptionKey: 'shell.nav.vigia.description',
     status: 'planned',
+    icon: Bell,
+    placement: 'panel',
   },
   {
     id: 'news',
@@ -106,6 +141,8 @@ export const shellNavigationEntries: readonly ShellNavigationEntry[] = [
     labelKey: 'shell.nav.news.label',
     descriptionKey: 'shell.nav.news.description',
     status: 'planned',
+    icon: Newspaper,
+    placement: 'panel',
   },
   {
     id: 'settings',
@@ -114,6 +151,8 @@ export const shellNavigationEntries: readonly ShellNavigationEntry[] = [
     labelKey: 'shell.nav.settings.label',
     descriptionKey: 'shell.nav.settings.description',
     status: 'ready',
+    icon: Settings,
+    placement: 'rail',
   },
   {
     id: 'support',
@@ -122,6 +161,8 @@ export const shellNavigationEntries: readonly ShellNavigationEntry[] = [
     labelKey: 'shell.nav.support.label',
     descriptionKey: 'shell.nav.support.description',
     status: 'ready',
+    icon: Newspaper,
+    placement: 'panel',
   },
 ] as const;
 

@@ -88,8 +88,9 @@ function AuthenticatedLayout() {
   return (
     <>
       <AppShell
-        sidebar={{ workspaces: [] }}
         navigation={{ activePath: location.pathname, onNavigate: handleNavigate }}
+        workspace={{ name: t('app.name') }}
+        onOpenSupport={() => handleNavigate('/support')}
         header={{
           title: headerTitle,
           description: headerDescription,

@@ -4,20 +4,34 @@
   "productName": "G4 OS",
   "directories": {
     "output": "release",
-    "buildResources": "build"
+    "buildResources": "resources"
   },
   "files": ["dist/**/*", "package.json"],
+  "extraResources": [
+    {
+      "from": "resources",
+      "to": "resources",
+      "filter": ["icon.*", "g4os-logos/**/*"]
+    }
+  ],
   "asar": true,
   "asarUnpack": [],
   "npmRebuild": true,
   "mac": {
     "category": "public.app-category.productivity",
-    "hardenedRuntime": true
+    "hardenedRuntime": true,
+    "icon": "resources/icon.icns"
+  },
+  "dmg": {
+    "icon": "resources/icon.icns",
+    "background": "resources/dmg-background.tiff"
   },
   "win": {
-    "target": ["nsis"]
+    "target": ["nsis"],
+    "icon": "resources/icon.ico"
   },
   "linux": {
-    "target": ["AppImage"]
+    "target": ["AppImage"],
+    "icon": "resources/g4os-logos/g4os_app_icon.png"
   }
 }

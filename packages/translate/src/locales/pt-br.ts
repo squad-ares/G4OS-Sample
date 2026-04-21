@@ -77,9 +77,11 @@ export const ptBR: Readonly<Record<TranslationKey, string>> = {
   'shell.header.fallbackDescription':
     'O shell autenticado agora expõe uma única matriz de navegação antes da chegada das features da TASK-11.',
   'shell.sidebar.label': 'Workspaces',
-  'shell.sidebar.ariaLabel': 'Trilho de workspaces',
+  'shell.sidebar.ariaLabel': 'Trilho de atividades',
   'shell.sidebar.createWorkspace': 'Criar workspace',
   'shell.sidebar.empty': 'Nenhum workspace ainda',
+  'shell.sidebar.support': 'Ajuda e suporte',
+  'shell.nav.workspace.switcher': 'Trocar de workspace',
   'shell.nav.ariaLabel': 'Navegação global do shell',
   'shell.nav.matrixBadge': 'Matriz de navegação',
   'shell.nav.matrixDescription':

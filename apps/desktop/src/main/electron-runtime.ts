@@ -26,9 +26,48 @@ export interface BrowserWindowWebPreferences {
   readonly preload?: string;
 }
 
+export interface TrafficLightPosition {
+  readonly x: number;
+  readonly y: number;
+}
+
 export interface BrowserWindowOptions {
   readonly width?: number;
   readonly height?: number;
+  readonly minWidth?: number;
+  readonly minHeight?: number;
+  readonly x?: number;
+  readonly y?: number;
+  readonly show?: boolean;
+  readonly title?: string;
+  readonly icon?: string;
+  readonly backgroundColor?: string;
+  readonly frame?: boolean;
+  readonly autoHideMenuBar?: boolean;
+  readonly titleBarStyle?: 'default' | 'hidden' | 'hiddenInset' | 'customButtonsOnHover';
+  readonly trafficLightPosition?: TrafficLightPosition;
+  readonly vibrancy?:
+    | 'appearance-based'
+    | 'light'
+    | 'dark'
+    | 'titlebar'
+    | 'selection'
+    | 'menu'
+    | 'popover'
+    | 'sidebar'
+    | 'medium-light'
+    | 'ultra-dark'
+    | 'header'
+    | 'sheet'
+    | 'window'
+    | 'hud'
+    | 'fullscreen-ui'
+    | 'tooltip'
+    | 'content'
+    | 'under-window'
+    | 'under-page';
+  readonly visualEffectState?: 'followWindow' | 'active' | 'inactive';
+  readonly backgroundMaterial?: 'auto' | 'none' | 'mica' | 'acrylic' | 'tabbed';
   readonly webPreferences?: BrowserWindowWebPreferences;
 }
 

@@ -2,7 +2,7 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { DisposableBase, toDisposable } from '@g4os/kernel/disposable';
 import { createLogger } from '@g4os/kernel/logger';
-import { getAppPaths } from '@g4os/platform';
+import { getAppPaths, isLinux, isMacOS, isWindows } from '@g4os/platform';
 import type {
   BrowserWindowInstance,
   BrowserWindowOptions,
@@ -13,6 +13,9 @@ const log = createLogger('window-manager');
 
 const DEFAULT_WIDTH = 1280;
 const DEFAULT_HEIGHT = 800;
+const MIN_WIDTH = 800;
+const MIN_HEIGHT = 600;
+const WINDOW_BACKGROUND_COLOR = '#0B0B0F';
 
 interface WindowBounds {
   readonly width: number;
@@ -36,17 +39,24 @@ interface BoundsableWindow extends BrowserWindowInstance {
   on?(event: string, listener: (...args: unknown[]) => void): void;
 }
 
+export interface WindowManagerOptions {
+  readonly stateDir?: string;
+  readonly iconPath?: string;
+}
+
 export class WindowManager extends DisposableBase {
   private readonly windows = new Set<BrowserWindowInstance>();
   private readonly byWorkspace = new Map<string, BrowserWindowInstance>();
   private readonly stateDir: string;
+  private readonly iconPath: string | undefined;
 
   constructor(
     private readonly runtime: ElectronRuntime,
-    stateDir = join(getAppPaths().state, 'windows'),
+    options: WindowManagerOptions = {},
   ) {
     super();
-    this.stateDir = stateDir;
+    this.stateDir = options.stateDir ?? join(getAppPaths().state, 'windows');
+    this.iconPath = options.iconPath;
   }
 
   async openForWorkspace(workspaceId: string): Promise<BrowserWindowInstance> {
@@ -122,6 +132,13 @@ export class WindowManager extends DisposableBase {
     const windowOptions: BrowserWindowOptions = {
       width: bounds.width,
       height: bounds.height,
+      minWidth: MIN_WIDTH,
+      minHeight: MIN_HEIGHT,
+      show: false,
+      backgroundColor: WINDOW_BACKGROUND_COLOR,
+      title: '',
+      ...(this.iconPath ? { icon: this.iconPath } : {}),
+      ...this.platformWindowOptions(),
       webPreferences: {
         contextIsolation: true,
         nodeIntegration: false,
@@ -146,6 +163,31 @@ export class WindowManager extends DisposableBase {
     );
 
     return win;
+  }
+
+  private platformWindowOptions(): Partial<BrowserWindowOptions> {
+    if (isMacOS()) {
+      return {
+        titleBarStyle: 'hiddenInset',
+        trafficLightPosition: { x: 18, y: 18 },
+        vibrancy: 'under-window',
+        visualEffectState: 'active',
+      };
+    }
+    if (isWindows()) {
+      return {
+        frame: true,
+        autoHideMenuBar: true,
+        backgroundMaterial: 'mica',
+      };
+    }
+    if (isLinux()) {
+      return {
+        frame: true,
+        autoHideMenuBar: true,
+      };
+    }
+    return {};
   }
 
   private statePath(workspaceId: string): string {

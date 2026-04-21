@@ -75,9 +75,11 @@ export const enUS = {
   'shell.header.fallbackDescription':
     'The authenticated shell now exposes a single navigation matrix before TASK-11 features arrive.',
   'shell.sidebar.label': 'Workspaces',
-  'shell.sidebar.ariaLabel': 'Workspace rail',
+  'shell.sidebar.ariaLabel': 'Activity rail',
   'shell.sidebar.createWorkspace': 'Create workspace',
   'shell.sidebar.empty': 'No workspaces yet',
+  'shell.sidebar.support': 'Help and support',
+  'shell.nav.workspace.switcher': 'Switch workspace',
   'shell.nav.ariaLabel': 'Global shell navigation',
   'shell.nav.matrixBadge': 'Navigation matrix',
   'shell.nav.matrixDescription':

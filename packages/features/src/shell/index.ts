@@ -11,6 +11,11 @@ export {
   type ShellCommandPaletteProps,
 } from './components/shell-command-palette.tsx';
 export {
+  ShellNavigator,
+  type ShellNavigatorProps,
+  type ShellNavigatorWorkspace,
+} from './components/shell-navigator.tsx';
+export {
   ShellErrorState,
   ShellLoadingState,
   ShellPageScaffold,
