@@ -42,6 +42,8 @@ interface BoundsableWindow extends BrowserWindowInstance {
 export interface WindowManagerOptions {
   readonly stateDir?: string;
   readonly iconPath?: string;
+  readonly defaultPreloadPath?: string;
+  readonly defaultRendererUrl?: string;
 }
 
 export class WindowManager extends DisposableBase {
@@ -49,6 +51,8 @@ export class WindowManager extends DisposableBase {
   private readonly byWorkspace = new Map<string, BrowserWindowInstance>();
   private readonly stateDir: string;
   private readonly iconPath: string | undefined;
+  private defaultPreloadPath: string | undefined;
+  private defaultRendererUrl: string | undefined;
 
   constructor(
     private readonly runtime: ElectronRuntime,
@@ -57,17 +61,39 @@ export class WindowManager extends DisposableBase {
     super();
     this.stateDir = options.stateDir ?? join(getAppPaths().state, 'windows');
     this.iconPath = options.iconPath;
+    this.defaultPreloadPath = options.defaultPreloadPath;
+    this.defaultRendererUrl = options.defaultRendererUrl;
   }
 
-  async openForWorkspace(workspaceId: string): Promise<BrowserWindowInstance> {
+  setDefaults(defaults: { readonly preloadPath?: string; readonly rendererUrl?: string }): void {
+    if (defaults.preloadPath !== undefined) this.defaultPreloadPath = defaults.preloadPath;
+    if (defaults.rendererUrl !== undefined) this.defaultRendererUrl = defaults.rendererUrl;
+  }
+
+  async openForWorkspace(
+    workspaceId: string,
+    overrides: { readonly preloadPath?: string; readonly rendererUrl?: string } = {},
+  ): Promise<BrowserWindowInstance> {
     const existing = this.byWorkspace.get(workspaceId);
     if (existing && existing.isDestroyed() === false) {
       (existing as BoundsableWindow).show?.();
+      existing.focus();
       return existing;
     }
+
+    const preloadPath = overrides.preloadPath ?? this.defaultPreloadPath;
+    const rendererUrl = overrides.rendererUrl ?? this.defaultRendererUrl;
+    if (!preloadPath || !rendererUrl) {
+      throw new Error(
+        'WindowManager.openForWorkspace requires preloadPath and rendererUrl (pass via setDefaults or overrides).',
+      );
+    }
+
     const bounds = await this.loadBounds(workspaceId);
-    const win = await this.createWindow({ ...bounds });
+    const win = this.createWindow({ ...bounds }, { preloadPath });
     this.byWorkspace.set(workspaceId, win);
+
+    await this.load(win, { url: appendWorkspaceId(rendererUrl, workspaceId) });
 
     const w = win as BoundsableWindow;
     w.on?.('close', () => {
@@ -225,4 +251,9 @@ export class WindowManager extends DisposableBase {
       log.warn({ err, workspaceId }, 'failed to save window bounds');
     }
   }
+}
+
+function appendWorkspaceId(url: string, workspaceId: string): string {
+  const separator = url.includes('?') ? '&' : '?';
+  return `${url}${separator}workspaceId=${encodeURIComponent(workspaceId)}`;
 }

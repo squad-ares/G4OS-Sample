@@ -1,11 +1,27 @@
 import type { IDisposable } from '@g4os/kernel/disposable';
 import type { AppError, Result } from '@g4os/kernel/errors';
 import type {
+  GlobalSearchResult,
+  Label,
+  LabelCreateInput,
+  LabelId,
+  LegacyImportEntry,
+  LegacyProject,
   Message,
   MessageId,
+  Project,
+  ProjectCreateInput,
+  ProjectFile,
+  ProjectId,
+  ProjectPatch,
+  ProjectTask,
+  ProjectTaskCreateInput,
+  ProjectTaskId,
+  ProjectTaskPatch,
   SearchMatch,
   Session,
   SessionEvent,
+  SessionFilter,
   SessionId,
   Workspace,
   WorkspaceId,
@@ -27,16 +43,33 @@ export interface IpcSession {
   readonly expiresAt?: number;
 }
 
+export interface WorkspaceDeleteOptions {
+  readonly removeFiles?: boolean;
+}
+
 export interface WorkspacesService {
   list(): Promise<Result<readonly Workspace[], AppError>>;
   get(id: WorkspaceId): Promise<Result<Workspace, AppError>>;
   create(input: Pick<Workspace, 'name' | 'rootPath'>): Promise<Result<Workspace, AppError>>;
   update(id: WorkspaceId, patch: Partial<Workspace>): Promise<Result<void, AppError>>;
-  delete(id: WorkspaceId): Promise<Result<void, AppError>>;
+  delete(id: WorkspaceId, options?: WorkspaceDeleteOptions): Promise<Result<void, AppError>>;
+}
+
+export interface SessionListPage {
+  readonly items: readonly Session[];
+  readonly total: number;
+  readonly hasMore: boolean;
+}
+
+export interface BranchSessionInput {
+  readonly sourceId: SessionId;
+  readonly atSequence: number;
+  readonly name?: string;
 }
 
 export interface SessionsService {
   list(workspaceId: WorkspaceId): Promise<Result<readonly Session[], AppError>>;
+  listFiltered(filter: SessionFilter): Promise<Result<SessionListPage, AppError>>;
   get(id: SessionId): Promise<Result<Session, AppError>>;
   create(input: Pick<Session, 'workspaceId' | 'name'>): Promise<Result<Session, AppError>>;
   update(id: SessionId, patch: Partial<Session>): Promise<Result<void, AppError>>;
@@ -48,6 +81,35 @@ export interface SessionsService {
     id: SessionId,
     afterSequence: number,
   ): Promise<Result<{ removed: number }, AppError>>;
+
+  archive(id: SessionId): Promise<Result<void, AppError>>;
+  restore(id: SessionId): Promise<Result<void, AppError>>;
+  pin(id: SessionId): Promise<Result<void, AppError>>;
+  unpin(id: SessionId): Promise<Result<void, AppError>>;
+  star(id: SessionId): Promise<Result<void, AppError>>;
+  unstar(id: SessionId): Promise<Result<void, AppError>>;
+  markRead(id: SessionId): Promise<Result<void, AppError>>;
+  markUnread(id: SessionId): Promise<Result<void, AppError>>;
+
+  branch(input: BranchSessionInput): Promise<Result<Session, AppError>>;
+  listBranches(parentId: SessionId): Promise<Result<readonly Session[], AppError>>;
+
+  setLabels(id: SessionId, labelIds: readonly LabelId[]): Promise<Result<void, AppError>>;
+  getLabels(id: SessionId): Promise<Result<readonly LabelId[], AppError>>;
+
+  globalSearch(
+    workspaceId: WorkspaceId,
+    query: string,
+  ): Promise<Result<GlobalSearchResult, AppError>>;
+}
+
+export interface LabelsService {
+  list(workspaceId: WorkspaceId): Promise<Result<readonly Label[], AppError>>;
+  create(input: LabelCreateInput): Promise<Result<Label, AppError>>;
+  rename(id: LabelId, name: string): Promise<Result<void, AppError>>;
+  recolor(id: LabelId, color: string | null): Promise<Result<void, AppError>>;
+  reparent(id: LabelId, newParentId: LabelId | null): Promise<Result<void, AppError>>;
+  delete(id: LabelId): Promise<Result<void, AppError>>;
 }
 
 export interface MessagesService {
@@ -59,8 +121,43 @@ export interface MessagesService {
   search(sessionId: SessionId, query: string): Promise<Result<readonly SearchMatch[], AppError>>;
 }
 
+export type { LegacyImportEntry, LegacyProject, ProjectFile };
+
 export interface ProjectsService {
-  list(workspaceId: WorkspaceId): Promise<Result<readonly unknown[], AppError>>;
+  list(workspaceId: WorkspaceId): Promise<Result<readonly Project[], AppError>>;
+  listArchived(workspaceId: WorkspaceId): Promise<Result<readonly Project[], AppError>>;
+  get(id: ProjectId): Promise<Result<Project, AppError>>;
+  create(input: ProjectCreateInput): Promise<Result<Project, AppError>>;
+  update(id: ProjectId, patch: ProjectPatch): Promise<Result<void, AppError>>;
+  archive(id: ProjectId): Promise<Result<void, AppError>>;
+  restore(id: ProjectId): Promise<Result<void, AppError>>;
+  delete(id: ProjectId): Promise<Result<void, AppError>>;
+
+  listFiles(projectId: ProjectId): Promise<Result<readonly ProjectFile[], AppError>>;
+  getFileContent(projectId: ProjectId, relativePath: string): Promise<Result<string, AppError>>;
+  saveFile(
+    projectId: ProjectId,
+    relativePath: string,
+    content: string,
+  ): Promise<Result<void, AppError>>;
+  deleteFile(projectId: ProjectId, relativePath: string): Promise<Result<void, AppError>>;
+
+  listTasks(projectId: ProjectId): Promise<Result<readonly ProjectTask[], AppError>>;
+  createTask(input: ProjectTaskCreateInput): Promise<Result<ProjectTask, AppError>>;
+  updateTask(id: ProjectTaskId, patch: ProjectTaskPatch): Promise<Result<void, AppError>>;
+  deleteTask(id: ProjectTaskId): Promise<Result<void, AppError>>;
+
+  listSessions(projectId: ProjectId): Promise<Result<readonly Session[], AppError>>;
+
+  hasLegacyImportDone(workspaceId: WorkspaceId): Promise<Result<boolean, AppError>>;
+  discoverLegacyProjects(
+    workspaceId: WorkspaceId,
+    workingDirectory: string,
+  ): Promise<Result<readonly LegacyProject[], AppError>>;
+  importLegacyProjects(
+    workspaceId: WorkspaceId,
+    entries: readonly LegacyImportEntry[],
+  ): Promise<Result<readonly Project[], AppError>>;
 }
 
 export interface CredentialMetaView {
@@ -111,15 +208,69 @@ export interface UpdatesService {
   check(): Promise<Result<{ hasUpdate: boolean; version?: string }, AppError>>;
 }
 
+export interface FileDialogFilter {
+  readonly name: string;
+  readonly extensions: readonly string[];
+}
+
+export interface SaveDialogOptions {
+  readonly defaultPath?: string;
+  readonly filters?: readonly FileDialogFilter[];
+  readonly title?: string;
+}
+
+export interface OpenDialogOptions {
+  readonly filters?: readonly FileDialogFilter[];
+  readonly title?: string;
+  readonly defaultPath?: string;
+}
+
+export interface SaveDialogResult {
+  readonly canceled: boolean;
+  readonly filePath?: string;
+}
+
+export interface OpenDialogResult {
+  readonly canceled: boolean;
+  readonly filePaths: readonly string[];
+}
+
 export interface PlatformService {
   readFileAsDataUrl?(path: string): Promise<string>;
   openExternal?(url: string): Promise<void>;
   copyToClipboard?(text: string): Promise<void>;
   showItemInFolder?(path: string): Promise<void>;
+  showSaveDialog?(options: SaveDialogOptions): Promise<SaveDialogResult>;
+  showOpenDialog?(options: OpenDialogOptions): Promise<OpenDialogResult>;
 }
 
 export interface VoiceService {
   transcribe(audioBuffer: Buffer, mimeType: string): Promise<string>;
+}
+
+export interface WindowsService {
+  openWorkspaceWindow(workspaceId: WorkspaceId): Promise<Result<void, AppError>>;
+}
+
+export interface WorkspaceExportSummary {
+  readonly path: string;
+  readonly sizeBytes: number;
+  readonly filesIncluded: number;
+}
+
+export interface WorkspaceImportSummary {
+  readonly workspaceId: WorkspaceId;
+  readonly warnings: readonly string[];
+}
+
+export interface WorkspaceTransferService {
+  exportWorkspace(input: {
+    readonly workspaceId: WorkspaceId;
+    readonly outputPath: string;
+  }): Promise<Result<WorkspaceExportSummary, AppError>>;
+  importWorkspace(input: {
+    readonly zipPath: string;
+  }): Promise<Result<WorkspaceImportSummary, AppError>>;
 }
 
 export interface IpcContext {
@@ -140,4 +291,7 @@ export interface IpcContext {
   readonly updates: UpdatesService;
   readonly voice: VoiceService;
   readonly platform?: PlatformService;
+  readonly windows: WindowsService;
+  readonly workspaceTransfer: WorkspaceTransferService;
+  readonly labels: LabelsService;
 }

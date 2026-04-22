@@ -5,15 +5,19 @@ import {
   createNullServices,
   type IpcContext,
   type IpcInvokeEventLike,
+  type LabelsService,
   type MarketplaceService,
   type MessagesService,
+  type PlatformService,
   type ProjectsService,
   type SchedulerService,
   type SessionsService,
   type SourcesService,
   type UpdatesService,
   type VoiceService,
+  type WindowsService,
   type WorkspacesService,
+  type WorkspaceTransferService,
 } from '@g4os/ipc/server';
 
 export interface CreateContextInput {
@@ -34,8 +38,13 @@ export interface IpcServiceOverrides {
   readonly scheduler?: SchedulerService;
   readonly updates?: UpdatesService;
   readonly voice?: VoiceService;
+  readonly windows?: WindowsService;
+  readonly workspaceTransfer?: WorkspaceTransferService;
+  readonly labels?: LabelsService;
+  readonly platform?: PlatformService;
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: (reason: 14 services wired via null-fallback; structural complexity is inherent in service-composition wiring)
 export async function createContext(input: CreateContextInput = {}): Promise<IpcContext> {
   const nulls = createNullServices();
   const services = {
@@ -51,6 +60,10 @@ export async function createContext(input: CreateContextInput = {}): Promise<Ipc
     scheduler: input.services?.scheduler ?? nulls.scheduler,
     updates: input.services?.updates ?? nulls.updates,
     voice: input.services?.voice ?? nulls.voice,
+    windows: input.services?.windows ?? nulls.windows,
+    workspaceTransfer: input.services?.workspaceTransfer ?? nulls.workspaceTransfer,
+    labels: input.services?.labels ?? nulls.labels,
+    ...(input.services?.platform ? { platform: input.services.platform } : {}),
   };
 
   const sessionResult = await services.auth.getMe();

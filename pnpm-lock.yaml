@@ -137,6 +137,12 @@ importers:
       '@trpc/react-query':
         specifier: 11.16.0
         version: 11.16.0(@tanstack/react-query@5.99.2(react@19.2.5))(@trpc/client@11.16.0(@trpc/server@11.16.0(typescript@6.0.3))(typescript@6.0.3))(@trpc/server@11.16.0(typescript@6.0.3))(react@19.2.5)(typescript@6.0.3)
+      archiver:
+        specifier: 7.0.1
+        version: 7.0.1
+      drizzle-orm:
+        specifier: 1.0.0-beta.17-8a36f93
+        version: 1.0.0-beta.17-8a36f93(@opentelemetry/api@1.9.0)(zod@4.3.6)
       electron-trpc:
         specifier: 0.7.1
         version: 0.7.1(@trpc/client@11.16.0(@trpc/server@11.16.0(typescript@6.0.3))(typescript@6.0.3))(@trpc/server@11.16.0(typescript@6.0.3))(electron@41.2.1)
@@ -161,10 +167,16 @@ importers:
       superjson:
         specifier: 2.2.6
         version: 2.2.6
+      yauzl:
+        specifier: 3.3.0
+        version: 3.3.0
     devDependencies:
       '@tanstack/router-vite-plugin':
         specifier: 1.166.37
         version: 1.166.37(@tanstack/react-router@1.168.23(react-dom@19.2.5(react@19.2.5))(react@19.2.5))(vite@8.0.9(@types/node@25.6.0)(esbuild@0.28.0)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.3))
+      '@types/archiver':
+        specifier: 7.0.0
+        version: 7.0.0
       '@types/node':
         specifier: 25.6.0
         version: 25.6.0
@@ -174,6 +186,9 @@ importers:
       '@types/react-dom':
         specifier: ^19.2.3
         version: 19.2.3(@types/react@19.2.14)
+      '@types/yauzl':
+        specifier: 2.10.3
+        version: 2.10.3
       '@vitejs/plugin-react':
         specifier: ^6.0.1
         version: 6.0.1(vite@8.0.9(@types/node@25.6.0)(esbuild@0.28.0)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.3))

@@ -26,6 +26,9 @@ import { Route as AppNewsRouteImport } from './routes/_app/news'
 import { Route as AppMarketplaceRouteImport } from './routes/_app/marketplace'
 import { Route as AppCompanyContextRouteImport } from './routes/_app/company-context'
 import { Route as AppWorkspacesIndexRouteImport } from './routes/_app/workspaces.index'
+import { Route as AppWorkspacesNewRouteImport } from './routes/_app/workspaces.new'
+import { Route as AppWorkspacesWorkspaceIdSettingsRouteImport } from './routes/_app/workspaces.$workspaceId.settings'
+import { Route as AppWorkspacesWorkspaceIdSessionsIndexRouteImport } from './routes/_app/workspaces.$workspaceId.sessions.index'
 import { Route as AppWorkspacesWorkspaceIdSessionsSessionIdRouteImport } from './routes/_app/workspaces.$workspaceId.sessions.$sessionId'
 
 const LoginRoute = LoginRouteImport.update({
@@ -112,6 +115,23 @@ const AppWorkspacesIndexRoute = AppWorkspacesIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppWorkspacesRoute,
 } as any)
+const AppWorkspacesNewRoute = AppWorkspacesNewRouteImport.update({
+  id: '/new',
+  path: '/new',
+  getParentRoute: () => AppWorkspacesRoute,
+} as any)
+const AppWorkspacesWorkspaceIdSettingsRoute =
+  AppWorkspacesWorkspaceIdSettingsRouteImport.update({
+    id: '/$workspaceId/settings',
+    path: '/$workspaceId/settings',
+    getParentRoute: () => AppWorkspacesRoute,
+  } as any)
+const AppWorkspacesWorkspaceIdSessionsIndexRoute =
+  AppWorkspacesWorkspaceIdSessionsIndexRouteImport.update({
+    id: '/$workspaceId/sessions/',
+    path: '/$workspaceId/sessions/',
+    getParentRoute: () => AppWorkspacesRoute,
+  } as any)
 const AppWorkspacesWorkspaceIdSessionsSessionIdRoute =
   AppWorkspacesWorkspaceIdSessionsSessionIdRouteImport.update({
     id: '/$workspaceId/sessions/$sessionId',
@@ -135,8 +155,11 @@ export interface FileRoutesByFullPath {
   '/vigia': typeof AppVigiaRoute
   '/workflows': typeof AppWorkflowsRoute
   '/workspaces': typeof AppWorkspacesRouteWithChildren
+  '/workspaces/new': typeof AppWorkspacesNewRoute
   '/workspaces/': typeof AppWorkspacesIndexRoute
+  '/workspaces/$workspaceId/settings': typeof AppWorkspacesWorkspaceIdSettingsRoute
   '/workspaces/$workspaceId/sessions/$sessionId': typeof AppWorkspacesWorkspaceIdSessionsSessionIdRoute
+  '/workspaces/$workspaceId/sessions/': typeof AppWorkspacesWorkspaceIdSessionsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -153,8 +176,11 @@ export interface FileRoutesByTo {
   '/support': typeof AppSupportRoute
   '/vigia': typeof AppVigiaRoute
   '/workflows': typeof AppWorkflowsRoute
+  '/workspaces/new': typeof AppWorkspacesNewRoute
   '/workspaces': typeof AppWorkspacesIndexRoute
+  '/workspaces/$workspaceId/settings': typeof AppWorkspacesWorkspaceIdSettingsRoute
   '/workspaces/$workspaceId/sessions/$sessionId': typeof AppWorkspacesWorkspaceIdSessionsSessionIdRoute
+  '/workspaces/$workspaceId/sessions': typeof AppWorkspacesWorkspaceIdSessionsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -174,8 +200,11 @@ export interface FileRoutesById {
   '/_app/vigia': typeof AppVigiaRoute
   '/_app/workflows': typeof AppWorkflowsRoute
   '/_app/workspaces': typeof AppWorkspacesRouteWithChildren
+  '/_app/workspaces/new': typeof AppWorkspacesNewRoute
   '/_app/workspaces/': typeof AppWorkspacesIndexRoute
+  '/_app/workspaces/$workspaceId/settings': typeof AppWorkspacesWorkspaceIdSettingsRoute
   '/_app/workspaces/$workspaceId/sessions/$sessionId': typeof AppWorkspacesWorkspaceIdSessionsSessionIdRoute
+  '/_app/workspaces/$workspaceId/sessions/': typeof AppWorkspacesWorkspaceIdSessionsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -195,8 +224,11 @@ export interface FileRouteTypes {
     | '/vigia'
     | '/workflows'
     | '/workspaces'
+    | '/workspaces/new'
     | '/workspaces/'
+    | '/workspaces/$workspaceId/settings'
     | '/workspaces/$workspaceId/sessions/$sessionId'
+    | '/workspaces/$workspaceId/sessions/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -213,8 +245,11 @@ export interface FileRouteTypes {
     | '/support'
     | '/vigia'
     | '/workflows'
+    | '/workspaces/new'
     | '/workspaces'
+    | '/workspaces/$workspaceId/settings'
     | '/workspaces/$workspaceId/sessions/$sessionId'
+    | '/workspaces/$workspaceId/sessions'
   id:
     | '__root__'
     | '/'
@@ -233,8 +268,11 @@ export interface FileRouteTypes {
     | '/_app/vigia'
     | '/_app/workflows'
     | '/_app/workspaces'
+    | '/_app/workspaces/new'
     | '/_app/workspaces/'
+    | '/_app/workspaces/$workspaceId/settings'
     | '/_app/workspaces/$workspaceId/sessions/$sessionId'
+    | '/_app/workspaces/$workspaceId/sessions/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -364,6 +402,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppWorkspacesIndexRouteImport
       parentRoute: typeof AppWorkspacesRoute
     }
+    '/_app/workspaces/new': {
+      id: '/_app/workspaces/new'
+      path: '/new'
+      fullPath: '/workspaces/new'
+      preLoaderRoute: typeof AppWorkspacesNewRouteImport
+      parentRoute: typeof AppWorkspacesRoute
+    }
+    '/_app/workspaces/$workspaceId/settings': {
+      id: '/_app/workspaces/$workspaceId/settings'
+      path: '/$workspaceId/settings'
+      fullPath: '/workspaces/$workspaceId/settings'
+      preLoaderRoute: typeof AppWorkspacesWorkspaceIdSettingsRouteImport
+      parentRoute: typeof AppWorkspacesRoute
+    }
+    '/_app/workspaces/$workspaceId/sessions/': {
+      id: '/_app/workspaces/$workspaceId/sessions/'
+      path: '/$workspaceId/sessions'
+      fullPath: '/workspaces/$workspaceId/sessions/'
+      preLoaderRoute: typeof AppWorkspacesWorkspaceIdSessionsIndexRouteImport
+      parentRoute: typeof AppWorkspacesRoute
+    }
     '/_app/workspaces/$workspaceId/sessions/$sessionId': {
       id: '/_app/workspaces/$workspaceId/sessions/$sessionId'
       path: '/$workspaceId/sessions/$sessionId'
@@ -375,14 +434,21 @@ declare module '@tanstack/react-router' {
 }
 
 interface AppWorkspacesRouteChildren {
+  AppWorkspacesNewRoute: typeof AppWorkspacesNewRoute
   AppWorkspacesIndexRoute: typeof AppWorkspacesIndexRoute
+  AppWorkspacesWorkspaceIdSettingsRoute: typeof AppWorkspacesWorkspaceIdSettingsRoute
   AppWorkspacesWorkspaceIdSessionsSessionIdRoute: typeof AppWorkspacesWorkspaceIdSessionsSessionIdRoute
+  AppWorkspacesWorkspaceIdSessionsIndexRoute: typeof AppWorkspacesWorkspaceIdSessionsIndexRoute
 }
 
 const AppWorkspacesRouteChildren: AppWorkspacesRouteChildren = {
+  AppWorkspacesNewRoute: AppWorkspacesNewRoute,
   AppWorkspacesIndexRoute: AppWorkspacesIndexRoute,
+  AppWorkspacesWorkspaceIdSettingsRoute: AppWorkspacesWorkspaceIdSettingsRoute,
   AppWorkspacesWorkspaceIdSessionsSessionIdRoute:
     AppWorkspacesWorkspaceIdSessionsSessionIdRoute,
+  AppWorkspacesWorkspaceIdSessionsIndexRoute:
+    AppWorkspacesWorkspaceIdSessionsIndexRoute,
 }
 
 const AppWorkspacesRouteWithChildren = AppWorkspacesRoute._addFileChildren(

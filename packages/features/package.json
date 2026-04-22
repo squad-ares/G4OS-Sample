@@ -26,6 +26,18 @@
     "./onboarding": {
       "types": "./src/onboarding/index.ts",
       "import": "./src/onboarding/index.ts"
+    },
+    "./workspaces": {
+      "types": "./src/workspaces/index.ts",
+      "import": "./src/workspaces/index.ts"
+    },
+    "./sessions": {
+      "types": "./src/sessions/index.ts",
+      "import": "./src/sessions/index.ts"
+    },
+    "./projects": {
+      "types": "./src/projects/index.ts",
+      "import": "./src/projects/index.ts"
     }
   },
   "scripts": {

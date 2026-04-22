@@ -4,6 +4,10 @@ export const SessionStatusSchema = z.enum(['idle', 'running', 'paused', 'error',
 
 export type SessionStatus = z.infer<typeof SessionStatusSchema>;
 
+export const SessionLifecycleSchema = z.enum(['active', 'archived', 'deleted']);
+
+export type SessionLifecycle = z.infer<typeof SessionLifecycleSchema>;
+
 export const SessionProviderSchema = z.enum([
   'claude',
   'openai',
@@ -21,6 +25,7 @@ export const SessionSchema = z.object({
   name: z.string().min(1).max(200),
 
   status: SessionStatusSchema.default('idle'),
+  lifecycle: SessionLifecycleSchema.default('active'),
   provider: SessionProviderSchema.optional(),
   modelId: z.string().optional(),
 
@@ -31,9 +36,22 @@ export const SessionSchema = z.object({
   labels: z.array(z.string()).default([]),
   projectId: z.uuid().optional(),
 
+  parentId: z.uuid().optional(),
+  branchedAtSeq: z.number().int().nonnegative().optional(),
+
+  pinnedAt: z.number().int().positive().optional(),
+  starredAt: z.number().int().positive().optional(),
+  unread: z.boolean().default(false),
+
+  messageCount: z.number().int().nonnegative().default(0),
+  lastMessageAt: z.number().int().positive().optional(),
+  lastEventSequence: z.number().int().nonnegative().default(0),
+
   createdAt: z.number().int().positive(),
   updatedAt: z.number().int().positive(),
   lastActivityAt: z.number().int().positive().optional(),
+  archivedAt: z.number().int().positive().optional(),
+  deletedAt: z.number().int().positive().optional(),
 
   metadata: z
     .object({
@@ -52,3 +70,21 @@ export const SessionUpdateSchema = SessionSchema.partial().omit({
   workspaceId: true,
   createdAt: true,
 });
+
+export const SessionFilterSchema = z.object({
+  workspaceId: z.uuid(),
+  lifecycle: SessionLifecycleSchema.optional(),
+  labelIds: z.array(z.uuid()).optional(),
+  projectId: z.uuid().optional(),
+  pinned: z.boolean().optional(),
+  starred: z.boolean().optional(),
+  unread: z.boolean().optional(),
+  includeBranches: z.boolean().optional(),
+  text: z.string().optional(),
+  updatedAfter: z.number().int().positive().optional(),
+  updatedBefore: z.number().int().positive().optional(),
+  limit: z.number().int().positive().max(500).default(50),
+  offset: z.number().int().nonnegative().default(0),
+});
+
+export type SessionFilter = z.infer<typeof SessionFilterSchema>;

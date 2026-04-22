@@ -6,7 +6,14 @@ import {
   shellActionDefinitions,
   useGlobalShortcuts,
 } from '@g4os/features/shell';
-import { useTranslate } from '@g4os/ui';
+import {
+  useActiveWorkspaceId,
+  useSetActiveWorkspaceId,
+  useWorkspaceShortcuts,
+  WorkspaceSwitcherContent,
+} from '@g4os/features/workspaces';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, useTranslate } from '@g4os/ui';
+import { useQuery } from '@tanstack/react-query';
 import {
   createFileRoute,
   Outlet,
@@ -14,10 +21,11 @@ import {
   useLocation,
   useNavigate,
 } from '@tanstack/react-router';
-import { startTransition, useState } from 'react';
+import { startTransition, useMemo, useState } from 'react';
 import { ensureAuthState, setAuthUnauthenticated } from '../auth/auth-store.ts';
 import { queryClient } from '../ipc/query-client.ts';
 import { trpc } from '../ipc/trpc-client.ts';
+import { workspacesListQueryOptions } from '../workspaces/workspaces-store.ts';
 
 export const Route = createFileRoute('/_app')({
   beforeLoad: async ({ context }) => {
@@ -35,7 +43,14 @@ function AuthenticatedLayout() {
   const location = useLocation();
   const [commandOpen, setCommandOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [switcherOpen, setSwitcherOpen] = useState(false);
   const activeEntry = resolveShellNavigation(location.pathname);
+
+  const { data: workspaces = [] } = useQuery(workspacesListQueryOptions());
+  const activeWorkspaceId = useActiveWorkspaceId();
+  const setActiveWorkspaceId = useSetActiveWorkspaceId();
+  const activeWorkspace =
+    workspaces.find((w) => w.id === activeWorkspaceId) ?? workspaces[0] ?? null;
 
   const handleSignOut = async () => {
     try {
@@ -80,6 +95,20 @@ function AuthenticatedLayout() {
     })),
   );
 
+  const shortcutBindings = useMemo(
+    () =>
+      workspaces.slice(0, 9).map((workspace, index) => ({
+        index: index + 1,
+        workspaceId: workspace.id,
+        onActivate: (id: string) => {
+          setActiveWorkspaceId(id);
+        },
+      })),
+    [workspaces, setActiveWorkspaceId],
+  );
+
+  useWorkspaceShortcuts(shortcutBindings);
+
   const headerTitle = activeEntry ? t(activeEntry.labelKey) : t('app.name');
   const headerDescription = activeEntry
     ? t(activeEntry.descriptionKey)
@@ -89,7 +118,10 @@ function AuthenticatedLayout() {
     <>
       <AppShell
         navigation={{ activePath: location.pathname, onNavigate: handleNavigate }}
-        workspace={{ name: t('app.name') }}
+        workspace={{
+          name: activeWorkspace?.name ?? t('app.name'),
+          onOpenSwitcher: () => setSwitcherOpen(true),
+        }}
         onOpenSupport={() => handleNavigate('/support')}
         header={{
           title: headerTitle,
@@ -121,6 +153,29 @@ function AuthenticatedLayout() {
         onSignOut={() => void handleSignOut()}
       />
       <ShellShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
+      <Dialog open={switcherOpen} onOpenChange={setSwitcherOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{t('workspace.switcher.ariaLabel')}</DialogTitle>
+          </DialogHeader>
+          <WorkspaceSwitcherContent
+            workspaces={workspaces}
+            activeWorkspaceId={activeWorkspaceId}
+            onSelect={(id) => {
+              setActiveWorkspaceId(id);
+              setSwitcherOpen(false);
+            }}
+            onCreateNew={() => {
+              setSwitcherOpen(false);
+              handleNavigate('/workspaces/new');
+            }}
+            onManage={() => {
+              setSwitcherOpen(false);
+              handleNavigate('/workspaces');
+            }}
+          />
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

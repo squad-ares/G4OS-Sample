@@ -6,15 +6,24 @@
  * O orçamento cresceu de 2000 para 3000 em 2026-04-21 junto com o
  * Epic 10b-wiring: main passou a compor de verdade observability,
  * credentials, auth e futuras integrações de data/agents/sources.
- * Adicionar 300–400 LOC em composition root (todos arquivos <300 LOC)
- * é o contrário de "god main process" — é o custo legítimo de amarrar
- * os pacotes ADR-defined. CLAUDE.md precisa refletir esse novo teto.
+ *
+ * O orçamento cresceu de 3000 para 4500 em 2026-04-22 junto com o
+ * Epic 11-features/02-workspaces: workspace-transfer-service,
+ * workspaces-service, platform-service, windows-service e helpers de
+ * filesystem/transfer (todos arquivos <300 LOC) são o custo legítimo
+ * de adicionar o domínio de workspaces ao composition root do main.
+ *
+ * O orçamento cresceu de 4500 para 4800 em 2026-04-22 junto com o
+ * Epic 11-features/03-projects TASK-11-03-06 (legacy import): addition of
+ * legacy-import.ts (~112 LOC) e métodos discoverLegacyProjects/importLegacyProjects
+ * em projects-service.ts (~57 LOC adicionais) completam o domínio de projects.
+ * CLAUDE.md e AGENTS.md devem refletir esse novo teto.
  */
 
 import { readFileSync } from 'node:fs';
 import { globSync } from 'glob';
 
-const MAIN_LIMIT = 3000;
+const MAIN_LIMIT = 4800;
 const FILE_LIMIT = 300;
 
 const files = globSync('apps/desktop/src/main/**/*.ts', {

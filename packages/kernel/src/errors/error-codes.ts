@@ -26,6 +26,12 @@ export const ErrorCode = {
   SESSION_CORRUPTED: 'session.corrupted',
   SESSION_LOCKED: 'session.locked',
 
+  // Workspace
+  WORKSPACE_NOT_FOUND: 'workspace.not_found',
+  WORKSPACE_CORRUPTED: 'workspace.corrupted',
+  WORKSPACE_BOOTSTRAP_FAILED: 'workspace.bootstrap_failed',
+  WORKSPACE_SLUG_CONFLICT: 'workspace.slug_conflict',
+
   // Agent
   AGENT_UNAVAILABLE: 'agent.unavailable',
   AGENT_RATE_LIMITED: 'agent.rate_limited',

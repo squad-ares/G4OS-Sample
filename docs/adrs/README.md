@@ -107,6 +107,19 @@ Escreva ADR quando:
 | 0118 | Voice input — features transport-agnostic + TranscriptionService fallback | Accepted | 2026-04-21 | 11-features |
 | 0119 | Transcript search — reuso FTS5 + SearchFn injection | Accepted | 2026-04-21 | 11-features |
 | 0120 | Legacy transcript parity — snapshot harness via SSR | Accepted | 2026-04-21 | 11-features |
+| 0121 | Workspace persistence — híbrido SQLite + filesystem com metadata JSON | Accepted | 2026-04-21 | 11-features |
+| 0122 | Active workspace — localStorage via useSyncExternalStore | Accepted | 2026-04-21 | 11-features |
+| 0123 | Workspace filesystem cleanup — validação de boundary pelo managedRoot | Accepted | 2026-04-21 | 11-features |
+| 0124 | Multi-window workspace — isolamento por URL param | Accepted | 2026-04-21 | 11-features |
+| 0125 | Workspace export/import — pipeline ZIP com filtragem de caminhos sensíveis | Accepted | 2026-04-21 | 11-features |
+| 0126 | Session lifecycle — status enum + timestamps + soft delete 30d | Accepted | 2026-04-22 | 11-features |
+| 0127 | Labels hierárquicos via materialized-path (tree_code) | Accepted | 2026-04-22 | 11-features |
+| 0128 | Session branching — copy-prefix (estratégia A) | Accepted | 2026-04-22 | 11-features |
+| 0129 | Global search — FTS5 cross-session com fallback LIKE | Accepted | 2026-04-22 | 11-features |
+| 0130 | Project CRUD — schema SQLite + rootPath filesystem + bootstrap de diretórios | Accepted | 2026-04-22 | 11-features |
+| 0131 | Project files — path-traversal guard + snapshots locais pré-save + limite 10 MiB | Accepted | 2026-04-22 | 11-features |
+| 0132 | Project tasks — ordering fracional via string lexicográfica sem dependência externa | Accepted | 2026-04-22 | 11-features |
+| 0133 | Legacy project import — discovery em 3 candidatos + sentinel file + keep/import/skip | Accepted | 2026-04-22 | 11-features |
 
 ## Status
 
@@ -172,6 +185,20 @@ Definem logger, tracing, crash reporting, memória, métricas e debug export:
 - **0064:** `prom-client` com Registry injetável, catálogo em `registry.ts`
 - **0065:** Debug ZIP export com redação dupla (shape + texto)
 
+### ADRs de Features/Sessions (11-features/01-sessions)
+Definem ciclo de vida de sessões, organização, busca e ramificação:
+- **0126:** Session lifecycle — status enum (`active`/`archived`/`deleted`) + timestamps + purge assíncrono 30d via `SessionsCleanupScheduler`
+- **0127:** Labels hierárquicos — materialized-path `tree_code` com `LIKE 'prefix%'` no índice B-tree; reparentamento em cascata O(n filhos)
+- **0128:** Session branching — copy-prefix: copia eventos `0..branchedAtSeq` para JSONL independente; branch é cidadã de primeira classe (sem JOIN com tronco)
+- **0129:** Global search — reutiliza `messages_fts` (FTS5) com JOIN em sessions + fallback LIKE para queries inválidas; `snippet()` com marcadores para highlight no cliente
+
+### ADRs de Features/Projects (11-features/03-projects)
+Definem persistência, filesystem e UI de projetos:
+- **0130:** Project CRUD — schema SQLite `projects`+`project_tasks`, `rootPath` gravado no banco, bootstrap de `files/`+`context/`+`project.json`, `toSlug` inline sem dep externa
+- **0131:** Project files — `safeResolve()` bloqueia path traversal, snapshots `.g4os/snapshots/<rel>/<ts>.bak` mantendo 10 mais recentes, limite 10 MiB em `saveFile`
+- **0132:** Project tasks ordering — `order TEXT` com timestamp-ms zero-padded (16 dígitos); sem dep `fractional-indexing` por ora; drag-and-drop deferido para sub-task posterior
+- **0133:** Legacy import — discovery nos 3 candidatos (wsRoot/projects, workingDir/projects, workingDir/projetos), deduplicação por path resolvido, filtragem de IDs já registrados no DB, 3 decisões (import/keep/skip), `registerLegacy` com ID explícito, sentinel file `.legacy-import-done` para evitar re-exibição do wizard
+
 ### ADRs de Sources + Auth (08-09)
 Definem runtime de fontes e autenticação base:
 - **0081-0086:** Source interface, supervisors MCP, OAuth kit e lifecycle manager
@@ -207,8 +234,17 @@ Faixa `0111–0120` — decisões de produto/UX do chat da v2:
 - **0119:** Transcript search — FTS5 existente + `SearchFn` injetado + virtualizer-aware scroll (TASK-11-00-10)
 - **0120:** Legacy transcript parity — snapshot harness SSR sem jsdom (TASK-11-00-11)
 
+### ADRs de 11-features / 02-workspaces (épico de workspaces)
+Faixa `0121–0125` — decisões de persistência, estado e portabilidade de workspaces:
+- **0121:** Persistência híbrida SQLite + filesystem com coluna `metadata` JSON (zero migration por campo de produto) (TASK-11-02-01/02/03)
+- **0122:** Active workspace via `useSyncExternalStore` + localStorage — zero IPC round-trip, isolamento por janela (TASK-11-02-02)
+- **0123:** Cleanup do filesystem validado por boundary `managedRoot` — prevenção de path traversal em delete (TASK-11-02-03)
+- **0124:** Multi-window workspace — isolamento por URL param `?workspaceId=xxx` inicializando localStorage antes do mount (TASK-11-02-04)
+- **0125:** Export/import ZIP com `archiver` + `yauzl`, filtragem de `SENSITIVE_PATH_SEGMENTS` e proteção zip-slip via containment (TASK-11-02-05)
+
 ## Histórico de Alterações
 
+- 2026-04-21: Adicionadas ADRs 0121-0125 (11-features/02-workspaces — persistência híbrida, active workspace, cleanup boundary, multi-window, export/import ZIP)
 - 2026-04-21: Adicionadas ADRs 0111-0120 (11-features/00-chat — composer, transcript, tool renderers, attachments, markdown, permissions, model selector, voice input, search, legacy parity)
 - 2026-04-21: Renumeradas ADRs 0095-0099 → 0106-0110 (épico 10A-ajustes, após 10-ui-shell)
 - 2026-04-21: Adicionadas ADRs 0100-0105 (10-ui-shell — WindowManager, TanStack Router, theme, @g4os/ui, PlatformProvider, AppShell)

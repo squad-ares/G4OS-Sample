@@ -7,6 +7,11 @@ const MAX_LINES = 500;
 const EXEMPTIONS: Set<string> = new Set([
   // Arquivos gerados ou auto-documentados podem ser excluídos
   // ex: 'packages/kernel/src/generated-types.ts'
+
+  // Arquivos de locale crescem linearmente com o produto e não podem ser
+  // divididos sem mudanças arquiteturais no sistema i18n.
+  'packages/translate/src/locales/en-us.ts',
+  'packages/translate/src/locales/pt-br.ts',
 ]);
 
 const files = globSync('**/src/**/*.{ts,tsx}', {

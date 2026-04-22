@@ -4,6 +4,7 @@ import type {
   AgentsService,
   AuthService,
   CredentialsService,
+  LabelsService,
   MarketplaceService,
   MessagesService,
   ProjectsService,
@@ -12,7 +13,9 @@ import type {
   SourcesService,
   UpdatesService,
   VoiceService,
+  WindowsService,
   WorkspacesService,
+  WorkspaceTransferService,
 } from './context.ts';
 
 function notImplemented(scope: string): AppError {
@@ -36,6 +39,9 @@ export interface NullServices {
   readonly scheduler: SchedulerService;
   readonly updates: UpdatesService;
   readonly voice: VoiceService;
+  readonly windows: WindowsService;
+  readonly workspaceTransfer: WorkspaceTransferService;
+  readonly labels: LabelsService;
 }
 
 export function createNullServices(): NullServices {
@@ -49,6 +55,7 @@ export function createNullServices(): NullServices {
     },
     sessions: {
       list: async () => err(notImplemented('sessions.list')),
+      listFiltered: async () => err(notImplemented('sessions.listFiltered')),
       get: async () => err(notImplemented('sessions.get')),
       create: async () => err(notImplemented('sessions.create')),
       update: async () => err(notImplemented('sessions.update')),
@@ -57,6 +64,19 @@ export function createNullServices(): NullServices {
       stopTurn: async () => err(notImplemented('sessions.stopTurn')),
       retryLastTurn: async () => err(notImplemented('sessions.retryLastTurn')),
       truncateAfter: async () => err(notImplemented('sessions.truncateAfter')),
+      archive: async () => err(notImplemented('sessions.archive')),
+      restore: async () => err(notImplemented('sessions.restore')),
+      pin: async () => err(notImplemented('sessions.pin')),
+      unpin: async () => err(notImplemented('sessions.unpin')),
+      star: async () => err(notImplemented('sessions.star')),
+      unstar: async () => err(notImplemented('sessions.unstar')),
+      markRead: async () => err(notImplemented('sessions.markRead')),
+      markUnread: async () => err(notImplemented('sessions.markUnread')),
+      branch: async () => err(notImplemented('sessions.branch')),
+      listBranches: async () => ok([]),
+      setLabels: async () => err(notImplemented('sessions.setLabels')),
+      getLabels: async () => ok([]),
+      globalSearch: async () => ok({ messages: [], sessions: [] }),
     },
     messages: {
       list: async () => err(notImplemented('messages.list')),
@@ -65,7 +85,26 @@ export function createNullServices(): NullServices {
       search: async () => ok([]),
     },
     projects: {
-      list: async () => err(notImplemented('projects.list')),
+      list: async () => ok([]),
+      listArchived: async () => ok([]),
+      get: async () => err(notImplemented('projects.get')),
+      create: async () => err(notImplemented('projects.create')),
+      update: async () => err(notImplemented('projects.update')),
+      archive: async () => err(notImplemented('projects.archive')),
+      restore: async () => err(notImplemented('projects.restore')),
+      delete: async () => err(notImplemented('projects.delete')),
+      listFiles: async () => ok([]),
+      getFileContent: async () => err(notImplemented('projects.getFileContent')),
+      saveFile: async () => err(notImplemented('projects.saveFile')),
+      deleteFile: async () => err(notImplemented('projects.deleteFile')),
+      listTasks: async () => ok([]),
+      createTask: async () => err(notImplemented('projects.createTask')),
+      updateTask: async () => err(notImplemented('projects.updateTask')),
+      deleteTask: async () => err(notImplemented('projects.deleteTask')),
+      listSessions: async () => ok([]),
+      hasLegacyImportDone: async () => ok(true),
+      discoverLegacyProjects: async () => ok([]),
+      importLegacyProjects: async () => ok([]),
     },
     credentials: {
       get: async () => err(notImplemented('credentials.get')),
@@ -97,6 +136,21 @@ export function createNullServices(): NullServices {
     },
     voice: {
       transcribe: () => Promise.reject(notImplemented('voice.transcribe')),
+    },
+    windows: {
+      openWorkspaceWindow: async () => err(notImplemented('windows.openWorkspaceWindow')),
+    },
+    workspaceTransfer: {
+      exportWorkspace: async () => err(notImplemented('workspaceTransfer.exportWorkspace')),
+      importWorkspace: async () => err(notImplemented('workspaceTransfer.importWorkspace')),
+    },
+    labels: {
+      list: async () => ok([]),
+      create: async () => err(notImplemented('labels.create')),
+      rename: async () => err(notImplemented('labels.rename')),
+      recolor: async () => err(notImplemented('labels.recolor')),
+      reparent: async () => err(notImplemented('labels.reparent')),
+      delete: async () => err(notImplemented('labels.delete')),
     },
   };
 }

@@ -111,12 +111,6 @@ export function useVoiceRecorder(): VoiceRecorderResult {
   }, [cleanup]);
 
   useEffect(() => {
-    if (state === 'too-long') {
-      void stop();
-    }
-  }, [state, stop]);
-
-  useEffect(() => {
     return () => {
       cancel();
     };

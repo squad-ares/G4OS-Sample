@@ -32,6 +32,10 @@ export function VoiceButton({ onTranscript, transcribe, disabled, className }: V
   }, [stop, transcribe, onTranscript]);
 
   useEffect(() => {
+    if (state === 'too-long') void handleStop();
+  }, [state, handleStop]);
+
+  useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === 'Escape' && isRecording) {
         e.preventDefault();
@@ -49,6 +53,11 @@ export function VoiceButton({ onTranscript, transcribe, disabled, className }: V
         <span className="font-mono text-[10px] tabular-nums text-destructive">
           {formatDuration(duration)}
         </span>
+        {state === 'too-long' && (
+          <span className="text-[10px] font-medium text-destructive" role="alert">
+            {t('chat.composer.voice.maxDuration')}
+          </span>
+        )}
         <button
           type="button"
           onClick={() => void handleStop()}

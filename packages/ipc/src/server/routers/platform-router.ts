@@ -1,5 +1,33 @@
 import { z } from 'zod';
+import type { OpenDialogOptions, SaveDialogOptions } from '../context.ts';
 import { procedure, router } from '../trpc.ts';
+
+const FilterSchema = z.object({
+  name: z.string(),
+  extensions: z.array(z.string()),
+});
+
+const SaveDialogInputSchema = z.object({
+  defaultPath: z.string().optional(),
+  filters: z.array(FilterSchema).optional(),
+  title: z.string().optional(),
+});
+
+const OpenDialogInputSchema = z.object({
+  defaultPath: z.string().optional(),
+  filters: z.array(FilterSchema).optional(),
+  title: z.string().optional(),
+});
+
+const SaveDialogOutputSchema = z.object({
+  canceled: z.boolean(),
+  filePath: z.string().optional(),
+});
+
+const OpenDialogOutputSchema = z.object({
+  canceled: z.boolean(),
+  filePaths: z.array(z.string()),
+});
 
 export const platformRouter = router({
   readFileAsDataUrl: procedure
@@ -25,5 +53,38 @@ export const platformRouter = router({
     .input(z.object({ path: z.string() }))
     .mutation(async ({ input, ctx }) => {
       await ctx.platform?.showItemInFolder?.(input.path);
+    }),
+
+  showSaveDialog: procedure
+    .input(SaveDialogInputSchema)
+    .output(SaveDialogOutputSchema)
+    .mutation(async ({ input, ctx }) => {
+      const handler = ctx.platform?.showSaveDialog;
+      if (!handler) return { canceled: true };
+      const options: SaveDialogOptions = {
+        ...(input.defaultPath !== undefined && { defaultPath: input.defaultPath }),
+        ...(input.filters !== undefined && { filters: input.filters }),
+        ...(input.title !== undefined && { title: input.title }),
+      };
+      const result = await handler(options);
+      return {
+        canceled: result.canceled,
+        ...(result.filePath !== undefined && { filePath: result.filePath }),
+      };
+    }),
+
+  showOpenDialog: procedure
+    .input(OpenDialogInputSchema)
+    .output(OpenDialogOutputSchema)
+    .mutation(async ({ input, ctx }) => {
+      const handler = ctx.platform?.showOpenDialog;
+      if (!handler) return { canceled: true, filePaths: [] };
+      const options: OpenDialogOptions = {
+        ...(input.defaultPath !== undefined && { defaultPath: input.defaultPath }),
+        ...(input.filters !== undefined && { filters: input.filters }),
+        ...(input.title !== undefined && { title: input.title }),
+      };
+      const result = await handler(options);
+      return { canceled: result.canceled, filePaths: [...result.filePaths] };
     }),
 });

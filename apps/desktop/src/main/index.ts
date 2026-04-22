@@ -1,9 +1,9 @@
 import { existsSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createVault } from '@g4os/credentials';
 import { createLogger } from '@g4os/kernel/logger';
-import { isMacOS } from '@g4os/platform';
+import { getAppPaths, isMacOS } from '@g4os/platform';
 import { AppLifecycle } from './app-lifecycle.ts';
 import { DeepLinkHandler } from './deep-link-handler.ts';
 import { loadElectron } from './electron-runtime.ts';
@@ -12,8 +12,17 @@ import { ProcessSupervisor } from './process/supervisor.ts';
 import { readRuntimeEnv } from './runtime-env.ts';
 import { createAuthRuntime } from './services/auth-runtime.ts';
 import { CpuPool } from './services/cpu-pool.ts';
+import { initDatabase } from './services/db-service.ts';
+import { createLabelsService } from './services/labels-service.ts';
 import { createObservabilityRuntime } from './services/observability-runtime.ts';
+import { createPlatformService } from './services/platform-service.ts';
+import { createProjectsService } from './services/projects-service.ts';
 import { SessionManager } from './services/session-manager.ts';
+import { SessionsCleanupScheduler } from './services/sessions-cleanup-scheduler.ts';
+import { createSessionsService } from './services/sessions-service.ts';
+import { createWindowsService } from './services/windows-service.ts';
+import { createWorkspaceTransferService } from './services/workspace-transfer-service.ts';
+import { createWorkspacesService } from './services/workspaces-service.ts';
 import { StartupPreflightService } from './startup-preflight-service.ts';
 import { WindowManager } from './window-manager.ts';
 
@@ -87,11 +96,47 @@ export async function bootstrapMain(options: BootstrapOptions = {}): Promise<voi
   if (iconPath && isMacOS() && !electron.app.isPackaged && electron.app.dock) {
     electron.app.dock.setIcon(iconPath);
   }
-  const windowManager = new WindowManager(electron, { ...(iconPath ? { iconPath } : {}) });
+
+  const windowManager = new WindowManager(electron, {
+    ...(iconPath ? { iconPath } : {}),
+    defaultPreloadPath: preloadPath,
+    defaultRendererUrl: rendererUrl,
+  });
+  const windowsService = createWindowsService({ windowManager });
+  const platformService = createPlatformService(electron);
 
   const credentialVault = await createVault({
     mode: electron.app.isPackaged ? 'prod' : 'dev',
   });
+
+  const appPaths = getAppPaths();
+  const migrationsFolder = electron.app.isPackaged
+    ? resolve(process.resourcesPath, 'drizzle')
+    : resolve(rootDir, 'packages/data/drizzle');
+  const database = await initDatabase({
+    filename: join(appPaths.data, 'app.db'),
+    migrationsFolder,
+  });
+  const workspacesService = createWorkspacesService({
+    drizzle: database.drizzle,
+    resolveRootPath: (id: string) => appPaths.workspace(id),
+    managedRoot: join(appPaths.data, 'workspaces'),
+  });
+  const workspaceTransferService = createWorkspaceTransferService({
+    workspaces: workspacesService,
+  });
+  const sessionsService = createSessionsService({
+    db: database.db,
+    drizzle: database.drizzle,
+    sessionManager: sessions,
+  });
+  const labelsService = createLabelsService({ drizzle: database.drizzle });
+  const projectsService = createProjectsService({
+    drizzle: database.drizzle,
+    workspacesRootPath: join(appPaths.data, 'workspaces'),
+  });
+  const sessionsCleanup = new SessionsCleanupScheduler({ drizzle: database.drizzle });
+  sessionsCleanup.start();
 
   const authRuntime = createAuthRuntime({
     rootDir,
@@ -112,6 +157,8 @@ export async function bootstrapMain(options: BootstrapOptions = {}): Promise<voi
   lifecycle.onQuit(() => supervisor.shutdownAll());
   lifecycle.onQuit(() => cpuPool.destroy());
   lifecycle.onQuit(() => authRuntime.dispose());
+  lifecycle.onQuit(() => sessionsCleanup.dispose());
+  lifecycle.onQuit(() => database.db.dispose());
   lifecycle.onQuit(() => {
     void observability.dispose();
   });
@@ -129,6 +176,13 @@ export async function bootstrapMain(options: BootstrapOptions = {}): Promise<voi
     windowManager,
     services: {
       auth: authRuntime.service,
+      workspaces: workspacesService,
+      sessions: sessionsService,
+      labels: labelsService,
+      projects: projectsService,
+      windows: windowsService,
+      workspaceTransfer: workspaceTransferService,
+      platform: platformService,
     },
   });
   await windowManager.load(mainWindow, { url: rendererUrl, openDevTools: isDev });

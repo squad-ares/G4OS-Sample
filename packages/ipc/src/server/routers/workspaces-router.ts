@@ -48,10 +48,19 @@ export const workspacesRouter = router({
     }),
 
   delete: authed
-    .input(z.object({ id: WorkspaceIdSchema }))
+    .input(
+      z.object({
+        id: WorkspaceIdSchema,
+        removeFiles: z.boolean().optional(),
+      }),
+    )
     .output(z.void())
     .mutation(async ({ input, ctx }) => {
-      const result = await ctx.workspaces.delete(input.id);
+      const { id, removeFiles } = input;
+      const result = await ctx.workspaces.delete(
+        id,
+        removeFiles === undefined ? undefined : { removeFiles },
+      );
       if (result.isErr()) throw result.error;
     }),
 });

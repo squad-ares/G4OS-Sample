@@ -1,12 +1,25 @@
-import { SessionEventSchema, SessionSchema, WorkspaceIdSchema } from '@g4os/kernel/schemas';
+import {
+  GlobalSearchResultSchema,
+  SessionEventSchema,
+  SessionFilterSchema,
+  SessionSchema,
+  WorkspaceIdSchema,
+} from '@g4os/kernel/schemas';
 import type { SessionEvent } from '@g4os/kernel/types';
 import { z } from 'zod';
 import { authed } from '../middleware/authed.ts';
 import { router } from '../trpc.ts';
 
 const SessionIdSchema = z.uuid();
+const LabelIdSchema = z.uuid();
 
 const SessionsListOutput = z.array(SessionSchema);
+
+const SessionListPageSchema = z.object({
+  items: z.array(SessionSchema),
+  total: z.number().int().nonnegative(),
+  hasMore: z.boolean(),
+});
 
 export const sessionsRouter = router({
   list: authed
@@ -16,6 +29,19 @@ export const sessionsRouter = router({
       const result = await ctx.sessions.list(input.workspaceId);
       if (result.isErr()) throw result.error;
       return [...result.value];
+    }),
+
+  listFiltered: authed
+    .input(SessionFilterSchema)
+    .output(SessionListPageSchema)
+    .query(async ({ input, ctx }) => {
+      const result = await ctx.sessions.listFiltered(input);
+      if (result.isErr()) throw result.error;
+      return {
+        items: [...result.value.items],
+        total: result.value.total,
+        hasMore: result.value.hasMore,
+      };
     }),
 
   get: authed
@@ -51,11 +77,111 @@ export const sessionsRouter = router({
     }),
 
   delete: authed
-    .input(z.object({ id: SessionIdSchema }))
+    .input(z.object({ id: SessionIdSchema, confirm: z.literal(true) }))
     .output(z.void())
     .mutation(async ({ input, ctx }) => {
       const result = await ctx.sessions.delete(input.id);
       if (result.isErr()) throw result.error;
+    }),
+
+  archive: authed
+    .input(z.object({ id: SessionIdSchema }))
+    .output(z.void())
+    .mutation(async ({ input, ctx }) => {
+      const result = await ctx.sessions.archive(input.id);
+      if (result.isErr()) throw result.error;
+    }),
+
+  restore: authed
+    .input(z.object({ id: SessionIdSchema }))
+    .output(z.void())
+    .mutation(async ({ input, ctx }) => {
+      const result = await ctx.sessions.restore(input.id);
+      if (result.isErr()) throw result.error;
+    }),
+
+  pin: authed
+    .input(z.object({ id: SessionIdSchema, pinned: z.boolean() }))
+    .output(z.void())
+    .mutation(async ({ input, ctx }) => {
+      const result = input.pinned
+        ? await ctx.sessions.pin(input.id)
+        : await ctx.sessions.unpin(input.id);
+      if (result.isErr()) throw result.error;
+    }),
+
+  star: authed
+    .input(z.object({ id: SessionIdSchema, starred: z.boolean() }))
+    .output(z.void())
+    .mutation(async ({ input, ctx }) => {
+      const result = input.starred
+        ? await ctx.sessions.star(input.id)
+        : await ctx.sessions.unstar(input.id);
+      if (result.isErr()) throw result.error;
+    }),
+
+  markRead: authed
+    .input(z.object({ id: SessionIdSchema, unread: z.boolean() }))
+    .output(z.void())
+    .mutation(async ({ input, ctx }) => {
+      const result = input.unread
+        ? await ctx.sessions.markUnread(input.id)
+        : await ctx.sessions.markRead(input.id);
+      if (result.isErr()) throw result.error;
+    }),
+
+  branch: authed
+    .input(
+      z.object({
+        sourceId: SessionIdSchema,
+        atSequence: z.number().int().nonnegative(),
+        name: z.string().min(1).max(200).optional(),
+      }),
+    )
+    .output(SessionSchema)
+    .mutation(async ({ input, ctx }) => {
+      const result = await ctx.sessions.branch({
+        sourceId: input.sourceId,
+        atSequence: input.atSequence,
+        ...(input.name === undefined ? {} : { name: input.name }),
+      });
+      if (result.isErr()) throw result.error;
+      return result.value;
+    }),
+
+  listBranches: authed
+    .input(z.object({ parentId: SessionIdSchema }))
+    .output(z.array(SessionSchema))
+    .query(async ({ input, ctx }) => {
+      const result = await ctx.sessions.listBranches(input.parentId);
+      if (result.isErr()) throw result.error;
+      return [...result.value];
+    }),
+
+  setLabels: authed
+    .input(z.object({ id: SessionIdSchema, labelIds: z.array(LabelIdSchema) }))
+    .output(z.void())
+    .mutation(async ({ input, ctx }) => {
+      const result = await ctx.sessions.setLabels(input.id, input.labelIds);
+      if (result.isErr()) throw result.error;
+    }),
+
+  getLabels: authed
+    .input(z.object({ id: SessionIdSchema }))
+    .output(z.array(LabelIdSchema))
+    .query(async ({ input, ctx }) => {
+      const result = await ctx.sessions.getLabels(input.id);
+      if (result.isErr()) throw result.error;
+      return [...result.value];
+    }),
+
+  globalSearch: authed
+    .input(z.object({ workspaceId: WorkspaceIdSchema, query: z.string() }))
+    .output(GlobalSearchResultSchema)
+    .query(async ({ input, ctx }) => {
+      const result = await ctx.sessions.globalSearch(input.workspaceId, input.query);
+      if (result.isErr()) throw result.error;
+      return result.value;
     }),
 
   stopTurn: authed

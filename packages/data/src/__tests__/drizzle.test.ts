@@ -278,11 +278,21 @@ function applyBaselineSchema(db: Db): void {
       last_event_sequence INTEGER NOT NULL DEFAULT 0,
       created_at INTEGER NOT NULL,
       updated_at INTEGER NOT NULL,
-      metadata TEXT NOT NULL DEFAULT '{}'
+      metadata TEXT NOT NULL DEFAULT '{}',
+      archived_at INTEGER,
+      deleted_at INTEGER,
+      parent_id TEXT REFERENCES sessions(id) ON DELETE SET NULL,
+      branched_at_seq INTEGER,
+      pinned_at INTEGER,
+      starred_at INTEGER,
+      unread INTEGER NOT NULL DEFAULT 0,
+      project_id TEXT
     );
     CREATE INDEX idx_sessions_workspace ON sessions(workspace_id, updated_at);
     CREATE INDEX idx_sessions_last_message ON sessions(last_message_at);
     CREATE INDEX idx_sessions_status ON sessions(status);
+    CREATE INDEX idx_sessions_pinned ON sessions(workspace_id, pinned_at);
+    CREATE INDEX idx_sessions_parent ON sessions(parent_id);
 
     CREATE TABLE messages_index (
       id TEXT PRIMARY KEY,
@@ -304,6 +314,39 @@ function applyBaselineSchema(db: Db): void {
       checkpointed_at INTEGER NOT NULL,
       PRIMARY KEY (consumer_name, session_id)
     );
+
+    CREATE TABLE projects (
+      id TEXT PRIMARY KEY,
+      workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      slug TEXT NOT NULL,
+      description TEXT,
+      root_path TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'active',
+      color TEXT,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
+    CREATE INDEX idx_projects_workspace ON projects(workspace_id, status, updated_at);
+    CREATE INDEX idx_projects_slug ON projects(workspace_id, slug);
+
+    CREATE TABLE project_tasks (
+      id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      title TEXT NOT NULL,
+      description TEXT,
+      status TEXT NOT NULL DEFAULT 'todo',
+      priority TEXT,
+      assignee_id TEXT,
+      due_at INTEGER,
+      labels TEXT NOT NULL DEFAULT '[]',
+      session_id TEXT REFERENCES sessions(id) ON DELETE SET NULL,
+      "order" TEXT NOT NULL,
+      created_at INTEGER NOT NULL,
+      completed_at INTEGER
+    );
+    CREATE INDEX idx_project_tasks_project ON project_tasks(project_id, status, "order");
+    CREATE INDEX idx_project_tasks_session ON project_tasks(session_id);
   `);
 }
 

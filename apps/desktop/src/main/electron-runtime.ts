@@ -20,8 +20,38 @@ export interface ElectronApp {
   on(event: 'open-url', listener: (event: ElectronEvent, url: string) => void): void;
 }
 
+export interface ElectronDialogFilter {
+  readonly name: string;
+  readonly extensions: string[];
+}
+
+export interface ElectronSaveDialogOptions {
+  readonly title?: string;
+  readonly defaultPath?: string;
+  readonly filters?: readonly ElectronDialogFilter[];
+}
+
+export interface ElectronSaveDialogResult {
+  readonly canceled: boolean;
+  readonly filePath?: string;
+}
+
+export interface ElectronOpenDialogOptions {
+  readonly title?: string;
+  readonly defaultPath?: string;
+  readonly filters?: readonly ElectronDialogFilter[];
+  readonly properties?: readonly string[];
+}
+
+export interface ElectronOpenDialogResult {
+  readonly canceled: boolean;
+  readonly filePaths: readonly string[];
+}
+
 export interface ElectronDialog {
   showErrorBox(title: string, content: string): void;
+  showSaveDialog?(options: ElectronSaveDialogOptions): Promise<ElectronSaveDialogResult>;
+  showOpenDialog?(options: ElectronOpenDialogOptions): Promise<ElectronOpenDialogResult>;
 }
 
 export interface BrowserWindowWebPreferences {
@@ -79,6 +109,7 @@ export interface BrowserWindowOptions {
 export interface BrowserWindowInstance {
   loadURL(url: string): Promise<void>;
   close(): void;
+  focus(): void;
   readonly webContents: { readonly id: number; openDevTools(options?: { mode?: 'detach' }): void };
   isDestroyed(): boolean;
 }
