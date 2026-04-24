@@ -23,7 +23,12 @@
 
 import { randomUUID } from 'node:crypto';
 import type { AgentConfig, AgentRegistry, IAgent } from '@g4os/agents/interface';
-import type { ToolCatalog } from '@g4os/agents/tools';
+import {
+  composeCatalogs,
+  createToolRegistry,
+  type ToolCatalog,
+  type ToolHandler,
+} from '@g4os/agents/tools';
 import type { MessagesService } from '@g4os/ipc/server';
 import { DisposableBase, toDisposable } from '@g4os/kernel/disposable';
 import { AppError, ErrorCode } from '@g4os/kernel/errors';
@@ -39,10 +44,12 @@ import { withSpan } from '@g4os/observability';
 import { createTurnTelemetry } from '@g4os/observability/metrics';
 import type { PermissionBroker } from '@g4os/permissions';
 import { buildMessageAddedEvent, runToolLoop, type SessionEventBus } from '@g4os/session-runtime';
+import type { McpMountRegistry } from '@g4os/sources/broker';
 import { SourceIntentDetector } from '@g4os/sources/lifecycle';
 import type { SourcesStore } from '@g4os/sources/store';
 import { err, ok, type Result } from 'neverthrow';
 import { applyTurnIntent, type SessionIntentUpdater } from './sessions/apply-intent.ts';
+import { buildMountedHandlers } from './sessions/mount-plan.ts';
 import { buildSourcePlan, composeSystemPrompt } from './sessions/plan-build.ts';
 
 export type { SessionIntentUpdater };
@@ -64,6 +71,9 @@ export interface TurnDispatcherDeps {
   readonly permissionBroker: PermissionBroker;
   readonly toolCatalog: ToolCatalog;
   readonly sourcesStore: SourcesStore;
+  /** Quando fornecido, sources `brokerFallback` sticky do tipo `mcp-stdio`
+   *  são montadas por turno e expostas como `mcp_<slug>__<tool>` no catálogo. */
+  readonly mountRegistry?: McpMountRegistry;
   readonly getSession: (id: SessionId) => Promise<Session | null>;
   readonly resolveWorkingDirectory: (session: Session | null) => string;
   /** Injeta o writer pra `rejectedSourceSlugs` / `stickyMountedSourceSlugs`
@@ -176,7 +186,17 @@ export class TurnDispatcher extends DisposableBase {
     const plan = await buildSourcePlan(this.#deps.sourcesStore, refreshedSession);
     const systemPrompt = composeSystemPrompt(this.#defaults.systemPrompt, plan);
 
-    const toolDefs: readonly ToolDefinition[] = this.#deps.toolCatalog.list();
+    const mountedHandlers: readonly ToolHandler[] = await buildMountedHandlers({
+      mountRegistry: this.#deps.mountRegistry,
+      sourcesStore: this.#deps.sourcesStore,
+      plan,
+      session: refreshedSession,
+    });
+    const effectiveCatalog: ToolCatalog =
+      mountedHandlers.length === 0
+        ? this.#deps.toolCatalog
+        : composeCatalogs(this.#deps.toolCatalog, createToolRegistry([...mountedHandlers]));
+    const toolDefs: readonly ToolDefinition[] = effectiveCatalog.list();
     const config: AgentConfig = {
       connectionSlug: resolvedSlug,
       modelId: resolvedModelId,
@@ -222,7 +242,7 @@ export class TurnDispatcher extends DisposableBase {
         messages: this.#deps.messages,
         eventBus: this.#deps.eventBus,
         permissionBroker: this.#deps.permissionBroker,
-        toolCatalog: this.#deps.toolCatalog,
+        toolCatalog: effectiveCatalog,
       },
       {
         sessionId,
