@@ -56,7 +56,7 @@ export function buildToolCatalog(deps: BuildToolCatalogDeps): ToolCatalog {
       },
       update: async (sessionId, patch) => {
         await deps.sessionsRepo.update(sessionId, {
-          stickyMountedSourceSlugs: patch.stickyMountedSourceSlugs,
+          stickyMountedSourceSlugs: [...patch.stickyMountedSourceSlugs],
         });
       },
     },

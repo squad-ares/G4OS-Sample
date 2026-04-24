@@ -192,7 +192,7 @@ Pacotes em alpha/RC/beta **não entram em `dependencies`**, salvo exceção com 
 ### Limites e organização
 
 - **Max 500 LOC por arquivo** (gate `check:file-lines`). Exceções via `EXEMPTIONS` com justificativa.
-- **Main process total < 6200 LOC** (gate `check:main-size`), arquivos em `apps/desktop/src/main/` ≤ 300 LOC cada. Orçamento elevado de 2000→3000 em 2026-04-21 (Epic 10b-wiring), de 3000→4500 em 2026-04-22 (Epic 11-features/02-workspaces), de 4500→4800 em 2026-04-22 (Epic 11-features/03-projects TASK-11-03-06), e de 4800→6200 em 2026-04-23 (TASK-OUTLIER-07/08/09: multi-provider agents-bootstrap, credentials-service vault+IPC, fundação de tool use + permission broker com helpers em `sessions/`). Em 2026-04-23 (TASK-OUTLIER-11) o gate passou a ignorar `src/main/workers/**` porque esse código roda em processos isolados (`utilityProcess` para `session-worker`/`turn-runner`, Piscina threads para `cpu-pool/tasks`) e tem seu próprio orçamento implícito via output size do rollup. Em 2026-04-24 main caiu de 7987 → ~5976 LOC via extrações: `@g4os/session-runtime`, `@g4os/permissions`, `@g4os/sources/{planner,catalog,store}`, `@g4os/agents/tools/handlers/activate-sources`, `connectionSlugForProvider` no kernel. MAIN_LIMIT mantido em 6200 — próxima elevação exige nova extração ou ADR.
+- **Main process total < 6500 LOC** (gate `check:main-size`), arquivos em `apps/desktop/src/main/` ≤ 300 LOC cada. Orçamento elevado de 2000→3000 em 2026-04-21 (Epic 10b-wiring), de 3000→4500 em 2026-04-22 (Epic 11-features/02-workspaces), de 4500→4800 em 2026-04-22 (Epic 11-features/03-projects TASK-11-03-06), e de 4800→6200 em 2026-04-23 (TASK-OUTLIER-07/08/09: multi-provider agents-bootstrap, credentials-service vault+IPC, fundação de tool use + permission broker com helpers em `sessions/`). Em 2026-04-23 (TASK-OUTLIER-11) o gate passou a ignorar `src/main/workers/**` porque esse código roda em processos isolados (`utilityProcess` para `session-worker`/`turn-runner`, Piscina threads para `cpu-pool/tasks`) e tem seu próprio orçamento implícito via output size do rollup. Em 2026-04-24 main caiu de 7987 → ~5976 LOC via extrações: `@g4os/session-runtime`, `@g4os/permissions`, `@g4os/sources/{planner,catalog,store}`, `@g4os/agents/tools/handlers/activate-sources`, `connectionSlugForProvider` no kernel. Em 2026-04-24 (FOLLOWUP-04/08) o teto subiu de 6200→6500 junto de duas novas extrações: `sessions/lifecycle.ts` (delete/archive/restore + applyReducer adapter) e `sessions/retry-truncate.ts` (retry/truncate + planner). `@g4os/data/events` ganhou `truncateProjection` e `MessagesService.append` agora retorna `MessageAppendResult` com `sequenceNumber` real — zero `buildMessageAddedEvent(msg, 0)` placeholder.
 - **Zero dependências circulares** (gate `check:circular` via madge).
 - **Boundaries enforcadas** (gate `check:cruiser` via dependency-cruiser):
   - `kernel` não depende de nada interno
@@ -202,6 +202,8 @@ Pacotes em alpha/RC/beta **não entram em `dependencies`**, salvo exceção com 
   - Features **não importam outras features** — comunicam via IPC ou via pacote horizontal (`kernel`, `ui`, `ipc`)
   - Renderer **não importa `electron` nem `main/`** — só via IPC
   - Viewer **não importa `electron`** — é web
+  - `@g4os/permissions` só depende de `@g4os/kernel` (cruiser: `permissions-isolated`)
+  - `@g4os/session-runtime` depende só de `kernel/agents/data/ipc/observability/permissions` — nunca importa `apps/desktop/src/main/**` diretamente (cruiser: `session-runtime-layering`)
 
 ### Padrões obrigatórios
 
@@ -234,6 +236,15 @@ Pacotes em alpha/RC/beta **não entram em `dependencies`**, salvo exceção com 
   ```
   Mantém pacote typechecking/lintando sem a dep instalada (CI sem build step, scaffolding). **Não aplicável a `node:sqlite`** — é stdlib do Node 24, import direto sempre funciona.
 
+- **Path safety em tool handlers.** Escape-de-diretório não pode usar `startsWith('${base}/')` — POSIX-only, quebra em Windows (separador `\`). Padrão correto:
+  ```ts
+  const rel = path.relative(base, resolved);
+  if (rel.startsWith('..') || path.isAbsolute(rel)) throw new AppError(...);
+  ```
+  Implementação canônica: `packages/agents/src/tools/shared/path-guard.ts` (`resolveInside()`).
+
+- **Shell launcher cross-platform.** Nunca hardcode `/bin/sh -c`. Usar `packages/agents/src/tools/shared/shell-launcher.ts` (`resolveShell()`): retorna `['cmd.exe', '/d', '/s', '/c']` no Windows, `['/bin/sh', '-c']` nos demais.
+
 ### Anti-patterns (bloqueados por Biome)
 
 - `console.*` fora de `scripts/**` → `noConsole: error` (v1 tinha 330 ocorrências; usar `createLogger('scope')` do kernel)
@@ -241,8 +252,30 @@ Pacotes em alpha/RC/beta **não entram em `dependencies`**, salvo exceção com 
 - `process.env['X']` → `noProcessEnv: error`
 - `require(...)` ou `module.exports` → `noCommonJs: error`
 - `{}` vazio (blocos/tipos) → `noEmptyBlockStatements: error`
-- `async` sem `await` → `useAwait: error` (evita Promise fantasma)
+- `async` sem `await` → `useAwait: error`. **Como cumprir:** se nenhum branch do corpo usa `await`, remova `async` e retorne `Promise.resolve(value)` diretamente. Nunca declare `async function` só para retornar uma promessa já resolvida.
 - `as any` → direto proibido por `noExplicitAny`
+- ARIA role interativo em elemento semântico não-interativo → `noNoninteractiveElementToInteractiveRole: error`. `ul`, `li`, `p`, `span`, etc. não aceitam `role="listbox"`, `role="option"`, `role="combobox"`, etc. Use `div`.
+- ARIA role interativo sem `tabIndex` → `useFocusableInteractive: error`. Todo elemento com role interativo precisa de `tabIndex` (normalmente `-1` para foco gerenciado via `aria-activedescendant`; `0` para inclusão no tab order natural).
+
+### Padrões de UI (ARIA + Acessibilidade)
+
+**Combobox typeahead (pickers, mentions, search):** `role="combobox"` pertence ao `<input>` ou `<textarea>` que recebe o input do usuário — nunca ao wrapper do popover. Estrutura obrigatória:
+
+```tsx
+// input/textarea = combobox real (detém foco)
+<textarea
+  role="combobox"
+  aria-expanded={open}
+  aria-controls="my-listbox"
+  aria-activedescendant={activeOptionId}
+/>
+// popover = listbox (div, não ul)
+<div id="my-listbox" role="listbox" tabIndex={-1}>
+  <div role="option" tabIndex={-1} aria-selected={true} id="opt-1">…</div>
+</div>
+```
+
+**Pre-commit workflow:** sempre rodar `./node_modules/.bin/biome check --write <files>` **antes** de `git add`. O hook lefthook tem `stage_fixed: true`, mas opera sobre o snapshot staged — fazer `git add` antes do fix deixa a versão staged stale e o hook bloqueia mesmo após o auto-fix no working tree. Sequência segura: `biome check --write` → `git add` → `git commit`.
 
 ### Arquivos, naming, exports
 
@@ -373,6 +406,21 @@ Mudanças reversíveis locais (editar, rodar, testar) → siga sem perguntar.
 - Sem emojis a menos que o usuário peça.
 - Referências a arquivo usam `[path](path#L42)` (o IDE abre).
 - Não narre o processo de pensamento. Diga o que fez, mostre diff quando relevante, pare.
+
+---
+
+## Open Known Items (FOLLOWUPs)
+
+Itens com implementação intencional incompleta — leia o contexto antes de refatorar:
+
+- **FOLLOWUP-OUTLIER-12** — MCP stdio runtime + managed connectors OAuth live mount (OUTLIER-10/12 Phase 2).
+- **FOLLOWUP-OUTLIER-23** — E2E Phase 2: 8 flows autenticados (login/session/send/modal/tool-permission), exige mock Supabase + API keys em CI.
+
+Resolvidos:
+
+- ~~**FOLLOWUP-04**~~ — `MessagesService.append` retorna `MessageAppendResult` com sequence real; `buildMessageAddedEvent` aceita `MessageAppendResult`; `appendLifecycleEvent` + `emitLifecycleEvent` lêem `session.lastEventSequence + 1`. Reducer propaga `lastEventSequence` no SQLite via `applyReducer` callback. (2026-04-24)
+- ~~**FOLLOWUP-08**~~ — `SessionsService.retryLastTurn` e `truncateAfter` reais via `SessionEventStore.truncateAfter()` + novo `truncateProjection` em `@g4os/data/events` (reescreve JSONL + limpa `messages_index` + reposiciona checkpoint). `retryLastTurn` trunca até penúltimo user msg e redispara. (2026-04-24)
+- ~~**FOLLOWUP-14**~~ — Testes unitários adicionados: 19 em `@g4os/permissions` (broker + store), 22 em `@g4os/session-runtime` (bus + turn-events + event-log + mutations), 14 em `@g4os/sources/planner` e 9 em `@g4os/agents/tools/handlers/activate-sources`. Event-log helpers agora aceitam `eventStore` injetável pra testabilidade. (2026-04-24)
 
 ---
 

@@ -37,12 +37,20 @@
  * `@g4os/sources/{planner,catalog,store}`, `@g4os/agents/tools/handlers/activate-sources`,
  * e `connectionSlugForProvider` movido para `@g4os/kernel/types`. MAIN_LIMIT
  * permanece em 6200 — próxima elevação exige nova extração ou ADR.
+ *
+ * Em 2026-04-24 (FOLLOWUP-04/08) o teto subiu de 6200 → 6500 com duas novas
+ * extrações: `sessions/lifecycle.ts` (delete/archive/restore + applyReducer
+ * adapter) e `sessions/retry-truncate.ts` (retryLastTurn + truncateAfter +
+ * planner), ambos mantendo `sessions-service.ts` ≤ 300 LOC. Cresceu
+ * `@g4os/data/events` (`truncateProjection` — projeção SQLite tras truncate
+ * do JSONL) e a assinatura de `MessagesService.append` agora carrega a
+ * `sequenceNumber` real em vez do placeholder `0` nos 5 callers.
  */
 
 import { readFileSync } from 'node:fs';
 import { globSync } from 'glob';
 
-const MAIN_LIMIT = 6200;
+const MAIN_LIMIT = 6500;
 const FILE_LIMIT = 300;
 
 const files = globSync('apps/desktop/src/main/**/*.ts', {
