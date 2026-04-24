@@ -101,12 +101,16 @@ jobs:
       - name: Check package exports
         run: pnpm check:exports
 
-  # Job 5: Unit tests (Ubuntu apenas — economiza cota em repo privado).
-  # Cross-OS smoke roda em release-desktop.yml antes de publicar.
+  # Job 5: Unit tests — matrix exigido por branch protection rules.
+  # Para desligar macOS/Windows aqui: ajustar Settings → Branches → rule em main.
   test:
-    name: Test (ubuntu-latest)
+    name: Test (${{ matrix.os }})
     needs: setup
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -117,16 +121,21 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm test
       - uses: actions/upload-artifact@v4
+        if: matrix.os == 'ubuntu-latest'
         with:
-          name: coverage-ubuntu-latest
+          name: coverage-${{ matrix.os }}
           path: coverage/
 
-  # Job 6: Build (Ubuntu apenas — economiza cota macOS 10x em repo privado).
-  # Build completo multi-plataforma roda em release-desktop.yml (workflow_dispatch).
+  # Job 6: Build — matrix exigido por branch protection rules.
+  # Build pesado de packaging segue em release-desktop.yml (workflow_dispatch).
   build:
-    name: Build (ubuntu-latest)
+    name: Build (${{ matrix.os }})
     needs: [lint, typecheck, architecture]
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
