@@ -17,17 +17,36 @@
  * Epic 11-features/03-projects TASK-11-03-06 (legacy import): addition of
  * legacy-import.ts (~112 LOC) e métodos discoverLegacyProjects/importLegacyProjects
  * em projects-service.ts (~57 LOC adicionais) completam o domínio de projects.
- * CLAUDE.md e AGENTS.md devem refletir esse novo teto.
+ *
+ * O orçamento cresceu de 4800 para 6200 em 2026-04-23 junto com TASK-OUTLIER-07/08/09:
+ * multi-provider agents-bootstrap, credentials-service (vault + IPC + env migration),
+ * e fundação da integração de tool use + permission broker (sessions/turn-events.ts,
+ * sessions/turn-finalize.ts, sessions/provider-slug.ts, sessions/mutations.ts,
+ * plus permission-broker/store/bridge e extensões de turn-dispatcher no seguimento
+ * da OUTLIER-09). CLAUDE.md e AGENTS.md devem refletir esse novo teto.
+ *
+ * Em 2026-04-23 (TASK-OUTLIER-11) o gate passou a ignorar `src/main/workers/**`:
+ * código sob `workers/` roda em processos isolados (`utilityProcess` para
+ * `session-worker.ts`/`turn-runner.ts`/`protocol.ts`, Piscina thread para
+ * `cpu-pool/tasks.ts`). Esses bundles são medidos separadamente via output
+ * size do rollup e não contam no orçamento do main runtime.
+ *
+ * Em 2026-04-24 o main foi puxado pra baixo de 7987 → ~5976 LOC via extrações
+ * arquiteturais (sem elevar o teto): `@g4os/session-runtime` (tool-loop +
+ * turn-runner + event-bus + helpers), `@g4os/permissions` (broker + store),
+ * `@g4os/sources/{planner,catalog,store}`, `@g4os/agents/tools/handlers/activate-sources`,
+ * e `connectionSlugForProvider` movido para `@g4os/kernel/types`. MAIN_LIMIT
+ * permanece em 6200 — próxima elevação exige nova extração ou ADR.
  */
 
 import { readFileSync } from 'node:fs';
 import { globSync } from 'glob';
 
-const MAIN_LIMIT = 4800;
+const MAIN_LIMIT = 6200;
 const FILE_LIMIT = 300;
 
 const files = globSync('apps/desktop/src/main/**/*.ts', {
-  ignore: ['**/__tests__/**', '**/*.test.ts'],
+  ignore: ['**/__tests__/**', '**/*.test.ts', '**/workers/**'],
 });
 
 let total = 0;

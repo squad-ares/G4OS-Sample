@@ -23,12 +23,11 @@ export default defineConfig({
   main: {
     plugins: [externalizeDepsPlugin({ exclude: [] })],
     build: {
-      lib: {
-        entry: 'src/main/index.ts',
-        formats: ['cjs'],
-        fileName: () => 'index.cjs',
-      },
       rollupOptions: {
+        input: {
+          index: path.resolve(__dirname, 'src/main/index.ts'),
+          'workers/session-worker': path.resolve(__dirname, 'src/main/workers/session-worker.ts'),
+        },
         external: [
           'electron',
           'pino',
@@ -38,7 +37,11 @@ export default defineConfig({
           'thread-stream',
           'sonic-boom',
         ],
-        output: { format: 'cjs', entryFileNames: 'index.cjs' },
+        output: {
+          format: 'cjs',
+          entryFileNames: '[name].cjs',
+          chunkFileNames: 'chunks/[name]-[hash].cjs',
+        },
       },
     },
   },

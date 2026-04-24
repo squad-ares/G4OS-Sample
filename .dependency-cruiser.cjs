@@ -47,16 +47,34 @@ module.exports = {
       from: { path: '^packages/auth' },
       to: { path: '^packages/(?!(kernel|platform|auth))' },
     },
+    {
+      name: 'permissions-isolated',
+      comment: '@g4os/permissions (tool-use broker + store) depends only on kernel',
+      severity: 'error',
+      from: { path: '^packages/permissions' },
+      to: { path: '^packages/(?!(kernel|permissions))' },
+    },
+    {
+      name: 'session-runtime-layering',
+      comment:
+        '@g4os/session-runtime depende de kernel/agents/data/ipc/observability/permissions; não pode depender de features/ui/apps nem de pacotes não listados',
+      severity: 'error',
+      from: { path: '^packages/session-runtime' },
+      to: {
+        path: '^packages/(?!(kernel|agents|data|ipc|observability|permissions|session-runtime))',
+      },
+    },
 
     // ========== FEATURES ==========
     {
       name: 'no-cross-feature-imports',
-      comment: 'Features nao podem importar umas das outras',
+      comment:
+        'Features nao podem importar umas das outras. Exceção: `shell` é horizontal (layout/nav) e pode ser consumido por qualquer feature como pacote de UI compartilhado.',
       severity: 'error',
-      from: { path: '^packages/features/([^/]+)' },
+      from: { path: '^packages/features/src/([^/]+)' },
       to: {
-        path: '^packages/features/',
-        pathNot: '^packages/features/$1',
+        path: '^packages/features/src/',
+        pathNot: '^packages/features/src/($1|shell)(/|$)',
       },
     },
     {
@@ -150,13 +168,13 @@ module.exports = {
       from: {
         orphan: true,
         pathNot: [
-          '\\.d\\.(ts|cts|mts)$',  // TypeScript declaration files
+          '\\.d\\.(ts|cts|mts)$', // TypeScript declaration files
           '(^|/)tsconfig\\.json$',
           '(^|/)\\.[^/]+\\.(js|cjs|mjs|ts)$',
-          '(src|dist)/index\\.(ts|js|d\\.(ts|cts|mts)|cjs)$',  // package exports
-          'apps/desktop/src/preload\\.ts$',  // Electron preload entry point
-          'apps/desktop/src/main/index\\.ts$',  // Main entry point
-          'apps/desktop/src/main/workers/',  // utilityProcess / Piscina worker entries
+          '(src|dist)/index\\.(ts|js|d\\.(ts|cts|mts)|cjs)$', // package exports
+          'apps/desktop/src/preload\\.ts$', // Electron preload entry point
+          'apps/desktop/src/main/index\\.ts$', // Main entry point
+          'apps/desktop/src/main/workers/', // utilityProcess / Piscina worker entries
         ],
       },
       to: {},

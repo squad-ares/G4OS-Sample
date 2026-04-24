@@ -12,6 +12,9 @@ const EXEMPTIONS: Set<string> = new Set([
   // divididos sem mudanças arquiteturais no sistema i18n.
   'packages/translate/src/locales/en-us.ts',
   'packages/translate/src/locales/pt-br.ts',
+
+  // Gerado automaticamente pelo TanStack Router CLI — não editar manualmente.
+  'apps/desktop/src/renderer/routeTree.gen.ts',
 ]);
 
 const files = globSync('**/src/**/*.{ts,tsx}', {
