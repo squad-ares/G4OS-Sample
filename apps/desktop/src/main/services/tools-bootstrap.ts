@@ -9,14 +9,31 @@ import {
   createToolRegistry,
   listDirHandler,
   readFileHandler,
+  runBashHandler,
   type ToolCatalog,
+  writeFileHandler,
 } from '@g4os/agents/tools';
 import type { SessionsRepository } from '@g4os/data/sessions';
+import type { SessionId } from '@g4os/kernel/types';
 import type { SourcesStore } from '@g4os/sources/store';
+import type { SessionIntentUpdater } from './turn-dispatcher.ts';
 
 export interface BuildToolCatalogDeps {
   readonly sourcesStore: SourcesStore;
   readonly sessionsRepo: SessionsRepository;
+}
+
+/** Adapter pro `TurnDispatcher.sessionIntentUpdater` — isolado aqui pra
+ *  manter main/index.ts ≤300 LOC. */
+export function buildIntentUpdater(sessionsRepo: SessionsRepository): SessionIntentUpdater {
+  return {
+    updateRejected: async (id: SessionId, rejectedSlugs) => {
+      await sessionsRepo.update(id, { rejectedSourceSlugs: [...rejectedSlugs] });
+    },
+    updateSticky: async (id: SessionId, stickySlugs) => {
+      await sessionsRepo.update(id, { stickyMountedSourceSlugs: [...stickySlugs] });
+    },
+  };
 }
 
 export function buildToolCatalog(deps: BuildToolCatalogDeps): ToolCatalog {
@@ -44,5 +61,11 @@ export function buildToolCatalog(deps: BuildToolCatalogDeps): ToolCatalog {
       },
     },
   });
-  return createToolRegistry([listDirHandler, readFileHandler, activateSourcesHandler]);
+  return createToolRegistry([
+    listDirHandler,
+    readFileHandler,
+    writeFileHandler,
+    runBashHandler,
+    activateSourcesHandler,
+  ]);
 }

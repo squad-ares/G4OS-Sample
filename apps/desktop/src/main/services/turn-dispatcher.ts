@@ -35,12 +35,17 @@ import {
   type SessionId,
   type ToolDefinition,
 } from '@g4os/kernel/types';
+import { withSpan } from '@g4os/observability';
 import { createTurnTelemetry } from '@g4os/observability/metrics';
 import type { PermissionBroker } from '@g4os/permissions';
 import { buildMessageAddedEvent, runToolLoop, type SessionEventBus } from '@g4os/session-runtime';
-import { formatPlanForPrompt, planTurn, type SourcePlan } from '@g4os/sources/planner';
+import { SourceIntentDetector } from '@g4os/sources/lifecycle';
 import type { SourcesStore } from '@g4os/sources/store';
 import { err, ok, type Result } from 'neverthrow';
+import { applyTurnIntent, type SessionIntentUpdater } from './sessions/apply-intent.ts';
+import { buildSourcePlan, composeSystemPrompt } from './sessions/plan-build.ts';
+
+export type { SessionIntentUpdater };
 
 interface UnsubscribableLike {
   unsubscribe(): void;
@@ -61,6 +66,9 @@ export interface TurnDispatcherDeps {
   readonly sourcesStore: SourcesStore;
   readonly getSession: (id: SessionId) => Promise<Session | null>;
   readonly resolveWorkingDirectory: (session: Session | null) => string;
+  /** Injeta o writer pra `rejectedSourceSlugs` / `stickyMountedSourceSlugs`
+   *  vindo do `SessionsRepository`. Sem isso, intent detection vira no-op. */
+  readonly sessionIntentUpdater?: SessionIntentUpdater;
   readonly defaults?: Partial<TurnDispatchDefaults>;
 }
 
@@ -87,6 +95,7 @@ export class TurnDispatcher extends DisposableBase {
   readonly #deps: TurnDispatcherDeps;
   readonly #defaults: TurnDispatchDefaults;
   readonly #active = new Map<SessionId, ActiveTurn>();
+  readonly #intent = new SourceIntentDetector();
 
   constructor(deps: TurnDispatcherDeps) {
     super();
@@ -111,7 +120,13 @@ export class TurnDispatcher extends DisposableBase {
     );
   }
 
-  async dispatch(input: TurnDispatchInput): Promise<Result<void, AppError>> {
+  dispatch(input: TurnDispatchInput): Promise<Result<void, AppError>> {
+    return withSpan('turn.dispatch', { attributes: { 'session.id': input.sessionId } }, () =>
+      this.dispatchInternal(input),
+    );
+  }
+
+  private async dispatchInternal(input: TurnDispatchInput): Promise<Result<void, AppError>> {
     const { sessionId, text } = input;
 
     if (this.#active.has(sessionId)) {
@@ -141,12 +156,24 @@ export class TurnDispatcher extends DisposableBase {
     const messages = historyResult.value;
 
     const session = await this.#deps.getSession(sessionId);
+    await applyTurnIntent(
+      {
+        detector: this.#intent,
+        sourcesStore: this.#deps.sourcesStore,
+        updater: this.#deps.sessionIntentUpdater,
+      },
+      sessionId,
+      text,
+      session,
+    );
     const resolvedModelId = session?.modelId ?? this.#defaults.modelId;
     const resolvedSlug = session?.provider
       ? connectionSlugForProvider(session.provider)
       : this.#defaults.connectionSlug;
 
-    const plan = await this.buildSourcePlan(session);
+    // Re-fetch session para incluir rejections/stickys recém-aplicados.
+    const refreshedSession = await this.#deps.getSession(sessionId);
+    const plan = await buildSourcePlan(this.#deps.sourcesStore, refreshedSession);
     const systemPrompt = composeSystemPrompt(this.#defaults.systemPrompt, plan);
 
     const toolDefs: readonly ToolDefinition[] = this.#deps.toolCatalog.list();
@@ -213,8 +240,10 @@ export class TurnDispatcher extends DisposableBase {
       },
     );
 
-    this.cleanup(sessionId);
-    agent.dispose();
+    // cleanup() nulls the entry. agent.dispose() is handled by the shared
+    // teardown registered in the constructor — no explicit dispose here to
+    // avoid double-dispose when DisposableBase.dispose() also fires.
+    this.cleanup(sessionId, { disposeAgent: true });
     return loopResult;
   }
 
@@ -227,7 +256,7 @@ export class TurnDispatcher extends DisposableBase {
       void active.agent.interrupt(sessionId);
       this.#deps.permissionBroker.cancel(sessionId);
     } finally {
-      this.cleanup(sessionId);
+      this.cleanup(sessionId, { disposeAgent: false });
     }
     return ok(undefined);
   }
@@ -236,50 +265,10 @@ export class TurnDispatcher extends DisposableBase {
     return this.#active.has(sessionId);
   }
 
-  private cleanup(sessionId: SessionId): void {
+  private cleanup(sessionId: SessionId, opts: { disposeAgent: boolean }): void {
+    const active = this.#active.get(sessionId);
+    if (!active) return;
+    if (opts.disposeAgent) active.agent.dispose();
     this.#active.delete(sessionId);
   }
-
-  private async buildSourcePlan(session: Session | null): Promise<SourcePlan> {
-    if (!session) {
-      return {
-        nativeDeferred: [],
-        brokerFallback: [],
-        filesystemDirect: [],
-        rejected: [],
-        sticky: [],
-      };
-    }
-    try {
-      const all = await this.#deps.sourcesStore.list(session.workspaceId);
-      return planTurn({
-        enabledSources: all.filter((s) => s.enabled),
-        stickySlugs: session.stickyMountedSourceSlugs,
-        rejectedSlugs: session.rejectedSourceSlugs,
-      });
-    } catch (error) {
-      log.warn(
-        { err: String(error), sessionId: session.id },
-        'failed to build source plan; proceeding without sources',
-      );
-      return {
-        nativeDeferred: [],
-        brokerFallback: [],
-        filesystemDirect: [],
-        rejected: [],
-        sticky: [],
-      };
-    }
-  }
-}
-
-function composeSystemPrompt(base: string | undefined, plan: SourcePlan): string | undefined {
-  const planSummary = formatPlanForPrompt(plan);
-  const hasSources =
-    plan.nativeDeferred.length + plan.brokerFallback.length + plan.filesystemDirect.length > 0;
-  if (!base && !hasSources) return undefined;
-  const parts: string[] = [];
-  if (base) parts.push(base);
-  if (hasSources) parts.push(planSummary);
-  return parts.length > 0 ? parts.join('\n\n') : undefined;
 }

@@ -25,6 +25,7 @@ import type {
 import { buildCatalog, catalogEntry } from '@g4os/sources/catalog';
 import type { SourcesStore } from '@g4os/sources/store';
 import { err, ok, type Result } from 'neverthrow';
+import { probeSource } from './sources/source-probe.ts';
 
 const log = createLogger('sources-service');
 
@@ -185,12 +186,15 @@ export function createSourcesService(deps: SourcesServiceDeps): SourcesService {
       workspaceId: WorkspaceId,
       id: SourceId,
     ): Promise<Result<SourceStatus, AppError>> {
-      // Phase 1: retorna o status persistido. Em OUTLIER-10 passa a executar
-      // `SourceRegistry.activate(config)` e observar `status$`.
       try {
         const existing = await store.get(workspaceId, id);
         if (!existing) return err(notFound(id));
-        return ok(existing.status);
+        const probed = await probeSource(existing);
+        // Persiste o status probed no JSON pra UI/planner refletirem o check.
+        if (probed !== existing.status) {
+          await store.update(workspaceId, id, { status: probed });
+        }
+        return ok(probed);
       } catch (error) {
         return err(wrap('sources.testConnection', error, { workspaceId, id }));
       }

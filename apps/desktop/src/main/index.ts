@@ -30,7 +30,7 @@ import { SessionManager } from './services/session-manager.ts';
 import { SessionsCleanupScheduler } from './services/sessions-cleanup-scheduler.ts';
 import { createSessionsService } from './services/sessions-service.ts';
 import { createSourcesService } from './services/sources-service.ts';
-import { buildToolCatalog } from './services/tools-bootstrap.ts';
+import { buildIntentUpdater, buildToolCatalog } from './services/tools-bootstrap.ts';
 import { TurnDispatcher } from './services/turn-dispatcher.ts';
 import { createWindowsService } from './services/windows-service.ts';
 import { WorkerTurnDispatcher } from './services/worker-turn-dispatcher.ts';
@@ -195,6 +195,7 @@ export async function bootstrapMain(options: BootstrapOptions = {}): Promise<voi
       if (session?.workingDirectory) return session.workingDirectory;
       return appPaths.workspace(session?.workspaceId ?? 'default');
     },
+    sessionIntentUpdater: buildIntentUpdater(sessionsRepo),
   });
   const workerTurnDispatcher = new WorkerTurnDispatcher({
     messages: messagesService,

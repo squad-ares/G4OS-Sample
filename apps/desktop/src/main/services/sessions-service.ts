@@ -123,6 +123,8 @@ export class SqliteSessionsService implements SessionsServiceContract {
     }
   }
 
+  // TODO(FOLLOWUP-04): history-affecting patches (provider/model) should
+  // appendLifecycleEvent + bumpSequence — see SessionEventBus `sequenceNumber: 0`.
   async update(id: SessionId, patch: Partial<Session>): Promise<Result<void, AppError>> {
     try {
       await this.#repo.update(id, patch);
@@ -164,29 +166,14 @@ export class SqliteSessionsService implements SessionsServiceContract {
     }
   }
 
-  pin(id: SessionId): Promise<Result<void, AppError>> {
-    return simpleMutation(id, 'sessions.pin', () => this.#repo.pin(id));
-  }
-
-  unpin(id: SessionId): Promise<Result<void, AppError>> {
-    return simpleMutation(id, 'sessions.unpin', () => this.#repo.unpin(id));
-  }
-
-  star(id: SessionId): Promise<Result<void, AppError>> {
-    return simpleMutation(id, 'sessions.star', () => this.#repo.star(id));
-  }
-
-  unstar(id: SessionId): Promise<Result<void, AppError>> {
-    return simpleMutation(id, 'sessions.unstar', () => this.#repo.unstar(id));
-  }
-
-  markRead(id: SessionId): Promise<Result<void, AppError>> {
-    return simpleMutation(id, 'sessions.markRead', () => this.#repo.markRead(id));
-  }
-
-  markUnread(id: SessionId): Promise<Result<void, AppError>> {
-    return simpleMutation(id, 'sessions.markUnread', () => this.#repo.markUnread(id));
-  }
+  pin = (id: SessionId) => simpleMutation(id, 'sessions.pin', () => this.#repo.pin(id));
+  unpin = (id: SessionId) => simpleMutation(id, 'sessions.unpin', () => this.#repo.unpin(id));
+  star = (id: SessionId) => simpleMutation(id, 'sessions.star', () => this.#repo.star(id));
+  unstar = (id: SessionId) => simpleMutation(id, 'sessions.unstar', () => this.#repo.unstar(id));
+  markRead = (id: SessionId) =>
+    simpleMutation(id, 'sessions.markRead', () => this.#repo.markRead(id));
+  markUnread = (id: SessionId) =>
+    simpleMutation(id, 'sessions.markUnread', () => this.#repo.markUnread(id));
 
   async branch(input: BranchSessionInput): Promise<Result<Session, AppError>> {
     const source = await this.#repo.get(input.sourceId);
@@ -285,6 +272,8 @@ export class SqliteSessionsService implements SessionsServiceContract {
     return Promise.resolve(stopTurnOp(this.activeDispatcher(), this.#deps.sessionManager, id));
   }
 
+  // TODO(FOLLOWUP-08): retryLastTurn + truncateAfter precisam de helpers
+  // novos no `SessionEventStore` (truncate reescreve JSONL + reprojeta SQLite).
   retryLastTurn(_id: SessionId): Promise<Result<void, AppError>> {
     return Promise.resolve(notImplementedResult('sessions.retryLastTurn not yet wired'));
   }

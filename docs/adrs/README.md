@@ -120,6 +120,15 @@ Escreva ADR quando:
 | 0131 | Project files — path-traversal guard + snapshots locais pré-save + limite 10 MiB | Accepted | 2026-04-22 | 11-features |
 | 0132 | Project tasks — ordering fracional via string lexicográfica sem dependência externa | Accepted | 2026-04-22 | 11-features |
 | 0133 | Legacy project import — discovery em 3 candidatos + sentinel file + keep/import/skip | Accepted | 2026-04-22 | 11-features |
+| 0134 | @g4os/permissions package — tool-use PermissionBroker + PermissionStore | Accepted | 2026-04-24 | outlier-09 |
+| 0135 | @g4os/session-runtime — composition-agnostic turn execution | Accepted | 2026-04-24 | refactor |
+| 0136 | @g4os/sources subpaths — planner/catalog/store (OUTLIER-04 unpark + refactor) | Accepted | 2026-04-24 | outlier-04 |
+| 0137 | Source mounting per-turn — SourcePlanner + activate_sources tool handler | Accepted | 2026-04-24 | outlier-10 |
+| 0138 | News hub — viewer API + cache + polling + sub-sidebar | Accepted | 2026-04-24 | outlier-15 |
+| 0139 | Settings hub — 12-category catalog + route switch + feature package | Accepted | 2026-04-24 | outlier-16 |
+| 0140 | Composer slots — SourcePicker + MentionPicker + WorkingDirPicker | Accepted | 2026-04-24 | outlier-18/19/20 |
+| 0141 | Chat observability — TurnTelemetry Prometheus + OpenTelemetry spans | Accepted | 2026-04-24 | outlier-22 |
+| 0142 | E2E testing — Playwright + Electron smoke harness | Accepted | 2026-04-24 | outlier-23 |
 
 ## Status
 

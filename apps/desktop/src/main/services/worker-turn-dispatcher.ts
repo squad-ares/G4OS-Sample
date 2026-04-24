@@ -35,6 +35,13 @@ const log = createLogger('worker-turn-dispatcher');
 const DEFAULT_MODEL_ID = 'claude-sonnet-4-6';
 const DEFAULT_CONNECTION_SLUG = 'anthropic-direct';
 const DEFAULT_MAX_TOKENS = 4096;
+/**
+ * Se o worker morrer sem emitir `turn.complete` / `turn.error` (ex: OOM kill
+ * no Windows), o `#activeTurns` ficaria preso e travaria a sessão com
+ * `SESSION_LOCKED`. Watchdog dá 2 minutos para o turn completar; se não vier,
+ * emite `turn.error` genérico e libera a sessão.
+ */
+const ORPHAN_TURN_TIMEOUT_MS = 120_000;
 
 export interface WorkerTurnDispatcherDeps {
   readonly messages: MessagesService;
@@ -63,6 +70,7 @@ export class WorkerTurnDispatcher extends DisposableBase {
   readonly #completeSubs = new Map<SessionId, IDisposable>();
   readonly #activeTurns = new Map<SessionId, string>();
   readonly #telemetries = new Map<SessionId, TurnTelemetry>();
+  readonly #orphanTimers = new Map<SessionId, NodeJS.Timeout>();
 
   constructor(deps: WorkerTurnDispatcherDeps) {
     super();
@@ -122,6 +130,7 @@ export class WorkerTurnDispatcher extends DisposableBase {
     this.#deps.eventBus.emit(sessionId, { type: 'turn.started', sessionId, turnId });
 
     this.subscribeTurnComplete(sessionId);
+    this.armOrphanWatchdog(sessionId, turnId);
 
     const credentials = await this.gatherCredentials();
 
@@ -185,6 +194,29 @@ export class WorkerTurnDispatcher extends DisposableBase {
     this.#completeSubs.set(sessionId, sub);
   }
 
+  private armOrphanWatchdog(sessionId: SessionId, turnId: string): void {
+    const priorTimer = this.#orphanTimers.get(sessionId);
+    if (priorTimer) clearTimeout(priorTimer);
+    const timer = setTimeout(() => {
+      const currentTurn = this.#activeTurns.get(sessionId);
+      if (currentTurn !== turnId) return; // turn already finished
+      log.warn(
+        { sessionId, turnId, timeoutMs: ORPHAN_TURN_TIMEOUT_MS },
+        'worker turn orphaned — no turn.complete within deadline, releasing session',
+      );
+      this.#deps.eventBus.emit(sessionId, {
+        type: 'turn.error',
+        sessionId,
+        turnId,
+        code: 'worker.orphan_timeout',
+        message: `Worker did not emit turn.complete within ${ORPHAN_TURN_TIMEOUT_MS}ms — session released`,
+      });
+      this.cleanup(sessionId);
+    }, ORPHAN_TURN_TIMEOUT_MS);
+    timer.unref();
+    this.#orphanTimers.set(sessionId, timer);
+  }
+
   private async handleTurnComplete(sessionId: SessionId, event: TurnCompleteEvent): Promise<void> {
     const activeTurn = this.#activeTurns.get(sessionId);
     if (activeTurn !== event.turnId) return;
@@ -226,6 +258,11 @@ export class WorkerTurnDispatcher extends DisposableBase {
     if (sub) {
       sub.dispose();
       this.#completeSubs.delete(sessionId);
+    }
+    const timer = this.#orphanTimers.get(sessionId);
+    if (timer) {
+      clearTimeout(timer);
+      this.#orphanTimers.delete(sessionId);
     }
   }
 
