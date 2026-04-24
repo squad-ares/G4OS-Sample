@@ -1,6 +1,7 @@
 import { readdir } from 'node:fs/promises';
-import { isAbsolute, join, resolve } from 'node:path';
+import { join } from 'node:path';
 import { err, ok, type Result } from 'neverthrow';
+import { relativeInside, resolveInside } from '../shared/path-guard.ts';
 import type { ToolFailure, ToolHandler, ToolHandlerResult } from '../types.ts';
 
 interface ListDirInput {
@@ -38,19 +39,15 @@ export const listDirHandler: ToolHandler = {
     const parsed = parseInput(input);
     if (parsed.isErr()) return err(parsed.error);
 
-    const base = resolve(ctx.workingDirectory);
-    const startRelOrAbs = parsed.value.path ?? '.';
-    const start = isAbsolute(startRelOrAbs) ? resolve(startRelOrAbs) : resolve(base, startRelOrAbs);
-    if (!start.startsWith(`${base}/`) && start !== base) {
-      return err({
-        code: 'tool.list_dir.path_escape',
-        message: 'path resolves outside the working directory',
-      });
-    }
+    const resolved = resolveInside(ctx.workingDirectory, parsed.value.path ?? '.', {
+      code: 'tool.list_dir.path_escape',
+    });
+    if (resolved.isErr()) return err(resolved.error);
+    const start = resolved.value;
 
     const depth = parsed.value.depth ?? DEFAULT_DEPTH;
     try {
-      const entries = await walk(start, base, depth, ctx.signal);
+      const entries = await walk(start, start, depth, ctx.signal);
       const truncated = entries.length > MAX_ENTRIES;
       const returned = truncated ? entries.slice(0, MAX_ENTRIES) : entries;
       return ok({
@@ -110,9 +107,7 @@ async function walk(
     if (signal.aborted) break;
     const fullPath = join(dir, entry.name);
     const suffix = entry.isDirectory() ? '/' : '';
-    lines.push(
-      `${fullPath.startsWith(base) ? fullPath.slice(base.length + 1) : fullPath}${suffix}`,
-    );
+    lines.push(`${relativeInside(base, fullPath)}${suffix}`);
     if (entry.isDirectory() && depth > 1) {
       const nested = await walk(fullPath, base, depth - 1, signal);
       lines.push(...nested);

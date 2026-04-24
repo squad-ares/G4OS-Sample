@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
-import { isAbsolute, resolve } from 'node:path';
 import { err, ok, type Result } from 'neverthrow';
+import { resolveInside } from '../shared/path-guard.ts';
 import type { ToolFailure, ToolHandler, ToolHandlerResult } from '../types.ts';
 
 interface ReadFileInput {
@@ -38,7 +38,9 @@ export const readFileHandler: ToolHandler = {
     const parsed = parseInput(input);
     if (parsed.isErr()) return err(parsed.error);
 
-    const resolved = resolveInside(ctx.workingDirectory, parsed.value.path);
+    const resolved = resolveInside(ctx.workingDirectory, parsed.value.path, {
+      code: 'tool.read_file.path_escape',
+    });
     if (resolved.isErr()) return err(resolved.error);
 
     try {
@@ -85,16 +87,4 @@ function parseInput(input: Readonly<Record<string, unknown>>): Result<ReadFileIn
     ...(typeof rawMax === 'number' ? { maxBytes: rawMax } : {}),
   };
   return ok(parsed);
-}
-
-function resolveInside(workingDirectory: string, requested: string): Result<string, ToolFailure> {
-  const base = resolve(workingDirectory);
-  const target = isAbsolute(requested) ? resolve(requested) : resolve(base, requested);
-  if (!target.startsWith(`${base}/`) && target !== base) {
-    return err({
-      code: 'tool.read_file.path_escape',
-      message: 'path resolves outside the working directory',
-    });
-  }
-  return ok(target);
 }

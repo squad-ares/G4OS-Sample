@@ -1,6 +1,7 @@
 import { mkdir, writeFile } from 'node:fs/promises';
-import { dirname, isAbsolute, resolve } from 'node:path';
+import { dirname } from 'node:path';
 import { err, ok, type Result } from 'neverthrow';
+import { resolveInside } from '../shared/path-guard.ts';
 import type { ToolFailure, ToolHandler, ToolHandlerResult } from '../types.ts';
 
 interface WriteFileInput {
@@ -31,17 +32,12 @@ export const writeFileHandler: ToolHandler = {
     const parsed = parseInput(input);
     if (parsed.isErr()) return err(parsed.error);
 
-    const base = resolve(ctx.workingDirectory);
     const parsedValue = parsed.value;
-    const target = isAbsolute(parsedValue.path)
-      ? resolve(parsedValue.path)
-      : resolve(base, parsedValue.path);
-    if (!target.startsWith(`${base}/`) && target !== base) {
-      return err({
-        code: 'tool.write_file.path_escape',
-        message: 'path resolves outside the working directory',
-      });
-    }
+    const resolved = resolveInside(ctx.workingDirectory, parsedValue.path, {
+      code: 'tool.write_file.path_escape',
+    });
+    if (resolved.isErr()) return err(resolved.error);
+    const target = resolved.value;
 
     const bytes = Buffer.byteLength(parsedValue.content, 'utf8');
     if (bytes > MAX_BYTES) {

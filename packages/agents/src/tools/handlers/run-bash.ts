@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process';
 import { err, ok, type Result } from 'neverthrow';
+import { resolveShell } from '../shared/shell-launcher.ts';
 import type { ToolFailure, ToolHandler, ToolHandlerResult } from '../types.ts';
 
 interface RunBashInput {
@@ -77,7 +78,8 @@ function runOnce(
 ): Promise<BashResult> {
   return new Promise((resolvePromise, rejectPromise) => {
     const start = Date.now();
-    const child = spawn('/bin/sh', ['-c', command], {
+    const { executable, args } = resolveShell(command);
+    const child = spawn(executable, [...args], {
       cwd,
       stdio: ['ignore', 'pipe', 'pipe'],
     });
