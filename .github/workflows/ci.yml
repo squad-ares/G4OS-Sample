@@ -101,15 +101,12 @@ jobs:
       - name: Check package exports
         run: pnpm check:exports
 
-  # Job 5: Unit tests (matrix de plataforma)
+  # Job 5: Unit tests (Ubuntu apenas — economiza cota em repo privado).
+  # Cross-OS smoke roda em release-desktop.yml antes de publicar.
   test:
-    name: Test (${{ matrix.os }})
+    name: Test (ubuntu-latest)
     needs: setup
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -120,20 +117,16 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm test
       - uses: actions/upload-artifact@v4
-        if: matrix.os == 'ubuntu-latest'
         with:
-          name: coverage-${{ matrix.os }}
+          name: coverage-ubuntu-latest
           path: coverage/
 
-  # Job 6: Build (matrix de plataforma - critico para Electron)
+  # Job 6: Build (Ubuntu apenas — economiza cota macOS 10x em repo privado).
+  # Build completo multi-plataforma roda em release-desktop.yml (workflow_dispatch).
   build:
-    name: Build (${{ matrix.os }})
+    name: Build (ubuntu-latest)
     needs: [lint, typecheck, architecture]
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4

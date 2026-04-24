@@ -1,0 +1,159 @@
+name: Release Desktop
+
+# Manual via workflow_dispatch (privado — economiza cota macOS 10x)
+# OU automatico em tag vX.Y.Z para publicar release.
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: 'Publish to R2 auto-update feed'
+        required: true
+        default: 'false'
+        type: choice
+        options: ['true', 'false']
+      platforms:
+        description: 'Platforms to build (comma-separated: mac,win,linux)'
+        required: true
+        default: 'mac,win,linux'
+        type: string
+  push:
+    tags:
+      - 'v*.*.*'
+
+concurrency:
+  group: release-desktop-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  G4OS_BUNDLE_PROFILE: full
+  G4OS_PUBLISH_MODE: ${{ github.event.inputs.publish == 'true' && 'r2' || 'none' }}
+
+jobs:
+  matrix-plan:
+    runs-on: ubuntu-latest
+    outputs:
+      platforms: ${{ steps.plan.outputs.platforms }}
+    steps:
+      - id: plan
+        shell: bash
+        run: |
+          input="${{ github.event.inputs.platforms || 'mac,win,linux' }}"
+          # Converte csv em JSON array para matrix
+          json="["
+          first=1
+          for p in $(echo "$input" | tr ',' ' '); do
+            case "$p" in
+              mac)   os='macos-latest';;
+              win)   os='windows-latest';;
+              linux) os='ubuntu-latest';;
+              *) continue ;;
+            esac
+            [ $first -eq 0 ] && json="$json,"
+            json="$json{\"platform\":\"$p\",\"os\":\"$os\"}"
+            first=0
+          done
+          json="$json]"
+          echo "platforms=$json" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: matrix-plan
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJson(needs.matrix-plan.outputs.platforms) }}
+    runs-on: ${{ matrix.os }}
+    env:
+      # macOS signing — adhoc se secrets ausentes, signed se presentes
+      G4OS_MAC_SIGN_MODE: ${{ secrets.APPLE_TEAM_ID != '' && 'signed' || 'adhoc' }}
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      CSC_LINK: ${{ secrets.CSC_LINK }}
+      CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+
+      # Windows signing — auto detecta PFX/KeyLocker/Azure
+      WIN_SIGN_PROVIDER: ${{ secrets.WIN_CSC_LINK != '' && 'pfx' || secrets.SM_API_KEY != '' && 'keylocker' || secrets.AZURE_TENANT_ID != '' && 'azure' || 'none' }}
+      WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+      WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+      SM_API_KEY: ${{ secrets.SM_API_KEY }}
+      WIN_SM_KEYPAIR_ALIAS: ${{ secrets.WIN_SM_KEYPAIR_ALIAS }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+      AZURE_TRUSTED_SIGNING_ENDPOINT: ${{ secrets.AZURE_TRUSTED_SIGNING_ENDPOINT }}
+      AZURE_TRUSTED_SIGNING_ACCOUNT: ${{ secrets.AZURE_TRUSTED_SIGNING_ACCOUNT }}
+      AZURE_TRUSTED_SIGNING_PROFILE: ${{ secrets.AZURE_TRUSTED_SIGNING_PROFILE }}
+
+      # R2 auto-update publish
+      R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+      R2_BUCKET: ${{ secrets.R2_BUCKET }}
+      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'pnpm'
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Bundle runtimes
+        run: pnpm -C apps/desktop prebundle
+
+      - name: Build app
+        run: pnpm -C apps/desktop build
+
+      # Platform-specific pack steps
+      - name: Pack macOS
+        if: matrix.platform == 'mac'
+        run: |
+          pnpm -C apps/desktop exec electron-builder --mac --config electron-builder.config.ts
+          # Sign (adhoc ou signed — script decide via G4OS_MAC_SIGN_MODE)
+          for app in apps/desktop/release/*/mac*/G\ OS.app; do
+            bash apps/desktop/scripts/sign-macos.sh "$app" || true
+          done
+          # Notarize (no-op em adhoc)
+          if [ "${G4OS_MAC_SIGN_MODE}" = "signed" ]; then
+            for dmg in apps/desktop/release/*/*.dmg; do
+              pnpm tsx apps/desktop/scripts/notarize-macos.ts "$dmg"
+            done
+          fi
+
+      - name: Pack Windows
+        if: matrix.platform == 'win'
+        shell: bash
+        run: |
+          pnpm -C apps/desktop exec electron-builder --win --config electron-builder.config.ts
+          # Sign (no-op quando WIN_SIGN_PROVIDER=none)
+          for exe in apps/desktop/release/*/*.exe; do
+            pnpm tsx apps/desktop/scripts/sign-windows.ts "$exe"
+          done
+          # Regenerar latest.yml com hash do exe assinado
+          for dir in apps/desktop/release/*/; do
+            pnpm tsx apps/desktop/scripts/regenerate-metadata.ts "$dir"
+          done
+
+      - name: Pack Linux
+        if: matrix.platform == 'linux'
+        run: pnpm -C apps/desktop exec electron-builder --linux --config electron-builder.config.ts
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-${{ matrix.platform }}
+          path: |
+            apps/desktop/release/**/*.dmg
+            apps/desktop/release/**/*.zip
+            apps/desktop/release/**/*.exe
+            apps/desktop/release/**/*.AppImage
+            apps/desktop/release/**/*.deb
+            apps/desktop/release/**/*.rpm
+            apps/desktop/release/**/latest*.yml
+            apps/desktop/release/**/*.blockmap
+          retention-days: 14
