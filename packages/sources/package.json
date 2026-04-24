@@ -46,6 +46,10 @@
     "./store": {
       "types": "./src/store/index.ts",
       "import": "./src/store/index.ts"
+    },
+    "./broker": {
+      "types": "./src/broker/index.ts",
+      "import": "./src/broker/index.ts"
     }
   },
   "scripts": {
@@ -62,6 +66,7 @@
     "node": ">=24.0.0"
   },
   "dependencies": {
+    "@g4os/agents": "workspace:*",
     "@g4os/kernel": "workspace:*",
     "neverthrow": "8.2.0",
     "rxjs": "7.8.2"
