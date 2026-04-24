@@ -1,6 +1,5 @@
-import { ShellPlaceholderPage } from '@g4os/features/shell';
-import { createFileRoute } from '@tanstack/react-router';
+import { createFileRoute, Outlet } from '@tanstack/react-router';
 
 export const Route = createFileRoute('/_app/news')({
-  component: () => <ShellPlaceholderPage pageId="news" />,
+  component: () => <Outlet />,
 });
