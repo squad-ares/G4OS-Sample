@@ -163,11 +163,30 @@
       }
     },
     {
-      "includes": ["scripts/**/*.ts", "scripts/**/*.mts"],
+      "includes": [
+        "scripts/**/*.ts",
+        "scripts/**/*.mts",
+        "apps/*/scripts/**/*.ts",
+        "apps/*/scripts/**/*.mts",
+        "apps/*/electron-builder.config.ts"
+      ],
       "linter": {
         "rules": {
           "suspicious": {
-            "noConsole": "off"
+            "noConsole": "off",
+            "noTemplateCurlyInString": "off",
+            "noEmptyBlockStatements": "off"
+          },
+          "style": {
+            "noProcessEnv": "off",
+            "noDefaultExport": "off",
+            "noNonNullAssertion": "off"
+          },
+          "complexity": {
+            "noExcessiveCognitiveComplexity": "off"
+          },
+          "correctness": {
+            "noUnusedVariables": "warn"
           }
         }
       }
