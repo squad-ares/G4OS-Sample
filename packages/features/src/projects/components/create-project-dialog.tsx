@@ -6,11 +6,14 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  Input,
+  InputField,
   Label,
   useTranslate,
 } from '@g4os/ui';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
 
 export interface CreateProjectDialogProps {
   readonly workspaceId: string;
@@ -21,6 +24,13 @@ export interface CreateProjectDialogProps {
 
 const PRESET_COLORS = ['#6366f1', '#22c55e', '#f59e0b', '#ef4444', '#0ea5e9', '#a855f7'];
 
+const projectFormSchema = z.object({
+  name: z.string().trim().min(1, { message: 'required' }),
+  description: z.string(),
+});
+
+type ProjectFormValues = z.infer<typeof projectFormSchema>;
+
 export function CreateProjectDialog({
   workspaceId,
   open,
@@ -28,17 +38,19 @@ export function CreateProjectDialog({
   onSubmit,
 }: CreateProjectDialogProps) {
   const { t } = useTranslate();
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
   const [color, setColor] = useState(PRESET_COLORS[0] ?? '#6366f1');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  const form = useForm<ProjectFormValues>({
+    resolver: zodResolver(projectFormSchema),
+    defaultValues: { name: '', description: '' },
+    mode: 'onChange',
+  });
 
   function reset() {
-    setName('');
-    setDescription('');
+    form.reset({ name: '', description: '' });
     setColor(PRESET_COLORS[0] ?? '#6366f1');
-    setError(null);
+    setSubmitError(null);
   }
 
   function handleOpenChange(next: boolean) {
@@ -46,28 +58,22 @@ export function CreateProjectDialog({
     onOpenChange(next);
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!name.trim()) {
-      setError('Nome é obrigatório.');
-      return;
-    }
-    setLoading(true);
-    setError(null);
+  const handleSubmit = form.handleSubmit(async (values) => {
+    setSubmitError(null);
     try {
       await onSubmit({
         workspaceId,
-        name: name.trim(),
-        ...(description.trim() ? { description: description.trim() } : {}),
+        name: values.name.trim(),
+        ...(values.description.trim() ? { description: values.description.trim() } : {}),
         color,
       });
       handleOpenChange(false);
     } catch {
-      setError('Erro ao criar projeto. Tente novamente.');
-    } finally {
-      setLoading(false);
+      setSubmitError(t('project.dialog.errorGeneric'));
     }
-  }
+  });
+
+  const { isSubmitting, isValid } = form.formState;
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -77,26 +83,20 @@ export function CreateProjectDialog({
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="project-name">{t('project.dialog.name.label')}</Label>
-            <Input
-              id="project-name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder={t('project.dialog.name.placeholder')}
-              autoFocus={true}
-            />
-          </div>
+          <InputField
+            control={form.control}
+            name="name"
+            label={t('project.dialog.name.label')}
+            placeholder={t('project.dialog.name.placeholder')}
+            required={true}
+          />
 
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="project-desc">{t('project.dialog.description.label')}</Label>
-            <Input
-              id="project-desc"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder={t('project.dialog.description.placeholder')}
-            />
-          </div>
+          <InputField
+            control={form.control}
+            name="description"
+            label={t('project.dialog.description.label')}
+            placeholder={t('project.dialog.description.placeholder')}
+          />
 
           <div className="flex flex-col gap-1.5">
             <Label>{t('project.dialog.color.label')}</Label>
@@ -118,19 +118,19 @@ export function CreateProjectDialog({
             </div>
           </div>
 
-          {error && <p className="text-xs text-destructive">{error}</p>}
+          {submitError && <p className="text-xs text-destructive">{submitError}</p>}
 
           <DialogFooter>
             <Button
               type="button"
               variant="outline"
               onClick={() => handleOpenChange(false)}
-              disabled={loading}
+              disabled={isSubmitting}
             >
               {t('project.dialog.cancel')}
             </Button>
-            <Button type="submit" disabled={loading || !name.trim()}>
-              {loading ? t('project.dialog.creating') : t('project.dialog.create')}
+            <Button type="submit" disabled={isSubmitting || !isValid}>
+              {isSubmitting ? t('project.dialog.creating') : t('project.dialog.create')}
             </Button>
           </DialogFooter>
         </form>
