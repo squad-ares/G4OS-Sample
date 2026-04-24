@@ -34,6 +34,18 @@
     "./lifecycle": {
       "types": "./src/lifecycle/index.ts",
       "import": "./src/lifecycle/index.ts"
+    },
+    "./planner": {
+      "types": "./src/planner/index.ts",
+      "import": "./src/planner/index.ts"
+    },
+    "./catalog": {
+      "types": "./src/catalog/index.ts",
+      "import": "./src/catalog/index.ts"
+    },
+    "./store": {
+      "types": "./src/store/index.ts",
+      "import": "./src/store/index.ts"
     }
   },
   "scripts": {
