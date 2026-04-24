@@ -29,6 +29,7 @@ export {
   type ConfirmDestructiveDialogProps,
 } from './components/confirm-destructive-dialog.tsx';
 export { ModelSelector } from './components/model-selector.tsx';
+export { SourcePicker, type SourcePickerProps } from './components/source-picker.tsx';
 export { ThinkingLevelSelector } from './components/thinking-level.tsx';
 export {
   BranchButton,
@@ -42,6 +43,11 @@ export {
   TranscriptView,
   type TranscriptViewProps,
 } from './components/transcript/index.ts';
+export {
+  type WorkingDirOption,
+  WorkingDirPicker,
+  type WorkingDirPickerProps,
+} from './components/working-dir-picker.tsx';
 export { useAutoScroll } from './hooks/use-auto-scroll.ts';
 export { type ComposerState, useComposerState } from './hooks/use-composer-state.ts';
 export { useScrollToMatch } from './hooks/use-scroll-to-match.ts';
@@ -55,6 +61,10 @@ export {
   type SessionShortcutHandlers,
   useSessionShortcuts,
 } from './hooks/use-session-shortcuts.ts';
+export {
+  type UseStreamingTextResult,
+  useStreamingText,
+} from './hooks/use-streaming-text.ts';
 export {
   useVoiceRecorder,
   type VoiceRecorderResult,
@@ -76,6 +86,12 @@ export {
   type PermissionScope,
   requestPermission,
 } from './permissions/index.ts';
+export {
+  modelProviderToConnectionSlug,
+  modelProviderToSession,
+  type SessionProviderKind,
+  sessionProviderToConnectionSlug,
+} from './provider-mapping.ts';
 export {
   CollapsibleResult,
   FallbackRenderer,

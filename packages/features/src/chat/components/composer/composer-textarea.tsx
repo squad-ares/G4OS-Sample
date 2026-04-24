@@ -8,6 +8,11 @@ const DEFAULT_MAX_ROWS = 10;
 export interface ComposerTextareaRef {
   focus(): void;
   blur(): void;
+  /**
+   * OUTLIER-20: acesso ao `<textarea>` nativo para ler `selectionStart` em
+   * typeahead detection (MentionPicker). Retorna null antes de montar.
+   */
+  getElement(): HTMLTextAreaElement | null;
 }
 
 export interface ComposerTextareaProps {
@@ -22,6 +27,9 @@ export interface ComposerTextareaProps {
   readonly maxRows?: number;
   readonly className?: string;
   readonly ariaLabel?: string;
+  /** Captura de keydown ANTES do submit/newline — usado pelo MentionPicker
+   *  para navegação (arrow/enter/esc). Handler retorna `true` se consumiu. */
+  readonly onCaptureKeyDown?: (event: KeyboardEvent<HTMLTextAreaElement>) => boolean;
 }
 
 export const ComposerTextarea = forwardRef<ComposerTextareaRef, ComposerTextareaProps>(
@@ -38,6 +46,7 @@ export const ComposerTextarea = forwardRef<ComposerTextareaRef, ComposerTextarea
       maxRows = DEFAULT_MAX_ROWS,
       className,
       ariaLabel,
+      onCaptureKeyDown,
     },
     ref,
   ) {
@@ -48,6 +57,7 @@ export const ComposerTextarea = forwardRef<ComposerTextareaRef, ComposerTextarea
       () => ({
         focus: () => textareaRef.current?.focus(),
         blur: () => textareaRef.current?.blur(),
+        getElement: () => textareaRef.current,
       }),
       [],
     );
@@ -74,6 +84,12 @@ export const ComposerTextarea = forwardRef<ComposerTextareaRef, ComposerTextarea
     }, [value, minRows, maxRows]);
 
     const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+      // Capture hook (mention picker) pode consumir Arrow/Enter/Esc antes
+      // do submit. Se consumido, o evento para aqui.
+      if (onCaptureKeyDown?.(event)) {
+        event.preventDefault();
+        return;
+      }
       if (shouldSubmit(event, submitMode)) {
         event.preventDefault();
         onSubmit();

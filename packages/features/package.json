@@ -38,6 +38,18 @@
     "./projects": {
       "types": "./src/projects/index.ts",
       "import": "./src/projects/index.ts"
+    },
+    "./settings": {
+      "types": "./src/settings/index.ts",
+      "import": "./src/settings/index.ts"
+    },
+    "./news": {
+      "types": "./src/news/index.ts",
+      "import": "./src/news/index.ts"
+    },
+    "./sources": {
+      "types": "./src/sources/index.ts",
+      "import": "./src/sources/index.ts"
     }
   },
   "scripts": {
