@@ -1,0 +1,147 @@
+/**
+ * Settings categories — OUTLIER-16.
+ *
+ * Paridade com V1 (12 categorias). Cada categoria tem:
+ *  - `id` estável para URL (`/settings/:category`)
+ *  - `labelKey` / `descriptionKey` — translation keys
+ *  - `status`: 'ready' (tem form funcional) ou 'planned' (placeholder com
+ *    badge "Em breve")
+ *  - `persistence` — onde o dado grava (App → `config.json`, Workspace →
+ *    `workspaces/{id}/config.json`, etc.). Documentação apenas, não
+ *    enforçada em código.
+ */
+
+import type { TranslationKey } from '@g4os/translate';
+
+export type SettingsCategoryId =
+  | 'app'
+  | 'agents'
+  | 'appearance'
+  | 'input'
+  | 'workspace'
+  | 'usage'
+  | 'permissions'
+  | 'tags'
+  | 'cloud-sync'
+  | 'repair'
+  | 'shortcuts'
+  | 'preferences';
+
+export type SettingsCategoryStatus = 'ready' | 'planned';
+
+export type SettingsPersistence =
+  | 'app-config'
+  | 'preferences'
+  | 'workspace-config'
+  | 'workspace-labels'
+  | 'workspace-permissions'
+  | 'none';
+
+export interface SettingsCategory {
+  readonly id: SettingsCategoryId;
+  readonly labelKey: TranslationKey;
+  readonly descriptionKey: TranslationKey;
+  readonly status: SettingsCategoryStatus;
+  readonly persistence: SettingsPersistence;
+}
+
+export const SETTINGS_CATEGORIES: readonly SettingsCategory[] = [
+  {
+    id: 'app',
+    labelKey: 'settings.category.app.label',
+    descriptionKey: 'settings.category.app.description',
+    status: 'ready',
+    persistence: 'app-config',
+  },
+  {
+    id: 'agents',
+    labelKey: 'settings.category.agents.label',
+    descriptionKey: 'settings.category.agents.description',
+    status: 'ready',
+    persistence: 'app-config',
+  },
+  {
+    id: 'appearance',
+    labelKey: 'settings.category.appearance.label',
+    descriptionKey: 'settings.category.appearance.description',
+    status: 'ready',
+    persistence: 'preferences',
+  },
+  {
+    id: 'input',
+    labelKey: 'settings.category.input.label',
+    descriptionKey: 'settings.category.input.description',
+    status: 'ready',
+    persistence: 'preferences',
+  },
+  {
+    id: 'workspace',
+    labelKey: 'settings.category.workspace.label',
+    descriptionKey: 'settings.category.workspace.description',
+    status: 'ready',
+    persistence: 'workspace-config',
+  },
+  {
+    id: 'usage',
+    labelKey: 'settings.category.usage.label',
+    descriptionKey: 'settings.category.usage.description',
+    status: 'ready',
+    persistence: 'none',
+  },
+  {
+    id: 'permissions',
+    labelKey: 'settings.category.permissions.label',
+    descriptionKey: 'settings.category.permissions.description',
+    status: 'ready',
+    persistence: 'workspace-permissions',
+  },
+  {
+    id: 'tags',
+    labelKey: 'settings.category.tags.label',
+    descriptionKey: 'settings.category.tags.description',
+    status: 'ready',
+    persistence: 'workspace-labels',
+  },
+  {
+    id: 'cloud-sync',
+    labelKey: 'settings.category.cloudSync.label',
+    descriptionKey: 'settings.category.cloudSync.description',
+    status: 'ready',
+    persistence: 'app-config',
+  },
+  {
+    id: 'repair',
+    labelKey: 'settings.category.repair.label',
+    descriptionKey: 'settings.category.repair.description',
+    status: 'ready',
+    persistence: 'none',
+  },
+  {
+    id: 'shortcuts',
+    labelKey: 'settings.category.shortcuts.label',
+    descriptionKey: 'settings.category.shortcuts.description',
+    status: 'ready',
+    persistence: 'none',
+  },
+  {
+    id: 'preferences',
+    labelKey: 'settings.category.preferences.label',
+    descriptionKey: 'settings.category.preferences.description',
+    status: 'ready',
+    persistence: 'preferences',
+  },
+];
+
+export const DEFAULT_SETTINGS_CATEGORY: SettingsCategoryId = 'agents';
+
+export const SETTINGS_CATEGORY_IDS: ReadonlySet<SettingsCategoryId> = new Set(
+  SETTINGS_CATEGORIES.map((c) => c.id),
+);
+
+export function isSettingsCategoryId(value: string): value is SettingsCategoryId {
+  return SETTINGS_CATEGORY_IDS.has(value as SettingsCategoryId);
+}
+
+export function findSettingsCategory(id: string): SettingsCategory | null {
+  return SETTINGS_CATEGORIES.find((c) => c.id === id) ?? null;
+}
