@@ -6,11 +6,18 @@ import { sendOtp, verifyOtp } from '../otp/otp-flow.ts';
 import {
   AUTH_ACCESS_TOKEN_KEY,
   AUTH_REFRESH_TOKEN_KEY,
+  AUTH_SESSION_META_KEY,
   type AuthSession,
   type AuthTokenStore,
   type SupabaseAuthPort,
 } from '../types.ts';
 import { IDLE_STATE, type ManagedLoginState } from './state.ts';
+
+interface PersistedSessionMeta {
+  readonly userId: string;
+  readonly email: string;
+  readonly expiresAt?: number;
+}
 
 export interface ManagedProviderBootstrap {
   run(session: AuthSession): Promise<void>;
@@ -82,7 +89,37 @@ export class ManagedLoginService extends DisposableBase {
   async logout(): Promise<void> {
     await this.tokenStore.delete(AUTH_ACCESS_TOKEN_KEY);
     await this.tokenStore.delete(AUTH_REFRESH_TOKEN_KEY);
+    await this.tokenStore.delete(AUTH_SESSION_META_KEY);
     this.setState(IDLE_STATE);
+  }
+
+  /**
+   * Restaura a sessão persistida em disco (vault) na inicialização.
+   * Sem refresh proativo — apenas rehidrata o estado se access token e
+   * metadata estiverem presentes. `SessionRefresher` cuida de renovar
+   * quando expirar. Retorna `false` quando não há sessão persistida.
+   */
+  async restore(): Promise<boolean> {
+    const accessResult = await this.tokenStore.get(AUTH_ACCESS_TOKEN_KEY);
+    if (accessResult.isErr()) return false;
+    const metaResult = await this.tokenStore.get(AUTH_SESSION_META_KEY);
+    if (metaResult.isErr()) return false;
+    const meta = parseMeta(metaResult.value);
+    if (!meta) return false;
+
+    const refreshResult = await this.tokenStore.get(AUTH_REFRESH_TOKEN_KEY);
+    const refreshToken = refreshResult.isOk() ? refreshResult.value : undefined;
+
+    const session: AuthSession = {
+      userId: meta.userId,
+      email: meta.email,
+      accessToken: accessResult.value,
+      ...(refreshToken === undefined ? {} : { refreshToken }),
+      ...(meta.expiresAt === undefined ? {} : { expiresAt: meta.expiresAt }),
+    };
+
+    this.setState({ kind: 'authenticated', session });
+    return true;
   }
 
   private async persistSession(session: AuthSession): Promise<Result<void, AuthError>> {
@@ -96,6 +133,13 @@ export class ManagedLoginService extends DisposableBase {
       const setRefresh = await this.tokenStore.set(AUTH_REFRESH_TOKEN_KEY, session.refreshToken);
       if (setRefresh.isErr()) return err(setRefresh.error);
     }
+    const metaJson = JSON.stringify({
+      userId: session.userId,
+      email: session.email,
+      ...(session.expiresAt === undefined ? {} : { expiresAt: session.expiresAt }),
+    } satisfies PersistedSessionMeta);
+    const setMeta = await this.tokenStore.set(AUTH_SESSION_META_KEY, metaJson);
+    if (setMeta.isErr()) return err(setMeta.error);
     return ok(undefined);
   }
 
@@ -106,5 +150,24 @@ export class ManagedLoginService extends DisposableBase {
   override dispose(): void {
     this.subject.complete();
     super.dispose();
+  }
+}
+
+function parseMeta(raw: string): PersistedSessionMeta | null {
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (parsed === null || typeof parsed !== 'object') return null;
+    const record = parsed as Record<string, unknown>;
+    const userId = record['userId'];
+    const email = record['email'];
+    const expiresAt = record['expiresAt'];
+    if (typeof userId !== 'string' || typeof email !== 'string') return null;
+    return {
+      userId,
+      email,
+      ...(typeof expiresAt === 'number' ? { expiresAt } : {}),
+    };
+  } catch {
+    return null;
   }
 }

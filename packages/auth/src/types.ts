@@ -70,3 +70,4 @@ export interface AuthTokenStore {
 
 export const AUTH_ACCESS_TOKEN_KEY = 'auth.access-token';
 export const AUTH_REFRESH_TOKEN_KEY = 'auth.refresh-token';
+export const AUTH_SESSION_META_KEY = 'auth.session-meta';
