@@ -8,6 +8,8 @@ import {
   type LabelsService,
   type MarketplaceService,
   type MessagesService,
+  type NewsService,
+  type PermissionsService,
   type PlatformService,
   type ProjectsService,
   type SchedulerService,
@@ -31,10 +33,12 @@ export interface IpcServiceOverrides {
   readonly messages?: MessagesService;
   readonly projects?: ProjectsService;
   readonly credentials?: CredentialsService;
+  readonly permissions?: PermissionsService;
   readonly sources?: SourcesService;
   readonly agents?: AgentsService;
   readonly auth?: AuthService;
   readonly marketplace?: MarketplaceService;
+  readonly news?: NewsService;
   readonly scheduler?: SchedulerService;
   readonly updates?: UpdatesService;
   readonly voice?: VoiceService;
@@ -53,10 +57,12 @@ export async function createContext(input: CreateContextInput = {}): Promise<Ipc
     messages: input.services?.messages ?? nulls.messages,
     projects: input.services?.projects ?? nulls.projects,
     credentials: input.services?.credentials ?? nulls.credentials,
+    permissions: input.services?.permissions ?? nulls.permissions,
     sources: input.services?.sources ?? nulls.sources,
     agents: input.services?.agents ?? nulls.agents,
     auth: input.services?.auth ?? nulls.auth,
     marketplace: input.services?.marketplace ?? nulls.marketplace,
+    news: input.services?.news ?? nulls.news,
     scheduler: input.services?.scheduler ?? nulls.scheduler,
     updates: input.services?.updates ?? nulls.updates,
     voice: input.services?.voice ?? nulls.voice,

@@ -110,6 +110,11 @@ export function createAuthRuntime(options: AuthRuntimeOptions): AuthRuntime {
     }
   });
 
+  // Rehidratar sessão persistida em vault na inicialização.
+  void managedLogin.restore().then((restored) => {
+    if (restored) log.info({}, 'auth session restored from vault');
+  });
+
   return {
     service,
     configured: true,

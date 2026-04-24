@@ -3,6 +3,17 @@ import type { ElectronRuntime } from '../electron-runtime.ts';
 
 export function createPlatformService(runtime: ElectronRuntime): PlatformService {
   return {
+    getAppInfo() {
+      const versions = process.versions as Record<string, string | undefined>;
+      return {
+        version: runtime.app.getVersion(),
+        platform: process.platform,
+        isPackaged: runtime.app.isPackaged,
+        electronVersion: versions['electron'] ?? '',
+        nodeVersion: versions['node'] ?? '',
+      };
+    },
+
     async showSaveDialog(options) {
       const handler = runtime.dialog?.showSaveDialog;
       if (!handler) return { canceled: true };
