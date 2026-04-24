@@ -4,7 +4,7 @@ import { useActiveWorkspaceId } from '@g4os/features/workspaces';
 import { toast, useTranslate } from '@g4os/ui';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { queryClient } from '../../ipc/query-client.ts';
 import { trpc } from '../../ipc/trpc-client.ts';
 
@@ -68,6 +68,24 @@ function ConnectionsBody({ workspaceId }: { readonly workspaceId: string }) {
     onError: (error) => toast.error(String(error)),
   });
 
+  const [testingId, setTestingId] = useState<string | null>(null);
+  const testMut = useMutation({
+    mutationFn: (id: string) => trpc.sources.testConnection.mutate({ workspaceId, id }),
+    onMutate: (id) => {
+      setTestingId(id);
+    },
+    onSettled: () => {
+      setTestingId(null);
+    },
+    onSuccess: (status) => {
+      if (status === 'connected') toast.success(t('sources.test.success'));
+      else if (status === 'needs_auth') toast.warning(t('sources.status.needs_auth'));
+      else toast.error(t('sources.test.failed'));
+      invalidate();
+    },
+    onError: (error) => toast.error(String(error)),
+  });
+
   const mutating =
     enableMut.isPending || createStdioMut.isPending || toggleMut.isPending || deleteMut.isPending;
 
@@ -90,6 +108,10 @@ function ConnectionsBody({ workspaceId }: { readonly workspaceId: string }) {
       onDelete={async (id) => {
         await deleteMut.mutateAsync(id);
       }}
+      onTest={async (id) => {
+        await testMut.mutateAsync(id);
+      }}
+      {...(testingId ? { testingId } : {})}
     />
   );
 }

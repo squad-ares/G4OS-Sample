@@ -8,6 +8,7 @@ import {
   CircleDashed,
   KeyRound,
   Loader2,
+  Plug,
   Power,
   Trash2,
 } from 'lucide-react';
@@ -17,11 +18,25 @@ export interface SourceCardProps {
   readonly source: SourceConfigView;
   readonly onToggle: (enabled: boolean) => void;
   readonly onDelete: () => void;
+  readonly onTest?: () => void;
+  readonly testing?: boolean;
   readonly disabled?: boolean;
 }
 
-export function SourceCard({ source, onToggle, onDelete, disabled }: SourceCardProps): ReactNode {
+export function SourceCard({
+  source,
+  onToggle,
+  onDelete,
+  onTest,
+  testing,
+  disabled,
+}: SourceCardProps): ReactNode {
   const { t } = useTranslate();
+  const testable =
+    source.kind === 'mcp-stdio' ||
+    source.kind === 'mcp-http' ||
+    source.kind === 'api' ||
+    source.kind === 'filesystem';
   return (
     <li className="flex items-center gap-3 rounded-lg border border-foreground/10 bg-foreground/[0.02] px-4 py-3">
       <StatusIcon status={source.status} />
@@ -38,6 +53,22 @@ export function SourceCard({ source, onToggle, onDelete, disabled }: SourceCardP
           <StatusText status={source.status} />
         </div>
       </div>
+      {testable && onTest ? (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onTest}
+          disabled={disabled || testing === true}
+          aria-label={t('sources.test')}
+          className="h-8 px-2"
+        >
+          {testing ? (
+            <Loader2 className="h-4 w-4 animate-spin text-sky-500" aria-hidden={true} />
+          ) : (
+            <Plug className="h-4 w-4 text-muted-foreground" aria-hidden={true} />
+          )}
+        </Button>
+      ) : null}
       <Button
         variant="ghost"
         size="sm"

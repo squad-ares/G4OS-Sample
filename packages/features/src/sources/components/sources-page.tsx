@@ -20,6 +20,8 @@ export interface SourcesPageProps {
   readonly onCreateStdio: (input: CreateMcpStdioSourceInput) => Promise<void>;
   readonly onToggle: (id: string, enabled: boolean) => Promise<void>;
   readonly onDelete: (id: string) => Promise<void>;
+  readonly onTest?: (id: string) => Promise<void>;
+  readonly testingId?: string;
   readonly loading?: boolean;
   readonly mutating?: boolean;
 }
@@ -32,6 +34,8 @@ export function SourcesPage({
   onCreateStdio,
   onToggle,
   onDelete,
+  onTest,
+  testingId,
   loading,
   mutating,
 }: SourcesPageProps) {
@@ -69,6 +73,8 @@ export function SourcesPage({
                 source={s}
                 onToggle={(next) => void onToggle(s.id, next)}
                 onDelete={() => void onDelete(s.id)}
+                {...(onTest ? { onTest: () => void onTest(s.id) } : {})}
+                testing={testingId === s.id}
                 disabled={mutating === true}
               />
             ))}
