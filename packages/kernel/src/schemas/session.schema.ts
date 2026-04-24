@@ -28,6 +28,7 @@ export const SessionSchema = z.object({
   lifecycle: SessionLifecycleSchema.default('active'),
   provider: SessionProviderSchema.optional(),
   modelId: z.string().optional(),
+  workingDirectory: z.string().optional(),
 
   enabledSourceSlugs: z.array(z.string()).default([]),
   stickyMountedSourceSlugs: z.array(z.string()).default([]),

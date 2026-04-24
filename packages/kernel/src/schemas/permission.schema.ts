@@ -36,3 +36,22 @@ export const PermissionConfigSchema = z.object({
 });
 
 export type PermissionConfig = z.infer<typeof PermissionConfigSchema>;
+
+/**
+ * TASK-OUTLIER-09 Phase 2 — decisões persistidas de tool use (`allow_always`).
+ * Separado de `PermissionRule` acima (que era uma modelagem estática do V1
+ * não-adotada). Chave de match: `(toolName, argsHash)`.
+ */
+export const ToolPermissionDecisionSchema = z.object({
+  toolName: z.string().min(1),
+  argsHash: z.string().min(1),
+  argsPreview: z.string(),
+  decidedAt: z.number().int().positive(),
+});
+export type ToolPermissionDecision = z.infer<typeof ToolPermissionDecisionSchema>;
+
+export const ToolPermissionsFileSchema = z.object({
+  version: z.literal(1),
+  decisions: z.array(ToolPermissionDecisionSchema),
+});
+export type ToolPermissionsFile = z.infer<typeof ToolPermissionsFileSchema>;

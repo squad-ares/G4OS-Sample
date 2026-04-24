@@ -54,6 +54,30 @@ export const sessions = sqliteTable(
     unread: integer('unread', { mode: 'boolean' }).notNull().default(false),
 
     projectId: text('project_id'),
+
+    // TASK-OUTLIER-07: provider + modelo escolhidos pelo usuário nesta sessão.
+    // Nullable — sessões antigas e novas iniciam sem escolha explícita e
+    // TurnDispatcher aplica default (claude-sonnet-4-6 + anthropic-direct).
+    provider: text('provider'),
+    modelId: text('model_id'),
+
+    // TASK-OUTLIER-19: diretório de trabalho escolhido pelo usuário. Tool
+    // handlers usam este path como `ctx.workingDir`. Nullable — sessões
+    // usam default do workspace (`workspace.defaults.workingDirectory`)
+    // quando não definido.
+    workingDirectory: text('working_directory'),
+
+    // TASK-OUTLIER-10: estado de sources por sessão.
+    // `enabled`: slugs que o usuário ativou explicitamente nesta sessão (subset
+    //  do catálogo habilitado no workspace).
+    // `sticky`: slugs que foram mountados via `activate_sources` e persistem
+    //  entre reabrir sessão — o agente os considera disponíveis sem precisar
+    //  reativar.
+    // `rejected`: slugs que o usuário vetou no chat (ex: "don't use HubSpot") —
+    //  planner não deve sugerir/mountar enquanto rejeitado.
+    enabledSourceSlugsJson: text('enabled_source_slugs_json').notNull().default('[]'),
+    stickyMountedSourceSlugsJson: text('sticky_source_slugs_json').notNull().default('[]'),
+    rejectedSourceSlugsJson: text('rejected_source_slugs_json').notNull().default('[]'),
   },
   (t) => [
     index('idx_sessions_workspace').on(t.workspaceId, t.updatedAt),

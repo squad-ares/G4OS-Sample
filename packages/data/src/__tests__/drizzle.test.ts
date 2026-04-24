@@ -286,7 +286,13 @@ function applyBaselineSchema(db: Db): void {
       pinned_at INTEGER,
       starred_at INTEGER,
       unread INTEGER NOT NULL DEFAULT 0,
-      project_id TEXT
+      project_id TEXT,
+      provider TEXT,
+      model_id TEXT,
+      working_directory TEXT,
+      enabled_source_slugs_json TEXT NOT NULL DEFAULT '[]',
+      sticky_source_slugs_json TEXT NOT NULL DEFAULT '[]',
+      rejected_source_slugs_json TEXT NOT NULL DEFAULT '[]'
     );
     CREATE INDEX idx_sessions_workspace ON sessions(workspace_id, updated_at);
     CREATE INDEX idx_sessions_last_message ON sessions(last_message_at);

@@ -108,6 +108,18 @@ export class SessionsRepository {
     if (patch.metadata !== undefined) updates.metadata = JSON.stringify(patch.metadata);
     if (patch.projectId !== undefined) updates.projectId = patch.projectId;
     if (patch.unread !== undefined) updates.unread = patch.unread;
+    if (patch.provider !== undefined) updates.provider = patch.provider;
+    if (patch.modelId !== undefined) updates.modelId = patch.modelId;
+    if (patch.workingDirectory !== undefined) updates.workingDirectory = patch.workingDirectory;
+    if (patch.enabledSourceSlugs !== undefined) {
+      updates.enabledSourceSlugsJson = JSON.stringify(patch.enabledSourceSlugs);
+    }
+    if (patch.stickyMountedSourceSlugs !== undefined) {
+      updates.stickyMountedSourceSlugsJson = JSON.stringify(patch.stickyMountedSourceSlugs);
+    }
+    if (patch.rejectedSourceSlugs !== undefined) {
+      updates.rejectedSourceSlugsJson = JSON.stringify(patch.rejectedSourceSlugs);
+    }
     await this.db.update(sessionsTable).set(updates).where(eq(sessionsTable.id, id));
   }
 
@@ -287,9 +299,9 @@ function rowToSession(row: RowSession): Session {
     name: row.name,
     status: 'idle',
     lifecycle: row.status,
-    enabledSourceSlugs: [],
-    stickyMountedSourceSlugs: [],
-    rejectedSourceSlugs: [],
+    enabledSourceSlugs: parseSlugArray(row.enabledSourceSlugsJson),
+    stickyMountedSourceSlugs: parseSlugArray(row.stickyMountedSourceSlugsJson),
+    rejectedSourceSlugs: parseSlugArray(row.rejectedSourceSlugsJson),
     labels: [],
     unread: row.unread,
     messageCount: row.messageCount,
@@ -308,5 +320,19 @@ function rowToSession(row: RowSession): Session {
     ...(row.archivedAt === null ? {} : { archivedAt: row.archivedAt }),
     ...(row.deletedAt === null ? {} : { deletedAt: row.deletedAt }),
     ...(row.lastMessageAt === null ? {} : { lastMessageAt: row.lastMessageAt }),
+    ...(row.provider ? { provider: row.provider as Session['provider'] } : {}),
+    ...(row.modelId ? { modelId: row.modelId } : {}),
+    ...(row.workingDirectory ? { workingDirectory: row.workingDirectory } : {}),
   };
+}
+
+function parseSlugArray(raw: string | null | undefined): string[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((s): s is string => typeof s === 'string');
+  } catch {
+    return [];
+  }
 }
