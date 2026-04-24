@@ -13,12 +13,14 @@ import { SessionEventStore } from '@g4os/data/events';
 import { globalSearch as globalSearchQuery } from '@g4os/data/queries';
 import { branchSession as branchSessionHelper, SessionsRepository } from '@g4os/data/sessions';
 import type {
+  AgentRuntimeStatus,
   BranchSessionInput,
   SessionListPage,
   SessionsService as SessionsServiceContract,
 } from '@g4os/ipc/server';
 import type { IDisposable } from '@g4os/kernel/disposable';
-import { AppError, ErrorCode } from '@g4os/kernel/errors';
+import type { AppError } from '@g4os/kernel/errors';
+import { isPersistedSessionEvent, isTurnStreamEvent } from '@g4os/kernel/schemas';
 import type {
   GlobalSearchResult,
   LabelId,
@@ -26,23 +28,42 @@ import type {
   SessionEvent,
   SessionFilter,
   SessionId,
+  TurnStreamEvent,
   WorkspaceId,
 } from '@g4os/kernel/types';
-import { err, ok, type Result } from 'neverthrow';
-import type { SessionManager } from './session-manager.ts';
-import { failure, notFoundError } from './sessions/errors.ts';
+import type { PermissionBroker, PermissionDecision } from '@g4os/permissions';
 import {
   appendCreatedEvent,
   appendLifecycleEvent,
   eventStoreReader,
   eventStoreWriter,
-  type LifecycleEventKind,
-} from './sessions/event-log.ts';
+  failure,
+  lifecycleMutation,
+  notFoundError,
+  notImplementedResult,
+  respondPermission as respondPermissionOp,
+  type SessionEventBus,
+  simpleMutation,
+  stopTurn as stopTurnOp,
+} from '@g4os/session-runtime';
+import { err, ok, type Result } from 'neverthrow';
+import type { SessionManager } from './session-manager.ts';
+import { type AnyTurnDispatcher, selectDispatcher } from './sessions/dispatcher-select.ts';
+import type { TurnDispatcher } from './turn-dispatcher.ts';
+import type { WorkerTurnDispatcher } from './worker-turn-dispatcher.ts';
+
+export type { AnyTurnDispatcher };
 
 export interface SessionsServiceDeps {
   readonly db: Db;
   readonly drizzle: AppDb;
   readonly sessionManager: SessionManager;
+  readonly eventBus: SessionEventBus;
+  readonly turnDispatcher: TurnDispatcher;
+  readonly workerTurnDispatcher?: WorkerTurnDispatcher;
+  readonly useSessionWorker?: boolean;
+  readonly agentRuntime: { readonly available: boolean; readonly providers: readonly string[] };
+  readonly permissionBroker: PermissionBroker;
 }
 
 export class SqliteSessionsService implements SessionsServiceContract {
@@ -52,6 +73,10 @@ export class SqliteSessionsService implements SessionsServiceContract {
   constructor(deps: SessionsServiceDeps) {
     this.#deps = deps;
     this.#repo = new SessionsRepository(deps.drizzle);
+  }
+
+  private activeDispatcher(): AnyTurnDispatcher {
+    return selectDispatcher(this.#deps);
   }
 
   async list(workspaceId: WorkspaceId): Promise<Result<readonly Session[], AppError>> {
@@ -108,13 +133,13 @@ export class SqliteSessionsService implements SessionsServiceContract {
   }
 
   delete(id: SessionId): Promise<Result<void, AppError>> {
-    return this.lifecycleMutation(id, 'sessions.delete', 'session.deleted', (rid) =>
+    return lifecycleMutation(this.#repo, id, 'sessions.delete', 'session.deleted', (rid) =>
       this.#repo.softDelete(rid),
     );
   }
 
   archive(id: SessionId): Promise<Result<void, AppError>> {
-    return this.lifecycleMutation(id, 'sessions.archive', 'session.archived', (rid) =>
+    return lifecycleMutation(this.#repo, id, 'sessions.archive', 'session.archived', (rid) =>
       this.#repo.archive(rid),
     );
   }
@@ -140,27 +165,27 @@ export class SqliteSessionsService implements SessionsServiceContract {
   }
 
   pin(id: SessionId): Promise<Result<void, AppError>> {
-    return this.simpleMutation(id, 'sessions.pin', () => this.#repo.pin(id));
+    return simpleMutation(id, 'sessions.pin', () => this.#repo.pin(id));
   }
 
   unpin(id: SessionId): Promise<Result<void, AppError>> {
-    return this.simpleMutation(id, 'sessions.unpin', () => this.#repo.unpin(id));
+    return simpleMutation(id, 'sessions.unpin', () => this.#repo.unpin(id));
   }
 
   star(id: SessionId): Promise<Result<void, AppError>> {
-    return this.simpleMutation(id, 'sessions.star', () => this.#repo.star(id));
+    return simpleMutation(id, 'sessions.star', () => this.#repo.star(id));
   }
 
   unstar(id: SessionId): Promise<Result<void, AppError>> {
-    return this.simpleMutation(id, 'sessions.unstar', () => this.#repo.unstar(id));
+    return simpleMutation(id, 'sessions.unstar', () => this.#repo.unstar(id));
   }
 
   markRead(id: SessionId): Promise<Result<void, AppError>> {
-    return this.simpleMutation(id, 'sessions.markRead', () => this.#repo.markRead(id));
+    return simpleMutation(id, 'sessions.markRead', () => this.#repo.markRead(id));
   }
 
   markUnread(id: SessionId): Promise<Result<void, AppError>> {
-    return this.simpleMutation(id, 'sessions.markUnread', () => this.#repo.markUnread(id));
+    return simpleMutation(id, 'sessions.markUnread', () => this.#repo.markUnread(id));
   }
 
   async branch(input: BranchSessionInput): Promise<Result<Session, AppError>> {
@@ -219,69 +244,53 @@ export class SqliteSessionsService implements SessionsServiceContract {
   }
 
   subscribe(id: SessionId, handler: (event: SessionEvent) => void): IDisposable {
-    return this.#deps.sessionManager.subscribe(id, (raw) => {
-      handler(raw as SessionEvent);
+    return this.#deps.eventBus.subscribe(id, (event) => {
+      // Only forward persisted SessionEvents upstream; transient turn.* events
+      // are consumed by bus subscribers interested in streaming UI and do not
+      // enter the tRPC session stream typed schema.
+      if (isPersistedSessionEvent(event)) handler(event);
     });
   }
 
+  subscribeStream(id: SessionId, handler: (event: TurnStreamEvent) => void): IDisposable {
+    return this.#deps.eventBus.subscribe(id, (event) => {
+      if (isTurnStreamEvent(event)) handler(event);
+    });
+  }
+
+  async sendMessage(id: SessionId, text: string): Promise<Result<void, AppError>> {
+    try {
+      const result = await this.activeDispatcher().dispatch({ sessionId: id, text });
+      if (result.isErr()) return err(result.error);
+      return ok(undefined);
+    } catch (error) {
+      return failure('sessions.sendMessage', error, { id });
+    }
+  }
+
+  runtimeStatus(): Promise<Result<AgentRuntimeStatus, AppError>> {
+    return Promise.resolve(
+      ok({
+        available: this.#deps.agentRuntime.available,
+        providers: [...this.#deps.agentRuntime.providers],
+      }),
+    );
+  }
+
+  respondPermission(id: string, d: PermissionDecision): Promise<Result<void, AppError>> {
+    return Promise.resolve(respondPermissionOp(this.#deps.permissionBroker, id, d));
+  }
+
   stopTurn(id: SessionId): Promise<Result<void, AppError>> {
-    this.#deps.sessionManager.interrupt(id);
-    return Promise.resolve(ok(undefined));
+    return Promise.resolve(stopTurnOp(this.activeDispatcher(), this.#deps.sessionManager, id));
   }
 
   retryLastTurn(_id: SessionId): Promise<Result<void, AppError>> {
-    return Promise.resolve(
-      err(
-        new AppError({
-          code: ErrorCode.UNKNOWN_ERROR,
-          message: 'sessions.retryLastTurn not yet wired to worker protocol',
-        }),
-      ),
-    );
+    return Promise.resolve(notImplementedResult('sessions.retryLastTurn not yet wired'));
   }
 
-  truncateAfter(
-    _id: SessionId,
-    _afterSequence: number,
-  ): Promise<Result<{ removed: number }, AppError>> {
-    return Promise.resolve(
-      err(
-        new AppError({
-          code: ErrorCode.UNKNOWN_ERROR,
-          message: 'sessions.truncateAfter requires event-store integration (TASK-11-00)',
-        }),
-      ),
-    );
-  }
-
-  private async lifecycleMutation(
-    id: SessionId,
-    scope: string,
-    eventKind: LifecycleEventKind,
-    mutation: (id: SessionId) => Promise<void>,
-  ): Promise<Result<void, AppError>> {
-    const session = await this.#repo.get(id);
-    if (!session) return err(notFoundError(id));
-    try {
-      await appendLifecycleEvent(session.workspaceId, id, eventKind, 0);
-      await mutation(id);
-      return ok(undefined);
-    } catch (error) {
-      return failure(scope, error, { id });
-    }
-  }
-
-  private async simpleMutation(
-    id: SessionId,
-    scope: string,
-    mutation: () => Promise<void>,
-  ): Promise<Result<void, AppError>> {
-    try {
-      await mutation();
-      return ok(undefined);
-    } catch (error) {
-      return failure(scope, error, { id });
-    }
+  truncateAfter(_id: SessionId, _after: number): Promise<Result<{ removed: number }, AppError>> {
+    return Promise.resolve(notImplementedResult('sessions.truncateAfter requires events'));
   }
 }
 
