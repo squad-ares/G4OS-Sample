@@ -1,0 +1,18 @@
+{
+  "node-24.10.0-darwin-arm64": {
+    "sha256": "0ba4910a69a256798729d5a3a42539d0b72670c052b67519b5f79f246121084a",
+    "capturedAt": "2026-04-24T22:13:16.407Z"
+  },
+  "pnpm-10.33.0-darwin-arm64": {
+    "sha256": "ed8a1f140f4de457b01ebe0be3ae28e9a7e28863315dcd53d22ff1e5a32d63ae",
+    "capturedAt": "2026-04-24T22:13:20.894Z"
+  },
+  "python-3.12.13-darwin-arm64": {
+    "sha256": "8966b2bcd9fa03ba22c080ad15a86bc12e41a00122b16f4b3740e302261124d9",
+    "capturedAt": "2026-04-24T22:13:24.883Z"
+  },
+  "uv-0.5.14-darwin-arm64": {
+    "sha256": "d548dffc256014c4c8c693e148140a3a21bcc2bf066a35e1d5f0d24c91d32112",
+    "capturedAt": "2026-04-24T22:13:21.596Z"
+  }
+}
