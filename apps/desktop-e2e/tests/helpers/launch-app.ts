@@ -23,6 +23,12 @@ export interface LaunchedApp {
 export interface LaunchOptions {
   /** Env vars extras para o main process. */
   readonly env?: Readonly<Record<string, string>>;
+  /**
+   * Quando `'mock'`, seta `G4OS_E2E=1` no ambiente e o main inicializa
+   * com auth pré-autenticada + stub agent factory. Default `'none'` deixa
+   * o app carregar como se fosse um fresh install (login screen, etc.).
+   */
+  readonly auth?: 'mock' | 'none';
 }
 
 const DESKTOP_REPO_ROOT = resolve(
@@ -40,7 +46,7 @@ export async function launchApp(options: LaunchOptions = {}): Promise<LaunchedAp
       // biome-ignore lint/style/noProcessEnv: E2E harness legitimate read — composition root for Electron spawn
       ...process.env,
       NODE_ENV: 'test',
-      G4OS_E2E: '1',
+      ...(options.auth === 'mock' ? { G4OS_E2E: '1' } : {}),
       ...options.env,
     } as Record<string, string>,
   });
