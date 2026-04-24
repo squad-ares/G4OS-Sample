@@ -11,6 +11,7 @@ import type {
   LegacyImportEntry,
   LegacyProject,
   Message,
+  MessageAppendResult,
   MessageId,
   NewsItem,
   Project,
@@ -135,7 +136,7 @@ export interface MessagesService {
   get(id: MessageId): Promise<Result<Message, AppError>>;
   append(
     input: Pick<Message, 'sessionId' | 'role' | 'content'>,
-  ): Promise<Result<Message, AppError>>;
+  ): Promise<Result<MessageAppendResult, AppError>>;
   search(sessionId: SessionId, query: string): Promise<Result<readonly SearchMatch[], AppError>>;
 }
 

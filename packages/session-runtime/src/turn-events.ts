@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { AgentEvent } from '@g4os/agents/interface';
-import type { Message, SessionEvent, SessionId } from '@g4os/kernel/types';
+import type { MessageAppendResult, SessionEvent, SessionId } from '@g4os/kernel/types';
 import type { SessionEventBus } from './session-event-bus.ts';
 
 export interface TurnAccumulator {
@@ -67,13 +67,13 @@ export function forwardAgentEvent(event: AgentEvent, ctx: TurnEventCtx): void {
   }
 }
 
-export function buildMessageAddedEvent(message: Message, sequenceNumber: number): SessionEvent {
+export function buildMessageAddedEvent(appended: MessageAppendResult): SessionEvent {
   return {
     eventId: randomUUID(),
-    sessionId: message.sessionId,
-    sequenceNumber,
-    timestamp: message.createdAt,
+    sessionId: appended.message.sessionId,
+    sequenceNumber: appended.sequenceNumber,
+    timestamp: appended.message.createdAt,
     type: 'message.added',
-    message,
+    message: appended.message,
   };
 }

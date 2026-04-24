@@ -1,4 +1,9 @@
-import { MessageIdSchema, MessageSchema, SearchMatchSchema } from '@g4os/kernel/schemas';
+import {
+  MessageAppendResultSchema,
+  MessageIdSchema,
+  MessageSchema,
+  SearchMatchSchema,
+} from '@g4os/kernel/schemas';
 import { z } from 'zod';
 import { authed } from '../middleware/authed.ts';
 import { router } from '../trpc.ts';
@@ -30,7 +35,7 @@ export const messagesRouter = router({
 
   append: authed
     .input(MessageSchema.pick({ sessionId: true, role: true, content: true }))
-    .output(MessageSchema)
+    .output(MessageAppendResultSchema)
     .mutation(async ({ input, ctx }) => {
       const result = await ctx.messages.append(input);
       if (result.isErr()) throw result.error;

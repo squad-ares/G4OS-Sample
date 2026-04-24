@@ -34,13 +34,10 @@ import type {
 import type { PermissionBroker, PermissionDecision } from '@g4os/permissions';
 import {
   appendCreatedEvent,
-  appendLifecycleEvent,
   eventStoreReader,
   eventStoreWriter,
   failure,
-  lifecycleMutation,
   notFoundError,
-  notImplementedResult,
   respondPermission as respondPermissionOp,
   type SessionEventBus,
   simpleMutation,
@@ -49,6 +46,8 @@ import {
 import { err, ok, type Result } from 'neverthrow';
 import type { SessionManager } from './session-manager.ts';
 import { type AnyTurnDispatcher, selectDispatcher } from './sessions/dispatcher-select.ts';
+import { archiveSession, restoreSession, softDeleteSession } from './sessions/lifecycle.ts';
+import { retryLastTurn, truncateSessionAfter } from './sessions/retry-truncate.ts';
 import type { TurnDispatcher } from './turn-dispatcher.ts';
 import type { WorkerTurnDispatcher } from './worker-turn-dispatcher.ts';
 
@@ -123,8 +122,13 @@ export class SqliteSessionsService implements SessionsServiceContract {
     }
   }
 
-  // TODO(FOLLOWUP-04): history-affecting patches (provider/model) should
-  // appendLifecycleEvent + bumpSequence — see SessionEventBus `sequenceNumber: 0`.
+  /**
+   * Patches sem implicação no log append-only (rename visual, flags UI,
+   * sources habilitadas) vão direto pro SQLite. Renames e provider/model
+   * changes deveriam eventualmente emitir eventos dedicados — fica como
+   * melhoria em cima do schema de eventos quando precisarmos rastreá-los
+   * em replay.
+   */
   async update(id: SessionId, patch: Partial<Session>): Promise<Result<void, AppError>> {
     try {
       await this.#repo.update(id, patch);
@@ -134,37 +138,14 @@ export class SqliteSessionsService implements SessionsServiceContract {
     }
   }
 
-  delete(id: SessionId): Promise<Result<void, AppError>> {
-    return lifecycleMutation(this.#repo, id, 'sessions.delete', 'session.deleted', (rid) =>
-      this.#repo.softDelete(rid),
-    );
-  }
+  delete = (id: SessionId) =>
+    softDeleteSession({ repo: this.#repo, drizzle: this.#deps.drizzle }, id);
 
-  archive(id: SessionId): Promise<Result<void, AppError>> {
-    return lifecycleMutation(this.#repo, id, 'sessions.archive', 'session.archived', (rid) =>
-      this.#repo.archive(rid),
-    );
-  }
+  archive = (id: SessionId) =>
+    archiveSession({ repo: this.#repo, drizzle: this.#deps.drizzle }, id);
 
-  /**
-   * `session.restored` não está no schema de eventos (ADR-0010 enumera
-   * apenas arquivar/deletar); o restore é representado por um
-   * `session.flagged` com `reason: 'restored'` para preservar a
-   * auditoria append-only sem quebrar o schema.
-   */
-  async restore(id: SessionId): Promise<Result<void, AppError>> {
-    const session = await this.#repo.get(id);
-    if (!session) return err(notFoundError(id));
-    try {
-      await appendLifecycleEvent(session.workspaceId, id, 'session.flagged', 0, {
-        reason: 'restored',
-      } as Partial<SessionEvent>);
-      await this.#repo.restore(id);
-      return ok(undefined);
-    } catch (error) {
-      return failure('sessions.restore', error, { id });
-    }
-  }
+  restore = (id: SessionId) =>
+    restoreSession({ repo: this.#repo, drizzle: this.#deps.drizzle }, id);
 
   pin = (id: SessionId) => simpleMutation(id, 'sessions.pin', () => this.#repo.pin(id));
   unpin = (id: SessionId) => simpleMutation(id, 'sessions.unpin', () => this.#repo.unpin(id));
@@ -272,14 +253,26 @@ export class SqliteSessionsService implements SessionsServiceContract {
     return Promise.resolve(stopTurnOp(this.activeDispatcher(), this.#deps.sessionManager, id));
   }
 
-  // TODO(FOLLOWUP-08): retryLastTurn + truncateAfter precisam de helpers
-  // novos no `SessionEventStore` (truncate reescreve JSONL + reprojeta SQLite).
-  retryLastTurn(_id: SessionId): Promise<Result<void, AppError>> {
-    return Promise.resolve(notImplementedResult('sessions.retryLastTurn not yet wired'));
+  truncateAfter(id: SessionId, after: number): Promise<Result<{ removed: number }, AppError>> {
+    return truncateSessionAfter({ repo: this.#repo, drizzle: this.#deps.drizzle }, id, after);
   }
 
-  truncateAfter(_id: SessionId, _after: number): Promise<Result<{ removed: number }, AppError>> {
-    return Promise.resolve(notImplementedResult('sessions.truncateAfter requires events'));
+  /**
+   * Refaz o último turno: localiza a última mensagem do usuário no log
+   * append-only, trunca tudo depois do penúltimo user message (removendo
+   * a última user msg + a resposta do assistant falha/indesejada) e
+   * redispara via dispatcher com o mesmo texto. Se só houver uma user
+   * msg, tronca para logo após `session.created` (sequence 0).
+   */
+  retryLastTurn(id: SessionId): Promise<Result<void, AppError>> {
+    return retryLastTurn(
+      {
+        repo: this.#repo,
+        drizzle: this.#deps.drizzle,
+        dispatcher: this.activeDispatcher(),
+      },
+      id,
+    );
   }
 }
 

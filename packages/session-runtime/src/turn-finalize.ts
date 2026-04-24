@@ -37,6 +37,6 @@ export async function finalizeAssistantMessage(
   });
   if (append.isErr()) return err(append.error);
 
-  deps.eventBus.emit(input.sessionId, buildMessageAddedEvent(append.value, 0));
+  deps.eventBus.emit(input.sessionId, buildMessageAddedEvent(append.value));
   return ok(undefined);
 }

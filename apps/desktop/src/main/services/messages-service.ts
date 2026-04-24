@@ -21,6 +21,7 @@ import { createLogger } from '@g4os/kernel/logger';
 import type {
   ContentBlock,
   Message,
+  MessageAppendResult,
   MessageId,
   SearchMatch,
   SessionEvent,
@@ -89,7 +90,7 @@ export class SqliteMessagesService implements MessagesServiceContract {
 
   async append(
     input: Pick<Message, 'sessionId' | 'role' | 'content'>,
-  ): Promise<Result<Message, AppError>> {
+  ): Promise<Result<MessageAppendResult, AppError>> {
     try {
       const session = await this.#sessions.get(input.sessionId);
       if (!session) return err(notFoundSession(input.sessionId));
@@ -106,10 +107,11 @@ export class SqliteMessagesService implements MessagesServiceContract {
         metadata: {},
       };
 
+      const sequenceNumber = session.lastEventSequence + 1;
       const event: SessionEvent = {
         eventId: randomUUID(),
         sessionId: input.sessionId,
-        sequenceNumber: session.lastEventSequence + 1,
+        sequenceNumber,
         timestamp: now,
         type: 'message.added',
         message,
@@ -119,7 +121,7 @@ export class SqliteMessagesService implements MessagesServiceContract {
       await store.append(input.sessionId, event);
       applyEvent(this.#deps.drizzle, event);
 
-      return ok(message);
+      return ok({ message, sequenceNumber });
     } catch (error) {
       log.error({ err: error, sessionId: input.sessionId }, 'messages.append failed');
       return err(wrap('messages.append', error));

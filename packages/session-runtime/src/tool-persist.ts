@@ -57,8 +57,8 @@ export async function persistAssistantToolTurn(
     content,
   });
   if (append.isErr()) return err(append.error);
-  deps.eventBus.emit(input.sessionId, buildMessageAddedEvent(append.value, 0));
-  return ok(append.value);
+  deps.eventBus.emit(input.sessionId, buildMessageAddedEvent(append.value));
+  return ok(append.value.message);
 }
 
 export async function persistToolResultMessage(
@@ -80,6 +80,6 @@ export async function persistToolResultMessage(
     content,
   });
   if (append.isErr()) return err(append.error);
-  deps.eventBus.emit(input.sessionId, buildMessageAddedEvent(append.value, 0));
-  return ok(append.value);
+  deps.eventBus.emit(input.sessionId, buildMessageAddedEvent(append.value));
+  return ok(append.value.message);
 }

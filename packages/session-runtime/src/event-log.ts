@@ -6,6 +6,10 @@
  * `appendLifecycleEvent` aceita o *kind* (discriminante) e monta os
  * campos obrigatórios (`eventId`, `sequenceNumber`, `timestamp`) antes
  * de entregar ao schema — callers não precisam conhecer a estrutura.
+ *
+ * Callers com acesso ao `AppDb` devem preferir `emitLifecycleEvent`,
+ * que passa pelo reducer e mantém `sessions.lastEventSequence` (SQLite)
+ * em sync com o JSONL — ver ADR-0010/0043 (FOLLOWUP-04).
  */
 
 import { randomUUID } from 'node:crypto';
@@ -20,20 +24,69 @@ export type LifecycleEventKind = Extract<
   'session.archived' | 'session.deleted' | 'session.renamed' | 'session.flagged'
 >;
 
+export function buildLifecycleEvent(
+  sessionId: SessionId,
+  kind: LifecycleEventKind,
+  sequenceNumber: number,
+  extra: Partial<SessionEvent> = {},
+): SessionEvent {
+  return buildEvent(sessionId, kind, sequenceNumber, extra);
+}
+
 export async function appendLifecycleEvent(
   workspaceId: WorkspaceId,
   sessionId: SessionId,
   kind: LifecycleEventKind,
   sequenceNumber: number,
   extra: Partial<SessionEvent> = {},
-): Promise<void> {
+  eventStore?: Pick<SessionEventStore, 'append'>,
+): Promise<SessionEvent | null> {
   try {
-    const store = new SessionEventStore(workspaceId);
+    const store = eventStore ?? new SessionEventStore(workspaceId);
     const event = buildEvent(sessionId, kind, sequenceNumber, extra);
     await store.append(sessionId, event);
+    return event;
   } catch (error) {
     log.warn({ err: error, workspaceId, sessionId, kind }, 'session event append failed');
+    return null;
   }
+}
+
+/**
+ * Variante que também propaga o evento pelo reducer SQLite. Usar quando
+ * o caller tem acesso ao `AppDb` — ela evita que `sessions.lastEventSequence`
+ * fique desalinhado do JSONL após archive/delete/flag.
+ */
+export async function emitLifecycleEvent(
+  deps: {
+    readonly workspaceId: WorkspaceId;
+    readonly currentSequence: number;
+    readonly applyReducer: (event: SessionEvent) => void;
+    readonly eventStore?: Pick<SessionEventStore, 'append'>;
+  },
+  sessionId: SessionId,
+  kind: LifecycleEventKind,
+  extra: Partial<SessionEvent> = {},
+): Promise<SessionEvent | null> {
+  const nextSequence = deps.currentSequence + 1;
+  const event = await appendLifecycleEvent(
+    deps.workspaceId,
+    sessionId,
+    kind,
+    nextSequence,
+    extra,
+    deps.eventStore,
+  );
+  if (!event) return null;
+  try {
+    deps.applyReducer(event);
+  } catch (error) {
+    log.warn(
+      { err: error, sessionId, kind, sequence: nextSequence },
+      'lifecycle reducer sync failed (JSONL já persistido)',
+    );
+  }
+  return event;
 }
 
 export async function appendCreatedEvent(

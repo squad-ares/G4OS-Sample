@@ -149,7 +149,7 @@ export class TurnDispatcher extends DisposableBase {
       log.error({ err: userAppend.error, sessionId }, 'failed to persist user message');
       return err(userAppend.error);
     }
-    this.#deps.eventBus.emit(sessionId, buildMessageAddedEvent(userAppend.value, 0));
+    this.#deps.eventBus.emit(sessionId, buildMessageAddedEvent(userAppend.value));
 
     const historyResult = await this.#deps.messages.list(sessionId);
     if (historyResult.isErr()) return err(historyResult.error);

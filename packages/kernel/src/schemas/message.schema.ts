@@ -81,3 +81,9 @@ export const MessageSchema = z.object({
 
 export type Message = z.infer<typeof MessageSchema>;
 export type MessageId = Message['id'];
+
+export const MessageAppendResultSchema = z.object({
+  message: MessageSchema,
+  sequenceNumber: z.number().int().nonnegative(),
+});
+export type MessageAppendResult = z.infer<typeof MessageAppendResultSchema>;
