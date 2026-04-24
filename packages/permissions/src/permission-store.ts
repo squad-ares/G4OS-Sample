@@ -43,15 +43,23 @@ export class PermissionStore {
     return file.decisions;
   }
 
-  /** Busca decisão matching `(toolName, argsHash)`. Retorna null se não existe. */
+  /**
+   * Busca decisão matching `(toolName, argsHash)`. Aceita hashes legados de
+   * 32 chars (pré-2026-04-24) comparando o prefixo do hash full-256.
+   */
   async find(
     workspaceId: string,
     toolName: string,
     input: Readonly<Record<string, unknown>>,
   ): Promise<PersistedPermissionDecision | null> {
     const argsHash = hashArgs(input);
+    const legacyHash = argsHash.slice(0, 32);
     const file = await this.readFile(workspaceId);
-    return file.decisions.find((d) => d.toolName === toolName && d.argsHash === argsHash) ?? null;
+    return (
+      file.decisions.find(
+        (d) => d.toolName === toolName && (d.argsHash === argsHash || d.argsHash === legacyHash),
+      ) ?? null
+    );
   }
 
   async persist(
@@ -127,9 +135,16 @@ export class PermissionStore {
   }
 }
 
+/**
+ * Hash full SHA-256 hex (64 chars). Usado como chave de decisão persistida —
+ * truncar aumentava risco de colisão sem ganho. Arquivos `permissions.json`
+ * de versões antigas podem ter hashes de 32 chars; o `find()` aceita ambos
+ * os comprimentos (ver readFile) enquanto migramos, e novos writes sempre
+ * usam 64.
+ */
 export function hashArgs(input: Readonly<Record<string, unknown>>): string {
   const stable = stableStringify(input);
-  return createHash('sha256').update(stable).digest('hex').slice(0, 32);
+  return createHash('sha256').update(stable).digest('hex');
 }
 
 function stableStringify(value: unknown): string {
