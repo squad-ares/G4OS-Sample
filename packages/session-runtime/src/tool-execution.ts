@@ -7,6 +7,7 @@
 import type { ToolCatalog, ToolHandlerResult } from '@g4os/agents/tools';
 import { createLogger } from '@g4os/kernel/logger';
 import type { SessionId } from '@g4os/kernel/types';
+import { withSpan } from '@g4os/observability';
 import type { PermissionBroker, PermissionDecision } from '@g4os/permissions';
 import type { SessionEventBus } from './session-event-bus.ts';
 import type { CapturedToolUse } from './turn-runner.ts';
@@ -62,7 +63,31 @@ export async function executeToolUses(
   return outcomes;
 }
 
-async function executeSingleTool(
+function executeSingleTool(
+  deps: ExecuteToolUsesDeps,
+  ctx: {
+    readonly sessionId: SessionId;
+    readonly turnId: string;
+    readonly use: CapturedToolUse;
+    readonly workingDirectory: string;
+    readonly signal: AbortSignal;
+    readonly workspaceId?: string;
+  },
+): Promise<ToolOutcome> {
+  return withSpan(
+    'tool.execute',
+    {
+      attributes: {
+        'session.id': ctx.sessionId,
+        'tool.name': ctx.use.toolName,
+        'tool.use_id': ctx.use.toolUseId,
+      },
+    },
+    () => executeSingleToolInternal(deps, ctx),
+  );
+}
+
+async function executeSingleToolInternal(
   deps: ExecuteToolUsesDeps,
   ctx: {
     readonly sessionId: SessionId;

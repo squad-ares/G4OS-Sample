@@ -18,6 +18,7 @@ import type { MessagesService } from '@g4os/ipc/server';
 import { AppError, ErrorCode } from '@g4os/kernel/errors';
 import { createLogger } from '@g4os/kernel/logger';
 import type { Message, SessionId } from '@g4os/kernel/types';
+import { withSpan } from '@g4os/observability';
 import type { TurnTelemetry } from '@g4os/observability/metrics';
 import type { PermissionBroker } from '@g4os/permissions';
 import { err, type Result } from 'neverthrow';
@@ -53,7 +54,24 @@ export interface ToolLoopInput {
   readonly onSubscription?: (sub: { unsubscribe(): void }) => void;
 }
 
-export async function runToolLoop(
+export function runToolLoop(
+  deps: ToolLoopDeps,
+  input: ToolLoopInput,
+): Promise<Result<void, AppError>> {
+  return withSpan(
+    'tool.loop',
+    {
+      attributes: {
+        'session.id': input.sessionId,
+        'turn.id': input.turnId,
+        'agent.model_id': input.config.modelId,
+      },
+    },
+    () => runToolLoopInternal(deps, input),
+  );
+}
+
+async function runToolLoopInternal(
   deps: ToolLoopDeps,
   input: ToolLoopInput,
 ): Promise<Result<void, AppError>> {

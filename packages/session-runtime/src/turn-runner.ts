@@ -78,14 +78,11 @@ export function runAgentIteration(
             });
             break;
           case 'tool_use_start':
-            eventBus.emit(sessionId, {
-              type: 'turn.tool_use_started',
-              sessionId,
-              turnId,
-              toolUseId: event.toolUseId,
-              toolName: event.toolName,
-              inputJson: '',
-            });
+            // Apenas registra o placeholder — NÃO emitimos `turn.tool_use_started`
+            // aqui porque o input ainda não foi acumulado (provider entrega
+            // via stream delta até `tool_use_complete`). Emitir com `inputJson: ''`
+            // engana o renderer. Evento é emitido em `tool_use_complete` com
+            // o input real.
             toolUses.push({
               toolUseId: event.toolUseId,
               toolName: event.toolName,
@@ -94,18 +91,35 @@ export function runAgentIteration(
             break;
           case 'tool_use_complete': {
             const idx = toolUses.findIndex((t) => t.toolUseId === event.toolUseId);
+            let finalEntry: CapturedToolUse;
             if (idx >= 0) {
               const existing = toolUses[idx];
-              if (existing) {
-                toolUses[idx] = { ...existing, input: event.input };
-              }
+              finalEntry = existing
+                ? { ...existing, input: event.input }
+                : {
+                    toolUseId: event.toolUseId,
+                    toolName: 'unknown',
+                    input: event.input,
+                  };
+              toolUses[idx] = finalEntry;
             } else {
-              toolUses.push({
+              finalEntry = {
                 toolUseId: event.toolUseId,
                 toolName: 'unknown',
                 input: event.input,
-              });
+              };
+              toolUses.push(finalEntry);
             }
+            // Agora sim — input real acumulado → renderer pode mostrar o card
+            // com preview significativo antes do modal de permissão aparecer.
+            eventBus.emit(sessionId, {
+              type: 'turn.tool_use_started',
+              sessionId,
+              turnId,
+              toolUseId: finalEntry.toolUseId,
+              toolName: finalEntry.toolName,
+              inputJson: safeStringify(finalEntry.input),
+            });
             break;
           }
           case 'usage':
@@ -164,4 +178,12 @@ export function runAgentIteration(
 
     onSubscription?.(subscription);
   });
+}
+
+function safeStringify(value: Readonly<Record<string, unknown>>): string {
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return '{}';
+  }
 }

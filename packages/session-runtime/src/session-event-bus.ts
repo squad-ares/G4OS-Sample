@@ -11,7 +11,10 @@
  */
 
 import { DisposableBase, type IDisposable, toDisposable } from '@g4os/kernel/disposable';
+import { createLogger } from '@g4os/kernel/logger';
 import type { SessionEvent } from '@g4os/kernel/types';
+
+const log = createLogger('session-event-bus');
 
 export interface TurnStartedEvent {
   readonly type: 'turn.started';
@@ -136,8 +139,10 @@ export class SessionEventBus extends DisposableBase {
     for (const handler of [...set]) {
       try {
         handler(event);
-      } catch {
-        // handler failures must not affect other subscribers
+      } catch (err) {
+        // Handler failures must not affect other subscribers. Log at debug
+        // so operators can diagnose via structured logs without noise.
+        log.debug({ err, sessionId, eventType: event.type }, 'bus handler threw; isolated');
       }
     }
   }
