@@ -129,6 +129,8 @@ Escreva ADR quando:
 | 0140 | Composer slots — SourcePicker + MentionPicker + WorkingDirPicker | Accepted | 2026-04-24 | outlier-18/19/20 |
 | 0141 | Chat observability — TurnTelemetry Prometheus + OpenTelemetry spans | Accepted | 2026-04-24 | outlier-22 |
 | 0142 | E2E testing — Playwright + Electron smoke harness | Accepted | 2026-04-24 | outlier-23 |
+| 0143 | MCP stdio probe distinto do `McpClient` real | Accepted | 2026-04-24 | outlier-12 |
+| 0144 | `McpClient` SDK-backed (lazy `@modelcontextprotocol/sdk`) | Accepted | 2026-04-24 | outlier-12 |
 
 ## Status
 
