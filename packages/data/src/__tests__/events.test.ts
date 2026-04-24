@@ -126,7 +126,9 @@ describe('SessionEventStore', () => {
     expect(await store.truncateAfter(randomUUID(), 10)).toBe(0);
   });
 
-  it('append of 1000 events completes under 10s', async () => {
+  it('append of 1000 events completes under 30s', async () => {
+    // Windows filesystem tem overhead significativamente maior que POSIX em
+    // writes sequenciais; margem de 30s cobre runners GitHub com folga.
     const store = new SessionEventStore('ws-1', { workspaceRoot: tmpDir });
     const sessionId = randomUUID();
     await store.append(sessionId, makeSessionCreated(sessionId, 0));
@@ -136,8 +138,8 @@ describe('SessionEventStore', () => {
       await store.append(sessionId, makeMessageAdded(sessionId, i));
     }
     const duration = Date.now() - start;
-    expect(duration).toBeLessThan(10000);
-  }, 10000);
+    expect(duration).toBeLessThan(30000);
+  }, 45000);
 });
 
 describe('reducer applyEvent', () => {

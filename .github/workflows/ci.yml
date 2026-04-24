@@ -101,8 +101,7 @@ jobs:
       - name: Check package exports
         run: pnpm check:exports
 
-  # Job 5: Unit tests — matrix exigido por branch protection rules.
-  # Para desligar macOS/Windows aqui: ajustar Settings → Branches → rule em main.
+  # Job 5: Unit tests (matrix de plataforma)
   test:
     name: Test (${{ matrix.os }})
     needs: setup
@@ -126,8 +125,7 @@ jobs:
           name: coverage-${{ matrix.os }}
           path: coverage/
 
-  # Job 6: Build — matrix exigido por branch protection rules.
-  # Build pesado de packaging segue em release-desktop.yml (workflow_dispatch).
+  # Job 6: Build (matrix de plataforma - critico para Electron)
   build:
     name: Build (${{ matrix.os }})
     needs: [lint, typecheck, architecture]
