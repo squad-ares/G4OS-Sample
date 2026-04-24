@@ -176,6 +176,9 @@ importers:
       react-dom:
         specifier: ^19.2.5
         version: 19.2.5(react@19.2.5)
+      rxjs:
+        specifier: 7.8.2
+        version: 7.8.2
       superjson:
         specifier: 2.2.6
         version: 2.2.6
@@ -539,6 +542,9 @@ importers:
 
   packages/sources:
     dependencies:
+      '@g4os/agents':
+        specifier: workspace:*
+        version: link:../agents
       '@g4os/kernel':
         specifier: workspace:*
         version: link:../kernel

@@ -26,7 +26,6 @@ export default defineConfig({
       rollupOptions: {
         input: {
           index: path.resolve(__dirname, 'src/main/index.ts'),
-          'workers/session-worker': path.resolve(__dirname, 'src/main/workers/session-worker.ts'),
         },
         external: [
           'electron',

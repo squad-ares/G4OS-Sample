@@ -71,7 +71,7 @@ module.exports = {
       comment:
         'Features nao podem importar umas das outras. Exceção: `shell` é horizontal (layout/nav) e pode ser consumido por qualquer feature como pacote de UI compartilhado.',
       severity: 'error',
-      from: { path: '^packages/features/src/([^/]+)' },
+      from: { path: '^packages/features/src/([^/]+)/' },
       to: {
         path: '^packages/features/src/',
         pathNot: '^packages/features/src/($1|shell)(/|$)',

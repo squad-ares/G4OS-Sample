@@ -23,14 +23,23 @@
         "src/main/services/db-service.ts",
         "src/main/services/backup-scheduler.ts",
         "src/main/services/transcription.ts",
-        "src/main/workers/session-worker.ts",
         "src/main/workers/cpu-pool/tasks.ts",
+        "src/main/__tests__/**/*.ts",
         "src/renderer/index.html",
         "src/renderer/**/*.tsx",
         "src/renderer/**/*.ts",
         "electron.vite.config.ts"
       ],
-      "ignoreDependencies": ["pino-pretty", "pino-roll", "@supabase/supabase-js", "pino"]
+      "ignoreDependencies": [
+        "pino-pretty",
+        "pino-roll",
+        "@supabase/supabase-js",
+        "pino",
+        "@anthropic-ai/sdk"
+      ]
+    },
+    "apps/desktop-e2e": {
+      "entry": ["tests/**/*.ts", "playwright.config.ts"]
     },
     "packages/features": {
       "entry": ["src/**/*.tsx", "src/**/*.ts"],
