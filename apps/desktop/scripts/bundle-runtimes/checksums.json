@@ -1,18 +1,106 @@
 {
+  "git-2.47.0-win32-arm64": {
+    "sha256": "6b175d4675bfa7014ba649e3c0976da2a281d89bd9a096f1f41437f9995497a8",
+    "capturedAt": "2026-04-24T22:48:50.879Z"
+  },
+  "git-2.47.0-win32-x64": {
+    "sha256": "6b175d4675bfa7014ba649e3c0976da2a281d89bd9a096f1f41437f9995497a8",
+    "capturedAt": "2026-04-24T22:48:42.721Z"
+  },
   "node-24.10.0-darwin-arm64": {
     "sha256": "0ba4910a69a256798729d5a3a42539d0b72670c052b67519b5f79f246121084a",
     "capturedAt": "2026-04-24T22:13:16.407Z"
+  },
+  "node-24.10.0-darwin-x64": {
+    "sha256": "4e2ff8e9148659052a6cad50c3b10e6f02af1298dfa9a8ee65e010044f05726f",
+    "capturedAt": "2026-04-24T22:45:41.239Z"
+  },
+  "node-24.10.0-linux-arm64": {
+    "sha256": "07f0558316ebb8977dd6fb29b4de8d369a639d3d8cef544293852a6f5eea6af8",
+    "capturedAt": "2026-04-24T22:46:33.035Z"
+  },
+  "node-24.10.0-linux-x64": {
+    "sha256": "2642f4428869aca32443660fd71b3918e2be1277a899bdcaeb64c93b54b5af17",
+    "capturedAt": "2026-04-24T22:46:15.389Z"
+  },
+  "node-24.10.0-win32-arm64": {
+    "sha256": "ff9d2c151dedba7f814d8a71038b0ff2063e838799c916f782c96c52592a2cd7",
+    "capturedAt": "2026-04-24T22:48:44.266Z"
+  },
+  "node-24.10.0-win32-x64": {
+    "sha256": "adc1a2d5ca79c92e94f3a58c3ec0efa76bdb488769ba4d4b50990e4c84896060",
+    "capturedAt": "2026-04-24T22:48:37.055Z"
   },
   "pnpm-10.33.0-darwin-arm64": {
     "sha256": "ed8a1f140f4de457b01ebe0be3ae28e9a7e28863315dcd53d22ff1e5a32d63ae",
     "capturedAt": "2026-04-24T22:13:20.894Z"
   },
+  "pnpm-10.33.0-darwin-x64": {
+    "sha256": "c31e29554b0e3f4e03f4617195c949595e4dca36085922003de4896c3ca4057d",
+    "capturedAt": "2026-04-24T22:45:59.295Z"
+  },
+  "pnpm-10.33.0-linux-arm64": {
+    "sha256": "06755ad2817548b84317d857d5c8003dc6e9e28416a3ea7467256c49ab400d48",
+    "capturedAt": "2026-04-24T22:46:39.686Z"
+  },
+  "pnpm-10.33.0-linux-x64": {
+    "sha256": "8d4e8f7d778e8ac482022e2577011706a872542f6f6f233e795a4d9f978ea8b5",
+    "capturedAt": "2026-04-24T22:46:21.961Z"
+  },
+  "pnpm-10.33.0-win32-arm64": {
+    "sha256": "bb2e5c8a0a0246916aa954a39ccf254d804ee9b92635cda3ecdb26436d54b33c",
+    "capturedAt": "2026-04-24T22:48:45.665Z"
+  },
+  "pnpm-10.33.0-win32-x64": {
+    "sha256": "afc96009dc39fe23a835d65192049e6a995f342496b175585dc2beda7d42d33f",
+    "capturedAt": "2026-04-24T22:48:38.341Z"
+  },
   "python-3.12.13-darwin-arm64": {
     "sha256": "8966b2bcd9fa03ba22c080ad15a86bc12e41a00122b16f4b3740e302261124d9",
     "capturedAt": "2026-04-24T22:13:24.883Z"
   },
+  "python-3.12.13-darwin-x64": {
+    "sha256": "801b03fbe004181d55a02ebd8b4e04d74973e70d716062aebe3b3cf32e9be297",
+    "capturedAt": "2026-04-24T22:46:10.002Z"
+  },
+  "python-3.12.13-linux-arm64": {
+    "sha256": "355d981eafb9b2870af79ddc106ced7266b6f6d2101d8fbcb05620fa386642b9",
+    "capturedAt": "2026-04-24T22:46:45.482Z"
+  },
+  "python-3.12.13-linux-x64": {
+    "sha256": "cdcf8724d46e4857f8db5ee9f4252dc2f5da34f7940294ec6b312389dd3f41e0",
+    "capturedAt": "2026-04-24T22:46:29.212Z"
+  },
+  "python-3.12.13-win32-arm64": {
+    "sha256": "f55326c894fde76fc0faffe95d2bce60be533c88a8c44c1b88bbbc17bf6a5cd5",
+    "capturedAt": "2026-04-24T22:48:50.021Z"
+  },
+  "python-3.12.13-win32-x64": {
+    "sha256": "c5a9e011e284c49c48106ca177342f3e3f64e95b4c6652d4a382cc7c9bb1cc46",
+    "capturedAt": "2026-04-24T22:48:42.000Z"
+  },
   "uv-0.5.14-darwin-arm64": {
     "sha256": "d548dffc256014c4c8c693e148140a3a21bcc2bf066a35e1d5f0d24c91d32112",
     "capturedAt": "2026-04-24T22:13:21.596Z"
+  },
+  "uv-0.5.14-darwin-x64": {
+    "sha256": "8caf91b936ede1167abaebae07c2a1cbb22473355fa0ad7ebb2580307e84fb47",
+    "capturedAt": "2026-04-24T22:46:05.899Z"
+  },
+  "uv-0.5.14-linux-arm64": {
+    "sha256": "1c9cdb265b0c24ce2e74b7795a00842dc6d487c11ba49aa6c9ca1c784b82755a",
+    "capturedAt": "2026-04-24T22:46:40.752Z"
+  },
+  "uv-0.5.14-linux-x64": {
+    "sha256": "22034760075b92487b326da5aa1a2a3e1917e2e766c12c0fd466fccda77013c7",
+    "capturedAt": "2026-04-24T22:46:23.022Z"
+  },
+  "uv-0.5.14-win32-arm64": {
+    "sha256": "ee2468e40320a0a2a36435e66bbd0d861228c4c06767f22d97876528138f4ba0",
+    "capturedAt": "2026-04-24T22:48:45.720Z"
+  },
+  "uv-0.5.14-win32-x64": {
+    "sha256": "ee2468e40320a0a2a36435e66bbd0d861228c4c06767f22d97876528138f4ba0",
+    "capturedAt": "2026-04-24T22:48:38.403Z"
   }
 }

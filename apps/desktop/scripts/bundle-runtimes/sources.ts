@@ -76,9 +76,9 @@ function resolveUv(platform: Platform, arch: Arch): RuntimeSource {
         ? arch === 'arm64'
           ? 'aarch64-unknown-linux-gnu'
           : 'x86_64-unknown-linux-gnu'
-        : arch === 'arm64'
-          ? 'aarch64-pc-windows-msvc'
-          : 'x86_64-pc-windows-msvc';
+        : // Windows: Astral não publica binário nativo arm64. Usa x86_64
+          // para ambas as archs — Windows 11 arm64 roda via emulação x64.
+          'x86_64-pc-windows-msvc';
 
   const format: RuntimeSource['format'] = platform === 'win32' ? 'zip' : 'tar.gz';
   const ext = format === 'zip' ? 'zip' : 'tar.gz';
@@ -107,8 +107,8 @@ function resolvePython(platform: Platform, arch: Arch): RuntimeSource {
           ? 'aarch64-unknown-linux-gnu'
           : 'x86_64-unknown-linux-gnu'
         : arch === 'arm64'
-          ? 'aarch64-pc-windows-msvc-shared'
-          : 'x86_64-pc-windows-msvc-shared';
+          ? 'aarch64-pc-windows-msvc'
+          : 'x86_64-pc-windows-msvc';
 
   // python-build-standalone: formato `cpython-{version}+{tag}-{target}-install_only.tar.gz`
   const archiveName = `cpython-${v}+${tag}-${target}-install_only.tar.gz`;
@@ -126,17 +126,17 @@ function resolvePython(platform: Platform, arch: Arch): RuntimeSource {
   };
 }
 
-function resolveGit(platform: Platform, arch: Arch): RuntimeSource | null {
+function resolveGit(platform: Platform, _arch: Arch): RuntimeSource | null {
   // Git portable só no Windows. macOS/Linux sempre têm git de sistema.
   if (platform !== 'win32') return null;
 
   const v = RUNTIME_VERSIONS.git;
-  const archName = arch === 'arm64' ? 'arm64' : '64-bit';
-  const archiveName = `MinGit-${v}-${archName}.zip`;
+  // MinGit não publica build nativo arm64 — Windows 11 arm64 roda x64 via
+  // emulação. Usamos sempre o 64-bit x86_64.
+  const archiveName = `MinGit-${v}-64-bit.zip`;
 
   return {
     runtime: 'git',
-    // MinGit: minimal portable git for Windows
     url: `https://github.com/git-for-windows/git/releases/download/v${v}.windows.1/${archiveName}`,
     archiveName,
     format: 'zip',
