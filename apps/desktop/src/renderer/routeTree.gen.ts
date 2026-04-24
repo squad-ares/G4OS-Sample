@@ -13,20 +13,21 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppWorkspacesRouteImport } from './routes/_app/workspaces'
-import { Route as AppWorkflowsRouteImport } from './routes/_app/workflows'
-import { Route as AppVigiaRouteImport } from './routes/_app/vigia'
-import { Route as AppSupportRouteImport } from './routes/_app/support'
-import { Route as AppSourcesRouteImport } from './routes/_app/sources'
-import { Route as AppSkillsRouteImport } from './routes/_app/skills'
 import { Route as AppSettingsRouteImport } from './routes/_app/settings'
-import { Route as AppSchedulerRouteImport } from './routes/_app/scheduler'
 import { Route as AppProjectsRouteImport } from './routes/_app/projects'
 import { Route as AppOnboardingRouteImport } from './routes/_app/onboarding'
 import { Route as AppNewsRouteImport } from './routes/_app/news'
 import { Route as AppMarketplaceRouteImport } from './routes/_app/marketplace'
-import { Route as AppCompanyContextRouteImport } from './routes/_app/company-context'
+import { Route as AppConnectionsRouteImport } from './routes/_app/connections'
+import { Route as AppAutomationsRouteImport } from './routes/_app/automations'
 import { Route as AppWorkspacesIndexRouteImport } from './routes/_app/workspaces.index'
+import { Route as AppSettingsIndexRouteImport } from './routes/_app/settings.index'
+import { Route as AppNewsIndexRouteImport } from './routes/_app/news.index'
 import { Route as AppWorkspacesNewRouteImport } from './routes/_app/workspaces.new'
+import { Route as AppSettingsCategoryRouteImport } from './routes/_app/settings.$category'
+import { Route as AppProjectsProjectIdRouteImport } from './routes/_app/projects.$projectId'
+import { Route as AppNewsNewsIdRouteImport } from './routes/_app/news.$newsId'
+import { Route as AppWorkspacesWorkspaceIdIndexRouteImport } from './routes/_app/workspaces.$workspaceId.index'
 import { Route as AppWorkspacesWorkspaceIdSettingsRouteImport } from './routes/_app/workspaces.$workspaceId.settings'
 import { Route as AppWorkspacesWorkspaceIdSessionsIndexRouteImport } from './routes/_app/workspaces.$workspaceId.sessions.index'
 import { Route as AppWorkspacesWorkspaceIdSessionsSessionIdRouteImport } from './routes/_app/workspaces.$workspaceId.sessions.$sessionId'
@@ -50,39 +51,9 @@ const AppWorkspacesRoute = AppWorkspacesRouteImport.update({
   path: '/workspaces',
   getParentRoute: () => AppRoute,
 } as any)
-const AppWorkflowsRoute = AppWorkflowsRouteImport.update({
-  id: '/workflows',
-  path: '/workflows',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppVigiaRoute = AppVigiaRouteImport.update({
-  id: '/vigia',
-  path: '/vigia',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppSupportRoute = AppSupportRouteImport.update({
-  id: '/support',
-  path: '/support',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppSourcesRoute = AppSourcesRouteImport.update({
-  id: '/sources',
-  path: '/sources',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppSkillsRoute = AppSkillsRouteImport.update({
-  id: '/skills',
-  path: '/skills',
-  getParentRoute: () => AppRoute,
-} as any)
 const AppSettingsRoute = AppSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppSchedulerRoute = AppSchedulerRouteImport.update({
-  id: '/scheduler',
-  path: '/scheduler',
   getParentRoute: () => AppRoute,
 } as any)
 const AppProjectsRoute = AppProjectsRouteImport.update({
@@ -105,9 +76,14 @@ const AppMarketplaceRoute = AppMarketplaceRouteImport.update({
   path: '/marketplace',
   getParentRoute: () => AppRoute,
 } as any)
-const AppCompanyContextRoute = AppCompanyContextRouteImport.update({
-  id: '/company-context',
-  path: '/company-context',
+const AppConnectionsRoute = AppConnectionsRouteImport.update({
+  id: '/connections',
+  path: '/connections',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAutomationsRoute = AppAutomationsRouteImport.update({
+  id: '/automations',
+  path: '/automations',
   getParentRoute: () => AppRoute,
 } as any)
 const AppWorkspacesIndexRoute = AppWorkspacesIndexRouteImport.update({
@@ -115,11 +91,42 @@ const AppWorkspacesIndexRoute = AppWorkspacesIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppWorkspacesRoute,
 } as any)
+const AppSettingsIndexRoute = AppSettingsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppSettingsRoute,
+} as any)
+const AppNewsIndexRoute = AppNewsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppNewsRoute,
+} as any)
 const AppWorkspacesNewRoute = AppWorkspacesNewRouteImport.update({
   id: '/new',
   path: '/new',
   getParentRoute: () => AppWorkspacesRoute,
 } as any)
+const AppSettingsCategoryRoute = AppSettingsCategoryRouteImport.update({
+  id: '/$category',
+  path: '/$category',
+  getParentRoute: () => AppSettingsRoute,
+} as any)
+const AppProjectsProjectIdRoute = AppProjectsProjectIdRouteImport.update({
+  id: '/$projectId',
+  path: '/$projectId',
+  getParentRoute: () => AppProjectsRoute,
+} as any)
+const AppNewsNewsIdRoute = AppNewsNewsIdRouteImport.update({
+  id: '/$newsId',
+  path: '/$newsId',
+  getParentRoute: () => AppNewsRoute,
+} as any)
+const AppWorkspacesWorkspaceIdIndexRoute =
+  AppWorkspacesWorkspaceIdIndexRouteImport.update({
+    id: '/$workspaceId/',
+    path: '/$workspaceId/',
+    getParentRoute: () => AppWorkspacesRoute,
+  } as any)
 const AppWorkspacesWorkspaceIdSettingsRoute =
   AppWorkspacesWorkspaceIdSettingsRouteImport.update({
     id: '/$workspaceId/settings',
@@ -142,43 +149,43 @@ const AppWorkspacesWorkspaceIdSessionsSessionIdRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
-  '/company-context': typeof AppCompanyContextRoute
+  '/automations': typeof AppAutomationsRoute
+  '/connections': typeof AppConnectionsRoute
   '/marketplace': typeof AppMarketplaceRoute
-  '/news': typeof AppNewsRoute
+  '/news': typeof AppNewsRouteWithChildren
   '/onboarding': typeof AppOnboardingRoute
-  '/projects': typeof AppProjectsRoute
-  '/scheduler': typeof AppSchedulerRoute
-  '/settings': typeof AppSettingsRoute
-  '/skills': typeof AppSkillsRoute
-  '/sources': typeof AppSourcesRoute
-  '/support': typeof AppSupportRoute
-  '/vigia': typeof AppVigiaRoute
-  '/workflows': typeof AppWorkflowsRoute
+  '/projects': typeof AppProjectsRouteWithChildren
+  '/settings': typeof AppSettingsRouteWithChildren
   '/workspaces': typeof AppWorkspacesRouteWithChildren
+  '/news/$newsId': typeof AppNewsNewsIdRoute
+  '/projects/$projectId': typeof AppProjectsProjectIdRoute
+  '/settings/$category': typeof AppSettingsCategoryRoute
   '/workspaces/new': typeof AppWorkspacesNewRoute
+  '/news/': typeof AppNewsIndexRoute
+  '/settings/': typeof AppSettingsIndexRoute
   '/workspaces/': typeof AppWorkspacesIndexRoute
   '/workspaces/$workspaceId/settings': typeof AppWorkspacesWorkspaceIdSettingsRoute
+  '/workspaces/$workspaceId/': typeof AppWorkspacesWorkspaceIdIndexRoute
   '/workspaces/$workspaceId/sessions/$sessionId': typeof AppWorkspacesWorkspaceIdSessionsSessionIdRoute
   '/workspaces/$workspaceId/sessions/': typeof AppWorkspacesWorkspaceIdSessionsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
-  '/company-context': typeof AppCompanyContextRoute
+  '/automations': typeof AppAutomationsRoute
+  '/connections': typeof AppConnectionsRoute
   '/marketplace': typeof AppMarketplaceRoute
-  '/news': typeof AppNewsRoute
   '/onboarding': typeof AppOnboardingRoute
-  '/projects': typeof AppProjectsRoute
-  '/scheduler': typeof AppSchedulerRoute
-  '/settings': typeof AppSettingsRoute
-  '/skills': typeof AppSkillsRoute
-  '/sources': typeof AppSourcesRoute
-  '/support': typeof AppSupportRoute
-  '/vigia': typeof AppVigiaRoute
-  '/workflows': typeof AppWorkflowsRoute
+  '/projects': typeof AppProjectsRouteWithChildren
+  '/news/$newsId': typeof AppNewsNewsIdRoute
+  '/projects/$projectId': typeof AppProjectsProjectIdRoute
+  '/settings/$category': typeof AppSettingsCategoryRoute
   '/workspaces/new': typeof AppWorkspacesNewRoute
+  '/news': typeof AppNewsIndexRoute
+  '/settings': typeof AppSettingsIndexRoute
   '/workspaces': typeof AppWorkspacesIndexRoute
   '/workspaces/$workspaceId/settings': typeof AppWorkspacesWorkspaceIdSettingsRoute
+  '/workspaces/$workspaceId': typeof AppWorkspacesWorkspaceIdIndexRoute
   '/workspaces/$workspaceId/sessions/$sessionId': typeof AppWorkspacesWorkspaceIdSessionsSessionIdRoute
   '/workspaces/$workspaceId/sessions': typeof AppWorkspacesWorkspaceIdSessionsIndexRoute
 }
@@ -187,22 +194,23 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_app': typeof AppRouteWithChildren
   '/login': typeof LoginRoute
-  '/_app/company-context': typeof AppCompanyContextRoute
+  '/_app/automations': typeof AppAutomationsRoute
+  '/_app/connections': typeof AppConnectionsRoute
   '/_app/marketplace': typeof AppMarketplaceRoute
-  '/_app/news': typeof AppNewsRoute
+  '/_app/news': typeof AppNewsRouteWithChildren
   '/_app/onboarding': typeof AppOnboardingRoute
-  '/_app/projects': typeof AppProjectsRoute
-  '/_app/scheduler': typeof AppSchedulerRoute
-  '/_app/settings': typeof AppSettingsRoute
-  '/_app/skills': typeof AppSkillsRoute
-  '/_app/sources': typeof AppSourcesRoute
-  '/_app/support': typeof AppSupportRoute
-  '/_app/vigia': typeof AppVigiaRoute
-  '/_app/workflows': typeof AppWorkflowsRoute
+  '/_app/projects': typeof AppProjectsRouteWithChildren
+  '/_app/settings': typeof AppSettingsRouteWithChildren
   '/_app/workspaces': typeof AppWorkspacesRouteWithChildren
+  '/_app/news/$newsId': typeof AppNewsNewsIdRoute
+  '/_app/projects/$projectId': typeof AppProjectsProjectIdRoute
+  '/_app/settings/$category': typeof AppSettingsCategoryRoute
   '/_app/workspaces/new': typeof AppWorkspacesNewRoute
+  '/_app/news/': typeof AppNewsIndexRoute
+  '/_app/settings/': typeof AppSettingsIndexRoute
   '/_app/workspaces/': typeof AppWorkspacesIndexRoute
   '/_app/workspaces/$workspaceId/settings': typeof AppWorkspacesWorkspaceIdSettingsRoute
+  '/_app/workspaces/$workspaceId/': typeof AppWorkspacesWorkspaceIdIndexRoute
   '/_app/workspaces/$workspaceId/sessions/$sessionId': typeof AppWorkspacesWorkspaceIdSessionsSessionIdRoute
   '/_app/workspaces/$workspaceId/sessions/': typeof AppWorkspacesWorkspaceIdSessionsIndexRoute
 }
@@ -211,43 +219,43 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/login'
-    | '/company-context'
+    | '/automations'
+    | '/connections'
     | '/marketplace'
     | '/news'
     | '/onboarding'
     | '/projects'
-    | '/scheduler'
     | '/settings'
-    | '/skills'
-    | '/sources'
-    | '/support'
-    | '/vigia'
-    | '/workflows'
     | '/workspaces'
+    | '/news/$newsId'
+    | '/projects/$projectId'
+    | '/settings/$category'
     | '/workspaces/new'
+    | '/news/'
+    | '/settings/'
     | '/workspaces/'
     | '/workspaces/$workspaceId/settings'
+    | '/workspaces/$workspaceId/'
     | '/workspaces/$workspaceId/sessions/$sessionId'
     | '/workspaces/$workspaceId/sessions/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/login'
-    | '/company-context'
+    | '/automations'
+    | '/connections'
     | '/marketplace'
-    | '/news'
     | '/onboarding'
     | '/projects'
-    | '/scheduler'
-    | '/settings'
-    | '/skills'
-    | '/sources'
-    | '/support'
-    | '/vigia'
-    | '/workflows'
+    | '/news/$newsId'
+    | '/projects/$projectId'
+    | '/settings/$category'
     | '/workspaces/new'
+    | '/news'
+    | '/settings'
     | '/workspaces'
     | '/workspaces/$workspaceId/settings'
+    | '/workspaces/$workspaceId'
     | '/workspaces/$workspaceId/sessions/$sessionId'
     | '/workspaces/$workspaceId/sessions'
   id:
@@ -255,22 +263,23 @@ export interface FileRouteTypes {
     | '/'
     | '/_app'
     | '/login'
-    | '/_app/company-context'
+    | '/_app/automations'
+    | '/_app/connections'
     | '/_app/marketplace'
     | '/_app/news'
     | '/_app/onboarding'
     | '/_app/projects'
-    | '/_app/scheduler'
     | '/_app/settings'
-    | '/_app/skills'
-    | '/_app/sources'
-    | '/_app/support'
-    | '/_app/vigia'
-    | '/_app/workflows'
     | '/_app/workspaces'
+    | '/_app/news/$newsId'
+    | '/_app/projects/$projectId'
+    | '/_app/settings/$category'
     | '/_app/workspaces/new'
+    | '/_app/news/'
+    | '/_app/settings/'
     | '/_app/workspaces/'
     | '/_app/workspaces/$workspaceId/settings'
+    | '/_app/workspaces/$workspaceId/'
     | '/_app/workspaces/$workspaceId/sessions/$sessionId'
     | '/_app/workspaces/$workspaceId/sessions/'
   fileRoutesById: FileRoutesById
@@ -311,53 +320,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppWorkspacesRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/workflows': {
-      id: '/_app/workflows'
-      path: '/workflows'
-      fullPath: '/workflows'
-      preLoaderRoute: typeof AppWorkflowsRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/vigia': {
-      id: '/_app/vigia'
-      path: '/vigia'
-      fullPath: '/vigia'
-      preLoaderRoute: typeof AppVigiaRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/support': {
-      id: '/_app/support'
-      path: '/support'
-      fullPath: '/support'
-      preLoaderRoute: typeof AppSupportRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/sources': {
-      id: '/_app/sources'
-      path: '/sources'
-      fullPath: '/sources'
-      preLoaderRoute: typeof AppSourcesRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/skills': {
-      id: '/_app/skills'
-      path: '/skills'
-      fullPath: '/skills'
-      preLoaderRoute: typeof AppSkillsRouteImport
-      parentRoute: typeof AppRoute
-    }
     '/_app/settings': {
       id: '/_app/settings'
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof AppSettingsRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/scheduler': {
-      id: '/_app/scheduler'
-      path: '/scheduler'
-      fullPath: '/scheduler'
-      preLoaderRoute: typeof AppSchedulerRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/projects': {
@@ -388,11 +355,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppMarketplaceRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/company-context': {
-      id: '/_app/company-context'
-      path: '/company-context'
-      fullPath: '/company-context'
-      preLoaderRoute: typeof AppCompanyContextRouteImport
+    '/_app/connections': {
+      id: '/_app/connections'
+      path: '/connections'
+      fullPath: '/connections'
+      preLoaderRoute: typeof AppConnectionsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/automations': {
+      id: '/_app/automations'
+      path: '/automations'
+      fullPath: '/automations'
+      preLoaderRoute: typeof AppAutomationsRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/workspaces/': {
@@ -402,11 +376,53 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppWorkspacesIndexRouteImport
       parentRoute: typeof AppWorkspacesRoute
     }
+    '/_app/settings/': {
+      id: '/_app/settings/'
+      path: '/'
+      fullPath: '/settings/'
+      preLoaderRoute: typeof AppSettingsIndexRouteImport
+      parentRoute: typeof AppSettingsRoute
+    }
+    '/_app/news/': {
+      id: '/_app/news/'
+      path: '/'
+      fullPath: '/news/'
+      preLoaderRoute: typeof AppNewsIndexRouteImport
+      parentRoute: typeof AppNewsRoute
+    }
     '/_app/workspaces/new': {
       id: '/_app/workspaces/new'
       path: '/new'
       fullPath: '/workspaces/new'
       preLoaderRoute: typeof AppWorkspacesNewRouteImport
+      parentRoute: typeof AppWorkspacesRoute
+    }
+    '/_app/settings/$category': {
+      id: '/_app/settings/$category'
+      path: '/$category'
+      fullPath: '/settings/$category'
+      preLoaderRoute: typeof AppSettingsCategoryRouteImport
+      parentRoute: typeof AppSettingsRoute
+    }
+    '/_app/projects/$projectId': {
+      id: '/_app/projects/$projectId'
+      path: '/$projectId'
+      fullPath: '/projects/$projectId'
+      preLoaderRoute: typeof AppProjectsProjectIdRouteImport
+      parentRoute: typeof AppProjectsRoute
+    }
+    '/_app/news/$newsId': {
+      id: '/_app/news/$newsId'
+      path: '/$newsId'
+      fullPath: '/news/$newsId'
+      preLoaderRoute: typeof AppNewsNewsIdRouteImport
+      parentRoute: typeof AppNewsRoute
+    }
+    '/_app/workspaces/$workspaceId/': {
+      id: '/_app/workspaces/$workspaceId/'
+      path: '/$workspaceId'
+      fullPath: '/workspaces/$workspaceId/'
+      preLoaderRoute: typeof AppWorkspacesWorkspaceIdIndexRouteImport
       parentRoute: typeof AppWorkspacesRoute
     }
     '/_app/workspaces/$workspaceId/settings': {
@@ -433,10 +449,50 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AppNewsRouteChildren {
+  AppNewsNewsIdRoute: typeof AppNewsNewsIdRoute
+  AppNewsIndexRoute: typeof AppNewsIndexRoute
+}
+
+const AppNewsRouteChildren: AppNewsRouteChildren = {
+  AppNewsNewsIdRoute: AppNewsNewsIdRoute,
+  AppNewsIndexRoute: AppNewsIndexRoute,
+}
+
+const AppNewsRouteWithChildren =
+  AppNewsRoute._addFileChildren(AppNewsRouteChildren)
+
+interface AppProjectsRouteChildren {
+  AppProjectsProjectIdRoute: typeof AppProjectsProjectIdRoute
+}
+
+const AppProjectsRouteChildren: AppProjectsRouteChildren = {
+  AppProjectsProjectIdRoute: AppProjectsProjectIdRoute,
+}
+
+const AppProjectsRouteWithChildren = AppProjectsRoute._addFileChildren(
+  AppProjectsRouteChildren,
+)
+
+interface AppSettingsRouteChildren {
+  AppSettingsCategoryRoute: typeof AppSettingsCategoryRoute
+  AppSettingsIndexRoute: typeof AppSettingsIndexRoute
+}
+
+const AppSettingsRouteChildren: AppSettingsRouteChildren = {
+  AppSettingsCategoryRoute: AppSettingsCategoryRoute,
+  AppSettingsIndexRoute: AppSettingsIndexRoute,
+}
+
+const AppSettingsRouteWithChildren = AppSettingsRoute._addFileChildren(
+  AppSettingsRouteChildren,
+)
+
 interface AppWorkspacesRouteChildren {
   AppWorkspacesNewRoute: typeof AppWorkspacesNewRoute
   AppWorkspacesIndexRoute: typeof AppWorkspacesIndexRoute
   AppWorkspacesWorkspaceIdSettingsRoute: typeof AppWorkspacesWorkspaceIdSettingsRoute
+  AppWorkspacesWorkspaceIdIndexRoute: typeof AppWorkspacesWorkspaceIdIndexRoute
   AppWorkspacesWorkspaceIdSessionsSessionIdRoute: typeof AppWorkspacesWorkspaceIdSessionsSessionIdRoute
   AppWorkspacesWorkspaceIdSessionsIndexRoute: typeof AppWorkspacesWorkspaceIdSessionsIndexRoute
 }
@@ -445,6 +501,7 @@ const AppWorkspacesRouteChildren: AppWorkspacesRouteChildren = {
   AppWorkspacesNewRoute: AppWorkspacesNewRoute,
   AppWorkspacesIndexRoute: AppWorkspacesIndexRoute,
   AppWorkspacesWorkspaceIdSettingsRoute: AppWorkspacesWorkspaceIdSettingsRoute,
+  AppWorkspacesWorkspaceIdIndexRoute: AppWorkspacesWorkspaceIdIndexRoute,
   AppWorkspacesWorkspaceIdSessionsSessionIdRoute:
     AppWorkspacesWorkspaceIdSessionsSessionIdRoute,
   AppWorkspacesWorkspaceIdSessionsIndexRoute:
@@ -456,34 +513,24 @@ const AppWorkspacesRouteWithChildren = AppWorkspacesRoute._addFileChildren(
 )
 
 interface AppRouteChildren {
-  AppCompanyContextRoute: typeof AppCompanyContextRoute
+  AppAutomationsRoute: typeof AppAutomationsRoute
+  AppConnectionsRoute: typeof AppConnectionsRoute
   AppMarketplaceRoute: typeof AppMarketplaceRoute
-  AppNewsRoute: typeof AppNewsRoute
+  AppNewsRoute: typeof AppNewsRouteWithChildren
   AppOnboardingRoute: typeof AppOnboardingRoute
-  AppProjectsRoute: typeof AppProjectsRoute
-  AppSchedulerRoute: typeof AppSchedulerRoute
-  AppSettingsRoute: typeof AppSettingsRoute
-  AppSkillsRoute: typeof AppSkillsRoute
-  AppSourcesRoute: typeof AppSourcesRoute
-  AppSupportRoute: typeof AppSupportRoute
-  AppVigiaRoute: typeof AppVigiaRoute
-  AppWorkflowsRoute: typeof AppWorkflowsRoute
+  AppProjectsRoute: typeof AppProjectsRouteWithChildren
+  AppSettingsRoute: typeof AppSettingsRouteWithChildren
   AppWorkspacesRoute: typeof AppWorkspacesRouteWithChildren
 }
 
 const AppRouteChildren: AppRouteChildren = {
-  AppCompanyContextRoute: AppCompanyContextRoute,
+  AppAutomationsRoute: AppAutomationsRoute,
+  AppConnectionsRoute: AppConnectionsRoute,
   AppMarketplaceRoute: AppMarketplaceRoute,
-  AppNewsRoute: AppNewsRoute,
+  AppNewsRoute: AppNewsRouteWithChildren,
   AppOnboardingRoute: AppOnboardingRoute,
-  AppProjectsRoute: AppProjectsRoute,
-  AppSchedulerRoute: AppSchedulerRoute,
-  AppSettingsRoute: AppSettingsRoute,
-  AppSkillsRoute: AppSkillsRoute,
-  AppSourcesRoute: AppSourcesRoute,
-  AppSupportRoute: AppSupportRoute,
-  AppVigiaRoute: AppVigiaRoute,
-  AppWorkflowsRoute: AppWorkflowsRoute,
+  AppProjectsRoute: AppProjectsRouteWithChildren,
+  AppSettingsRoute: AppSettingsRouteWithChildren,
   AppWorkspacesRoute: AppWorkspacesRouteWithChildren,
 }
 

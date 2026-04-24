@@ -1,6 +1,18 @@
+import { NewsPanel } from '@g4os/features/news';
+import {
+  findSettingsCategory,
+  isSettingsCategoryId,
+  SETTINGS_CATEGORIES,
+  type SettingsCategoryId,
+  SettingsPanel,
+} from '@g4os/features/settings';
 import {
   AppShell,
-  resolveShellNavigation,
+  type ContextualSubSidebarProps,
+  mapSessionToPanelItem,
+  ProjectsPanel,
+  SessionsPanel,
+  type SessionsSubTab,
   ShellCommandPalette,
   ShellShortcutsDialog,
   shellActionDefinitions,
@@ -12,6 +24,7 @@ import {
   useWorkspaceShortcuts,
   WorkspaceSwitcherContent,
 } from '@g4os/features/workspaces';
+import type { SessionFilter } from '@g4os/kernel/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, useTranslate } from '@g4os/ui';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -21,10 +34,14 @@ import {
   useLocation,
   useNavigate,
 } from '@tanstack/react-router';
-import { startTransition, useMemo, useState } from 'react';
+import type React from 'react';
+import { startTransition, useCallback, useMemo, useState } from 'react';
 import { ensureAuthState, setAuthUnauthenticated } from '../auth/auth-store.ts';
 import { queryClient } from '../ipc/query-client.ts';
 import { trpc } from '../ipc/trpc-client.ts';
+import { useSeenNewsIds } from '../news/seen-store.ts';
+import { projectsListQueryOptions } from '../projects/projects-store.ts';
+import { invalidateSessions, sessionsListQueryOptions } from '../sessions/sessions-store.ts';
 import { workspacesListQueryOptions } from '../workspaces/workspaces-store.ts';
 
 export const Route = createFileRoute('/_app')({
@@ -44,13 +61,46 @@ function AuthenticatedLayout() {
   const [commandOpen, setCommandOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [switcherOpen, setSwitcherOpen] = useState(false);
-  const activeEntry = resolveShellNavigation(location.pathname);
-
+  const [sessionsTab, setSessionsTab] = useState<SessionsSubTab>('recent');
   const { data: workspaces = [] } = useQuery(workspacesListQueryOptions());
   const activeWorkspaceId = useActiveWorkspaceId();
   const setActiveWorkspaceId = useSetActiveWorkspaceId();
   const activeWorkspace =
     workspaces.find((w) => w.id === activeWorkspaceId) ?? workspaces[0] ?? null;
+  const activeWorkspaceSlug = activeWorkspace?.id ?? '';
+
+  const sessionFilter = useMemo<SessionFilter>(
+    () => ({
+      workspaceId: activeWorkspaceSlug,
+      lifecycle: sessionsTab === 'archived' ? 'archived' : 'active',
+      starred: sessionsTab === 'starred' ? true : undefined,
+      includeBranches: false,
+      limit: 40,
+      offset: 0,
+    }),
+    [activeWorkspaceSlug, sessionsTab],
+  );
+
+  const sessionsListQuery = useQuery({
+    ...sessionsListQueryOptions(sessionFilter),
+    enabled: activeWorkspaceSlug.length > 0,
+  });
+
+  const projectsQuery = useQuery({
+    ...projectsListQueryOptions(activeWorkspaceSlug),
+    enabled: activeWorkspaceSlug.length > 0,
+  });
+
+  const newsQuery = useQuery({
+    queryKey: ['news', 'list'],
+    queryFn: () => trpc.news.list.query(),
+    staleTime: 5 * 60_000,
+    gcTime: 60 * 60_000,
+  });
+  const seenNewsIds = useSeenNewsIds();
+  const refreshNews = useCallback(() => {
+    void queryClient.invalidateQueries({ queryKey: ['news'] });
+  }, []);
 
   const handleSignOut = async () => {
     try {
@@ -109,10 +159,99 @@ function AuthenticatedLayout() {
 
   useWorkspaceShortcuts(shortcutBindings);
 
-  const headerTitle = activeEntry ? t(activeEntry.labelKey) : t('app.name');
-  const headerDescription = activeEntry
-    ? t(activeEntry.descriptionKey)
-    : t('shell.header.fallbackDescription');
+  const handleNewSession = async () => {
+    if (!activeWorkspaceSlug) return;
+    try {
+      const session = await trpc.sessions.create.mutate({
+        workspaceId: activeWorkspaceSlug,
+        name: t('session.new.defaultName'),
+      });
+      await invalidateSessions(queryClient);
+      await navigate({
+        to: '/workspaces/$workspaceId/sessions/$sessionId',
+        params: { workspaceId: activeWorkspaceSlug, sessionId: session.id },
+      });
+    } catch {
+      // errors handled via toast in sessions flow; fallback to no-op here
+    }
+  };
+
+  const renderSubSidebarPanel: ContextualSubSidebarProps['renderPanel'] = ({
+    featureId,
+    footer,
+  }) => {
+    if (featureId === 'sessions') {
+      const items = (sessionsListQuery.data?.items ?? []).map((session) =>
+        mapSessionToPanelItem(session),
+      );
+      return (
+        <SessionsPanel
+          sessions={items}
+          activeTab={sessionsTab}
+          onTabChange={setSessionsTab}
+          onOpenSession={(sessionId) => {
+            if (!activeWorkspaceSlug) return;
+            void navigate({
+              to: '/workspaces/$workspaceId/sessions/$sessionId',
+              params: { workspaceId: activeWorkspaceSlug, sessionId },
+            });
+          }}
+          onNewSession={() => void handleNewSession()}
+          loading={sessionsListQuery.isLoading}
+          footer={footer}
+        />
+      );
+    }
+
+    if (featureId === 'projects') {
+      return (
+        <ProjectsPanel
+          projects={projectsQuery.data ?? []}
+          loading={projectsQuery.isLoading}
+          onOpenProject={(projectId) =>
+            void navigate({ to: '/projects/$projectId', params: { projectId } })
+          }
+          onNewProject={() => void navigate({ to: '/projects' })}
+          footer={footer}
+        />
+      );
+    }
+
+    if (featureId === 'news') return renderNewsPanel(footer);
+    if (featureId === 'settings') return renderSettingsPanel(footer);
+    return null;
+  };
+
+  const renderNewsPanel = (footer: React.ReactNode) => {
+    const selectedId = matchPathSegment(location.pathname, 'news');
+    return (
+      <NewsPanel
+        items={newsQuery.data ?? []}
+        {...(selectedId ? { selectedId } : {})}
+        seenIds={seenNewsIds}
+        onSelect={(id) => void navigate({ to: '/news/$newsId', params: { newsId: id } })}
+        onRefresh={refreshNews}
+        isRefreshing={newsQuery.isFetching}
+        footer={footer}
+      />
+    );
+  };
+
+  const renderSettingsPanel = (footer: React.ReactNode) => {
+    const slug = matchPathSegment(location.pathname, 'settings');
+    const activeId =
+      slug && isSettingsCategoryId(slug) ? (findSettingsCategory(slug)?.id ?? null) : null;
+    return (
+      <SettingsPanel
+        categories={SETTINGS_CATEGORIES}
+        activeId={activeId}
+        onSelect={(id: SettingsCategoryId) =>
+          void navigate({ to: '/settings/$category', params: { category: id } })
+        }
+        footer={footer}
+      />
+    );
+  };
 
   return (
     <>
@@ -120,24 +259,21 @@ function AuthenticatedLayout() {
         navigation={{ activePath: location.pathname, onNavigate: handleNavigate }}
         workspace={{
           name: activeWorkspace?.name ?? t('app.name'),
+          ...(activeWorkspace?.metadata?.theme ? { color: activeWorkspace.metadata.theme } : {}),
           onOpenSwitcher: () => setSwitcherOpen(true),
         }}
-        onOpenSupport={() => handleNavigate('/support')}
-        header={{
-          title: headerTitle,
-          description: headerDescription,
-          onSignOut: () => void handleSignOut(),
-          onOpenCommandPalette: () => {
-            startTransition(() => {
-              setCommandOpen(true);
-            });
-          },
-          onOpenShortcuts: () => {
-            startTransition(() => {
-              setShortcutsOpen(true);
-            });
-          },
+        onOpenCommandPalette={() => {
+          startTransition(() => {
+            setCommandOpen(true);
+          });
         }}
+        onOpenShortcuts={() => {
+          startTransition(() => {
+            setShortcutsOpen(true);
+          });
+        }}
+        onSignOut={() => void handleSignOut()}
+        renderSubSidebarPanel={renderSubSidebarPanel}
       >
         <Outlet />
       </AppShell>
@@ -178,4 +314,10 @@ function AuthenticatedLayout() {
       </Dialog>
     </>
   );
+}
+
+function matchPathSegment(pathname: string, root: string): string | undefined {
+  const re = new RegExp(`^/${root}/([^/]+)`);
+  const match = pathname.match(re);
+  return match?.[1];
 }

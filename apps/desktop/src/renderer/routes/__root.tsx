@@ -1,4 +1,4 @@
-import { useTranslate } from '@g4os/ui';
+import { Toaster, useTranslate } from '@g4os/ui';
 import { createRootRouteWithContext, Outlet } from '@tanstack/react-router';
 import type { RouterContext } from '../router-context.ts';
 
@@ -16,7 +16,16 @@ function NotFound() {
   );
 }
 
+function RootLayout() {
+  return (
+    <>
+      <Outlet />
+      <Toaster position="top-right" richColors={true} closeButton={true} />
+    </>
+  );
+}
+
 export const Route = createRootRouteWithContext<RouterContext>()({
-  component: () => <Outlet />,
+  component: RootLayout,
   notFoundComponent: NotFound,
 });

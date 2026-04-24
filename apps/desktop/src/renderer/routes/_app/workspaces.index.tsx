@@ -32,6 +32,7 @@ function WorkspacesIndex() {
 
   const handleOpen = (id: Workspace['id']) => {
     setActiveWorkspaceId(id);
+    void navigate({ to: '/workspaces/$workspaceId', params: { workspaceId: id } });
   };
 
   const handleDelete = async ({ removeFiles }: { removeFiles: boolean }) => {
