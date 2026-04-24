@@ -24,7 +24,7 @@ const filename = `${next}-${slug}.md`;
 const template = readFileSync(join(ADR_DIR, '_template.md'), 'utf-8')
   .replace(/ADR NNNN/g, `ADR ${next}`)
   .replace(/\[Titulo curto\]/g, title)
-  .replace(/YYYY-MM-DD/g, new Date().toISOString().split('T')[0]);
+  .replace(/YYYY-MM-DD/g, new Date().toISOString().slice(0, 10));
 
 writeFileSync(join(ADR_DIR, filename), template);
 console.log(`Created: ${ADR_DIR}/${filename}`);

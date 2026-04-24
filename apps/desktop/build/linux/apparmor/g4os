@@ -1,0 +1,16 @@
+# AppArmor profile for G4 OS (Ubuntu 24.04+, Debian 13+)
+#
+# Ubuntu 24.04 introduziu unprivileged user namespace restrictions —
+# Electron apps precisam de perfil AppArmor explícito para criar sandbox
+# do Chromium. Sem isso, o app não inicia (EACCES em user_namespaces).
+#
+# Instalado por postinst e ativado via `apparmor_parser -r`.
+
+#include <tunables/global>
+
+profile g4os /opt/G4\ OS/g4os flags=(unconfined) {
+  userns,
+
+  # Declaração obrigatória para Electron/Chromium bootstrap
+  include if exists <local/g4os>
+}

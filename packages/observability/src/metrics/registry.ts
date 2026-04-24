@@ -12,11 +12,18 @@ export interface G4Metrics {
   readonly mcpSubprocessCrashTotal: Counter<string>;
   readonly workerMemoryRss: Gauge<string>;
   readonly workerRestartTotal: Counter<string>;
+  /** TASK-OUTLIER-22 — turn-scoped métricas de alta granularidade. */
+  readonly turnDurationMs: Histogram<string>;
+  readonly turnTokensTotal: Counter<string>;
+  readonly turnErrorsTotal: Counter<string>;
+  readonly turnToolCallsTotal: Counter<string>;
+  readonly turnsStartedTotal: Counter<string>;
 }
 
 const IPC_BUCKETS = [0.001, 0.01, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10];
 const AGENT_BUCKETS = [0.1, 0.5, 1, 5, 10, 30, 60, 120];
 const MCP_BUCKETS = [0.01, 0.05, 0.1, 0.5, 1, 5, 10, 30];
+const TURN_MS_BUCKETS = [100, 500, 1_000, 2_500, 5_000, 10_000, 30_000, 60_000, 120_000];
 
 export function createMetrics(): G4Metrics {
   const registry = new Registry();
@@ -93,6 +100,42 @@ export function createMetrics(): G4Metrics {
     registers: [registry],
   });
 
+  const turnDurationMs = new Histogram({
+    name: 'g4os_turn_duration_ms',
+    help: 'Turn duration from dispatch to done/error (ms)',
+    labelNames: ['provider', 'status'],
+    buckets: TURN_MS_BUCKETS,
+    registers: [registry],
+  });
+
+  const turnTokensTotal = new Counter({
+    name: 'g4os_turn_tokens_total',
+    help: 'Tokens consumed per turn',
+    labelNames: ['provider', 'direction'],
+    registers: [registry],
+  });
+
+  const turnErrorsTotal = new Counter({
+    name: 'g4os_turn_errors_total',
+    help: 'Turn errors grouped by error code',
+    labelNames: ['provider', 'code'],
+    registers: [registry],
+  });
+
+  const turnToolCallsTotal = new Counter({
+    name: 'g4os_turn_tool_calls_total',
+    help: 'Tool calls dispatched during a turn',
+    labelNames: ['tool_name', 'status'],
+    registers: [registry],
+  });
+
+  const turnsStartedTotal = new Counter({
+    name: 'g4os_turns_started_total',
+    help: 'Turns started (user messages dispatched)',
+    labelNames: ['provider'],
+    registers: [registry],
+  });
+
   return {
     registry,
     ipcRequestDuration,
@@ -105,6 +148,11 @@ export function createMetrics(): G4Metrics {
     mcpSubprocessCrashTotal,
     workerMemoryRss,
     workerRestartTotal,
+    turnDurationMs,
+    turnTokensTotal,
+    turnErrorsTotal,
+    turnToolCallsTotal,
+    turnsStartedTotal,
   };
 }
 

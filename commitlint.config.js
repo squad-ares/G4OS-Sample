@@ -36,6 +36,8 @@ export default {
         'features',
         'data',
         'observability',
+        'permissions',
+        'session-runtime',
         // Features
         'chat',
         'sessions',

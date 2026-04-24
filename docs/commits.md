@@ -1,84 +1,84 @@
-# Conventional Commits Guide
+# Guia de Conventional Commits
 
-G4 OS uses [Conventional Commits](https://www.conventionalcommits.org/) for commit messages. This enables automatic changelog generation, semantic versioning, and clear project history.
+O G4 OS usa [Conventional Commits](https://www.conventionalcommits.org/) para mensagens de commit. Isso habilita geração automática de changelog, versionamento semântico e um histórico de projeto legível.
 
-## Format
+## Formato
 
 ```
-<type>(<scope>): <subject>
+<tipo>(<escopo>): <assunto>
 
-<body>
+<corpo>
 
-<footer>
+<rodapé>
 ```
 
-**Mandatory fields:**
-- `<type>`: One of: `feat`, `fix`, `perf`, `refactor`, `docs`, `style`, `test`, `build`, `ci`, `chore`, `revert`
-- `<scope>`: One of the predefined scopes (see list below)
-- `<subject>`: Lowercase, no period, 50 chars max
+**Campos obrigatórios:**
+- `<tipo>`: um entre `feat`, `fix`, `perf`, `refactor`, `docs`, `style`, `test`, `build`, `ci`, `chore`, `revert`
+- `<escopo>`: um dos escopos predefinidos (ver lista abaixo)
+- `<assunto>`: minúsculo, sem ponto final, máximo 50 caracteres
 
-**Optional fields:**
-- `<body>`: Detailed explanation (multiple paragraphs allowed)
-- `<footer>`: Related issues (e.g., `Closes #123`)
+**Campos opcionais:**
+- `<corpo>`: explicação detalhada (múltiplos parágrafos permitidos)
+- `<rodapé>`: issues relacionadas (ex: `Closes #123`)
 
-## Types
+## Tipos
 
-| Type | Meaning | Release |
-|------|---------|---------|
-| `feat` | New feature | minor |
-| `fix` | Bug fix | patch |
-| `perf` | Performance improvement | patch |
-| `refactor` | Code restructure (no behavior change) | none |
-| `docs` | Documentation only | none |
-| `style` | Formatting only | none |
-| `test` | Tests only | none |
-| `build` | Build system or deps | patch |
-| `ci` | CI/CD config | none |
-| `chore` | Maintenance | none |
-| `revert` | Revert previous commit | depends |
+| Tipo | Significado | Release |
+|------|-------------|---------|
+| `feat` | Nova funcionalidade | minor |
+| `fix` | Correção de bug | patch |
+| `perf` | Ganho de performance | patch |
+| `refactor` | Reestruturação sem mudar comportamento | none |
+| `docs` | Apenas documentação | none |
+| `style` | Apenas formatação | none |
+| `test` | Apenas testes | none |
+| `build` | Sistema de build ou deps | patch |
+| `ci` | Config de CI/CD | none |
+| `chore` | Manutenção | none |
+| `revert` | Reverte commit anterior | depende |
 
-## Scopes
+## Escopos
 
-### Foundation/Infrastructure
-- `foundation` — Foundational setup (monorepo, build, CI)
-- `kernel` — Core types, errors, logging
-- `platform` — OS abstraction (paths, keychain, spawn)
-- `ipc` — IPC and RPC (tRPC)
-- `credentials` — Credential vault management
-- `deps` — Dependency updates
-- `ci` — CI/CD workflows
-- `build` — Build scripts, bundler config
-- `release` — Release process, versioning
-- `docs` — Project documentation
-- `config` — Configuration files
+### Fundação/Infraestrutura
+- `foundation` — setup fundacional (monorepo, build, CI)
+- `kernel` — tipos core, erros, logging
+- `platform` — abstração de OS (paths, keychain, spawn)
+- `ipc` — IPC e RPC (tRPC)
+- `credentials` — cofre de credenciais
+- `deps` — atualização de dependências
+- `ci` — workflows de CI/CD
+- `build` — scripts de build, config de bundler
+- `release` — processo de release, versionamento
+- `docs` — documentação do projeto
+- `config` — arquivos de configuração
 
-### Packages
-- `ui` — Shared React components
-- `agents` — AI provider implementations
-- `sources` — MCP and data sources
-- `features` — Feature modules (Feature-Sliced Design)
+### Pacotes
+- `ui` — componentes React compartilhados
+- `agents` — implementações de provedores de IA
+- `sources` — MCP e sources de dados
+- `features` — módulos de feature (Feature-Sliced Design)
 
 ### Features
-- `chat` — Chat interface and sessions
-- `sessions` — Session lifecycle management
-- `workspaces` — Workspace management
-- `projects` — Project management
-- `marketplace` — Skill/workflow marketplace
-- `company-context` — Company context features
-- `scheduler` — Task scheduling (cron)
-- `vigia` — Watch/automation rules
-- `remote-control` — Mobile/remote control
-- `voice` — Voice recording and transcription
-- `skills` — Skill system and marketplace
-- `browser` — Browser integration
+- `chat` — interface de chat e sessões
+- `sessions` — ciclo de vida de sessão
+- `workspaces` — workspaces
+- `projects` — projetos
+- `marketplace` — marketplace de skills/workflows
+- `company-context` — features de company context
+- `scheduler` — agendamento (cron)
+- `vigia` — regras de watch/automação
+- `remote-control` — controle mobile/remoto
+- `voice` — gravação de voz e transcrição
+- `skills` — sistema de skills e marketplace
+- `browser` — integração com browser
 
 ### Apps
-- `desktop` — Electron app
-- `viewer` — Web viewer
+- `desktop` — app Electron
+- `viewer` — viewer web
 
-## Examples
+## Exemplos
 
-### Valid commits
+### Commits válidos
 
 ```bash
 feat(chat): add streaming support for Claude 3.5
@@ -91,7 +91,7 @@ chore(deps): bump @anthropic-ai/sdk to 0.72.0
 ci(release): add macOS notarization step
 ```
 
-### With body and footer
+### Com corpo e rodapé
 
 ```
 feat(chat): add streaming support for Claude 3.5
@@ -113,22 +113,22 @@ This reverts commit abc123def.
 Reason: Compatibility issues on Windows.
 ```
 
-## Invalid commits (blocked by commitlint)
+## Commits inválidos (bloqueados pelo commitlint)
 
-| Example | Reason |
+| Exemplo | Motivo |
 |---------|--------|
-| `fix stuff` | Missing scope |
-| `feat(Chat): add feature` | Scope must be lowercase |
-| `feature(chat): streaming` | Type must be `feat`, not `feature` |
-| `fix(unknown): bug` | Scope not in predefined list |
-| `feat(chat): Add feature.` | Subject must start lowercase, no period |
-| `feat(chat): add a really long feature that takes more than 50 characters` | Subject too long (max 50 chars) |
+| `fix stuff` | Falta escopo |
+| `feat(Chat): add feature` | Escopo precisa ser minúsculo |
+| `feature(chat): streaming` | Tipo precisa ser `feat`, não `feature` |
+| `fix(unknown): bug` | Escopo fora da lista |
+| `feat(chat): Add feature.` | Assunto precisa começar minúsculo e sem ponto |
+| `feat(chat): add a really long feature that takes more than 50 characters` | Assunto longo (máx 50) |
 
-## Common patterns
+## Padrões comuns
 
-### Multiple related changes in one commit
+### Múltiplas mudanças relacionadas no mesmo commit
 
-Group logically related changes:
+Agrupe mudanças logicamente relacionadas:
 
 ```
 feat(agents): add Claude 4 support with token counting
@@ -141,9 +141,9 @@ feat(agents): add Claude 4 support with token counting
 Closes #789
 ```
 
-### Atomic commits (preferred)
+### Commits atômicos (preferido)
 
-Prefer small, focused commits:
+Prefira commits pequenos e focados:
 
 ```
 feat(agents): add Claude 4 model enum
@@ -153,7 +153,7 @@ test(agents): cover streaming with compression
 
 ### Breaking changes
 
-Add `!` before `:` to indicate breaking change:
+Coloque `!` antes dos `:` para marcar:
 
 ```
 feat(ipc)!: remove deprecated /session/send route
@@ -161,105 +161,103 @@ feat(ipc)!: remove deprecated /session/send route
 BREAKING CHANGE: clients must use /session/stream instead
 ```
 
-## Local commit workflow
+## Fluxo local
 
-### Before committing
+### Antes de commitar
 
 ```bash
-# Stage your changes
+# Stage dos arquivos
 git add packages/chat/src/
 
-# Preview the commit
+# Preview
 git status
 
-# Lint will auto-fix on commit
+# Lint auto-fix roda no commit
 git commit -m "feat(chat): add message search"
 ```
 
-### If lint auto-fixes
+### Se o lint fizer auto-fix
 
-Biome will fix formatting and imports. Your staged files are updated. Just commit again:
+Biome corrige formatação e imports. Seus arquivos staged ficam atualizados. Só committar de novo:
 
 ```bash
 git commit -m "feat(chat): add message search"
 ```
 
-### If commitlint rejects
+### Se o commitlint rejeitar
 
 ```bash
 ✗ scope must be one of [kernel, ..., chat, ...]
-→ Fix the scope name and retry:
+→ Corrija o escopo e tente de novo:
   git commit -m "feat(chat): add message search"
 ```
 
-### If you need to bypass locally (emergency only)
+### Se precisar ignorar localmente (emergência)
 
 ```bash
 git commit --no-verify -m "fix(chat): hot fix for production"
 ```
 
-**Important:** CI runs the same checks, so `--no-verify` only delays failure. Use only for true emergencies (e.g., security hotfix) and expect code review scrutiny.
+**Importante:** CI roda as mesmas checagens, então `--no-verify` só adia a falha. Use apenas em emergência real (ex: hotfix de segurança) e espere review crítico.
 
-## Integration with changesets
+## Integração com changesets
 
-Commit messages automatically drive changelog generation:
+Mensagens de commit geram entradas de changelog automaticamente:
 
 ```bash
-# Each commit generates a changelog entry
 feat(chat): add search      → Added: Chat search feature
 fix(ipc): handle timeout    → Fixed: IPC timeout handling
 perf(sessions): add caching → Improved: Session metadata caching
 ```
 
-See [changesets docs](../../docs/adrs/0008-changesets-versioning.md) for release workflow.
+Ver [docs de changesets](../../docs/adrs/0008-changesets-versioning.md) para o fluxo de release.
 
 ## Troubleshooting
 
-### "commit-msg hook not running"
+### "commit-msg hook não está rodando"
 
-Git hooks are installed on `pnpm install`. Reinstall:
+Git hooks são instalados no `pnpm install`. Reinstale:
 
 ```bash
 pnpm install
-# or
+# ou
 lefthook install
 ```
 
-### "pre-commit hook is slow"
+### "pre-commit hook está lento"
 
-- Lint and format are run only on staged files (fast)
-- Typecheck runs on changed packages only (Turbo-cached)
-- First commit may be slow, subsequent are cached
+- Lint/format rodam apenas em arquivos staged (rápido)
+- Typecheck roda apenas em pacotes alterados (cache do Turbo)
+- O primeiro commit pode ser lento; subsequentes são cacheados
 
 ```bash
-# Check cache status
 ls -la .turbo/
 ```
 
-### "Windows Git Bash: hooks not executing"
+### "Windows Git Bash: hooks não executam"
 
-Use WSL2 (recommended) or update Git for Windows to latest. Lefthook supports Git Bash natively.
+Use WSL2 (recomendado) ou atualize o Git for Windows para a versão mais recente. Lefthook suporta Git Bash nativamente.
 
-### "commitlint says subject too long"
+### "commitlint diz que o subject está longo"
 
-Messages are limited to 100 chars total. Keep subject short:
+Mensagens são limitadas a 100 chars totais. Mantenha o assunto curto:
 
 ```bash
 ✗ header-max-length: header must not be longer than 100 characters
-→ Your message is 112 chars. Keep subject to ~50-60 chars max.
+→ Sua mensagem está com 112 chars. Mantenha o assunto em ~50-60 chars.
 
-# Too long (76 chars)
+# Longo demais (76 chars)
 feat(chat): add realtime collaborative editing with conflict resolution
 
-# Better (51 chars)
+# Melhor (51 chars)
 feat(chat): add realtime collaborative editing
-# Details go in body if needed
+# Detalhes no corpo, se precisar
 ```
 
-## Resources
+## Referências
 
-- [Conventional Commits Spec](https://www.conventionalcommits.org/)
-- [commitlint docs](https://commitlint.js.org/)
+- [Spec de Conventional Commits](https://www.conventionalcommits.org/)
+- [Docs do commitlint](https://commitlint.js.org/)
 - [Semantic Versioning](https://semver.org/)
-- [Angular Commit Guidelines](https://github.com/angular/angular/blob/main/CONTRIBUTING.md#commit)
+- [Diretrizes de commit do Angular](https://github.com/angular/angular/blob/main/CONTRIBUTING.md#commit)
 - [ADR 0004: Git Hooks & Conventional Commits](../adrs/0004-lefthook-conventional-commits.md)

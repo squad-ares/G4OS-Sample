@@ -1,4 +1,4 @@
-# AGENTS.md — G4 OS v2
+# CLAUDE.md — G4 OS v2
 
 This file is the primary AI context for the `@g4os/monorepo` (G4 OS v2). Read it first; read the closest package/app-level context next; ADRs in `docs/adrs/` win any disagreement with prose here.
 
@@ -17,7 +17,7 @@ v1 shipped three categories of user-visible incidents. v2 replaces the **archite
 | Dor reportada | Root cause in v1 | v2 structural fix |
 |---|---|---|
 | Perda do runtime Claude SDK (Windows) | Binários externos (`node`, `pnpm`, `uv`, `python3`, `git`) resolvidos via `PATH` do usuário | Runtimes **empacotados** com checksums SHA-256, validados no boot, installer identity autoritativo |
-| Travamento por memória (Windows) | Main process monolítico (1461 LOC / 151 arquivos), sem isolamento por sessão, `chokidar` vazando handles | Main thin (<2000 LOC), worker-per-session via `utilityProcess`, supervisor com health checks, `@parcel/watcher` |
+| Travamento por memória (Windows) | Main monolítico (1461 LOC / 151 arquivos), `chokidar` vazando handles, listeners/timers sem cleanup, zero observabilidade | Main thin (<6800 LOC com gate CI) + `@parcel/watcher` + `DisposableBase` enforcado + `MemoryMonitor` com thresholds. Process isolation avaliado e rejeitado — ADR-0145 (supersedes 0030) |
 | Perda de credenciais | 93 arquivos tocando `credentials.enc`, escrita sem lock, AES custom com chave derivada de valor estático | `CredentialVault` como gateway único, Electron `safeStorage` (Keychain/DPAPI/libsecret), escrita atômica `write→fsync→rename` com `credentials.backup.enc` |
 
 v2 não é uma reescrita cosmética. É a substituição de três decisões estruturais da v1 por padrões já validados em Electron de produção (VS Code, Slack, Discord, 1Password).
@@ -59,18 +59,21 @@ packages/
 ├── credentials/   # `CredentialVault` gateway (mutex + backups 3x + metadata), backends in-memory/file/safeStorage, migrador v1→v2, `RotationOrchestrator` (ADRs 0050–0053)
 ├── data/          # node:sqlite (Node 24) + Drizzle (beta 1.0 pinado, ADR-0042), migrations com backup pré-migration, `events/` (JSONL append-only + replay + checkpoints multi-consumer, ADR-0043), `attachments/` (content-addressed SHA-256 + refcount + GC, ADR-0044), `backup/` (ZIP v1: export/restore + manifest Zod, ADR-0045)
 ├── observability/ # pino transports (via @g4os/kernel logger), OTel tracer/propagation + lazy SDK, Sentry scrub/init, memory monitor + leak detector, prom-client metrics registry, debug ZIP export (ADRs 0060–0065)
-├── agents/        # `@g4os/agents/interface` — IAgent + AgentFactory + AgentRegistry (Result) + AgentEvent union + schemas Zod (ADR-0070); `@g4os/agents/claude` — ClaudeAgent modular (mapper + prompt-cache + stream-runner + providers lazy direct/bedrock/compat), ADR-0071; `@g4os/agents/codex` — CodexAgent via subprocess NDJSON (AppServerClient + Subprocess DI + binary-resolver + bridge-mcp skeleton), ADR-0072; Pi pendente (TASK-07-04)
-├── sources/       # `@g4os/sources/{interface,mcp-stdio,mcp-http,managed,oauth,lifecycle}` — ISource + SourceRegistry + MCP stdio/http + managed connectors base + OAuth kit (PKCE/deep-link/loopback) + SourceLifecycleManager (intent detector, sticky/rejected por sessão), ADRs 0081-0086
+├── agents/        # `@g4os/agents/interface` — IAgent + AgentFactory + AgentRegistry (Result) + AgentEvent union + schemas Zod (ADR-0070); `@g4os/agents/claude` — ClaudeAgent modular (mapper + prompt-cache + stream-runner + providers lazy direct/bedrock/compat), ADR-0071; `@g4os/agents/codex` — CodexAgent via subprocess NDJSON (AppServerClient + Subprocess DI + binary-resolver + bridge-mcp skeleton), ADR-0072; `@g4os/agents/openai` — OpenAIAgent (ADR-0074); `@g4os/agents/google` — GoogleAgent com native routing (ADR-0075); `@g4os/agents/shared` — broker shared (McpPoolClient, PermissionHandler, ThinkingLevelResolver), ADR-0073
+├── sources/       # `@g4os/sources/{interface,mcp-stdio,mcp-http,managed,oauth,lifecycle,planner,catalog,store}` — ISource + SourceRegistry + MCP stdio/http + managed connectors base + OAuth kit (PKCE/deep-link/loopback) + SourceLifecycleManager (intent detector, sticky/rejected por sessão) + `planner` (classifica per-turn native_deferred/broker_fallback/filesystem_direct) + `catalog` (15 managed seeds: Gmail, Google Workspace, Outlook, Teams, Slack, GitHub, Linear, Jira, Asana, Pipedrive, Trello) + `store` (JSON atômico por workspace; segredos ficam no vault referenciados por `credentialKey`), ADRs 0081-0086
+├── permissions/   # `@g4os/permissions` — PermissionBroker (mediador Deferred queue + allow_session in-memory + persistência via store) + PermissionStore (JSON atômico por workspace, chave `(toolName, argsHash)` SHA-256 de args ordenados). ADR-0134
+├── session-runtime/ # `@g4os/session-runtime` — composição-agnóstica de turn execution: `runToolLoop` (multi-iteração tool use + permission gate), `runAgentIteration` (Observable→Promise com captura de tool_use_start/complete), `SessionEventBus` (pub/sub in-memory por sessionId + eventos discriminados persistidos vs transientes), `finalizeAssistantMessage`, `turn-ops` (respondPermission/stopTurn/notImplemented helpers), event-log wrappers sobre `@g4os/data/events`. Depende só de kernel/agents/data/ipc/observability/permissions. ADR-0135
 ├── features/      # scaffolding — Feature-Sliced Design por domínio (TASK-11)
 └── ui/            # React + Radix + Tailwind compartilhado
 
 apps/
 ├── desktop/       # Electron main (thin) + renderer
-│   └── src/main/  # < 2000 LOC total, ≤ 300 por arquivo (gate `check:main-size`)
+│   └── src/main/  # < 6800 LOC total, ≤ 300 por arquivo (gate `check:main-size`)
+├── desktop-e2e/   # Playwright + Electron smoke tests (ADR-0142)
 └── viewer/        # Web viewer/admin (existente do v1, mantido)
 
 scripts/           # Gates customizados (check-file-lines, check-exports, check-main-size, new-adr)
-docs/adrs/         # ADRs imutáveis — 0001-0040 aceitos
+docs/adrs/         # ADRs imutáveis — 0001-0145 aceitos
 .github/workflows/ # CI (ci.yml, release.yml)
 ```
 
@@ -81,18 +84,18 @@ docs/adrs/         # ADRs imutáveis — 0001-0040 aceitos
 Cada fluxo que importa passa por estas camadas, nesta ordem:
 
 1. **`apps/desktop/src/index.ts`** → delega para `./main/index.ts`
-2. **`apps/desktop/src/main/index.ts`** (entry fino, ~60 LOC): `await app.whenReady()` → instancia `AppLifecycle`, `ProcessSupervisor`, `SessionManager`, `CpuPool`, `WindowManager`; registra handlers de shutdown; abre janela; inicia IPC.
-3. **`apps/desktop/src/main/process/supervisor.ts`** spawns `utilityProcess` por sessão; `HealthMonitor` faz ping a cada 30s, restart com backoff exponencial (`1s → 2s → 4s`, máx 2 restarts).
-4. **`apps/desktop/src/main/workers/session-worker.ts`** roda em processo isolado; recebe `send-message`, `interrupt`, `health-check`, `shutdown` via `parentPort`; sessionId vem em `process.argv[2]` (nunca `process.env`).
-5. **`apps/desktop/src/main/ipc-server.ts`** conecta `electron-trpc/main` ao router em `packages/ipc/src/server`.
-6. Toda resposta percorre `worker.postMessage()` → main → tRPC subscription → renderer (via TanStack Query).
+2. **`apps/desktop/src/main/index.ts`** (composition root): `await app.whenReady()` → instancia `AppLifecycle`, `CpuPool`, `WindowManager`, serviços; registra handlers de shutdown; abre janela; inicia IPC.
+3. **`apps/desktop/src/main/services/turn-dispatcher.ts`** executa turns in-process: persiste user message, resolve agent via registry, roda tool loop com permission broker + MCP mount registry, emite eventos no `SessionEventBus`. Process isolation por sessão foi avaliado e rejeitado (ADR-0145).
+4. **`apps/desktop/src/main/ipc-server.ts`** conecta `electron-trpc/main` ao router em `packages/ipc/src/server`.
+5. Toda resposta percorre `eventBus.emit()` → tRPC subscription → renderer (via TanStack Query).
 
 Graceful shutdown (5s deadline):
 1. `before-quit` → `AppLifecycle.shutdown()` chama cada handler registrado
-2. `SessionManager.dispose()` → `worker.stop(1000)` em cada sessão
-3. `ProcessSupervisor.shutdownAll()` → `{type:'shutdown'}` → `waitForExit` com deadline → `forceKill` nos presos
-4. `CpuPool.destroy()` → `piscina.destroy()`
-5. `app.exit(0)`
+2. `turnDispatcher.dispose()` → aborta turnos ativos + unsubscribe + dispose agents
+3. `mountRegistry.dispose()` → fecha MCP stdio clients
+4. `sessionEventBus.dispose()` → limpa subscribers
+5. `CpuPool.destroy()` → `piscina.destroy()`
+6. `app.exit(0)`
 
 SIGINT/SIGTERM disparam o mesmo fluxo via `app.quit()`.
 
@@ -113,8 +116,8 @@ SIGINT/SIGTERM disparam o mesmo fluxo via `app.quit()`.
 | Erros | `Result<T, E>` via `neverthrow` para esperados; exceptions só para bugs | 0011 |
 | Lifecycle | `IDisposable` + `DisposableBase` + `DisposableStore` (VS Code pattern) | 0012 |
 | Platform | `@g4os/platform` como ponto único de `process.platform`, `env-paths` | 0013 |
-| Process isolation | Electron `utilityProcess` por sessão + `piscina` para CPU-bound | 0030 |
-| Main thin | <2000 LOC total, ≤300 por arquivo (gate CI) | 0031 |
+| Process isolation | Não há worker-per-session. Main thin + DisposableBase + MemoryMonitor + `@parcel/watcher` cobrem as 4 causas raiz V1. `piscina` (`CpuPool`) só para CPU-bound específico. | 0145 (supersedes 0030) |
+| Main thin | <4500 LOC total, ≤300 por arquivo (gate CI) | 0031 |
 | Shutdown | Signal → deadline → SIGKILL; exponential backoff em restart | 0032 |
 | SQLite | `node:sqlite` nativo (Node 24 LTS) — zero binding externo, WAL, FK ON, synchronous=NORMAL, mmap 256MB | 0040a |
 | Event store | JSONL append-only por sessão + replay + checkpoints multi-consumer `(consumer_name, session_id)` | 0043 |
@@ -131,8 +134,20 @@ SIGINT/SIGTERM disparam o mesmo fluxo via `app.quit()`.
 | CodexAgent | `@g4os/agents/codex`: 11 arquivos (protocol/frame/subprocess/node-spawner/client/event-mapper/input-mapper/binary-resolver/bridge-mcp/codex-agent/factory); `Subprocess`/`SubprocessSpawner` contract com default `NodeSubprocessSpawner` (`node:child_process`, zero nova dep runtime); NDJSON framing puro (`LineBuffer`) + decoder que rejeita frames inválidos; binary resolver com DI (`CODEX_DEV_PATH` → `CODEX_PATH` → bundled, cada passo valida `fileExists`); multi-turn isolation via `requestId` filter; dispose kills subprocess + detaches bridge MCP | 0072 |
 | Sources / MCP | `@g4os/sources`: 6 subpaths (`interface/mcp-stdio/mcp-http/managed/oauth/lifecycle`); `ISource extends IDisposable` + `SourceRegistry` (Result); MCP stdio com runtime mode policy (auto→protected, Windows/browser-auth→compat); MCP HTTP com `withReconnect` (skip(1) inicial + backoff exponencial, `needs_auth` nunca auto-retriado); `ManagedConnectorBase` + `TokenStore` contract; OAuth kit PKCE S256 + deep-link + loopback + `performOAuth` + `createFetchTokenExchanger`; `SourceLifecycleManager` com intent detector (explicit/mention/skill/soft) + sticky/rejected por sessionId; runtimes externos (MCP client, subprocess, fetcher, callback handler) injetados | 0081-0086 |
 | Auth | `@g4os/auth`: 5 subpaths (`types/otp/managed-login/entitlement/refresh`); `SupabaseAuthPort` + `AuthTokenStore` como portas DI (sem dependência em `@supabase/supabase-js` ou `@g4os/credentials`); OTP fix V1 (fallback `email → signup`); `ManagedLoginService extends DisposableBase` com FSM discriminada (`idle → requesting_otp → awaiting_otp → verifying → bootstrapping → authenticated | error`); `EntitlementService` com dev bypass opt-in + `onBypassUsed`; `SessionRefresher` com `setTimer`/`now` injetáveis, buffer 5 min antes do expiry, `reauth_required` em vez de auto-logout | 0091-0094 |
+| Agents shared broker | `@g4os/agents/shared`: `McpPoolClient` (listTools/callTool/closeAll); `filterSessionTools` + `shouldExposeSessionTool` (gemini_native não recebe session tools); `PermissionHandler` (AlwaysAllow/AlwaysDeny/AskHandler); `detectSourceAccessIssue` + `detectBrokeredSourceActivation`; `resolveThinkingConfig` → `reasoning_effort` (OpenAI) / `thinkingBudget` (Google) / `budgetTokens` (Anthropic) | 0073 |
+| OpenAIAgent | `@g4os/agents/openai`: completions API + responses API + prompt cache; streaming via observable; AbortSignal propagado; lazy SDK import | 0074 |
+| GoogleAgent | `@g4os/agents/google`: Gemini native routing — Search, URL Context, YouTube/video; `safe_<name>` tool name sanitization; gemini_native bypassa broker session tools | 0075 |
+| Permissions | `@g4os/permissions`: `PermissionBroker` (Deferred queue + allow_session in-memory); `PermissionStore` (JSON atômico, SHA-256 hash de args ordenados); boundary `permissions-isolated` (só depende de `@g4os/kernel`) | 0134 |
+| Session runtime | `@g4os/session-runtime`: `runToolLoop` multi-iteração + permission gate; `runAgentIteration` Observable→Promise; `SessionEventBus` pub/sub; `finalizeAssistantMessage`; boundary `session-runtime-layering` (nunca importa `apps/desktop/src/main/**`) | 0135 |
+| Sources planner/catalog/store | `@g4os/sources/{planner,catalog,store}`: `SourcePlanner` classifica per-turn `native_deferred/broker_fallback/filesystem_direct`; `catalog` 15 managed seeds; `store` JSON atômico por workspace, segredos no vault | 0136-0137 |
+| MCP mount registry | `@g4os/sources/broker`: `McpMountRegistry` (cache per-slug + activate/listTools/dispose via DisposableBase); `buildMountedToolHandlers` (namespace `mcp_<slug>__<name>`); `McpClient` SDK-backed via lazy `@modelcontextprotocol/sdk`; `probeMcpStdio` distinto (timeout 5s + SIGKILL) | 0143-0144 |
+| UI shell | TanStack Router (type-safe, file-based) + TanStack Query (server state) + Jotai (client state); `WindowManager` com estado persistido; `AppLifecycle` com graceful shutdown 5s | 0100-0107 |
+| Chat/composer | Composer com slots (`sourcePicker`, `workingDirPicker`, `mentionPicker`); `MentionPicker` typeahead `[source:slug]`; `useStreamingText` 60fps drain via `requestAnimationFrame`; permission modal não-bloqueante | 0111-0116 |
+| Sessions features | Session lifecycle (status enum + soft delete); hierarchical labels via materialized-path; branching copy-prefix; FTS5 cross-session search | 0126-0129 |
+| Projects features | `ProjectsService` (17 métodos CRUD + files + tasks + sessions); `file-ops.ts` path-guard + snapshots + 10 MiB limit; `project_tasks` ordering fracional (string lexicográfico); legacy import discovery (3 candidatos + sentinel) | 0130-0133 |
+| E2E testing | `apps/desktop-e2e/` Playwright + Electron; `launchApp()` helper com tmpdir isolado; `{ auth: 'mock' }` → `G4OS_E2E=1` → `mockAuthMode` + `createStubAgentFactory()`; 5 smokes totais | 0142 |
 
-### Credenciais, watchers, testes (implementação próxima)
+### Bibliotecas e padrões de runtime (implementados)
 
 | Camada | Escolha | Por que |
 |---|---|---|
@@ -190,7 +205,7 @@ Pacotes em alpha/RC/beta **não entram em `dependencies`**, salvo exceção com 
 ### Limites e organização
 
 - **Max 500 LOC por arquivo** (gate `check:file-lines`). Exceções via `EXEMPTIONS` com justificativa.
-- **Main process total < 2000 LOC** (gate `check:main-size`), arquivos em `apps/desktop/src/main/` ≤ 300 LOC cada.
+- **Main process total < 6500 LOC** (gate `check:main-size`), arquivos em `apps/desktop/src/main/` ≤ 300 LOC cada. Orçamento elevado de 2000→3000 em 2026-04-21 (Epic 10b-wiring), de 3000→4500 em 2026-04-22 (Epic 11-features/02-workspaces), de 4500→4800 em 2026-04-22 (Epic 11-features/03-projects TASK-11-03-06), e de 4800→6200 em 2026-04-23 (TASK-OUTLIER-07/08/09: multi-provider agents-bootstrap, credentials-service vault+IPC, fundação de tool use + permission broker com helpers em `sessions/`). Em 2026-04-23 (TASK-OUTLIER-11) o gate passou a ignorar `src/main/workers/**` porque esse código roda em processos isolados (`utilityProcess` para `session-worker`/`turn-runner`, Piscina threads para `cpu-pool/tasks`) e tem seu próprio orçamento implícito via output size do rollup. Em 2026-04-24 main caiu de 7987 → ~5976 LOC via extrações: `@g4os/session-runtime`, `@g4os/permissions`, `@g4os/sources/{planner,catalog,store}`, `@g4os/agents/tools/handlers/activate-sources`, `connectionSlugForProvider` no kernel. Em 2026-04-24 (FOLLOWUP-04/08) o teto subiu de 6200→6500 junto de duas novas extrações: `sessions/lifecycle.ts` (delete/archive/restore + applyReducer adapter) e `sessions/retry-truncate.ts` (retry/truncate + planner). `@g4os/data/events` ganhou `truncateProjection` e `MessagesService.append` agora retorna `MessageAppendResult` com `sequenceNumber` real — zero `buildMessageAddedEvent(msg, 0)` placeholder.
 - **Zero dependências circulares** (gate `check:circular` via madge).
 - **Boundaries enforcadas** (gate `check:cruiser` via dependency-cruiser):
   - `kernel` não depende de nada interno
@@ -200,6 +215,8 @@ Pacotes em alpha/RC/beta **não entram em `dependencies`**, salvo exceção com 
   - Features **não importam outras features** — comunicam via IPC ou via pacote horizontal (`kernel`, `ui`, `ipc`)
   - Renderer **não importa `electron` nem `main/`** — só via IPC
   - Viewer **não importa `electron`** — é web
+  - `@g4os/permissions` só depende de `@g4os/kernel` (cruiser: `permissions-isolated`)
+  - `@g4os/session-runtime` depende só de `kernel/agents/data/ipc/observability/permissions` — nunca importa `apps/desktop/src/main/**` diretamente (cruiser: `session-runtime-layering`)
 
 ### Padrões obrigatórios
 
@@ -223,7 +240,7 @@ Pacotes em alpha/RC/beta **não entram em `dependencies`**, salvo exceção com 
 
 - **Event sourcing em sessões.** Sessão = sequência imutável de eventos em JSONL append-only + índice em SQLite. Estado é `fold(events)`. Crash recovery = replay até último evento commitado.
 
-- **Process args, não env.** Worker lê `process.argv[2]` (passado via `utilityProcess.fork(module, [arg], options)`). `process.env` está bloqueado por `noProcessEnv: error` — usa `@g4os/platform` para leitura de vars quando inevitável.
+- **`process.env` bloqueado.** `noProcessEnv: error` no Biome — usa `@g4os/platform` para leitura de vars quando inevitável.
 
 - **Dynamic imports para native deps opcionais** (padrão usado em `electron-runtime.ts`, `cpu-pool.ts`, `managed-process.ts`):
   ```ts
@@ -232,6 +249,15 @@ Pacotes em alpha/RC/beta **não entram em `dependencies`**, salvo exceção com 
   ```
   Mantém pacote typechecking/lintando sem a dep instalada (CI sem build step, scaffolding). **Não aplicável a `node:sqlite`** — é stdlib do Node 24, import direto sempre funciona.
 
+- **Path safety em tool handlers.** Escape-de-diretório não pode usar `startsWith('${base}/')` — POSIX-only, quebra em Windows (separador `\`). Padrão correto:
+  ```ts
+  const rel = path.relative(base, resolved);
+  if (rel.startsWith('..') || path.isAbsolute(rel)) throw new AppError(...);
+  ```
+  Implementação canônica: `packages/agents/src/tools/shared/path-guard.ts` (`resolveInside()`).
+
+- **Shell launcher cross-platform.** Nunca hardcode `/bin/sh -c`. Usar `packages/agents/src/tools/shared/shell-launcher.ts` (`resolveShell()`): retorna `['cmd.exe', '/d', '/s', '/c']` no Windows, `['/bin/sh', '-c']` nos demais.
+
 ### Anti-patterns (bloqueados por Biome)
 
 - `console.*` fora de `scripts/**` → `noConsole: error` (v1 tinha 330 ocorrências; usar `createLogger('scope')` do kernel)
@@ -239,8 +265,30 @@ Pacotes em alpha/RC/beta **não entram em `dependencies`**, salvo exceção com 
 - `process.env['X']` → `noProcessEnv: error`
 - `require(...)` ou `module.exports` → `noCommonJs: error`
 - `{}` vazio (blocos/tipos) → `noEmptyBlockStatements: error`
-- `async` sem `await` → `useAwait: error` (evita Promise fantasma)
+- `async` sem `await` → `useAwait: error`. **Como cumprir:** se nenhum branch do corpo usa `await`, remova `async` e retorne `Promise.resolve(value)` diretamente. Nunca declare `async function` só para retornar uma promessa já resolvida.
 - `as any` → direto proibido por `noExplicitAny`
+- ARIA role interativo em elemento semântico não-interativo → `noNoninteractiveElementToInteractiveRole: error`. `ul`, `li`, `p`, `span`, etc. não aceitam `role="listbox"`, `role="option"`, `role="combobox"`, etc. Use `div`.
+- ARIA role interativo sem `tabIndex` → `useFocusableInteractive: error`. Todo elemento com role interativo precisa de `tabIndex` (normalmente `-1` para foco gerenciado via `aria-activedescendant`; `0` para inclusão no tab order natural).
+
+### Padrões de UI (ARIA + Acessibilidade)
+
+**Combobox typeahead (pickers, mentions, search):** `role="combobox"` pertence ao `<input>` ou `<textarea>` que recebe o input do usuário — nunca ao wrapper do popover. Estrutura obrigatória:
+
+```tsx
+// input/textarea = combobox real (detém foco)
+<textarea
+  role="combobox"
+  aria-expanded={open}
+  aria-controls="my-listbox"
+  aria-activedescendant={activeOptionId}
+/>
+// popover = listbox (div, não ul)
+<div id="my-listbox" role="listbox" tabIndex={-1}>
+  <div role="option" tabIndex={-1} aria-selected={true} id="opt-1">…</div>
+</div>
+```
+
+**Pre-commit workflow:** sempre rodar `./node_modules/.bin/biome check --write <files>` **antes** de `git add`. O hook lefthook tem `stage_fixed: true`, mas opera sobre o snapshot staged — fazer `git add` antes do fix deixa a versão staged stale e o hook bloqueia mesmo após o auto-fix no working tree. Sequência segura: `biome check --write` → `git add` → `git commit`.
 
 ### Arquivos, naming, exports
 
@@ -284,7 +332,7 @@ pnpm lint                          # biome check
 pnpm test                          # vitest run
 pnpm build                         # tsup em todos os pacotes
 pnpm check:file-lines              # gate max-500 LOC
-pnpm check:main-size               # gate main <2000 LOC, ≤300/arquivo
+pnpm check:main-size               # gate main <6800 LOC, ≤300/arquivo
 pnpm check:circular                # madge — 0 ciclos
 pnpm check:cruiser                 # dependency-cruiser — boundaries
 pnpm check:dead-code               # knip
@@ -318,17 +366,16 @@ Workflow sugerido:
 1. Ler a task **inteira** antes de codar. Armadilhas do v1 são o melhor sinal.
 2. Ler o ADR relacionado (seção "Stack Decisions"). Se não há ADR e a decisão é não-trivial, **crie um** antes do código (`pnpm adr:new`).
 3. Implementar seguindo os padrões (IDisposable, Result, tRPC, etc.).
-4. Rodar os gates localmente **antes do commit**:
-   ```
-   pnpm typecheck && pnpm lint && pnpm test && pnpm build \
-     && pnpm check:file-lines && pnpm check:circular && pnpm check:cruiser \
-     && pnpm check:dead-code && pnpm check:unused-deps && pnpm check:exports
-   ```
-5. Criar changeset se tocou em pacote (`pnpm changeset`).
-6. Commit atômico com Conventional Commits (`feat(data): ...`, `fix(electron): ...`, `chore: ...`).
-7. Atualizar ADR/docs **no mesmo PR** se comportamento mudou.
+4. Criar changeset se tocou em pacote (`pnpm changeset`).
+5. Atualizar ADR/docs **no mesmo PR** se comportamento mudou.
 
-Tasks concluídas até agora: 00-foundation inteiro, 01-kernel inteiro, 02-ipc-layer inteiro, 03-process-architecture inteiro (TASK-03-01 a 03-06), 04-data-layer inteiro (TASK-04-01 SQLite, 04-02 Drizzle, 04-03 migrations, 04-04 event-sourced sessions, 04-05 attachments, 04-06 backup/restore), 05-credentials inteiro (TASK-05-01 vault, 05-02 safeStorage/backends/factory, 05-03 migração v1→v2, 05-04 rotation — ADRs 0050–0053), 06-observability inteiro (TASK-06-01 pino, 06-02 OTel, 06-03 Sentry, 06-04 memory monitor + leak detector, 06-05 Prometheus metrics, 06-06 debug export — ADRs 0060–0065), 07-agent-framework inteiro (TASK-07-01 IAgent + AgentRegistry — ADR-0070; TASK-07-02 ClaudeAgent — ADR-0071; TASK-07-03 CodexAgent — ADR-0072; TASK-07-04 broker shared — ADR-0073), 08-sources-mcp inteiro (TASK-08-01 a 08-06 — ADRs 0081-0086: ISource + registry, MCP stdio/http, managed connectors base, OAuth kit, SourceLifecycleManager), 09-auth inteiro (TASK-09-01 OTP fix, 09-02 ManagedLoginService FSM, 09-03 EntitlementService + dev bypass, 09-04 SessionRefresher — ADRs 0091-0094). Próxima ordem sugerida: wiring real de auth/MCP/subprocess/OAuth em `apps/desktop`; logger/telemetry/Sentry/memory/metrics ainda pendente em `apps/desktop/src/main/index.ts`.
+Tasks concluídas até agora: 00-foundation inteiro, 01-kernel inteiro, 02-ipc-layer inteiro, 03-process-architecture inteiro (TASK-03-01 a 03-06), 04-data-layer inteiro (TASK-04-01 SQLite, 04-02 Drizzle, 04-03 migrations, 04-04 event-sourced sessions, 04-05 attachments, 04-06 backup/restore), 05-credentials inteiro (TASK-05-01 vault, 05-02 safeStorage/backends/factory, 05-03 migração v1→v2, 05-04 rotation — ADRs 0050–0053), 06-observability inteiro (TASK-06-01 pino, 06-02 OTel, 06-03 Sentry, 06-04 memory monitor + leak detector, 06-05 Prometheus metrics, 06-06 debug export — ADRs 0060–0065), 07-agent-framework inteiro (TASK-07-01 IAgent + AgentRegistry — ADR-0070; TASK-07-02 ClaudeAgent — ADR-0071; TASK-07-03 CodexAgent — ADR-0072; TASK-07-04 broker shared — ADR-0073), 08-sources-mcp inteiro (TASK-08-01 a 08-06 — ADRs 0081-0086: ISource + registry, MCP stdio/http, managed connectors base, OAuth kit, SourceLifecycleManager), 09-auth inteiro (TASK-09-01 OTP fix, 09-02 ManagedLoginService FSM, 09-03 EntitlementService + dev bypass, 09-04 SessionRefresher — ADRs 0091-0094), 10-ui-shell + 10a-ajustes. **Epic 10b-wiring** concluído: `@g4os/auth` subpath `./supabase`; main usa `ManagedLoginService`+`SessionRefresher` reais; `@g4os/observability` inicializado no boot; renderer `AuthStateStore` com `beforeLoad` síncronos. **Epic 11-features/01-sessions** concluído (TASK-11-01-01 a 01-04): session list + filtros + lifecycle dialog + labels + branching + global search — ADRs 0126-0129. **Epic 11-features/02-workspaces** concluído (TASK-11-02-01 a 02-04): workspace list/create/edit/delete + transfer export/import + platform service + windows service — ADRs 0120-0125. **Epic 11-features/03-projects P0** concluído (TASK-11-03-01 a 03-04): schema SQLite `projects`+`project_tasks`, `ProjectsRepository`+`ProjectTasksRepository`, `ProjectsService` com 17 métodos (CRUD + files + tasks + sessions), `file-ops.ts` (path-guard + snapshots + 10 MiB limit), 5 componentes React em `@g4os/features/projects` (card/list/dialog/files-panel/task-board), 24 translation keys pt-BR+en-US — ADRs 0130-0132. **TASK-11-03-06 (legacy import)** concluído: `legacy-import.ts` com discovery nos 3 locais candidatos + sentinel file, `LegacyProjectsReview` component, 3 tRPC procedures (`hasLegacyImportDone`/`discoverLegacyProjects`/`importLegacyProjects`), 13 translation keys, `registerLegacy` no repository — ADR-0133. Pendente: TASK-11-03-05 (collab Yjs — P1/XL, deferido), renderer hooks para projetos na app desktop.
+
+**PRÉ-PACK gates (2026-04-24)** — todos os CI gates verdes após limpeza MVP-CLEAN. Correções aplicadas: `path-guard.ts` bug crítico (`SEP = resolve('a','b').charAt(1)` retornava `U` em macOS, não `/` — substituído por `import { sep } from 'node:path'`); 15 testes de contrato em `@g4os/platform` (getPlatformInfo, getAppPaths, validateRuntimeIntegrity); 19 testes unitários em `apps/desktop` para `legacy-import.ts` (discoverLegacyProjects, isDoneMarked/markDone, moveLegacyProject); 8 testes de integração em `@g4os/data` para cascade ON DELETE (workspace → sessions → messages_index/event_checkpoints/project_tasks/labels/session_labels). Suite completa: 29/29 tasks, 0 erros em todos os gates.
+
+**MVP-CLEAN (2026-04-24)** — removido dual-dispatcher e infra worker-per-session. `WorkerTurnDispatcher`, `SessionManager`, `ProcessSupervisor`, `session-worker.ts`, `turn-runner.ts` (worker), `dispatcher-select.ts` e flag `G4OS_USE_SESSION_WORKER` excluídos. `TurnDispatcher` in-process vira o único caminho; `stopTurn` simplificado. Main caiu de 6700 → 5818 LOC (−882). ADR-0145 supersedes 0030. Decisão arquitetural: as 4 causas raiz da Dor #2 V1 já estão cobertas por main thin + `@parcel/watcher` + `DisposableBase` + `MemoryMonitor`.
+
+**OUTLIER backlog (tasks suplementares fora da grade 00-11) concluídas** — 01-session-chat-page, 02-projects-routes, 03-workspace-landing, 05-agent-runtime-wiring, 07-multi-provider-agents, 08-credential-vault-integration, 15-news-hub, 17-composer-model-selector, 19-composer-workingdir-picker, 22-chat-observability. **OUTLIER-09 Phase 1 (tool use + permissions)**: `TurnStreamEventSchema` estendido com `turn.permission_required` + `turn.tool_use_started` + `turn.tool_use_completed`; `PermissionBroker` (`apps/desktop/src/main/services/permission-broker.ts`) com Deferred queue + `request/respond/cancel`; IPC `sessions.respondPermission`; `runAgentIteration` helper (`sessions/turn-runner.ts`) converte Observable→Promise com captura de `tool_use_start`/`tool_use_complete`; `runToolLoop` (`sessions/tool-loop.ts`) multi-iteração — em `doneReason === 'tool_use'` consulta broker, executa handler do `ToolCatalog`, persiste assistant (text+tool_use) + message role=tool, re-roda agent; `TurnDispatcher` refatorado pra delegar ao loop e injetar `AgentConfig.tools`; tools expostas: `list_dir` + `read_file`; renderer `handleTurnEvent` switch + `handlePermissionRequired` com `requestPermission` modal + `mapPermissionDecision`. **Outras correções recentes**: `<Toaster />` montado em `__root.tsx` (sonner silenciava antes); `useStreamingText` 60fps drain via `requestAnimationFrame` em `packages/features/src/chat/hooks/use-streaming-text.ts`; `wrapError` em `stream-runner.ts` mapeia 401/403→`Invalid API key` e 429→rate limited ao invés de genérico "Network error"; `@anthropic-ai/sdk@0.91.0` instalado como dep de `apps/desktop`; `ManagedLoginService.restore()` rehidrata sessão persistida do vault na inicialização + `AUTH_SESSION_META_KEY` para userId/email/expiresAt; `SubSidebarShell` children wrapper virou `flex flex-col` para corrigir scroll das subsidebars. **Form standard**: `WorkspaceCategory` + `TagsCategory` + `CreateProjectDialog` migrados para react-hook-form + `zodResolver` + `InputField` de `@g4os/ui/form` (em paridade com auth steps). **OUTLIER-04 (sources UI) desparkada + OUTLIER-10 Phase 1 (source mounting MVP)**: kernel `source.schema.ts` expõe `SourceConfigView`/`SourceCatalogItem`/inputs Zod; `SourcesService` IPC expandido (9 procedures: list/listAvailable/get/enableManaged/createStdio/createHttp/setEnabled/delete/testConnection); `SourcesStore` JSON atômico por workspace (`workspaces/{id}/sources.json`), segredos nunca no payload — só `credentialKey` referenciando o vault; `managed-catalog.ts` com 15 seeds (Gmail, Google Calendar/Drive/Docs/Sheets, Outlook email/calendar, Teams, Slack, GitHub, Linear, Jira, Asana, Pipedrive, Trello); main `SourcesService` real wire; `@g4os/features/sources` com `SourcesPage`/`SourceCard`/`CatalogItemCard`/`CreateStdioDialog` (react-hook-form + zod); rota `/connections` renderiza a SourcesPage real (não mais placeholder); 40+ translation keys. Schema SQLite `sessions` ganhou `enabled_source_slugs_json`/`sticky_source_slugs_json`/`rejected_source_slugs_json` (migration `20260424000000_sessions_source_slugs`, repository update/rowToSession atualizados). `source-planner.ts` classifica sources em `native_deferred`/`broker_fallback`/`filesystem_direct` por turn; `TurnDispatcher` injeta plan summary como system prompt contextual para o agent saber o que está disponível; `activate-sources-tool.ts` é tool handler que marca sticky no session — stickys persistem entre reabertura de sessão. Managed connectors reais (mount OAuth + invocação tools) ficam como follow-up OUTLIER-12. **OUTLIER-18 (composer source picker)**: `SourcePicker` em `@g4os/features/chat` — Popover com grupos por kind (managed / mcp-http / mcp-stdio / api / filesystem), checkbox per source, status badges, empty state com CTA `/connections`. Composer ganhou slot `sourcePicker` (parity com `workingDirPicker`). Session page wire com `trpc.sessions.update` patchando `enabledSourceSlugs`. Chip mostra count. **OUTLIER-16 (settings hub 12/12)**: últimas 3 categorias entregues — `UsageCategory` placeholder honesto com stats vazios + badge `Em breve` até billing backend existir, `PermissionsCategory` com 2 painéis (tools placeholder + sources per-session list com sticky/rejected + botão `Clear` que zera via `sessions.update`), `CloudSyncCategory` descritivo do escopo (o que sincroniza vs não) + badges `Em breve`. Todas com 40+ translation keys pt-BR/en-US. `settings.$category.tsx` switch cobre os 12 casos. **OUTLIER-20 Phase 1 MVP (composer mentions)**: `useMentionTypeahead` hook detecta `@` em start/whitespace + query substring até cursor; `MentionPicker` popover renderizado acima do textarea quando `mentionSources` está presente; seleção insere marker plain-text `[source:slug]` (backend já parseia). ComposerTextarea ganhou `onCaptureKeyDown` + `getElement()` na imperative handle pra suportar nav teclado (Arrow/Enter/Esc) sem submeter. Phase 2 (chip-based editor, `@file`/`@skill`/`#label`, content blocks estruturados) fica como follow-up — depende de decisão UX entre contenteditable custom vs Lexical/TipTap. **OUTLIER-09 Phase 2 (tool permissions persistence)**: `PermissionStore` JSON atômico por workspace (`workspaces/{id}/permissions.json`) com match por `(toolName, argsHash)` — `hashArgs` é SHA-256 de args JSON ordenados, então mesma tool com input diferente pede permissão de novo; `PermissionBroker` consulta store + cache in-memory `allow_session` antes de emitir `turn.permission_required`, e persiste no store quando usuário escolhe `allow_always`; `PermissionsService` IPC com `list`/`revoke`/`clearAll` e schema compartilhado `ToolPermissionDecisionSchema` em `@g4os/kernel/schemas`; `PermissionsCategory` no settings ganha seção "Tool decisions" listando cada `(toolName, argsHash)` com preview dos args e botão `Revoke`. **OUTLIER-23 MVP (E2E smoke)**: novo pacote `apps/desktop-e2e/` com Playwright + Electron launcher — `launchApp()` helper cria `userDataDir` tmpdir por teste (evita state bleed), 2 smoke tests (`app launches` + `shell sidebar visible`), `playwright.config.ts` retain-on-failure para videos/screenshots. Phase 2 authenticated flows (login/session/send/modal/E2E parity completa) documentada no README como follow-up — exige mock Supabase + API keys em CI.
 
 ---
 
@@ -348,6 +395,16 @@ Tasks concluídas até agora: 00-foundation inteiro, 01-kernel inteiro, 02-ipc-l
 - **CodexAgent:** `packages/agents/src/codex/{codex-agent,factory,binary-resolver}.ts` + `app-server/{protocol,frame,subprocess,node-spawner,client,event-mapper,input-mapper}.ts` + `bridge-mcp/connect.ts`. `CodexAgent extends DisposableBase implements IAgent` spawna Codex CLI via `SubprocessSpawner` injetável (default `NodeSubprocessSpawner` usa `node:child_process`). `AppServerClient` faz framing NDJSON (`jsonLineEncoder`/`jsonLineDecoder` + `LineBuffer`) com decoder gate anti-regressão. `resolveCodexBinary` ordena `CODEX_DEV_PATH` → `CODEX_PATH` → `bundledBinary` com `fileExists` check por passo. `BridgeMcpConnector` é skeleton attach/current/detach (transport real em TASK-08). Tests em `src/__tests__/codex/*.test.ts` (36 testes). Subpath: `@g4os/agents/codex`. Biome override `noProcessEnv: off` em `**/codex/binary-resolver.ts`. ADR-0072.
 - **Agents shared broker:** `packages/agents/src/shared/broker/{mcp-pool,session-tools,permission-handler,source-activation}.ts` + `thinking/level-resolver.ts`. `McpPoolClient` interface (listTools/callTool/closeAll); `filterSessionTools` + `shouldExposeSessionTool` (prompt mode check central — gemini_native não recebe session tools); `PermissionHandler` interface + `AlwaysAllow/AlwaysDeny/AskHandler`; `detectSourceAccessIssue` + `detectBrokeredSourceActivation`; `resolveThinkingConfig` mapeia ThinkingLevel → `reasoning_effort` (OpenAI) / `thinkingBudget` (Google) / `budgetTokens` (Anthropic). Subpath: `@g4os/agents/shared`. ADR-0073.
 - **Auth:** `packages/auth/src/otp/otp-flow.ts` (`sendOtp` + `verifyOtp` com fallback `email → signup`); `managed-login/service.ts` (`ManagedLoginService extends DisposableBase`, BehaviorSubject FSM); `entitlement/service.ts` (`EntitlementService`, dev bypass + `onBypassUsed`); `refresh/refresher.ts` (`SessionRefresher`, injected `setTimer`/`now`, `reauth_required`). Subpaths: `@g4os/auth/{types,otp,managed-login,entitlement,refresh}`. Boundary: `auth-isolated`. ADRs 0091-0094.
+- **Projects (domínio):** `packages/data/src/projects/{repository,tasks-repository}.ts` (SQLite CRUD) + `apps/desktop/src/main/services/projects-service.ts` (orquestrador 17 métodos) + `apps/desktop/src/main/services/projects/file-ops.ts` (path-guard + snapshots + 10 MiB) + `packages/ipc/src/server/routers/projects-router.ts` (tRPC procedures) + `packages/features/src/projects/` (componentes React: card/list/dialog/files-panel/task-board). `ProjectFile` tipado em `packages/kernel/src/types/project.ts`. Translation keys prefixadas com `project.*` em `packages/translate/src/locales/`. ADRs 0130-0132.
+- **Permissions:** `packages/permissions/src/{broker,store}.ts` — `PermissionBroker` (Deferred queue + `request/respond/cancel`), `PermissionStore` (SHA-256 args hash, JSON atômico). `PermissionsService` tRPC com `list/revoke/clearAll`. ADR-0134.
+- **Session runtime:** `packages/session-runtime/src/{tool-loop,turn-runner,event-bus,event-log,turn-ops}.ts` — composição-agnóstica; `runToolLoop` multi-iteração; `SessionEventBus` pub/sub. ADR-0135.
+- **Sources planner/catalog/store:** `packages/sources/src/{planner,catalog,store}/` — `SourcePlanner.buildPlan()` classifica per-turn; 15 managed seeds; `SourcesStore` JSON atômico por workspace. ADRs 0136-0137.
+- **MCP broker + mount:** `packages/sources/src/broker/{mount-registry,tool-builder,catalogs}.ts` — `McpMountRegistry` cache per-slug; `buildMountedToolHandlers` namespace `mcp_<slug>__<name>`; `probeMcpStdio` timeout 5s. ADRs 0143-0144.
+- **UI features — sessions:** `packages/features/src/sessions/` — list/create/search/lifecycle/labels/branching. ADRs 0126-0129.
+- **UI features — projects:** `packages/features/src/projects/` — card/list/dialog/files-panel/task-board. `ProjectsService` em `apps/desktop/src/main/services/projects-service.ts`. ADRs 0130-0133.
+- **UI features — sources:** `packages/features/src/sources/` — `SourcesPage`/`SourceCard`/`CatalogItemCard`/`CreateStdioDialog`. `SourcesService` tRPC com 9 procedures.
+- **UI features — settings:** `packages/features/src/settings/` — 12 categorias; `settings.$category.tsx` switch.
+- **E2E:** `apps/desktop-e2e/tests/` — `launchApp()` helper + 5 smokes. ADR-0142.
 - **Platform/paths:** `packages/platform/src/paths.ts` (único lugar que importa `env-paths`)
 - **Kernel helpers:** `packages/kernel/src/{disposable,logger,errors,schemas,validation}/`
 - **Main entry:** `apps/desktop/src/main/index.ts` + `app-lifecycle.ts` + `window-manager.ts`
@@ -375,6 +432,22 @@ Mudanças reversíveis locais (editar, rodar, testar) → siga sem perguntar.
 - Sem emojis a menos que o usuário peça.
 - Referências a arquivo usam `[path](path#L42)` (o IDE abre).
 - Não narre o processo de pensamento. Diga o que fez, mostre diff quando relevante, pare.
+
+---
+
+## Open Known Items (FOLLOWUPs)
+
+Itens com implementação intencional incompleta — leia o contexto antes de refatorar. O plano consolidado com priorização e cronograma vive em `G4OS/STUDY/Audit/Tasks/11-features/12-outliers/` (9 tasks + README) — cada `FOLLOWUP-OUTLIER-*` abaixo mapeia para um `TASK-11-12-NN` daquela epic.
+
+- **FOLLOWUP-OUTLIER-12** — **Managed connectors** OAuth live mount + UI modal para auth flow. Infra existe (`@g4os/sources/oauth` com `performOAuth` + PKCE + loopback; `CredentialVault` para tokens; `ManagedConnectorBase`; 15 seeds no catálogo), mas nenhum seed tem `OAuthConfig` atribuída e o modal de auth não existe. Re-classificado como **post-MVP** — não bloqueia sign-off (users podem usar custom MCP stdio + API keys diretos). MCP stdio broker + probe + Test Connection UI entregues. `McpClient` SDK-backed + `McpMountRegistry` wired no `TurnDispatcher` — sources sticky `mcp-stdio` montam de verdade no início do turn (2026-04-24).
+- **FOLLOWUP-OUTLIER-23** — **E2E Phase 2 completo** (8 flows com Supabase real + API keys em CI). MVP slice entrega 5 smokes totais: `app launches`, `shell sidebar visible`, `login screen reachable from fresh userDataDir`, `authenticated shell hides login title`, `activity rail visible without login`. Os dois últimos rodam via `launchApp({ auth: 'mock' })` — seta `G4OS_E2E=1` que ativa `mockAuthMode` em `auth-runtime.ts` (pré-seed tokens no in-memory store → restore auto-autentica) + `createStubAgentFactory()` no `AgentRegistry` (stub emite text_delta fake, zero rede).
+
+Resolvidos:
+
+- ~~**MVP-CLOSE (2026-04-24)**~~ — OUTLIER-12 slice 5 entregue: `McpMountRegistry` em `@g4os/sources/broker` (cache per-slug + activate/listTools/dispose compostos via `DisposableBase`) + `buildMountedToolHandlers` que namespace tools em `mcp_<slug>__<name>` + `composeCatalogs` em `@g4os/agents/tools` (sobreposição read-only first-match-wins) + `TurnDispatcher` chama `buildMountedHandlers()` após `buildSourcePlan()` (filtra `brokerFallback ∩ sticky ∩ mcp-stdio`) e injeta composite catalog no tool-loop. `main/index.ts` bootstrapa o registry com `createSdkMcpClientFactory()` (lazy `@modelcontextprotocol/sdk` via dynamic import) quando `McpMountRegistry.dispose()` roda no quit. ADRs 0143 (probe distinto) + 0144 (SDK-backed). OUTLIER-23 Phase 2 slice entregue: opt-in `launchApp({ auth: 'mock' })` → G4OS_E2E=1 → `mockAuthMode` em auth-runtime + stub agent factory → 2 novos smokes autenticados. TASK-11-02-06 (workspace delete) validado como já implementado com cascade SQL ON DELETE + guarda de path em `cleanupWorkspaceFilesystem`.
+- ~~**FOLLOWUP-04**~~ — `MessagesService.append` retorna `MessageAppendResult` com sequence real; `buildMessageAddedEvent` aceita `MessageAppendResult`; `appendLifecycleEvent` + `emitLifecycleEvent` lêem `session.lastEventSequence + 1`. Reducer propaga `lastEventSequence` no SQLite via `applyReducer` callback. (2026-04-24)
+- ~~**FOLLOWUP-08**~~ — `SessionsService.retryLastTurn` e `truncateAfter` reais via `SessionEventStore.truncateAfter()` + novo `truncateProjection` em `@g4os/data/events` (reescreve JSONL + limpa `messages_index` + reposiciona checkpoint). `retryLastTurn` trunca até penúltimo user msg e redispara. (2026-04-24)
+- ~~**FOLLOWUP-14**~~ — Testes unitários adicionados: 19 em `@g4os/permissions` (broker + store), 22 em `@g4os/session-runtime` (bus + turn-events + event-log + mutations), 14 em `@g4os/sources/planner` e 9 em `@g4os/agents/tools/handlers/activate-sources`. Event-log helpers agora aceitam `eventStore` injetável pra testabilidade. (2026-04-24)
 
 ---
 

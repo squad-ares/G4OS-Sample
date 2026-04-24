@@ -1,0 +1,41 @@
+{
+  "name": "@g4os/session-runtime",
+  "version": "0.0.0",
+  "description": "Composition-agnostic session turn runtime — tool-loop, turn-runner, event bus, persistence helpers",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./src/index.ts"
+    }
+  },
+  "dependencies": {
+    "@g4os/agents": "workspace:*",
+    "@g4os/data": "workspace:*",
+    "@g4os/ipc": "workspace:*",
+    "@g4os/kernel": "workspace:*",
+    "@g4os/observability": "workspace:*",
+    "@g4os/permissions": "workspace:*",
+    "neverthrow": "8.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "25.6.0",
+    "vitest": "4.1.4"
+  },
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit --project tsconfig.json",
+    "lint": "biome check src",
+    "lint:fix": "biome check --write src",
+    "format": "biome format --write src",
+    "check": "biome check --write src",
+    "test": "vitest run --passWithNoTests",
+    "test:watch": "vitest"
+  },
+  "engines": {
+    "node": ">=24.0.0"
+  }
+}

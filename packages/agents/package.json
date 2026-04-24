@@ -42,6 +42,10 @@
     "./google": {
       "types": "./src/google/index.ts",
       "import": "./src/google/index.ts"
+    },
+    "./tools": {
+      "types": "./src/tools/index.ts",
+      "import": "./src/tools/index.ts"
     }
   },
   "scripts": {

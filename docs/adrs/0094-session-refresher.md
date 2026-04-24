@@ -5,7 +5,7 @@
 - **Numero:** 0094
 - **Status:** Accepted
 - **Data:** 2026-04-20
-- **Autor(es):** @g4os-core
+- **Autor(es):** @squad-ares
 - **Stakeholders:** @tech-lead
 - **Task relacionada:** TASK-09-04 (epic 09-auth)
 

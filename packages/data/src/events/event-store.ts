@@ -22,7 +22,7 @@
  */
 
 import { createReadStream } from 'node:fs';
-import { appendFile, mkdir } from 'node:fs/promises';
+import { appendFile, mkdir, rename, unlink, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { type SessionEvent, SessionEventSchema } from '@g4os/kernel/schemas';
 import { getAppPaths } from '@g4os/platform';
@@ -103,6 +103,39 @@ export class SessionEventStore {
     let n = 0;
     for await (const _ of this.read(sessionId)) n += 1;
     return n;
+  }
+
+  /**
+   * Remove eventos com `sequenceNumber > afterSequence`. Destrutivo.
+   * Usado por retry/truncate (TASK-11-00-08). Write é atômico via tmp+rename:
+   * falha no meio do processo não deixa log parcial. Retorna número de eventos
+   * removidos; no-op se arquivo não existe.
+   */
+  async truncateAfter(sessionId: string, afterSequence: number): Promise<number> {
+    const path = this.path(sessionId);
+    const kept: SessionEvent[] = [];
+    let total = 0;
+    for await (const event of this.read(sessionId)) {
+      total += 1;
+      if (event.sequenceNumber <= afterSequence) kept.push(event);
+    }
+    const removed = total - kept.length;
+    if (removed === 0) return 0;
+
+    if (kept.length === 0) {
+      try {
+        await unlink(path);
+      } catch (err) {
+        if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
+      }
+      return removed;
+    }
+
+    const tmp = `${path}.tmp`;
+    const body = `${kept.map((e) => JSON.stringify(e)).join('\n')}\n`;
+    await writeFile(tmp, body, 'utf8');
+    await rename(tmp, path);
+    return removed;
   }
 }
 

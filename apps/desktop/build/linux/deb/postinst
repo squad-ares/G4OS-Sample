@@ -1,0 +1,24 @@
+#!/bin/sh
+#
+# Post-install hook para .deb — instala perfil AppArmor e atualiza
+# desktop database. Nunca falha o install por conta de erros aqui:
+# Electron funciona sem AppArmor em distros mais antigas.
+
+set -e
+
+# 1. AppArmor profile (Ubuntu 24.04+ precisa)
+if [ -x /usr/sbin/apparmor_parser ] && [ -f /etc/apparmor.d/g4os ]; then
+  /usr/sbin/apparmor_parser -r /etc/apparmor.d/g4os 2>/dev/null || true
+fi
+
+# 2. Desktop database (menu entries, MIME handlers)
+if command -v update-desktop-database >/dev/null 2>&1; then
+  update-desktop-database -q /usr/share/applications 2>/dev/null || true
+fi
+
+# 3. MIME handler (protocol g4os://)
+if command -v xdg-mime >/dev/null 2>&1; then
+  xdg-mime default g4os.desktop x-scheme-handler/g4os 2>/dev/null || true
+fi
+
+exit 0

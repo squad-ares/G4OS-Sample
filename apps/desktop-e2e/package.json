@@ -1,0 +1,22 @@
+{
+  "name": "@g4os/desktop-e2e",
+  "version": "0.0.0",
+  "description": "E2E smoke tests for @g4os/desktop using Playwright + Electron (OUTLIER-23)",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test:e2e": "playwright test",
+    "test:e2e:headed": "playwright test --headed",
+    "lint": "biome check tests",
+    "typecheck": "tsc --noEmit --project tsconfig.json"
+  },
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "dependencies": {
+    "@playwright/test": "^1.50.0"
+  },
+  "devDependencies": {
+    "@types/node": "25.6.0"
+  }
+}

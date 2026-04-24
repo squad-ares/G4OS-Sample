@@ -61,7 +61,8 @@ describe('procedure contract coverage', () => {
   it('every domain router file exists under routers/', () => {
     const domains = new Set(allProcedures.map((p) => p.path.split('.')[0]));
     for (const domain of domains) {
-      const file = join(__dirname, '..', 'routers', `${domain}-router.ts`);
+      const kebab = domain.replace(/([A-Z])/g, (m) => `-${m.toLowerCase()}`);
+      const file = join(__dirname, '..', 'routers', `${kebab}-router.ts`);
       expect(existsSync(file), `expected ${file} to exist`).toBe(true);
     }
   });

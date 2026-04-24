@@ -1,48 +1,44 @@
 # @g4os/data
 
-Data layer: SQLite persistence, schemas, event sourcing, attachments, backup/restore.
+Camada de persistência: SQLite, schemas, event sourcing, attachments e backup/restore.
 
-## Modules
+## Módulos
 
-- **`sqlite/`** — Raw SQLite wrapper (`node:sqlite`, WAL, FK ON, mmap 256MB)
-- **`migrations/`** — Drizzle migrations + `runMigrations()` helper
-- **`schema/`** — Drizzle ORM schemas (workspaces, sessions, messages, attachments)
-- **`events/`** — JSONL event store (append-only per session, replay, multi-consumer checkpoints)
-- **`attachments/`** — Content-addressed storage (SHA-256, refcount, GC)
-- **`backup/`** — Export/import ZIP v1 (manifest, sessions JSONL, attachments blobs)
+- **`sqlite/`** — Wrapper sobre `node:sqlite` (WAL, FK ON, mmap 256 MB)
+- **`migrations/`** — Migrations Drizzle + helper `runMigrations()`
+- **`schema/`** — Schemas Drizzle ORM (workspaces, sessions, messages, attachments)
+- **`events/`** — Event store JSONL (append-only por sessão, replay, checkpoints multi-consumer)
+- **`attachments/`** — Armazenamento content-addressed (SHA-256, refcount, GC)
+- **`backup/`** — Export/import em ZIP v1 (manifest, sessões JSONL, blobs de attachments)
 
 ## Stack
 
-- [`node:sqlite`](https://nodejs.org/api/sqlite.html) (Node 24 LTS, native, zero external bindings)
-- [`drizzle-orm@1.0.0-beta.17-8a36f93`](https://orm.drizzle.team) (pinned until GA per ADR-0042)
-- [`archiver@7`](https://archiver.readthedocs.io) (ZIP export)
-- [`yauzl@3`](https://github.com/thejoshwolfe/yauzl) (ZIP import)
-- [`zod@^4.3.6`](https://zod.dev) (runtime validation)
+- [`node:sqlite`](https://nodejs.org/api/sqlite.html) (Node 24 LTS, nativo, zero bindings externos)
+- [`drizzle-orm@1.0.0-beta.17-8a36f93`](https://orm.drizzle.team) (pinado até GA — ver ADR-0042)
+- [`archiver@7`](https://archiver.readthedocs.io) (export ZIP)
+- [`yauzl@3`](https://github.com/thejoshwolfe/yauzl) (import ZIP)
+- [`zod@^4.3.6`](https://zod.dev) (validação em runtime)
 
-## Key ADRs
+## ADRs principais
 
-- **ADR-0040a:** `node:sqlite` native, WAL, synchronous journaling
-- **ADR-0042:** Drizzle ORM beta pinned, migration strategy
-- **ADR-0043:** JSONL append-only event store + replay + checkpoints
-- **ADR-0044:** Content-addressed attachment storage + refcount + GC
-- **ADR-0045:** ZIP v1 backup format + scheduler (7/4/3 retention)
+- **ADR-0040a:** `node:sqlite` nativo, WAL, journaling synchronous
+- **ADR-0042:** Drizzle ORM em beta pinado + estratégia de migrations
+- **ADR-0043:** Event store JSONL append-only + replay + checkpoints
+- **ADR-0044:** Attachments content-addressed + refcount + GC
+- **ADR-0045:** Formato de backup ZIP v1 + scheduler 7/4/3
 
-## Usage
+## Uso
 
-### Init database
+### Inicializar o banco
 
 ```ts
 import { initDatabase } from '@g4os/data';
 
 const { db, drizzle, backupPath } = await initDatabase({
   // filename: '/path/to/app.db' (default: app paths)
-  // migrationsFolder: '/path/to/drizzle' (default: auto-resolved)
+  // migrationsFolder: '/path/to/drizzle' (default: auto-resolvido)
   // skipBackup: false
 });
-
-// db: Db (sqlite wrapper)
-// drizzle: AppDb (typed ORM client)
-// backupPath: string | null (backup before last migration)
 ```
 
 ### Event store
@@ -51,16 +47,12 @@ const { db, drizzle, backupPath } = await initDatabase({
 import { SessionEventStore } from '@g4os/data/events';
 
 const store = new SessionEventStore(workspaceId);
-
-// Append
 await store.append(sessionId, event);
 
-// Read all events
 for await (const event of store.read(sessionId)) {
   console.log(event);
 }
 
-// Read after checkpoint
 const pending = await store.readAfter(sessionId, lastSequence);
 ```
 
@@ -72,33 +64,22 @@ import { AttachmentStorage, AttachmentGateway } from '@g4os/data/attachments';
 const storage = new AttachmentStorage();
 const gateway = new AttachmentGateway({ db: drizzle, storage });
 
-// Attach blob
 const { refId, hash, size } = await gateway.attach({
   content: Buffer.from('...'),
   sessionId,
   messageId,
-  originalName: 'file.txt',
+  originalName: 'arquivo.txt',
 });
 
-// Detach (cascade refcount)
 await gateway.detach(refId);
-
-// GC orphaned blobs
 const orphanCount = await gateway.gc({ ttlMs: 7 * 24 * 60 * 60 * 1000 });
-
-// List session attachments
-const hashes = gateway.listReferencedHashesForSessions([sessionId]);
 ```
 
 ### Backup/restore
 
 ```ts
-import {
-  exportWorkspaceBackup,
-  restoreWorkspaceBackup,
-} from '@g4os/data/backup';
+import { exportWorkspaceBackup, restoreWorkspaceBackup } from '@g4os/data/backup';
 
-// Export
 const result = await exportWorkspaceBackup({
   workspaceId,
   db: drizzle,
@@ -108,9 +89,7 @@ const result = await exportWorkspaceBackup({
   outputPath: '/path/to/backup.zip',
   appVersion: '0.9.0',
 });
-// → { size, sessionsCount, attachmentsCount, manifestVersion }
 
-// Restore
 const restored = await restoreWorkspaceBackup({
   backupPath: '/path/to/backup.zip',
   db: drizzle,
@@ -118,10 +97,9 @@ const restored = await restoreWorkspaceBackup({
   workspaceRoot: getAppPaths().workspace(workspaceId),
   failIfExists: true,
 });
-// → { sessionsRestored, attachmentsRestored }
 ```
 
-### CLI: migration status
+### CLI: status de migrations
 
 ```bash
 pnpm db:migrate:status
@@ -129,25 +107,23 @@ pnpm db:migrate:status --db /path/to/app.db
 pnpm db:migrate:status --migrations /path/to/drizzle
 ```
 
-Shows local migrations, applied migrations, and pending.
+Mostra migrations locais, aplicadas e pendentes. É read-only — não cria banco.
 
-## Testing
+## Testes
 
 ```bash
-pnpm test              # vitest run
-pnpm test:watch       # vitest --watch
+pnpm test
+pnpm test:watch
 ```
-
-Test files in `src/__tests__/*.test.ts` cover: migrations, event store, attachments, backup/restore.
 
 ## Exports
 
 ```ts
-import { ... } from '@g4os/data'              // main exports
-import { ... } from '@g4os/data/sqlite'       // SQLite wrapper
-import { ... } from '@g4os/data/schema'       // Drizzle schemas
-import { ... } from '@g4os/data/migrations'   // Migration helpers
-import { ... } from '@g4os/data/events'       // Event store
-import { ... } from '@g4os/data/attachments'  // Attachments gateway
-import { ... } from '@g4os/data/backup'       // Backup/restore
+import { ... } from '@g4os/data'              // principais
+import { ... } from '@g4os/data/sqlite'       // wrapper SQLite
+import { ... } from '@g4os/data/schema'       // schemas Drizzle
+import { ... } from '@g4os/data/migrations'   // helpers de migration
+import { ... } from '@g4os/data/events'       // event store
+import { ... } from '@g4os/data/attachments'  // gateway de attachments
+import { ... } from '@g4os/data/backup'       // backup/restore
 ```

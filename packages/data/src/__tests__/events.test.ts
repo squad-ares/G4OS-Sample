@@ -82,7 +82,53 @@ describe('SessionEventStore', () => {
     }).rejects.toThrow();
   });
 
-  it('append of 1000 events completes under 10s', async () => {
+  it('truncateAfter removes events beyond the given sequence', async () => {
+    const store = new SessionEventStore('ws-1', { workspaceRoot: tmpDir });
+    const sessionId = randomUUID();
+    await store.append(sessionId, makeSessionCreated(sessionId, 0));
+    await store.append(sessionId, makeMessageAdded(sessionId, 1, 'keep'));
+    await store.append(sessionId, makeMessageAdded(sessionId, 2, 'drop-a'));
+    await store.append(sessionId, makeMessageAdded(sessionId, 3, 'drop-b'));
+
+    const removed = await store.truncateAfter(sessionId, 1);
+    expect(removed).toBe(2);
+
+    const remaining: SessionEvent[] = [];
+    for await (const e of store.read(sessionId)) remaining.push(e);
+    expect(remaining).toHaveLength(2);
+    expect(remaining.map((e) => e.sequenceNumber)).toEqual([0, 1]);
+  });
+
+  it('truncateAfter is a no-op when nothing to remove', async () => {
+    const store = new SessionEventStore('ws-1', { workspaceRoot: tmpDir });
+    const sessionId = randomUUID();
+    await store.append(sessionId, makeSessionCreated(sessionId, 0));
+    await store.append(sessionId, makeMessageAdded(sessionId, 1));
+
+    const removed = await store.truncateAfter(sessionId, 5);
+    expect(removed).toBe(0);
+    expect(await store.count(sessionId)).toBe(2);
+  });
+
+  it('truncateAfter(-1) removes all events and deletes file', async () => {
+    const store = new SessionEventStore('ws-1', { workspaceRoot: tmpDir });
+    const sessionId = randomUUID();
+    await store.append(sessionId, makeSessionCreated(sessionId, 0));
+    await store.append(sessionId, makeMessageAdded(sessionId, 1));
+
+    const removed = await store.truncateAfter(sessionId, -1);
+    expect(removed).toBe(2);
+    expect(await store.count(sessionId)).toBe(0);
+  });
+
+  it('truncateAfter on non-existent session returns 0', async () => {
+    const store = new SessionEventStore('ws-1', { workspaceRoot: tmpDir });
+    expect(await store.truncateAfter(randomUUID(), 10)).toBe(0);
+  });
+
+  it('append of 1000 events completes under 30s', async () => {
+    // Windows filesystem tem overhead significativamente maior que POSIX em
+    // writes sequenciais; margem de 30s cobre runners GitHub com folga.
     const store = new SessionEventStore('ws-1', { workspaceRoot: tmpDir });
     const sessionId = randomUUID();
     await store.append(sessionId, makeSessionCreated(sessionId, 0));
@@ -92,8 +138,8 @@ describe('SessionEventStore', () => {
       await store.append(sessionId, makeMessageAdded(sessionId, i));
     }
     const duration = Date.now() - start;
-    expect(duration).toBeLessThan(10000);
-  }, 10000);
+    expect(duration).toBeLessThan(30000);
+  }, 45000);
 });
 
 describe('reducer applyEvent', () => {

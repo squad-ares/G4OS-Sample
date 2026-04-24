@@ -86,6 +86,51 @@ Escreva ADR quando:
 | 0092 | ManagedLoginService — FSM discriminado + DisposableBase | Accepted | 2026-04-20 | 09-auth |
 | 0093 | EntitlementService — dev bypass opt-in + onBypassUsed callback | Accepted | 2026-04-20 | 09-auth |
 | 0094 | SessionRefresher — timer injetável + reauth_required em falha | Accepted | 2026-04-20 | 09-auth |
+| 0100 | WindowManager — estado de janela persistido por workspace | Accepted | 2026-04-21 | 10-ui-shell |
+| 0101 | TanStack Router — roteamento file-based type-safe no renderer | Accepted | 2026-04-21 | 10-ui-shell |
+| 0102 | Theme system — Context API + CSS custom properties, sem next-themes | Accepted | 2026-04-21 | 10-ui-shell |
+| 0103 | @g4os/ui — consolidação Radix + shadcn/ui como biblioteca única | Accepted | 2026-04-21 | 10-ui-shell |
+| 0104 | PlatformProvider — isolamento do renderer de APIs Electron | Accepted | 2026-04-21 | 10-ui-shell |
+| 0105 | App Shell + Auth Guard — layout autenticado e bootstrap do SessionRefresher | Accepted | 2026-04-21 | 10-ui-shell |
+| 0106 | Startup preflight + env contract compartilhado para build e runtime | Accepted | 2026-04-21 | 10A-ajustes |
+| 0107 | Shell autenticado com matriz canônica de navegação antes das features | Accepted | 2026-04-21 | 10A-ajustes |
+| 0108 | Core visual do shell inspirado na V1, mas tokenizado para a V2 | Accepted | 2026-04-21 | 10A-ajustes |
+| 0109 | Package de tradução + política de zero strings diretas em UI monitorada | Accepted | 2026-04-21 | 10A-ajustes |
+| 0110 | Action registry global + baseline de teclado e acessibilidade para o shell | Accepted | 2026-04-21 | 10A-ajustes |
+| 0111 | Chat composer architecture — textarea + DraftStore + submit-mode | Accepted | 2026-04-21 | 11-features |
+| 0112 | Transcript rendering com virtualização + ações de sessão | Accepted | 2026-04-21 | 11-features |
+| 0113 | Tool renderer plugin registry + fallback com marker de erro | Accepted | 2026-04-21 | 11-features |
+| 0114 | Attachment pipeline (drop/paperclip/paste + validação na borda) | Accepted | 2026-04-21 | 11-features |
+| 0115 | Markdown rendering stack (remark + rehype-raw + Shiki lazy + custom blocks) | Accepted | 2026-04-21 | 11-features |
+| 0116 | Permission modal — fila não-bloqueante + 4 escopos + atalhos A/D | Accepted | 2026-04-21 | 11-features |
+| 0117 | Model selector + catalog estático com capabilities tipadas | Accepted | 2026-04-21 | 11-features |
+| 0118 | Voice input — features transport-agnostic + TranscriptionService fallback | Accepted | 2026-04-21 | 11-features |
+| 0119 | Transcript search — reuso FTS5 + SearchFn injection | Accepted | 2026-04-21 | 11-features |
+| 0120 | Legacy transcript parity — snapshot harness via SSR | Accepted | 2026-04-21 | 11-features |
+| 0121 | Workspace persistence — híbrido SQLite + filesystem com metadata JSON | Accepted | 2026-04-21 | 11-features |
+| 0122 | Active workspace — localStorage via useSyncExternalStore | Accepted | 2026-04-21 | 11-features |
+| 0123 | Workspace filesystem cleanup — validação de boundary pelo managedRoot | Accepted | 2026-04-21 | 11-features |
+| 0124 | Multi-window workspace — isolamento por URL param | Accepted | 2026-04-21 | 11-features |
+| 0125 | Workspace export/import — pipeline ZIP com filtragem de caminhos sensíveis | Accepted | 2026-04-21 | 11-features |
+| 0126 | Session lifecycle — status enum + timestamps + soft delete 30d | Accepted | 2026-04-22 | 11-features |
+| 0127 | Labels hierárquicos via materialized-path (tree_code) | Accepted | 2026-04-22 | 11-features |
+| 0128 | Session branching — copy-prefix (estratégia A) | Accepted | 2026-04-22 | 11-features |
+| 0129 | Global search — FTS5 cross-session com fallback LIKE | Accepted | 2026-04-22 | 11-features |
+| 0130 | Project CRUD — schema SQLite + rootPath filesystem + bootstrap de diretórios | Accepted | 2026-04-22 | 11-features |
+| 0131 | Project files — path-traversal guard + snapshots locais pré-save + limite 10 MiB | Accepted | 2026-04-22 | 11-features |
+| 0132 | Project tasks — ordering fracional via string lexicográfica sem dependência externa | Accepted | 2026-04-22 | 11-features |
+| 0133 | Legacy project import — discovery em 3 candidatos + sentinel file + keep/import/skip | Accepted | 2026-04-22 | 11-features |
+| 0134 | @g4os/permissions package — tool-use PermissionBroker + PermissionStore | Accepted | 2026-04-24 | outlier-09 |
+| 0135 | @g4os/session-runtime — composition-agnostic turn execution | Accepted | 2026-04-24 | refactor |
+| 0136 | @g4os/sources subpaths — planner/catalog/store (OUTLIER-04 unpark + refactor) | Accepted | 2026-04-24 | outlier-04 |
+| 0137 | Source mounting per-turn — SourcePlanner + activate_sources tool handler | Accepted | 2026-04-24 | outlier-10 |
+| 0138 | News hub — viewer API + cache + polling + sub-sidebar | Accepted | 2026-04-24 | outlier-15 |
+| 0139 | Settings hub — 12-category catalog + route switch + feature package | Accepted | 2026-04-24 | outlier-16 |
+| 0140 | Composer slots — SourcePicker + MentionPicker + WorkingDirPicker | Accepted | 2026-04-24 | outlier-18/19/20 |
+| 0141 | Chat observability — TurnTelemetry Prometheus + OpenTelemetry spans | Accepted | 2026-04-24 | outlier-22 |
+| 0142 | E2E testing — Playwright + Electron smoke harness | Accepted | 2026-04-24 | outlier-23 |
+| 0143 | MCP stdio probe distinto do `McpClient` real | Accepted | 2026-04-24 | outlier-12 |
+| 0144 | `McpClient` SDK-backed (lazy `@modelcontextprotocol/sdk`) | Accepted | 2026-04-24 | outlier-12 |
 
 ## Status
 
@@ -151,8 +196,69 @@ Definem logger, tracing, crash reporting, memória, métricas e debug export:
 - **0064:** `prom-client` com Registry injetável, catálogo em `registry.ts`
 - **0065:** Debug ZIP export com redação dupla (shape + texto)
 
+### ADRs de Features/Sessions (11-features/01-sessions)
+Definem ciclo de vida de sessões, organização, busca e ramificação:
+- **0126:** Session lifecycle — status enum (`active`/`archived`/`deleted`) + timestamps + purge assíncrono 30d via `SessionsCleanupScheduler`
+- **0127:** Labels hierárquicos — materialized-path `tree_code` com `LIKE 'prefix%'` no índice B-tree; reparentamento em cascata O(n filhos)
+- **0128:** Session branching — copy-prefix: copia eventos `0..branchedAtSeq` para JSONL independente; branch é cidadã de primeira classe (sem JOIN com tronco)
+- **0129:** Global search — reutiliza `messages_fts` (FTS5) com JOIN em sessions + fallback LIKE para queries inválidas; `snippet()` com marcadores para highlight no cliente
+
+### ADRs de Features/Projects (11-features/03-projects)
+Definem persistência, filesystem e UI de projetos:
+- **0130:** Project CRUD — schema SQLite `projects`+`project_tasks`, `rootPath` gravado no banco, bootstrap de `files/`+`context/`+`project.json`, `toSlug` inline sem dep externa
+- **0131:** Project files — `safeResolve()` bloqueia path traversal, snapshots `.g4os/snapshots/<rel>/<ts>.bak` mantendo 10 mais recentes, limite 10 MiB em `saveFile`
+- **0132:** Project tasks ordering — `order TEXT` com timestamp-ms zero-padded (16 dígitos); sem dep `fractional-indexing` por ora; drag-and-drop deferido para sub-task posterior
+- **0133:** Legacy import — discovery nos 3 candidatos (wsRoot/projects, workingDir/projects, workingDir/projetos), deduplicação por path resolvido, filtragem de IDs já registrados no DB, 3 decisões (import/keep/skip), `registerLegacy` com ID explícito, sentinel file `.legacy-import-done` para evitar re-exibição do wizard
+
+### ADRs de Sources + Auth (08-09)
+Definem runtime de fontes e autenticação base:
+- **0081-0086:** Source interface, supervisors MCP, OAuth kit e lifecycle manager
+- **0091-0094:** OTP Supabase, managed login FSM, entitlement service e session refresh
+
+### ADRs de UI Shell (10-ui-shell)
+Faixa `0100–0105` — decisões de implementação do épico 10:
+- **0100:** WindowManager com estado persistido por workspace (TASK-10-01)
+- **0101:** TanStack Router file-based type-safe no renderer (TASK-10-02)
+- **0102:** Theme system Context API + CSS vars, sem next-themes (TASK-10-03)
+- **0103:** `@g4os/ui` consolidação Radix + shadcn/ui (TASK-10-04)
+- **0104:** PlatformProvider — renderer isolado de APIs Electron (TASK-10-05)
+- **0105:** App Shell + Auth Guard — layout autenticado + SessionRefresher bootstrap (TASK-10-08)
+
+### ADRs de 10A-ajustes (gate pré-épico 11)
+Faixa `0106–0110` — decisões de alinhamento arquitetural antes do épico 11:
+- **0106:** Startup preflight + env contract compartilhado (TASK-10A-04)
+- **0107:** Matriz de navegação do shell autenticado (TASK-10A-05)
+- **0108:** Core visual inspirado na V1 e tokenizado em `@g4os/ui` (TASK-10A-06)
+- **0109:** `@g4os/translate` + política de zero strings diretas (TASK-10A-07)
+- **0110:** Action registry global + baseline de teclado/acessibilidade (TASK-10A-08)
+
+### ADRs de 11-features / 00-chat (épico do chat)
+Faixa `0111–0120` — decisões de produto/UX do chat da v2:
+- **0111:** Chat composer — textarea nativa + DraftStore + submit-mode (TASK-11-00-01)
+- **0112:** Transcript com virtualização (`@tanstack/react-virtual`) + ações de sessão (TASK-11-00-02 / 11-00-08)
+- **0113:** Tool renderer registry + dispatcher + `FallbackRenderer` com marker de erro (TASK-11-00-03)
+- **0114:** Attachment pipeline unificado (drop/paperclip/paste + validação) (TASK-11-00-04)
+- **0115:** Markdown stack (`react-markdown` + `remark-gfm` + `rehype-raw` + Shiki lazy + `customBlockRegistry`) (TASK-11-00-05)
+- **0116:** Permission modal — fila, 4 escopos (`once`/`session`/`forever`/`deny`), atalhos (TASK-11-00-06)
+- **0117:** Model selector + catálogo estático com `capabilities` e `thinkingLevels` tipados (TASK-11-00-07)
+- **0118:** Voice input — `VoiceButton.transcribe` injetado + `TranscriptionService` OpenAI → managed (TASK-11-00-09)
+- **0119:** Transcript search — FTS5 existente + `SearchFn` injetado + virtualizer-aware scroll (TASK-11-00-10)
+- **0120:** Legacy transcript parity — snapshot harness SSR sem jsdom (TASK-11-00-11)
+
+### ADRs de 11-features / 02-workspaces (épico de workspaces)
+Faixa `0121–0125` — decisões de persistência, estado e portabilidade de workspaces:
+- **0121:** Persistência híbrida SQLite + filesystem com coluna `metadata` JSON (zero migration por campo de produto) (TASK-11-02-01/02/03)
+- **0122:** Active workspace via `useSyncExternalStore` + localStorage — zero IPC round-trip, isolamento por janela (TASK-11-02-02)
+- **0123:** Cleanup do filesystem validado por boundary `managedRoot` — prevenção de path traversal em delete (TASK-11-02-03)
+- **0124:** Multi-window workspace — isolamento por URL param `?workspaceId=xxx` inicializando localStorage antes do mount (TASK-11-02-04)
+- **0125:** Export/import ZIP com `archiver` + `yauzl`, filtragem de `SENSITIVE_PATH_SEGMENTS` e proteção zip-slip via containment (TASK-11-02-05)
+
 ## Histórico de Alterações
 
+- 2026-04-21: Adicionadas ADRs 0121-0125 (11-features/02-workspaces — persistência híbrida, active workspace, cleanup boundary, multi-window, export/import ZIP)
+- 2026-04-21: Adicionadas ADRs 0111-0120 (11-features/00-chat — composer, transcript, tool renderers, attachments, markdown, permissions, model selector, voice input, search, legacy parity)
+- 2026-04-21: Renumeradas ADRs 0095-0099 → 0106-0110 (épico 10A-ajustes, após 10-ui-shell)
+- 2026-04-21: Adicionadas ADRs 0100-0105 (10-ui-shell — WindowManager, TanStack Router, theme, @g4os/ui, PlatformProvider, AppShell)
 - 2026-04-20: Criados ADRs granulares por task: 0081-0086 (08-sources-mcp) e 0091-0094 (09-auth)
 - 2026-04-19: Adicionadas ADRs 0073-0077 (07-agent-framework — shared broker, OpenAI, Google, streaming, permissions)
 - 2026-04-19: Adicionada ADR 0072 (07-agent-framework — CodexAgent)

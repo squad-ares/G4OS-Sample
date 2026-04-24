@@ -6,3 +6,9 @@ coverage/
 .env
 .env.local
 .DS_Store
+out/
+release/
+build/
+# exceções: assets Linux commitados para packaging (não são build output)
+!apps/desktop/build/
+!apps/desktop/build/**

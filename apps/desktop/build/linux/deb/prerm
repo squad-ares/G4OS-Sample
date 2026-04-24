@@ -1,0 +1,9 @@
+#!/bin/sh
+# Pre-remove hook — desinstala AppArmor profile antes do pacote sumir.
+set -e
+
+if [ -x /usr/sbin/apparmor_parser ] && [ -f /etc/apparmor.d/g4os ]; then
+  /usr/sbin/apparmor_parser -R /etc/apparmor.d/g4os 2>/dev/null || true
+fi
+
+exit 0

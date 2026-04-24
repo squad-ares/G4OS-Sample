@@ -21,6 +21,14 @@ export interface IntentContext {
 const EXPLICIT_RE = /\[source:([a-z0-9][a-z0-9_-]*)\]/gi;
 const MENTION_RE = /(?:^|\s)@([a-z0-9][a-z0-9_-]*)/gi;
 const USE_DIRECTIVE_RE = /\b(?:use|usar|usa)\s+([A-Za-z0-9][A-Za-z0-9 _-]{1,40})\b/gi;
+/**
+ * Rejeição explícita: "don't use gmail", "nao use slack", "no github", "not
+ * hubspot". Captura o nome que segue a diretiva de negação até whitespace ou
+ * pontuação. Usado pelo TurnDispatcher pra persistir `rejectedSourceSlugs`
+ * na sessão — vira suppression sticky entre turns.
+ */
+const REJECT_DIRECTIVE_RE =
+  /\b(?:don'?t\s+use|do\s+not\s+use|nao\s+use|não\s+use|nao\s+usar|não\s+usar|no|not)\s+([A-Za-z0-9][A-Za-z0-9 _-]{1,40})\b/gi;
 
 export class SourceIntentDetector {
   detect(message: string, context: IntentContext): SourceIntent {
@@ -58,6 +66,25 @@ export class SourceIntentDetector {
     }
 
     return { kind: 'none', sources: [], confidence: 'soft' };
+  }
+
+  /**
+   * Detecta slugs que o usuário pediu pra NÃO usar nesta sessão. Retorna
+   * apenas sources conhecidos no workspace (match por slug ou displayName).
+   * Independente de `detect()` — rejeição é persistida mesmo quando a turn
+   * tem um explicit/mention positivo pra outra fonte.
+   */
+  detectRejections(message: string, context: IntentContext): readonly string[] {
+    const available = context.availableSources;
+    const hits = new Set<string>();
+    for (const candidate of matchAll(message, REJECT_DIRECTIVE_RE)) {
+      const needle = candidate.trim().toLowerCase();
+      const match = available.find(
+        (a) => a.slug.toLowerCase() === needle || a.displayName.toLowerCase() === needle,
+      );
+      if (match) hits.add(match.slug);
+    }
+    return Array.from(hits);
   }
 
   private extractSoftReferences(

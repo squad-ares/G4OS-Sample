@@ -5,7 +5,7 @@
 - **Numero:** 0062
 - **Status:** Accepted
 - **Data:** 2026-04-19
-- **Autor(es):** @g4os-core
+- **Autor(es):** @squad-ares
 - **Stakeholders:** @tech-lead, @security
 - **Task relacionada:** TASK-06-03 (epic 06-observability)
 

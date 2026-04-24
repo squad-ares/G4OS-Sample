@@ -38,6 +38,22 @@
     "./backup": {
       "types": "./src/backup/index.ts",
       "import": "./src/backup/index.ts"
+    },
+    "./sessions": {
+      "types": "./src/sessions/index.ts",
+      "import": "./src/sessions/index.ts"
+    },
+    "./labels": {
+      "types": "./src/labels/index.ts",
+      "import": "./src/labels/index.ts"
+    },
+    "./projects": {
+      "types": "./src/projects/index.ts",
+      "import": "./src/projects/index.ts"
+    },
+    "./queries": {
+      "types": "./src/queries/index.ts",
+      "import": "./src/queries/index.ts"
     }
   },
   "scripts": {

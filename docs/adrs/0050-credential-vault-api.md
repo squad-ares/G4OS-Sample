@@ -5,7 +5,7 @@
 - **Numero:** 0050
 - **Status:** Accepted
 - **Data:** 2026-04-18
-- **Autor(es):** @g4os-core
+- **Autor(es):** @squad-ares
 - **Stakeholders:** @tech-lead, @security
 - **Task relacionada:** TASK-05-01 (epic 05-credentials)
 

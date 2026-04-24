@@ -12,7 +12,7 @@
  * Garantia: ambos são idempotentes para um log de eventos imutável.
  */
 
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, gt, sql } from 'drizzle-orm';
 import type { AppDb } from '../drizzle.ts';
 import { eventCheckpoints } from '../schema/event-checkpoints.ts';
 import { messagesIndex } from '../schema/messages-index.ts';
@@ -58,4 +58,56 @@ export async function catchUp(
   const pending = await store.readAfter(sessionId, from);
   for (const event of pending) applyEvent(db, event);
   return pending.length;
+}
+
+/**
+ * Trunca a projeção SQLite após `SessionEventStore.truncateAfter` ter
+ * removido entradas do JSONL. Usado por `retryLastTurn`/`truncateAfter`
+ * (FOLLOWUP-08): remove linhas de `messages_index` com sequence > cutoff,
+ * recalcula `messageCount`/`lastMessageAt` e reposiciona o checkpoint do
+ * consumer `messages-index`.
+ *
+ * A row de `sessions` é preservada — campos sem ligação com o log
+ * append-only (pinnedAt, starredAt, enabledSourceSlugs, etc.) não são
+ * tocados. Só `lastEventSequence`, `messageCount`, `lastMessageAt` e
+ * `updatedAt` são recomputados.
+ */
+export function truncateProjection(db: AppDb, sessionId: string, afterSequence: number): void {
+  db.transaction((tx) => {
+    tx.delete(messagesIndex)
+      .where(and(eq(messagesIndex.sessionId, sessionId), gt(messagesIndex.sequence, afterSequence)))
+      .run();
+
+    const stats = tx
+      .select({
+        count: sql<number>`count(*)`,
+        lastCreated: sql<number | null>`max(${messagesIndex.createdAt})`,
+      })
+      .from(messagesIndex)
+      .where(eq(messagesIndex.sessionId, sessionId))
+      .get();
+
+    tx.update(sessions)
+      .set({
+        lastEventSequence: Math.max(0, afterSequence),
+        messageCount: Number(stats?.count ?? 0),
+        lastMessageAt: stats?.lastCreated ?? null,
+        updatedAt: Date.now(),
+      })
+      .where(eq(sessions.id, sessionId))
+      .run();
+
+    tx.insert(eventCheckpoints)
+      .values({
+        consumerName: CONSUMER_NAME,
+        sessionId,
+        lastSequence: afterSequence,
+        checkpointedAt: Date.now(),
+      })
+      .onConflictDoUpdate({
+        target: [eventCheckpoints.consumerName, eventCheckpoints.sessionId],
+        set: { lastSequence: afterSequence, checkpointedAt: Date.now() },
+      })
+      .run();
+  });
 }

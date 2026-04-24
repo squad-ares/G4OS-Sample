@@ -15,6 +15,8 @@
  * crítico. Mantém-se como uma função pura para teste isolado.
  */
 
+import { existsSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { type AppDb, backupBeforeMigration, createDrizzle, Db, runMigrations } from '@g4os/data';
 import { createLogger } from '@g4os/kernel/logger';
@@ -62,9 +64,29 @@ export async function initDatabase(options: InitDatabaseOptions = {}): Promise<I
 
 /**
  * Resolve a pasta `drizzle/` do pacote `@g4os/data` a partir do entry.
- * Em dev com TS source, funciona direto; em build empacotado, será
- * necessário override via `migrationsFolder` com o caminho de `resources/`.
+ *
+ * Precisa funcionar em três cenários:
+ *   1. Source TS direto (`src/main/services/db-service.ts` → 5 níveis acima = `G4OS-V2/`)
+ *   2. Bundle dev via electron-vite (`out/main/index.cjs` → 4 níveis acima = `G4OS-V2/`)
+ *   3. Packaged (ignora este default; caller passa `migrationsFolder` apontando para `process.resourcesPath/drizzle`)
+ *
+ * Estratégia: testa múltiplos candidatos e retorna o primeiro que existe no
+ * disco. Em packaged, nenhum candidato existe e o caller deve ter passado
+ * `migrationsFolder` explicitamente — senão falha com mensagem clara.
  */
 function defaultMigrationsFolder(): string {
-  return fileURLToPath(new URL('../../../../../packages/data/drizzle', import.meta.url));
+  const here = dirname(fileURLToPath(import.meta.url));
+  const candidates = [
+    resolve(here, '../../../../../packages/data/drizzle'),
+    resolve(here, '../../../../packages/data/drizzle'),
+    resolve(here, '../../../packages/data/drizzle'),
+  ];
+  const found = candidates.find((path) => existsSync(path));
+  if (!found) {
+    throw new Error(
+      `Cannot locate @g4os/data drizzle folder. Tried: ${candidates.join(', ')}. ` +
+        'Pass `migrationsFolder` explicitly from the composition root.',
+    );
+  }
+  return found;
 }

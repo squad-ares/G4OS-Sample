@@ -5,7 +5,7 @@
 - **Numero:** 0085
 - **Status:** Accepted
 - **Data:** 2026-04-20
-- **Autor(es):** @g4os-core
+- **Autor(es):** @squad-ares
 - **Stakeholders:** @tech-lead, @agents-team
 - **Task relacionada:** TASK-08-05 (epic 08-sources-mcp)
 

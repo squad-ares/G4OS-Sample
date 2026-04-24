@@ -9,8 +9,11 @@
         "ts-prune",
         "@commitlint/types",
         "@arethetypeswrong/cli",
-        "size-limit"
-      ]
+        "size-limit",
+        "electron",
+        "electron-vite"
+      ],
+      "ignoreBinaries": ["prebundle", "electron-builder"]
     },
     "apps/desktop": {
       "entry": [
@@ -20,8 +23,42 @@
         "src/main/agents-bootstrap.ts",
         "src/main/services/db-service.ts",
         "src/main/services/backup-scheduler.ts",
-        "src/main/workers/session-worker.ts",
-        "src/main/workers/cpu-pool/tasks.ts"
+        "src/main/services/transcription.ts",
+        "src/main/services/update-service.ts",
+        "src/main/__tests__/**/*.ts",
+        "src/renderer/index.html",
+        "src/renderer/**/*.tsx",
+        "src/renderer/**/*.ts",
+        "electron.vite.config.ts",
+        "electron-builder.config.ts",
+        "scripts/after-pack.ts",
+        "scripts/sign-windows.ts",
+        "scripts/notarize-macos.ts",
+        "scripts/regenerate-metadata.ts",
+        "scripts/bundle-runtimes/**/*.ts"
+      ],
+      "ignoreDependencies": [
+        "pino-pretty",
+        "pino-roll",
+        "@supabase/supabase-js",
+        "pino",
+        "@anthropic-ai/sdk"
+      ],
+      "ignoreBinaries": ["tar", "powershell", "xcrun", "signtool", "smctl", "AzureSignTool"]
+    },
+    "apps/desktop-e2e": {
+      "entry": ["tests/**/*.ts"]
+    },
+    "packages/features": {
+      "entry": ["src/**/*.tsx", "src/**/*.ts"],
+      "ignoreDependencies": [
+        "@g4os/ipc",
+        "@tanstack/react-router",
+        "@trpc/client",
+        "react-markdown",
+        "rehype-raw",
+        "remark-gfm",
+        "shiki"
       ]
     },
     "packages/ipc": {
@@ -34,12 +71,8 @@
       "ignoreDependencies": ["@opentelemetry/sdk-node", "@opentelemetry/exporter-trace-otlp-http"]
     },
     "packages/ui": {
-      "ignoreDependencies": [
-        "@tanstack/react-query",
-        "@trpc/react-query",
-        "react-dom",
-        "@types/react-dom"
-      ]
+      "entry": ["src/**/*.tsx", "src/**/*.ts"],
+      "ignoreDependencies": ["@tanstack/react-query", "@trpc/react-query"]
     }
   },
   "ignoreExportsUsedInFile": true

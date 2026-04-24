@@ -1,13 +1,14 @@
-/**
- * Liga o router tRPC ao transporte Electron via electron-trpc/main.
- *
- * O handler é criado apenas quando o módulo `electron-trpc/main` está
- * disponível em runtime; durante typecheck/lint o pacote `@g4os/desktop`
- * não precisa de `electron`/`electron-trpc` instalados.
- */
+import {
+  ELECTRON_TRPC_CHANNEL,
+  type ETRPCRequest,
+  handleIpcRequest,
+  type IpcInvokeEventLike,
+  type IpcReplyEventLike,
+} from '@g4os/ipc/server';
+import { createLogger } from '@g4os/kernel/logger';
+import { createContext, type IpcServiceOverrides } from './ipc-context.ts';
 
-import { appRouter, type IpcInvokeEventLike } from '@g4os/ipc/server';
-import { createContext } from './ipc-context.ts';
+const log = createLogger('ipc-server');
 
 export interface IpcServerWindow {
   readonly webContents: { readonly id: number };
@@ -15,32 +16,34 @@ export interface IpcServerWindow {
 
 export interface CreateIpcServerOptions {
   readonly windows: readonly IpcServerWindow[];
+  readonly services?: IpcServiceOverrides;
 }
 
 export async function createIpcServer(options: CreateIpcServerOptions): Promise<void> {
-  const electronTrpc = await loadElectronTrpc();
-  if (!electronTrpc) return;
+  const ipcMain = await loadIpcMain();
+  if (!ipcMain) return;
 
-  electronTrpc.createIPCHandler({
-    router: appRouter,
-    windows: options.windows,
-    createContext: ({ event }) => createContext({ event: event as IpcInvokeEventLike }),
+  ipcMain.on(ELECTRON_TRPC_CHANNEL, (event: IpcReplyEventLike, request: ETRPCRequest) => {
+    void handleIpcRequest(event, request, (ev) =>
+      createContext({
+        event: ev as IpcInvokeEventLike,
+        ...(options.services ? { services: options.services } : {}),
+      }),
+    ).catch((err: unknown) => {
+      log.error({ err }, 'unhandled IPC request error');
+    });
   });
 }
 
-interface ElectronTrpcMain {
-  createIPCHandler(options: {
-    router: typeof appRouter;
-    windows: readonly IpcServerWindow[];
-    createContext: (args: { event: unknown }) => unknown;
-  }): void;
+interface ElectronIpcMain {
+  on(channel: string, listener: (event: IpcReplyEventLike, message: ETRPCRequest) => void): void;
 }
 
-async function loadElectronTrpc(): Promise<ElectronTrpcMain | null> {
+async function loadIpcMain(): Promise<ElectronIpcMain | null> {
   try {
-    const specifier = 'electron-trpc/main';
-    const mod = (await import(/* @vite-ignore */ specifier)) as unknown;
-    return mod as ElectronTrpcMain;
+    const specifier = 'electron';
+    const mod = (await import(/* @vite-ignore */ specifier)) as { ipcMain?: ElectronIpcMain };
+    return mod.ipcMain ?? null;
   } catch {
     return null;
   }

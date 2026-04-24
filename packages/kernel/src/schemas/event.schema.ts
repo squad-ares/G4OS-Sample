@@ -56,3 +56,69 @@ export const SessionEventSchema = z.discriminatedUnion('type', [
 ]);
 
 export type SessionEvent = z.infer<typeof SessionEventSchema>;
+
+const TurnStreamBase = z.object({ sessionId: z.uuid(), turnId: z.string() });
+
+export const TurnStreamEventSchema = z.discriminatedUnion('type', [
+  TurnStreamBase.extend({ type: z.literal('turn.started') }),
+  TurnStreamBase.extend({ type: z.literal('turn.text_chunk'), text: z.string() }),
+  TurnStreamBase.extend({ type: z.literal('turn.thinking_chunk'), text: z.string() }),
+  TurnStreamBase.extend({
+    type: z.literal('turn.done'),
+    reason: z.enum(['stop', 'max_tokens', 'tool_use', 'interrupted', 'error']),
+  }),
+  TurnStreamBase.extend({ type: z.literal('turn.error'), code: z.string(), message: z.string() }),
+  TurnStreamBase.extend({
+    type: z.literal('turn.permission_required'),
+    requestId: z.uuid(),
+    toolUseId: z.string(),
+    toolName: z.string(),
+    inputJson: z.string(),
+  }),
+  TurnStreamBase.extend({
+    type: z.literal('turn.tool_use_started'),
+    toolUseId: z.string(),
+    toolName: z.string(),
+    inputJson: z.string(),
+  }),
+  TurnStreamBase.extend({
+    type: z.literal('turn.tool_use_completed'),
+    toolUseId: z.string(),
+    toolName: z.string(),
+    ok: z.boolean(),
+  }),
+]);
+
+export type TurnStreamEvent = z.infer<typeof TurnStreamEventSchema>;
+
+const PERSISTED_SESSION_EVENT_TYPES = new Set<string>([
+  'session.created',
+  'session.renamed',
+  'session.labeled',
+  'session.flagged',
+  'session.archived',
+  'session.deleted',
+  'message.added',
+  'message.updated',
+  'tool.invoked',
+  'tool.completed',
+]);
+
+const TURN_STREAM_EVENT_TYPES = new Set<string>([
+  'turn.started',
+  'turn.text_chunk',
+  'turn.thinking_chunk',
+  'turn.done',
+  'turn.error',
+  'turn.permission_required',
+  'turn.tool_use_started',
+  'turn.tool_use_completed',
+]);
+
+export function isPersistedSessionEvent(event: { readonly type: string }): event is SessionEvent {
+  return PERSISTED_SESSION_EVENT_TYPES.has(event.type);
+}
+
+export function isTurnStreamEvent(event: { readonly type: string }): event is TurnStreamEvent {
+  return TURN_STREAM_EVENT_TYPES.has(event.type);
+}

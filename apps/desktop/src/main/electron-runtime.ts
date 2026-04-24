@@ -1,24 +1,57 @@
-/**
- * Loader central do runtime do Electron e tipos mínimos usados pelos
- * serviços do main process.
- *
- * Mantemos interfaces locais para que o pacote `@g4os/desktop` faça
- * typecheck/lint mesmo sem `electron` instalado (fase atual do
- * scaffolding). O runtime real é acoplado via `import()` dinâmico
- * resolvido em runtime pelo Electron.
- */
+import electron from 'electron';
 
 export interface ElectronEvent {
   preventDefault(): void;
 }
 
+export interface ElectronDock {
+  setIcon(icon: string): void;
+}
+
 export interface ElectronApp {
+  readonly isPackaged: boolean;
+  readonly dock?: ElectronDock;
+  getVersion(): string;
   whenReady(): Promise<void>;
   quit(): void;
   exit(code: number): void;
   on(event: 'window-all-closed', listener: () => void): void;
   on(event: 'before-quit', listener: (event: ElectronEvent) => void): void;
   on(event: 'open-url', listener: (event: ElectronEvent, url: string) => void): void;
+}
+
+export interface ElectronDialogFilter {
+  readonly name: string;
+  readonly extensions: string[];
+}
+
+export interface ElectronSaveDialogOptions {
+  readonly title?: string;
+  readonly defaultPath?: string;
+  readonly filters?: readonly ElectronDialogFilter[];
+}
+
+export interface ElectronSaveDialogResult {
+  readonly canceled: boolean;
+  readonly filePath?: string;
+}
+
+export interface ElectronOpenDialogOptions {
+  readonly title?: string;
+  readonly defaultPath?: string;
+  readonly filters?: readonly ElectronDialogFilter[];
+  readonly properties?: readonly string[];
+}
+
+export interface ElectronOpenDialogResult {
+  readonly canceled: boolean;
+  readonly filePaths: readonly string[];
+}
+
+export interface ElectronDialog {
+  showErrorBox(title: string, content: string): void;
+  showSaveDialog?(options: ElectronSaveDialogOptions): Promise<ElectronSaveDialogResult>;
+  showOpenDialog?(options: ElectronOpenDialogOptions): Promise<ElectronOpenDialogResult>;
 }
 
 export interface BrowserWindowWebPreferences {
@@ -28,16 +61,56 @@ export interface BrowserWindowWebPreferences {
   readonly preload?: string;
 }
 
+export interface TrafficLightPosition {
+  readonly x: number;
+  readonly y: number;
+}
+
 export interface BrowserWindowOptions {
   readonly width?: number;
   readonly height?: number;
+  readonly minWidth?: number;
+  readonly minHeight?: number;
+  readonly x?: number;
+  readonly y?: number;
+  readonly show?: boolean;
+  readonly title?: string;
+  readonly icon?: string;
+  readonly backgroundColor?: string;
+  readonly frame?: boolean;
+  readonly autoHideMenuBar?: boolean;
+  readonly titleBarStyle?: 'default' | 'hidden' | 'hiddenInset' | 'customButtonsOnHover';
+  readonly trafficLightPosition?: TrafficLightPosition;
+  readonly vibrancy?:
+    | 'appearance-based'
+    | 'light'
+    | 'dark'
+    | 'titlebar'
+    | 'selection'
+    | 'menu'
+    | 'popover'
+    | 'sidebar'
+    | 'medium-light'
+    | 'ultra-dark'
+    | 'header'
+    | 'sheet'
+    | 'window'
+    | 'hud'
+    | 'fullscreen-ui'
+    | 'tooltip'
+    | 'content'
+    | 'under-window'
+    | 'under-page';
+  readonly visualEffectState?: 'followWindow' | 'active' | 'inactive';
+  readonly backgroundMaterial?: 'auto' | 'none' | 'mica' | 'acrylic' | 'tabbed';
   readonly webPreferences?: BrowserWindowWebPreferences;
 }
 
 export interface BrowserWindowInstance {
   loadURL(url: string): Promise<void>;
   close(): void;
-  readonly webContents: { readonly id: number };
+  focus(): void;
+  readonly webContents: { readonly id: number; openDevTools(options?: { mode?: 'detach' }): void };
   isDestroyed(): boolean;
 }
 
@@ -72,16 +145,26 @@ export interface UtilityProcessFactory {
 
 export interface ElectronRuntime {
   readonly app: ElectronApp;
+  readonly dialog?: ElectronDialog;
   readonly BrowserWindow: new (options: BrowserWindowOptions) => BrowserWindowInstance;
   readonly utilityProcess: UtilityProcessFactory;
 }
 
-export async function loadElectron(): Promise<ElectronRuntime | null> {
-  try {
-    const specifier = 'electron';
-    const mod = (await import(/* @vite-ignore */ specifier)) as unknown;
-    return mod as ElectronRuntime;
-  } catch {
-    return null;
+export function loadElectron(): Promise<ElectronRuntime | null> {
+  const mod = (electron ?? {}) as {
+    app?: ElectronApp;
+    dialog?: ElectronDialog;
+    BrowserWindow?: ElectronRuntime['BrowserWindow'];
+    utilityProcess?: UtilityProcessFactory;
+  };
+  const { app, dialog, BrowserWindow, utilityProcess } = mod;
+  if (!app || typeof app.whenReady !== 'function' || !BrowserWindow || !utilityProcess) {
+    return Promise.resolve(null);
   }
+  return Promise.resolve({
+    app,
+    ...(dialog ? { dialog } : {}),
+    BrowserWindow,
+    utilityProcess,
+  });
 }

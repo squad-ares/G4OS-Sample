@@ -1,1 +1,7 @@
-export type { ContentBlock, Message, MessageId, MessageRole } from '../schemas/message.schema.ts';
+export type {
+  ContentBlock,
+  Message,
+  MessageAppendResult,
+  MessageId,
+  MessageRole,
+} from '../schemas/message.schema.ts';

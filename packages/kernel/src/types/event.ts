@@ -1,1 +1,1 @@
-export type { SessionEvent } from '../schemas/event.schema.ts';
+export type { SessionEvent, TurnStreamEvent } from '../schemas/event.schema.ts';

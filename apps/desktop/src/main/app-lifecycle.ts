@@ -1,9 +1,3 @@
-/**
- * Orquestra o ciclo de vida da app: `before-quit`, `window-all-closed`,
- * `open-url` e sinais POSIX. Shutdown handlers rodam com deadline; o
- * que não termina a tempo é logado mas não bloqueia `app.exit`.
- */
-
 import { createLogger } from '@g4os/kernel/logger';
 import type { ElectronApp, ElectronEvent } from './electron-runtime.ts';
 
