@@ -70,6 +70,16 @@ export function MentionPicker({
     );
   }
 
+  const listboxId = 'mention-picker-listbox';
+  const activeOptionId = matches[activeIndex]
+    ? `mention-option-${matches[activeIndex].id}`
+    : undefined;
+
+  // Composer textarea (fora deste componente) é o combobox real ARIA — detém
+  // foco e navegação. Aqui renderizamos só a listbox pop-up anexa. `div`
+  // com `role=listbox` + `div` com `role=option` (biome flaga `ul`/`li` com
+  // interactive roles). `tabIndex={-1}` mantém elementos na tree de a11y
+  // sem roubar foco do textarea.
   return (
     <div className="absolute bottom-full left-0 z-20 mb-2 w-80 overflow-hidden rounded-lg border border-foreground/10 bg-background shadow-lg ring-1 ring-foreground/5">
       <div className="border-b border-foreground/10 px-3 py-1.5">
@@ -77,32 +87,41 @@ export function MentionPicker({
           {t('chat.mention.title')}
         </span>
       </div>
-      <ul className="max-h-[240px] overflow-y-auto py-1">
+      <div
+        id={listboxId}
+        role="listbox"
+        tabIndex={-1}
+        aria-label={t('chat.mention.title')}
+        {...(activeOptionId ? { 'aria-activedescendant': activeOptionId } : {})}
+        className="max-h-[240px] overflow-y-auto py-1"
+      >
         {matches.map((source, index) => (
           <MentionRow
             key={source.id}
+            id={`mention-option-${source.id}`}
             source={source}
             active={index === activeIndex}
             onHover={() => setActiveIndex(index)}
             onSelect={() => onSelect(source.slug)}
           />
         ))}
-      </ul>
+      </div>
     </div>
   );
 }
 
 interface MentionRowProps {
+  readonly id: string;
   readonly source: SourceConfigView;
   readonly active: boolean;
   readonly onHover: () => void;
   readonly onSelect: () => void;
 }
 
-function MentionRow({ source, active, onHover, onSelect }: MentionRowProps): ReactNode {
+function MentionRow({ id, source, active, onHover, onSelect }: MentionRowProps): ReactNode {
   const { t } = useTranslate();
   return (
-    <li>
+    <div id={id} role="option" aria-selected={active} tabIndex={-1}>
       <button
         type="button"
         onMouseDown={(e) => {
@@ -110,6 +129,7 @@ function MentionRow({ source, active, onHover, onSelect }: MentionRowProps): Rea
           onSelect();
         }}
         onMouseEnter={onHover}
+        tabIndex={-1}
         className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs transition-colors ${
           active ? 'bg-accent/60' : 'hover:bg-foreground/5'
         }`}
@@ -123,7 +143,7 @@ function MentionRow({ source, active, onHover, onSelect }: MentionRowProps): Rea
           {t(`sources.status.${source.status}` as TranslationKey)}
         </span>
       </button>
-    </li>
+    </div>
   );
 }
 
