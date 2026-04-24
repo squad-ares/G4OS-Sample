@@ -47,7 +47,7 @@
       "ignoreBinaries": ["tar", "powershell", "xcrun", "signtool", "smctl", "AzureSignTool"]
     },
     "apps/desktop-e2e": {
-      "entry": ["tests/**/*.ts", "playwright.config.ts"]
+      "entry": ["tests/**/*.ts"]
     },
     "packages/features": {
       "entry": ["src/**/*.tsx", "src/**/*.ts"],

@@ -8,15 +8,26 @@ import { defineConfig, externalizeDepsPlugin } from 'electron-vite';
 const rootDir = path.resolve(__dirname, '../..');
 const { env, filesLoaded } = loadSupabaseEnvFiles(rootDir);
 // biome-ignore lint/style/noProcessEnv: composition root; sanitização controlada
-const validation = validateSupabaseEnv({ ...process.env, ...env });
-if (!validation.ok) {
-  throw new Error(
-    [
-      'Boot bloqueado para desktop build/dev.',
-      formatMissingEnv(validation.missing),
-      `Arquivos carregados: ${filesLoaded.length > 0 ? filesLoaded.join(', ') : 'nenhum'}`,
-    ].join('\n\n'),
-  );
+const mergedEnv = { ...process.env, ...env };
+// Validação Supabase só em `dev` — build CI não precisa de credenciais
+// (serão injetadas em runtime). Packaging real sem credenciais gera
+// installer funcional que falha graciosamente no primeiro login.
+const isBuildMode =
+  process.argv.includes('build') ||
+  mergedEnv['CI'] === 'true' ||
+  mergedEnv['G4OS_SKIP_SUPABASE_VALIDATION'] === '1';
+
+if (!isBuildMode) {
+  const validation = validateSupabaseEnv(mergedEnv);
+  if (!validation.ok) {
+    throw new Error(
+      [
+        'Boot bloqueado para desktop dev.',
+        formatMissingEnv(validation.missing),
+        `Arquivos carregados: ${filesLoaded.length > 0 ? filesLoaded.join(', ') : 'nenhum'}`,
+      ].join('\n\n'),
+    );
+  }
 }
 
 export default defineConfig({

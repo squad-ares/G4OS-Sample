@@ -26,10 +26,11 @@
  * da OUTLIER-09). CLAUDE.md e AGENTS.md devem refletir esse novo teto.
  *
  * Em 2026-04-24 (MVP cleanup) worker-per-session foi removido como decisão
- * arquitetural (ver ADR superseding 0030): as 4 causas raiz da dor de memória
+ * arquitetural (ADR-0145 supersedes 0030): as 4 causas raiz da dor de memória
  * V1 já estão cobertas por main thin + @parcel/watcher + DisposableBase +
- * MemoryMonitor. Piscina threads sob `workers/` para CPU-bound permanecem
- * ignoradas do orçamento (rodam em thread isolado).
+ * MemoryMonitor. Diretório `workers/` foi inteiramente deletado; se
+ * reintroduzido no futuro (ex. Piscina CPU-bound), adicionar o glob de
+ * workers de volta ao ignore abaixo.
  *
  * Em 2026-04-24 o main foi puxado pra baixo de 7987 → ~5976 LOC via extrações
  * arquiteturais (sem elevar o teto): `@g4os/session-runtime` (tool-loop +
@@ -69,7 +70,7 @@ const MAIN_LIMIT = 6800;
 const FILE_LIMIT = 300;
 
 const files = globSync('apps/desktop/src/main/**/*.ts', {
-  ignore: ['**/__tests__/**', '**/*.test.ts', '**/workers/**'],
+  ignore: ['**/__tests__/**', '**/*.test.ts'],
 });
 
 let total = 0;
