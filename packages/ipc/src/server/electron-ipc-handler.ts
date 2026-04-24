@@ -7,11 +7,16 @@
  *   2. Tenta chamar `router.getErrorShape(...)` — que não existe em v11.
  *   3. Como resultado, toda query de IPC fica pendente para sempre, porque
  *      `event.reply` nunca é chamado.
+ *   4. Espera que subscriptions retornem Observable (`.subscribe()`) — mas
+ *      tRPC v11 usa async generators (`async function*`), que tem
+ *      `Symbol.asyncIterator` em vez de `.subscribe()`.
  *
  * Esta implementação usa as APIs corretas do tRPC v11:
  *   - `appRouter.createCaller(ctx)` para invocar procedimentos
  *   - `getErrorShape` standalone para formatar erros
  *   - `transformTRPCResponse` para serializar payloads
+ *   - Iteração de `AsyncIterable` para subscriptions com cancelamento via
+ *     `iterator.return()` ao receber `subscription.stop`.
  *
  * O wire protocol (channel, formato de request/response) é idêntico ao do
  * electron-trpc, então o lado renderer (`ipcLink` do electron-trpc@0.7.1)
@@ -51,17 +56,34 @@ export interface IpcReplyEventLike {
 
 export type CreateIpcContextFn = (event: IpcInvokeEventLike) => Promise<IpcContext>;
 
+type RespondPayload = { id: string | number; result?: unknown; error?: unknown };
+type RespondFn = (payload: RespondPayload) => void;
+
+/**
+ * Subscriptions ativas por request id — permite `subscription.stop` cancelar
+ * a iteração via `iterator.return()`, que dispara o `finally` do async
+ * generator e limpa listeners/disposables.
+ */
+const activeSubscriptions = new Map<string | number, () => void>();
+
 export async function handleIpcRequest(
   event: IpcReplyEventLike,
   request: ETRPCRequest,
   createContext: CreateIpcContextFn,
 ): Promise<void> {
-  if (request.method === 'subscription.stop') return;
+  if (request.method === 'subscription.stop') {
+    const stop = activeSubscriptions.get(request.id);
+    if (stop) {
+      activeSubscriptions.delete(request.id);
+      stop();
+    }
+    return;
+  }
 
   const { id, type, path, input: serializedInput } = request.operation;
   const config = appRouter._def._config;
 
-  const respond = (payload: { id: typeof id; result?: unknown; error?: unknown }): void => {
+  const respond: RespondFn = (payload) => {
     if (event.sender.isDestroyed()) return;
     event.reply(
       ELECTRON_TRPC_CHANNEL,
@@ -113,7 +135,12 @@ export async function handleIpcRequest(
     }
 
     const result = await (fn as (x?: unknown) => Promise<unknown>)(input);
-    respond({ id, result: { type: 'data', data: result } });
+
+    if (type === 'subscription') {
+      await streamSubscription(id, result, respond, () => event.sender.isDestroyed());
+    } else {
+      respond({ id, result: { type: 'data', data: result } });
+    }
   } catch (cause: unknown) {
     const error = getTRPCErrorFromUnknown(cause) as TRPCErrorType;
     respond({
@@ -128,5 +155,61 @@ export async function handleIpcRequest(
         ctx,
       }),
     });
+  }
+}
+
+function isAsyncIterable(value: unknown): value is AsyncIterable<unknown> {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    typeof (value as { [Symbol.asyncIterator]?: unknown })[Symbol.asyncIterator] === 'function'
+  );
+}
+
+async function streamSubscription(
+  id: string | number,
+  source: unknown,
+  respond: RespondFn,
+  isClosed: () => boolean,
+): Promise<void> {
+  if (!isAsyncIterable(source)) {
+    throw new TRPCError({
+      code: 'INTERNAL_SERVER_ERROR',
+      message: 'subscription resolver did not return an async iterable',
+    });
+  }
+
+  const iterator = source[Symbol.asyncIterator]();
+  let stopped = false;
+  const stop = (): void => {
+    stopped = true;
+    if (typeof iterator.return === 'function') {
+      void iterator.return(undefined).catch(() => {
+        /* iterator return may throw after already-returned state */
+      });
+    }
+  };
+  activeSubscriptions.set(id, stop);
+
+  try {
+    while (!stopped && !isClosed()) {
+      const step = await iterator.next();
+      if (step.done) break;
+      if (stopped || isClosed()) break;
+      respond({ id, result: { type: 'data', data: step.value } });
+    }
+    if (!isClosed()) {
+      respond({ id, result: { type: 'stopped' } });
+    }
+  } catch (cause: unknown) {
+    if (isClosed()) return;
+    throw cause;
+  } finally {
+    activeSubscriptions.delete(id);
+    if (typeof iterator.return === 'function' && !stopped) {
+      void iterator.return(undefined).catch(() => {
+        /* iterator return may throw after already-returned state */
+      });
+    }
   }
 }

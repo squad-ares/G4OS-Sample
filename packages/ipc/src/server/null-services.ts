@@ -7,6 +7,8 @@ import type {
   LabelsService,
   MarketplaceService,
   MessagesService,
+  NewsService,
+  PermissionsService,
   ProjectsService,
   SchedulerService,
   SessionsService,
@@ -32,10 +34,12 @@ export interface NullServices {
   readonly messages: MessagesService;
   readonly projects: ProjectsService;
   readonly credentials: CredentialsService;
+  readonly permissions: PermissionsService;
   readonly sources: SourcesService;
   readonly agents: AgentsService;
   readonly auth: AuthService;
   readonly marketplace: MarketplaceService;
+  readonly news: NewsService;
   readonly scheduler: SchedulerService;
   readonly updates: UpdatesService;
   readonly voice: VoiceService;
@@ -61,8 +65,12 @@ export function createNullServices(): NullServices {
       update: async () => err(notImplemented('sessions.update')),
       delete: async () => err(notImplemented('sessions.delete')),
       subscribe: () => ({ dispose: () => undefined }),
+      subscribeStream: () => ({ dispose: () => undefined }),
+      sendMessage: async () => err(notImplemented('sessions.sendMessage')),
       stopTurn: async () => err(notImplemented('sessions.stopTurn')),
       retryLastTurn: async () => err(notImplemented('sessions.retryLastTurn')),
+      runtimeStatus: async () => ok({ available: false, providers: [] } as const),
+      respondPermission: async () => err(notImplemented('sessions.respondPermission')),
       truncateAfter: async () => err(notImplemented('sessions.truncateAfter')),
       archive: async () => err(notImplemented('sessions.archive')),
       restore: async () => err(notImplemented('sessions.restore')),
@@ -113,8 +121,21 @@ export function createNullServices(): NullServices {
       list: async () => err(notImplemented('credentials.list')),
       rotate: async () => err(notImplemented('credentials.rotate')),
     },
+    permissions: {
+      list: async () => err(notImplemented('permissions.list')),
+      revoke: async () => err(notImplemented('permissions.revoke')),
+      clearAll: async () => err(notImplemented('permissions.clearAll')),
+    },
     sources: {
       list: async () => err(notImplemented('sources.list')),
+      listAvailable: async () => err(notImplemented('sources.listAvailable')),
+      get: async () => err(notImplemented('sources.get')),
+      enableManaged: async () => err(notImplemented('sources.enableManaged')),
+      createStdio: async () => err(notImplemented('sources.createStdio')),
+      createHttp: async () => err(notImplemented('sources.createHttp')),
+      setEnabled: async () => err(notImplemented('sources.setEnabled')),
+      delete: async () => err(notImplemented('sources.delete')),
+      testConnection: async () => err(notImplemented('sources.testConnection')),
     },
     agents: {
       list: async () => err(notImplemented('agents.list')),
@@ -127,6 +148,10 @@ export function createNullServices(): NullServices {
     },
     marketplace: {
       list: async () => err(notImplemented('marketplace.list')),
+    },
+    news: {
+      list: async () => err(notImplemented('news.list')),
+      get: async () => err(notImplemented('news.get')),
     },
     scheduler: {
       list: async () => err(notImplemented('scheduler.list')),

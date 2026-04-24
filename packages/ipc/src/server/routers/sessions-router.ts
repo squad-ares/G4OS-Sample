@@ -3,9 +3,10 @@ import {
   SessionEventSchema,
   SessionFilterSchema,
   SessionSchema,
+  TurnStreamEventSchema,
   WorkspaceIdSchema,
 } from '@g4os/kernel/schemas';
-import type { SessionEvent } from '@g4os/kernel/types';
+import type { SessionEvent, TurnStreamEvent } from '@g4os/kernel/types';
 import { z } from 'zod';
 import { authed } from '../middleware/authed.ts';
 import { router } from '../trpc.ts';
@@ -184,11 +185,46 @@ export const sessionsRouter = router({
       return result.value;
     }),
 
+  sendMessage: authed
+    .input(z.object({ id: SessionIdSchema, text: z.string().min(1).max(100_000) }))
+    .output(z.void())
+    .mutation(async ({ input, ctx }) => {
+      const result = await ctx.sessions.sendMessage(input.id, input.text);
+      if (result.isErr()) throw result.error;
+    }),
+
+  runtimeStatus: authed
+    .input(z.void())
+    .output(
+      z.object({
+        available: z.boolean(),
+        providers: z.array(z.string()),
+      }),
+    )
+    .query(async ({ ctx }) => {
+      const result = await ctx.sessions.runtimeStatus();
+      if (result.isErr()) throw result.error;
+      return { available: result.value.available, providers: [...result.value.providers] };
+    }),
+
   stopTurn: authed
     .input(z.object({ id: SessionIdSchema }))
     .output(z.void())
     .mutation(async ({ input, ctx }) => {
       const result = await ctx.sessions.stopTurn(input.id);
+      if (result.isErr()) throw result.error;
+    }),
+
+  respondPermission: authed
+    .input(
+      z.object({
+        requestId: z.uuid(),
+        decision: z.enum(['allow_once', 'allow_session', 'allow_always', 'deny']),
+      }),
+    )
+    .output(z.void())
+    .mutation(async ({ input, ctx }) => {
+      const result = await ctx.sessions.respondPermission(input.requestId, input.decision);
       if (result.isErr()) throw result.error;
     }),
 
@@ -252,6 +288,43 @@ export const sessionsRouter = router({
       disposable.dispose();
     }
   }),
+
+  /**
+   * Subscription de eventos transientes de turn (text chunks, thinking chunks,
+   * done, error). Usada pelo renderer para mostrar texto em tempo real antes
+   * da mensagem ser persistida.
+   */
+  turnStream: authed.input(z.object({ sessionId: SessionIdSchema })).subscription(async function* ({
+    input,
+    ctx,
+    signal,
+  }) {
+    const queue: TurnStreamEvent[] = [];
+    let notify: (() => void) | null = null;
+
+    const disposable = ctx.sessions.subscribeStream(input.sessionId, (event) => {
+      queue.push(event);
+      notify?.();
+    });
+
+    try {
+      while (!signal?.aborted) {
+        if (queue.length === 0) {
+          await new Promise<void>((resolve) => {
+            notify = resolve;
+            signal?.addEventListener('abort', () => resolve(), { once: true });
+          });
+          notify = null;
+        }
+        while (queue.length > 0) {
+          const next = queue.shift();
+          if (next !== undefined) yield next;
+        }
+      }
+    } finally {
+      disposable.dispose();
+    }
+  }),
 });
 
-export { SessionEventSchema };
+export { SessionEventSchema, TurnStreamEventSchema };

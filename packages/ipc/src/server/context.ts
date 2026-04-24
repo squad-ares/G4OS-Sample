@@ -1,6 +1,9 @@
 import type { IDisposable } from '@g4os/kernel/disposable';
 import type { AppError, Result } from '@g4os/kernel/errors';
 import type {
+  CreateMcpHttpSourceInput,
+  CreateMcpStdioSourceInput,
+  EnableManagedSourceInput,
   GlobalSearchResult,
   Label,
   LabelCreateInput,
@@ -9,6 +12,7 @@ import type {
   LegacyProject,
   Message,
   MessageId,
+  NewsItem,
   Project,
   ProjectCreateInput,
   ProjectFile,
@@ -23,6 +27,11 @@ import type {
   SessionEvent,
   SessionFilter,
   SessionId,
+  SourceCatalogItem,
+  SourceConfigView,
+  SourceId,
+  SourceStatus,
+  TurnStreamEvent,
   Workspace,
   WorkspaceId,
 } from '@g4os/kernel/types';
@@ -67,6 +76,8 @@ export interface BranchSessionInput {
   readonly name?: string;
 }
 
+export type PermissionDecisionInput = 'allow_once' | 'allow_session' | 'allow_always' | 'deny';
+
 export interface SessionsService {
   list(workspaceId: WorkspaceId): Promise<Result<readonly Session[], AppError>>;
   listFiltered(filter: SessionFilter): Promise<Result<SessionListPage, AppError>>;
@@ -75,8 +86,15 @@ export interface SessionsService {
   update(id: SessionId, patch: Partial<Session>): Promise<Result<void, AppError>>;
   delete(id: SessionId): Promise<Result<void, AppError>>;
   subscribe(id: SessionId, handler: (event: SessionEvent) => void): IDisposable;
+  subscribeStream(id: SessionId, handler: (event: TurnStreamEvent) => void): IDisposable;
+  sendMessage(id: SessionId, text: string): Promise<Result<void, AppError>>;
   stopTurn(id: SessionId): Promise<Result<void, AppError>>;
   retryLastTurn(id: SessionId): Promise<Result<void, AppError>>;
+  runtimeStatus(): Promise<Result<AgentRuntimeStatus, AppError>>;
+  respondPermission(
+    requestId: string,
+    decision: PermissionDecisionInput,
+  ): Promise<Result<void, AppError>>;
   truncateAfter(
     id: SessionId,
     afterSequence: number,
@@ -119,6 +137,11 @@ export interface MessagesService {
     input: Pick<Message, 'sessionId' | 'role' | 'content'>,
   ): Promise<Result<Message, AppError>>;
   search(sessionId: SessionId, query: string): Promise<Result<readonly SearchMatch[], AppError>>;
+}
+
+export interface AgentRuntimeStatus {
+  readonly available: boolean;
+  readonly providers: readonly string[];
 }
 
 export type { LegacyImportEntry, LegacyProject, ProjectFile };
@@ -173,6 +196,23 @@ export interface CredentialSetOptions {
   readonly tags?: readonly string[];
 }
 
+export interface PermissionDecisionView {
+  readonly toolName: string;
+  readonly argsHash: string;
+  readonly argsPreview: string;
+  readonly decidedAt: number;
+}
+
+export interface PermissionsService {
+  list(workspaceId: WorkspaceId): Promise<Result<readonly PermissionDecisionView[], AppError>>;
+  revoke(
+    workspaceId: WorkspaceId,
+    toolName: string,
+    argsHash: string,
+  ): Promise<Result<void, AppError>>;
+  clearAll(workspaceId: WorkspaceId): Promise<Result<{ removed: number }, AppError>>;
+}
+
 export interface CredentialsService {
   get(key: string): Promise<Result<string, AppError>>;
   set(key: string, value: string, options?: CredentialSetOptions): Promise<Result<void, AppError>>;
@@ -182,7 +222,19 @@ export interface CredentialsService {
 }
 
 export interface SourcesService {
-  list(): Promise<Result<readonly unknown[], AppError>>;
+  list(workspaceId: WorkspaceId): Promise<Result<readonly SourceConfigView[], AppError>>;
+  listAvailable(workspaceId: WorkspaceId): Promise<Result<readonly SourceCatalogItem[], AppError>>;
+  get(workspaceId: WorkspaceId, id: SourceId): Promise<Result<SourceConfigView, AppError>>;
+  enableManaged(input: EnableManagedSourceInput): Promise<Result<SourceConfigView, AppError>>;
+  createStdio(input: CreateMcpStdioSourceInput): Promise<Result<SourceConfigView, AppError>>;
+  createHttp(input: CreateMcpHttpSourceInput): Promise<Result<SourceConfigView, AppError>>;
+  setEnabled(
+    workspaceId: WorkspaceId,
+    id: SourceId,
+    enabled: boolean,
+  ): Promise<Result<SourceConfigView, AppError>>;
+  delete(workspaceId: WorkspaceId, id: SourceId): Promise<Result<void, AppError>>;
+  testConnection(workspaceId: WorkspaceId, id: SourceId): Promise<Result<SourceStatus, AppError>>;
 }
 
 export interface AgentsService {
@@ -198,6 +250,11 @@ export interface AuthService {
 
 export interface MarketplaceService {
   list(): Promise<Result<readonly unknown[], AppError>>;
+}
+
+export interface NewsService {
+  list(): Promise<Result<readonly NewsItem[], AppError>>;
+  get(id: string): Promise<Result<NewsItem | null, AppError>>;
 }
 
 export interface SchedulerService {
@@ -235,6 +292,14 @@ export interface OpenDialogResult {
   readonly filePaths: readonly string[];
 }
 
+export interface AppInfo {
+  readonly version: string;
+  readonly platform: string;
+  readonly isPackaged: boolean;
+  readonly electronVersion: string;
+  readonly nodeVersion: string;
+}
+
 export interface PlatformService {
   readFileAsDataUrl?(path: string): Promise<string>;
   openExternal?(url: string): Promise<void>;
@@ -242,6 +307,7 @@ export interface PlatformService {
   showItemInFolder?(path: string): Promise<void>;
   showSaveDialog?(options: SaveDialogOptions): Promise<SaveDialogResult>;
   showOpenDialog?(options: OpenDialogOptions): Promise<OpenDialogResult>;
+  getAppInfo?(): AppInfo;
 }
 
 export interface VoiceService {
@@ -283,10 +349,12 @@ export interface IpcContext {
   readonly messages: MessagesService;
   readonly projects: ProjectsService;
   readonly credentials: CredentialsService;
+  readonly permissions: PermissionsService;
   readonly sources: SourcesService;
   readonly agents: AgentsService;
   readonly auth: AuthService;
   readonly marketplace: MarketplaceService;
+  readonly news: NewsService;
   readonly scheduler: SchedulerService;
   readonly updates: UpdatesService;
   readonly voice: VoiceService;

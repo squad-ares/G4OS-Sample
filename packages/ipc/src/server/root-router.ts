@@ -5,6 +5,8 @@ import { healthRouter } from './routers/health-router.ts';
 import { labelsRouter } from './routers/labels-router.ts';
 import { marketplaceRouter } from './routers/marketplace-router.ts';
 import { messagesRouter } from './routers/messages-router.ts';
+import { newsRouter } from './routers/news-router.ts';
+import { permissionsRouter } from './routers/permissions-router.ts';
 import { platformRouter } from './routers/platform-router.ts';
 import { projectsRouter } from './routers/projects-router.ts';
 import { schedulerRouter } from './routers/scheduler-router.ts';
@@ -24,10 +26,12 @@ export const appRouter = router({
   messages: messagesRouter,
   projects: projectsRouter,
   credentials: credentialsRouter,
+  permissions: permissionsRouter,
   sources: sourcesRouter,
   agents: agentsRouter,
   auth: authRouter,
   marketplace: marketplaceRouter,
+  news: newsRouter,
   platform: platformRouter,
   scheduler: schedulerRouter,
   updates: updatesRouter,

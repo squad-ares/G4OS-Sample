@@ -10,6 +10,8 @@ import type {
   LabelsService,
   MarketplaceService,
   MessagesService,
+  NewsService,
+  PermissionsService,
   ProjectsService,
   SchedulerService,
   SessionsService,
@@ -62,6 +64,13 @@ function createSessionsMock(): SessionsService {
       toDisposable(() => {
         /* no-op: mock disposable */
       }),
+    subscribeStream: (_id, _handler): IDisposable =>
+      toDisposable(() => {
+        /* no-op: mock disposable */
+      }),
+    sendMessage: async () => ok(undefined),
+    runtimeStatus: async () => ok({ available: false, providers: [] } as const),
+    respondPermission: async () => ok(undefined),
     stopTurn: async () => ok(undefined),
     retryLastTurn: async () => ok(undefined),
     truncateAfter: async () => ok({ removed: 0 }),
@@ -155,8 +164,26 @@ function createCredentialsMock(): CredentialsService {
   };
 }
 
+function createPermissionsMock(): PermissionsService {
+  return {
+    list: async () => ok([]),
+    revoke: async () => ok(undefined),
+    clearAll: async () => ok({ removed: 0 }),
+  };
+}
+
 function createSourcesMock(): SourcesService {
-  return { list: async () => ok([]) };
+  return {
+    list: async () => ok([]),
+    listAvailable: async () => ok([]),
+    get: async () => err(notImplemented('sources.get')),
+    enableManaged: async () => err(notImplemented('sources.enableManaged')),
+    createStdio: async () => err(notImplemented('sources.createStdio')),
+    createHttp: async () => err(notImplemented('sources.createHttp')),
+    setEnabled: async () => err(notImplemented('sources.setEnabled')),
+    delete: async () => ok(undefined),
+    testConnection: async () => err(notImplemented('sources.testConnection')),
+  };
 }
 
 function createAgentsMock(): AgentsService {
@@ -174,6 +201,13 @@ function createAuthMock(): AuthService {
 
 function createMarketplaceMock(): MarketplaceService {
   return { list: async () => ok([]) };
+}
+
+function createNewsMock(): NewsService {
+  return {
+    list: async () => ok([]),
+    get: async () => ok(null),
+  };
 }
 
 function createSchedulerMock(): SchedulerService {
@@ -195,10 +229,12 @@ export function createTestCaller(
     messages: createMessagesMock(),
     projects: createProjectsMock(),
     credentials: createCredentialsMock(),
+    permissions: createPermissionsMock(),
     sources: createSourcesMock(),
     agents: createAgentsMock(),
     auth: createAuthMock(),
     marketplace: createMarketplaceMock(),
+    news: createNewsMock(),
     scheduler: createSchedulerMock(),
     updates: createUpdatesMock(),
     voice: createVoiceMock(),

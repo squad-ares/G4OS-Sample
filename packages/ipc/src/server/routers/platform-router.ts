@@ -29,7 +29,31 @@ const OpenDialogOutputSchema = z.object({
   filePaths: z.array(z.string()),
 });
 
+const AppInfoOutputSchema = z.object({
+  version: z.string(),
+  platform: z.string(),
+  isPackaged: z.boolean(),
+  electronVersion: z.string(),
+  nodeVersion: z.string(),
+});
+
 export const platformRouter = router({
+  getAppInfo: procedure
+    .input(z.void())
+    .output(AppInfoOutputSchema)
+    .query(({ ctx }) => {
+      const handler = ctx.platform?.getAppInfo;
+      if (!handler) {
+        return {
+          version: '0.0.0',
+          platform: 'unknown',
+          isPackaged: false,
+          electronVersion: '',
+          nodeVersion: '',
+        };
+      }
+      return handler();
+    }),
   readFileAsDataUrl: procedure
     .input(z.object({ path: z.string() }))
     .output(z.string())
