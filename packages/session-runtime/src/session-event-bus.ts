@@ -80,10 +80,9 @@ export interface TurnToolUseCompletedEvent {
 }
 
 /**
- * Evento interno — NÃO atravessa tRPC. Emitido pelo `SessionManager` quando
- * o worker envia `turn-complete` com o payload acumulado. O orquestrador
- * main-side (`WorkerTurnDispatcher`) escuta para persistir a mensagem do
- * assistant no índice SQLite e no event log JSONL.
+ * Evento interno — NÃO atravessa tRPC. Emitido pelo `TurnDispatcher` ao
+ * finalizar um turn para que consumidores main-side persistam a mensagem
+ * do assistant no índice SQLite e no event log JSONL.
  */
 export interface TurnCompleteEvent {
   readonly type: 'turn.complete';

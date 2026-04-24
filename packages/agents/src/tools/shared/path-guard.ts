@@ -8,7 +8,7 @@
  * Windows porque `relative` usa o separador nativo.
  */
 
-import { isAbsolute, relative, resolve } from 'node:path';
+import { isAbsolute, relative, resolve, sep } from 'node:path';
 import { err, ok, type Result } from 'neverthrow';
 import type { ToolFailure } from '../types.ts';
 
@@ -30,7 +30,7 @@ export function resolveInside(
   const base = resolve(workingDirectory);
   const target = isAbsolute(requested) ? resolve(requested) : resolve(base, requested);
   const rel = relative(base, target);
-  const escaped = rel === '..' || rel.startsWith(`..${SEP}`) || isAbsolute(rel);
+  const escaped = rel === '..' || rel.startsWith(`..${sep}`) || isAbsolute(rel);
   if (escaped) {
     return err({
       code: options.code,
@@ -51,9 +51,5 @@ export function relativeInside(base: string, target: string): string {
   const resolvedTarget = resolve(target);
   if (resolvedBase === resolvedTarget) return '.';
   const rel = relative(resolvedBase, resolvedTarget);
-  return rel.split(SEP).join('/');
+  return rel.split(sep).join('/');
 }
-
-// Captura o separador atual do sistema em tempo de import — `path.sep` mas
-// garante consistência em caminhos montados pelo próprio handler.
-const SEP = resolve('a', 'b').charAt(1);

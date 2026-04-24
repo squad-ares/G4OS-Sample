@@ -3,8 +3,8 @@ import type { SessionProvider } from './session.ts';
 /**
  * Mapeia o `SessionProvider` da sessão para o slug da conexão que o
  * `AgentRegistry` usa (ex: `anthropic-direct`, `google-direct`, etc.).
- * Helper puro sem dependências — usado por main (TurnDispatcher /
- * WorkerTurnDispatcher) e por workers para resolver o agent factory.
+ * Helper puro sem dependências — usado pelo `TurnDispatcher` para resolver
+ * o agent factory.
  */
 export function connectionSlugForProvider(provider: SessionProvider): string {
   switch (provider) {

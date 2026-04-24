@@ -14,11 +14,6 @@ export interface TurnDispatcherLike {
   interrupt(sessionId: SessionId): Result<void, AppError>;
 }
 
-/** Gerente de sessões — precisa apenas do método `interrupt` para `stopTurn`. */
-export interface SessionManagerLike {
-  interrupt(sessionId: SessionId): void;
-}
-
 export function respondPermission(
   broker: PermissionBroker,
   requestId: string,
@@ -37,15 +32,8 @@ export function respondPermission(
   return ok(undefined);
 }
 
-export function stopTurn(
-  dispatcher: TurnDispatcherLike,
-  sessionManager: SessionManagerLike,
-  id: SessionId,
-): Result<void, AppError> {
-  const result = dispatcher.interrupt(id);
-  if (result.isErr()) return err(result.error);
-  sessionManager.interrupt(id);
-  return ok(undefined);
+export function stopTurn(dispatcher: TurnDispatcherLike, id: SessionId): Result<void, AppError> {
+  return dispatcher.interrupt(id);
 }
 
 export function notImplementedResult<T>(message: string): Result<T, AppError> {
