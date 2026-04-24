@@ -1,5 +1,12 @@
 export { createMcpStdioFactory, type McpStdioFactoryOptions } from './factory.ts';
 export {
+  type McpStdioProbeConfig,
+  type McpStdioProbeResult,
+  type ProbeDeps,
+  probeMcpStdio,
+  type SpawnFn,
+} from './probe.ts';
+export {
   type McpExecutionMode,
   type McpResolvedMode,
   type RuntimeModeInput,

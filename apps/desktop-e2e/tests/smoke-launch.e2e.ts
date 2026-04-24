@@ -32,3 +32,12 @@ test('main window renders the shell sidebar', async () => {
   const sidebar = launched.window.locator('[aria-label*="ctivit" i], [aria-label*="ctivid" i]');
   await expect(sidebar).toBeVisible({ timeout: 15_000 });
 });
+
+test('login screen is reachable from a fresh user data dir', async () => {
+  launched = await launchApp();
+  // Título da tela de login — pt-BR: "Entrar no G4 OS",
+  // en-US: "Sign in to G4 OS". Ambos contêm "G4 OS".
+  // Pode demorar até o renderer hidratar auth state + navegar para /login.
+  const loginTitle = launched.window.getByText(/(Sign in to|Entrar no) G4 OS/);
+  await expect(loginTitle).toBeVisible({ timeout: 20_000 });
+});

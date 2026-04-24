@@ -5,11 +5,14 @@
  *
  *   - `mcp-http`/`api`: HEAD request com 5s timeout.
  *   - `filesystem`: `access()` no path.
- *   - `mcp-stdio`/`managed`: retorna status persistido (follow-up).
+ *   - `mcp-stdio`: spawn + `initialize` JSON-RPC com 5s timeout
+ *     (via `@g4os/sources/mcp-stdio` probe helper).
+ *   - `managed`: retorna status persistido (aguarda OAuth live mount).
  */
 
 import { createLogger } from '@g4os/kernel/logger';
 import type { SourceConfigView, SourceStatus } from '@g4os/kernel/types';
+import { probeMcpStdio } from '@g4os/sources/mcp-stdio';
 
 const log = createLogger('source-probe');
 
@@ -26,7 +29,30 @@ export function probeSource(source: SourceConfigView): Promise<SourceStatus> {
     if (typeof path !== 'string' || path.length === 0) return Promise.resolve('disconnected');
     return probeFilesystem(path);
   }
+  if (source.kind === 'mcp-stdio') return probeStdio(source);
   return Promise.resolve(source.status);
+}
+
+function probeStdio(source: SourceConfigView): Promise<SourceStatus> {
+  const cfg = source.config as {
+    command?: unknown;
+    args?: unknown;
+    env?: Record<string, string>;
+  };
+  if (typeof cfg.command !== 'string' || cfg.command.length === 0) {
+    return Promise.resolve('disconnected');
+  }
+  if (!Array.isArray(cfg.args) || !cfg.args.every((a) => typeof a === 'string')) {
+    return Promise.resolve('disconnected');
+  }
+  return probeMcpStdio({
+    command: cfg.command,
+    args: cfg.args as string[],
+    ...(cfg.env ? { env: cfg.env } : {}),
+  }).catch((err) => {
+    log.debug({ err: String(err), slug: source.slug }, 'mcp-stdio probe threw');
+    return 'error' as const;
+  });
 }
 
 async function probeHttp(url: string): Promise<SourceStatus> {
