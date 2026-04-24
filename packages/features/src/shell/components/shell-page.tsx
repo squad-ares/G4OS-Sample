@@ -17,8 +17,8 @@ export function ShellPageScaffold({
   children,
 }: ShellPageScaffoldProps) {
   return (
-    <section className="min-h-full p-6 md:p-8">
-      <div className="space-y-6">
+    <section className="h-full overflow-y-auto p-6 md:p-8">
+      <div className="space-y-6 pb-6">
         <div className="rounded-[28px] border border-foreground/10 bg-[linear-gradient(160deg,rgba(255,255,255,0.72),rgba(255,255,255,0.34))] p-6 shadow-[0_18px_48px_rgba(0,31,53,0.08)]">
           {eyebrow ? (
             <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-accent">

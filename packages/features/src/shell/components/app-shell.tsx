@@ -1,33 +1,48 @@
 import { useTranslate } from '@g4os/ui';
 import type { ReactNode } from 'react';
-import { AppHeader, type AppHeaderProps } from './app-header.tsx';
 import {
-  ShellNavigator,
-  type ShellNavigatorProps,
-  type ShellNavigatorWorkspace,
-} from './shell-navigator.tsx';
+  ContextualSubSidebar,
+  type ContextualSubSidebarProps,
+} from './sub-sidebar/contextual-sub-sidebar.tsx';
+import type { SubSidebarWorkspace } from './sub-sidebar/sub-sidebar-footer.tsx';
 import { WorkspaceSidebar } from './workspace-sidebar.tsx';
 
 export interface AppShellProps {
-  readonly header: AppHeaderProps;
-  readonly navigation: Pick<ShellNavigatorProps, 'activePath' | 'onNavigate'>;
-  readonly workspace?: ShellNavigatorWorkspace;
+  readonly navigation: {
+    readonly activePath: string;
+    readonly onNavigate: (to: string) => void;
+  };
+  readonly workspace?: SubSidebarWorkspace;
   readonly onOpenSupport?: () => void;
+  readonly onOpenCommandPalette?: () => void;
+  readonly onOpenShortcuts?: () => void;
+  readonly onSignOut?: () => void;
+  readonly renderSubSidebarPanel?: ContextualSubSidebarProps['renderPanel'];
   readonly children: ReactNode;
 }
 
+const CHAT_SESSION_PATTERN = /\/workspaces\/[^/]+\/sessions\/[^/]+/;
+
+function isChatRoute(pathname: string): boolean {
+  return CHAT_SESSION_PATTERN.test(pathname);
+}
+
 export function AppShell({
-  header,
   navigation,
   workspace,
   onOpenSupport,
+  onOpenCommandPalette,
+  onOpenShortcuts,
+  onSignOut,
+  renderSubSidebarPanel,
   children,
 }: AppShellProps) {
   const { t } = useTranslate();
+  const chatMode = isChatRoute(navigation.activePath);
 
   return (
-    <div className="relative flex h-dvh min-h-0 overflow-hidden bg-foreground-2 text-foreground">
-      <div className="titlebar-drag-region pointer-events-none fixed inset-x-0 top-0 z-10 h-9.5" />
+    <div className="chat-dotted-bg relative flex h-dvh min-h-0 overflow-hidden text-foreground">
+      <div className="titlebar-drag-region pointer-events-none fixed inset-x-0 top-0 z-10 h-10" />
 
       <a
         href="#app-main-content"
@@ -36,22 +51,24 @@ export function AppShell({
         {t('shell.a11y.skipToContent')}
       </a>
 
-      <WorkspaceSidebar
-        activePath={navigation.activePath}
-        onNavigate={navigation.onNavigate}
-        {...(onOpenSupport ? { onOpenSupport } : {})}
-      />
-      <ShellNavigator
-        activePath={navigation.activePath}
-        onNavigate={navigation.onNavigate}
-        {...(workspace ? { workspace } : {})}
-      />
+      <WorkspaceSidebar activePath={navigation.activePath} onNavigate={navigation.onNavigate} />
 
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-        <AppHeader {...header} />
+      <div className="flex min-h-0 flex-1 gap-3 py-3 pr-3">
+        <ContextualSubSidebar
+          activePath={navigation.activePath}
+          {...(workspace ? { workspace } : {})}
+          {...(onOpenSupport ? { onOpenSupport } : {})}
+          {...(onOpenCommandPalette ? { onOpenCommandPalette } : {})}
+          {...(onOpenShortcuts ? { onOpenShortcuts } : {})}
+          {...(onSignOut ? { onSignOut } : {})}
+          {...(renderSubSidebarPanel ? { renderPanel: renderSubSidebarPanel } : {})}
+        />
+
         <main
           id="app-main-content"
-          className="min-h-0 flex-1 overflow-auto bg-background px-6 py-5 md:px-8"
+          className={`relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-[16px] ${
+            chatMode ? 'bg-transparent' : 'bg-background shadow-middle'
+          }`}
         >
           {children}
         </main>

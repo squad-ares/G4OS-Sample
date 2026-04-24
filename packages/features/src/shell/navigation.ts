@@ -1,36 +1,36 @@
 import type { TranslationKey } from '@g4os/translate';
 import {
-  Bell,
-  Building2,
-  CalendarClock,
   FolderKanban,
   type LucideIcon,
   MessagesSquare,
   Newspaper,
   Plug,
   Settings,
-  Sparkles,
   Store,
   Workflow,
 } from 'lucide-react';
 
+/**
+ * Primary sidebar structure — exactly 7 top-level hubs (V1 parity):
+ *   Sessions, Projects, Connections, Automations, Marketplace, News, Settings.
+ *
+ * Sub-features are exposed inside each hub's contextual sub-sidebar, not as
+ * rail entries. For example: Sources/MCPs/APIs/Local-folders/Agents live
+ * inside `connections`; Skills/Scheduler/Workflows/Vigias live inside
+ * `automations`; Labels/Permissions/Cloud-Sync/Preferences live inside
+ * `settings`.
+ */
 export type ShellNavigationId =
-  | 'workspaces'
-  | 'sources'
+  | 'sessions'
   | 'projects'
+  | 'connections'
+  | 'automations'
   | 'marketplace'
-  | 'company-context'
-  | 'skills'
-  | 'workflows'
-  | 'scheduler'
-  | 'vigia'
   | 'news'
-  | 'settings'
-  | 'support';
+  | 'settings';
 
 export type ShellNavigationSection = 'workspace' | 'automation' | 'system';
 export type ShellNavigationStatus = 'ready' | 'planned';
-export type ShellNavigationPlacement = 'rail' | 'panel';
 
 export interface ShellNavigationEntry {
   readonly id: ShellNavigationId;
@@ -40,29 +40,17 @@ export interface ShellNavigationEntry {
   readonly descriptionKey: TranslationKey;
   readonly status: ShellNavigationStatus;
   readonly icon: LucideIcon;
-  readonly placement: ShellNavigationPlacement;
 }
 
 export const shellNavigationEntries: readonly ShellNavigationEntry[] = [
   {
-    id: 'workspaces',
+    id: 'sessions',
     section: 'workspace',
     to: '/workspaces',
-    labelKey: 'shell.nav.workspaces.label',
-    descriptionKey: 'shell.nav.workspaces.description',
+    labelKey: 'shell.nav.sessions.label',
+    descriptionKey: 'shell.nav.sessions.description',
     status: 'ready',
     icon: MessagesSquare,
-    placement: 'rail',
-  },
-  {
-    id: 'sources',
-    section: 'workspace',
-    to: '/sources',
-    labelKey: 'shell.nav.sources.label',
-    descriptionKey: 'shell.nav.sources.description',
-    status: 'planned',
-    icon: Plug,
-    placement: 'rail',
   },
   {
     id: 'projects',
@@ -70,9 +58,26 @@ export const shellNavigationEntries: readonly ShellNavigationEntry[] = [
     to: '/projects',
     labelKey: 'shell.nav.projects.label',
     descriptionKey: 'shell.nav.projects.description',
-    status: 'planned',
+    status: 'ready',
     icon: FolderKanban,
-    placement: 'rail',
+  },
+  {
+    id: 'connections',
+    section: 'workspace',
+    to: '/connections',
+    labelKey: 'shell.nav.connections.label',
+    descriptionKey: 'shell.nav.connections.description',
+    status: 'planned',
+    icon: Plug,
+  },
+  {
+    id: 'automations',
+    section: 'automation',
+    to: '/automations',
+    labelKey: 'shell.nav.automations.label',
+    descriptionKey: 'shell.nav.automations.description',
+    status: 'planned',
+    icon: Workflow,
   },
   {
     id: 'marketplace',
@@ -82,57 +87,6 @@ export const shellNavigationEntries: readonly ShellNavigationEntry[] = [
     descriptionKey: 'shell.nav.marketplace.description',
     status: 'planned',
     icon: Store,
-    placement: 'rail',
-  },
-  {
-    id: 'company-context',
-    section: 'automation',
-    to: '/company-context',
-    labelKey: 'shell.nav.companyContext.label',
-    descriptionKey: 'shell.nav.companyContext.description',
-    status: 'planned',
-    icon: Building2,
-    placement: 'panel',
-  },
-  {
-    id: 'skills',
-    section: 'automation',
-    to: '/skills',
-    labelKey: 'shell.nav.skills.label',
-    descriptionKey: 'shell.nav.skills.description',
-    status: 'planned',
-    icon: Sparkles,
-    placement: 'rail',
-  },
-  {
-    id: 'workflows',
-    section: 'automation',
-    to: '/workflows',
-    labelKey: 'shell.nav.workflows.label',
-    descriptionKey: 'shell.nav.workflows.description',
-    status: 'planned',
-    icon: Workflow,
-    placement: 'panel',
-  },
-  {
-    id: 'scheduler',
-    section: 'automation',
-    to: '/scheduler',
-    labelKey: 'shell.nav.scheduler.label',
-    descriptionKey: 'shell.nav.scheduler.description',
-    status: 'planned',
-    icon: CalendarClock,
-    placement: 'panel',
-  },
-  {
-    id: 'vigia',
-    section: 'automation',
-    to: '/vigia',
-    labelKey: 'shell.nav.vigia.label',
-    descriptionKey: 'shell.nav.vigia.description',
-    status: 'planned',
-    icon: Bell,
-    placement: 'panel',
   },
   {
     id: 'news',
@@ -140,9 +94,8 @@ export const shellNavigationEntries: readonly ShellNavigationEntry[] = [
     to: '/news',
     labelKey: 'shell.nav.news.label',
     descriptionKey: 'shell.nav.news.description',
-    status: 'planned',
+    status: 'ready',
     icon: Newspaper,
-    placement: 'panel',
   },
   {
     id: 'settings',
@@ -152,17 +105,6 @@ export const shellNavigationEntries: readonly ShellNavigationEntry[] = [
     descriptionKey: 'shell.nav.settings.description',
     status: 'ready',
     icon: Settings,
-    placement: 'rail',
-  },
-  {
-    id: 'support',
-    section: 'system',
-    to: '/support',
-    labelKey: 'shell.nav.support.label',
-    descriptionKey: 'shell.nav.support.description',
-    status: 'ready',
-    icon: Newspaper,
-    placement: 'panel',
   },
 ] as const;
 
