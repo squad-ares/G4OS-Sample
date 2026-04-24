@@ -1,7 +1,10 @@
 import { AgentError } from '@g4os/kernel/errors';
+import { createLogger } from '@g4os/kernel/logger';
 import type { AgentEvent, AgentTurnInput } from '../../interface/agent.ts';
 import type { ClaudeCreateMessageParams, ClaudeProvider, ClaudeStreamEvent } from '../types.ts';
 import { createEventMapperState, mapStreamEvent } from './event-mapper.ts';
+
+const log = createLogger('claude-stream-runner');
 
 export interface StreamRunnerOptions {
   readonly providerKind: string;
@@ -40,6 +43,10 @@ export class StreamRunner {
       }
     } catch (cause) {
       const error = wrapError(cause, signal, this.options.providerKind);
+      log.warn(
+        { code: error.code, message: error.message, turnId: input.turnId },
+        'claude stream runner caught error',
+      );
       yield { type: 'error', error };
       yield { type: 'done', reason: 'error' };
       sawDone = true;
@@ -59,10 +66,53 @@ export class StreamRunner {
   }
 }
 
-function wrapError(cause: unknown, signal: AbortSignal, providerKind: string): AgentError {
-  if (signal.aborted) {
-    return AgentError.network(providerKind, { reason: 'aborted' });
+interface ApiErrorLike {
+  readonly status?: number;
+  readonly message?: string;
+}
+
+function extractApiErrorInfo(cause: unknown): ApiErrorLike | null {
+  if (cause === null || typeof cause !== 'object') return null;
+  const obj = cause as Record<string, unknown>;
+  const status = typeof obj['status'] === 'number' ? obj['status'] : undefined;
+  const message = typeof obj['message'] === 'string' ? obj['message'] : undefined;
+  if (status === undefined && message === undefined) return null;
+  return {
+    ...(status === undefined ? {} : { status }),
+    ...(message === undefined ? {} : { message }),
+  };
+}
+
+function mapApiError(
+  apiError: ApiErrorLike,
+  providerKind: string,
+  cause: unknown,
+): AgentError | null {
+  const { status, message } = apiError;
+  if (status === 401 || status === 403) {
+    return new AgentError({
+      code: 'agent.unavailable',
+      message: 'Invalid API key — please check your Anthropic key in Settings > Agents',
+      context: { provider: providerKind, status },
+      cause,
+    });
   }
+  if (status === 429) return AgentError.rateLimited(providerKind);
+  if (message && message.trim().length > 0) {
+    return new AgentError({
+      code: 'agent.network',
+      message: status ? `${providerKind} (${status}): ${message}` : message,
+      context: { provider: providerKind, ...(status === undefined ? {} : { status }) },
+      cause,
+    });
+  }
+  return null;
+}
+
+function wrapError(cause: unknown, signal: AbortSignal, providerKind: string): AgentError {
+  if (signal.aborted) return AgentError.network(providerKind, { reason: 'aborted' });
   if (cause instanceof AgentError) return cause;
-  return AgentError.network(providerKind, cause);
+  const apiError = extractApiErrorInfo(cause);
+  const mapped = apiError ? mapApiError(apiError, providerKind, cause) : null;
+  return mapped ?? AgentError.network(providerKind, cause);
 }
