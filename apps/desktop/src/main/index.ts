@@ -8,12 +8,12 @@ import { PermissionBroker, PermissionStore } from '@g4os/permissions';
 import { getAppPaths, isMacOS } from '@g4os/platform';
 import { SessionEventBus } from '@g4os/session-runtime';
 import { SourcesStore } from '@g4os/sources/store';
+import { createStubAgentFactory } from './agents/stub-agent-factory.ts';
 import { providerForVaultKey, registerAgents } from './agents-bootstrap.ts';
 import { AppLifecycle } from './app-lifecycle.ts';
 import { DeepLinkHandler } from './deep-link-handler.ts';
 import { loadElectron } from './electron-runtime.ts';
 import { initIpcServer } from './ipc-bootstrap.ts';
-import { ProcessSupervisor } from './process/supervisor.ts';
 import { readRuntimeEnv } from './runtime-env.ts';
 import { createAuthRuntime } from './services/auth-runtime.ts';
 import { CpuPool } from './services/cpu-pool.ts';
@@ -26,14 +26,13 @@ import { createObservabilityRuntime } from './services/observability-runtime.ts'
 import { createPermissionsService } from './services/permissions-service.ts';
 import { createPlatformService } from './services/platform-service.ts';
 import { createProjectsService } from './services/projects-service.ts';
-import { SessionManager } from './services/session-manager.ts';
 import { SessionsCleanupScheduler } from './services/sessions-cleanup-scheduler.ts';
 import { createSessionsService } from './services/sessions-service.ts';
+import { createMountRegistry } from './services/sources/mount-bootstrap.ts';
 import { createSourcesService } from './services/sources-service.ts';
 import { buildIntentUpdater, buildToolCatalog } from './services/tools-bootstrap.ts';
 import { TurnDispatcher } from './services/turn-dispatcher.ts';
 import { createWindowsService } from './services/windows-service.ts';
-import { WorkerTurnDispatcher } from './services/worker-turn-dispatcher.ts';
 import { createWorkspaceTransferService } from './services/workspace-transfer-service.ts';
 import { createWorkspacesService } from './services/workspaces-service.ts';
 import { StartupPreflightService } from './startup-preflight-service.ts';
@@ -54,17 +53,14 @@ function resolveRendererTargets(): { preloadPath: string; rendererUrl: string } 
   return { preloadPath, rendererUrl };
 }
 
-function resolveIconPath({
-  isPackaged,
-  rootDir,
-}: {
+function resolveIconPath(opts: {
   readonly isPackaged: boolean;
   readonly rootDir: string;
 }): string | undefined {
-  const candidates = isPackaged
-    ? [resolve(process.resourcesPath, 'resources/icon.png')]
-    : [resolve(rootDir, 'apps/desktop/resources/icon.png')];
-  return candidates.find((path) => existsSync(path));
+  const base = opts.isPackaged
+    ? resolve(process.resourcesPath, 'resources/icon.png')
+    : resolve(opts.rootDir, 'apps/desktop/resources/icon.png');
+  return existsSync(base) ? base : undefined;
 }
 
 export async function bootstrapMain(options: BootstrapOptions = {}): Promise<void> {
@@ -101,7 +97,6 @@ export async function bootstrapMain(options: BootstrapOptions = {}): Promise<voi
   const rendererUrl = options.rendererUrl ?? defaults.rendererUrl;
 
   const lifecycle = new AppLifecycle(electron.app);
-  const supervisor = new ProcessSupervisor(electron);
   const cpuPool = new CpuPool();
   const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), '../../../..');
   const iconPath = resolveIconPath({ isPackaged: electron.app.isPackaged, rootDir });
@@ -139,12 +134,13 @@ export async function bootstrapMain(options: BootstrapOptions = {}): Promise<voi
   });
   const messagesService = new SqliteMessagesService({ drizzle: database.drizzle });
   const sessionEventBus = new SessionEventBus();
-  const sessions = new SessionManager(supervisor, { eventBus: sessionEventBus });
 
+  const isE2E = readRuntimeEnv('G4OS_E2E') === '1';
   const agentsRuntime = await registerAgents({
     credentialVault,
     // biome-ignore lint/style/noProcessEnv: composition root; sanctioned env read
     env: process.env,
+    ...(isE2E ? { factories: [createStubAgentFactory()] } : {}),
   });
 
   const credentialsService = createCredentialsService({
@@ -182,6 +178,7 @@ export async function bootstrapMain(options: BootstrapOptions = {}): Promise<voi
   );
 
   const toolCatalog = buildToolCatalog({ sourcesStore, sessionsRepo });
+  const mountRegistry = createMountRegistry();
 
   const turnDispatcher = new TurnDispatcher({
     messages: messagesService,
@@ -190,30 +187,17 @@ export async function bootstrapMain(options: BootstrapOptions = {}): Promise<voi
     permissionBroker,
     toolCatalog,
     sourcesStore,
+    mountRegistry,
     getSession: async (id) => (await sessionsRepo.get(id)) ?? null,
-    resolveWorkingDirectory: (session) => {
-      if (session?.workingDirectory) return session.workingDirectory;
-      return appPaths.workspace(session?.workspaceId ?? 'default');
-    },
+    resolveWorkingDirectory: (session) =>
+      session?.workingDirectory ?? appPaths.workspace(session?.workspaceId ?? 'default'),
     sessionIntentUpdater: buildIntentUpdater(sessionsRepo),
   });
-  const workerTurnDispatcher = new WorkerTurnDispatcher({
-    messages: messagesService,
-    sessionManager: sessions,
-    eventBus: sessionEventBus,
-    vault: credentialVault,
-    getSession: async (id) => (await sessionsRepo.get(id)) ?? null,
-  });
-  const useSessionWorker = readRuntimeEnv('G4OS_USE_SESSION_WORKER') === '1';
-
   const sessionsService = createSessionsService({
     db: database.db,
     drizzle: database.drizzle,
-    sessionManager: sessions,
     eventBus: sessionEventBus,
     turnDispatcher,
-    workerTurnDispatcher,
-    useSessionWorker,
     agentRuntime: {
       get available() {
         return agentsRuntime.status().providers.length > 0;
@@ -239,20 +223,16 @@ export async function bootstrapMain(options: BootstrapOptions = {}): Promise<voi
     // biome-ignore lint/style/noProcessEnv: composition root; reads sanctioned here
     envSource: process.env,
     credentialVault,
+    mockAuthMode: isE2E,
   });
 
   if (!authRuntime.configured) {
-    log.warn(
-      { missingEnv: authRuntime.missingEnv, filesLoaded: authRuntime.filesLoaded },
-      'supabase auth not configured; otp login remains disabled until .env is provided',
-    );
+    log.warn({ missingEnv: authRuntime.missingEnv }, 'supabase auth not configured');
   }
 
-  lifecycle.onQuit(() => sessions.dispose());
+  lifecycle.onQuit(() => mountRegistry.dispose());
   lifecycle.onQuit(() => turnDispatcher.dispose());
-  lifecycle.onQuit(() => workerTurnDispatcher.dispose());
   lifecycle.onQuit(() => sessionEventBus.dispose());
-  lifecycle.onQuit(() => supervisor.shutdownAll());
   lifecycle.onQuit(() => cpuPool.destroy());
   lifecycle.onQuit(() => authRuntime.dispose());
   lifecycle.onQuit(() => sessionsCleanup.dispose());
