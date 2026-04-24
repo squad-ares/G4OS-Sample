@@ -41,8 +41,9 @@ const config: Configuration = {
 
   extraResources: [
     { from: 'resources', to: 'resources', filter: ['icon.*', 'g4os-logos/**/*'] },
-    // bundled runtimes — populado por scripts/bundle-runtimes antes do pack
-    { from: 'dist/runtime', to: 'runtime', filter: ['**/*'] },
+    // bundled runtimes — populado por scripts/bundle-runtimes antes do pack.
+    // runtime/ só existirá quando bridge-mcp-server/session-mcp-server forem
+    // adicionados ao V2; por enquanto é opcional.
     { from: 'dist/vendor', to: 'vendor', filter: ['**/*'] },
   ],
 
@@ -80,13 +81,15 @@ const config: Configuration = {
 
   win: {
     icon: 'resources/icon.ico',
-    publisherName: 'G4 Educação',
-    // SEMPRE sha256-only. V1 sofreu dual-sign (sha1+sha256) que dobra custo
-    // em KeyLocker. Signing é post-build via scripts/sign-windows.ts.
-    signingHashAlgorithms: ['sha256'],
     // electron-builder não assina — deixamos o installer sair unsigned e
-    // chamamos signtool/smctl/azuresigntool via script próprio.
+    // chamamos signtool/smctl/azuresigntool via script próprio. SEMPRE
+    // sha256-only; V1 sofreu dual-sign (sha1+sha256) dobrando custo em
+    // KeyLocker.
     signAndEditExecutable: winSignProvider !== 'none',
+    signtoolOptions: {
+      publisherName: 'G4 Educação',
+      signingHashAlgorithms: ['sha256'],
+    },
     target: [
       { target: 'nsis', arch: ['x64', 'arm64'] },
       { target: 'zip', arch: ['x64', 'arm64'] },
@@ -103,11 +106,38 @@ const config: Configuration = {
   linux: {
     icon: 'resources/g4os-logos/g4os_app_icon.png',
     category: 'Office',
+    synopsis: 'G4 OS desktop',
+    description: 'G4 OS — plataforma desktop para sessões AI colaborativas.',
     target: [
       { target: 'AppImage', arch: ['x64', 'arm64'] },
       { target: 'deb', arch: ['x64', 'arm64'] },
       { target: 'rpm', arch: ['x64'] },
     ],
+    extraFiles: [{ from: 'build/linux/apparmor/g4os', to: '/etc/apparmor.d/g4os' }],
+  },
+
+  deb: {
+    afterInstall: 'build/linux/deb/postinst',
+    afterRemove: 'build/linux/deb/prerm',
+    depends: [
+      'libgtk-3-0',
+      'libnotify4',
+      'libnss3',
+      'libxss1',
+      'libxtst6',
+      'xdg-utils',
+      'libatspi2.0-0',
+      'libuuid1',
+      'libsecret-1-0',
+    ],
+  },
+
+  rpm: {
+    depends: ['libXScrnSaver', 'libnotify', 'libsecret', 'xdg-utils'],
+  },
+
+  appImage: {
+    license: 'LICENSE',
   },
 
   publish:

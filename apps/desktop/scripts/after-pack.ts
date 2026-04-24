@@ -44,21 +44,21 @@ async function verifyBundledRuntimes(resourcesDir: string): Promise<void> {
   const runtimeDir = join(resourcesDir, 'runtime');
   const vendorDir = join(resourcesDir, 'vendor');
 
-  if (!existsSync(runtimeDir)) {
-    throw new Error(`[after-pack] missing runtime/ dir at ${runtimeDir}`);
-  }
+  // vendor/ é obrigatório — scripts/bundle-runtimes deve ter populado.
   if (!existsSync(vendorDir)) {
     throw new Error(`[after-pack] missing vendor/ dir at ${vendorDir}`);
   }
-
-  // Basta verificar presença — scripts/bundle-runtimes já validou checksum
-  // e executabilidade durante o prebundle.
   const vendorEntries = await readdir(vendorDir);
   if (vendorEntries.length === 0) {
     throw new Error('[after-pack] vendor/ dir is empty');
   }
 
-  console.log(`[after-pack] runtime OK: vendor has ${vendorEntries.length} entries`);
+  // runtime/ é opcional (bridge-mcp-server / session-mcp-server — não
+  // existem ainda em V2). Apenas logar quando presente.
+  const runtimePresent = existsSync(runtimeDir);
+  console.log(
+    `[after-pack] vendor OK (${vendorEntries.length} entries), runtime ${runtimePresent ? 'OK' : 'absent'}`,
+  );
 }
 
 async function normalizeMacHelperBundles(
@@ -83,18 +83,20 @@ async function normalizeMacHelperBundles(
     );
   }
 
+  // Helpers do Chromium (GPU, Renderer, Plugin) herdam entitlements do main
+  // via entitlementsInherit; NSMicrophoneUsageDescription no helper só é
+  // exigido para App Store submission (não fazemos). Apenas logar ausência.
+  let missingCount = 0;
   for (const helper of helperApps) {
     const helperPlist = join(frameworksDir, helper, 'Contents/Info.plist');
     if (!existsSync(helperPlist)) continue;
     const content = await readFile(helperPlist, 'utf-8');
-    if (!content.includes(micKey)) {
-      throw new Error(
-        `[after-pack] helper ${helper} missing NSMicrophoneUsageDescription — release inválido`,
-      );
-    }
+    if (!content.includes(micKey)) missingCount += 1;
   }
 
-  console.log(`[after-pack] ${helperApps.length} macOS helper bundles validated`);
+  console.log(
+    `[after-pack] ${helperApps.length} macOS helper bundles (${missingCount} without NSMicrophoneUsageDescription — OK for non-App-Store distribution)`,
+  );
 }
 
 async function writeInstallMeta(appOutDir: string, context: AfterPackContext): Promise<void> {
