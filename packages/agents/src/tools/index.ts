@@ -1,3 +1,4 @@
+export { composeCatalogs } from './composite-catalog.ts';
 export {
   type ActivateSourcesDeps,
   createActivateSourcesHandler,
