@@ -139,6 +139,7 @@ module.exports = {
           '\\.(test|spec)\\.(ts|tsx)$',
           '/__tests__/',
           '\\.(config|vitest\\.config)\\.(ts|js)$',
+          '^apps/[^/]+/scripts/',
         ],
       },
       to: {

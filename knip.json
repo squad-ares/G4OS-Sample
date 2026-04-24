@@ -12,7 +12,8 @@
         "size-limit",
         "electron",
         "electron-vite"
-      ]
+      ],
+      "ignoreBinaries": ["prebundle", "electron-builder"]
     },
     "apps/desktop": {
       "entry": [
@@ -23,12 +24,18 @@
         "src/main/services/db-service.ts",
         "src/main/services/backup-scheduler.ts",
         "src/main/services/transcription.ts",
-        "src/main/workers/cpu-pool/tasks.ts",
+        "src/main/services/update-service.ts",
         "src/main/__tests__/**/*.ts",
         "src/renderer/index.html",
         "src/renderer/**/*.tsx",
         "src/renderer/**/*.ts",
-        "electron.vite.config.ts"
+        "electron.vite.config.ts",
+        "electron-builder.config.ts",
+        "scripts/after-pack.ts",
+        "scripts/sign-windows.ts",
+        "scripts/notarize-macos.ts",
+        "scripts/regenerate-metadata.ts",
+        "scripts/bundle-runtimes/**/*.ts"
       ],
       "ignoreDependencies": [
         "pino-pretty",
@@ -36,7 +43,8 @@
         "@supabase/supabase-js",
         "pino",
         "@anthropic-ai/sdk"
-      ]
+      ],
+      "ignoreBinaries": ["tar", "powershell", "xcrun", "signtool", "smctl", "AzureSignTool"]
     },
     "apps/desktop-e2e": {
       "entry": ["tests/**/*.ts", "playwright.config.ts"]
