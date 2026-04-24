@@ -413,8 +413,8 @@ Mudanças reversíveis locais (editar, rodar, testar) → siga sem perguntar.
 
 Itens com implementação intencional incompleta — leia o contexto antes de refatorar:
 
-- **FOLLOWUP-OUTLIER-12** — MCP stdio runtime + managed connectors OAuth live mount (OUTLIER-10/12 Phase 2).
-- **FOLLOWUP-OUTLIER-23** — E2E Phase 2: 8 flows autenticados (login/session/send/modal/tool-permission), exige mock Supabase + API keys em CI.
+- **FOLLOWUP-OUTLIER-12** — Managed connectors OAuth live mount + real `McpClient` implementation (SDK-backed) com handshake/tool call pelo broker da sessão. MCP stdio probe (`SourcesService.testConnection` → `@g4os/sources/mcp-stdio.probeMcpStdio`) e botão "Test connection" na UI de Sources já estão entregues (2026-04-24).
+- **FOLLOWUP-OUTLIER-23** — E2E Phase 2: 8 flows autenticados (login/session/send/modal/tool-permission), exige mock Supabase + API keys em CI. MVP atual cobre 3 smokes: `app launches`, `shell sidebar visible`, `login screen reachable from fresh userDataDir`.
 
 Resolvidos:
 
