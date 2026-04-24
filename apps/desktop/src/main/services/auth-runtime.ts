@@ -14,11 +14,15 @@
  */
 
 import {
+  AUTH_ACCESS_TOKEN_KEY,
+  AUTH_SESSION_META_KEY,
+  type AuthTokenStore,
   createSupabaseAdapter,
   defaultSupabaseClientFactory,
   loadSupabaseEnvFiles,
   ManagedLoginService,
   SessionRefresher,
+  type SupabaseAuthPort,
   type SupabaseEnvValidationResult,
   validateSupabaseEnv,
 } from '@g4os/auth';
@@ -46,6 +50,12 @@ export interface AuthRuntimeOptions {
    * app. Sem ele, o runtime cai no fallback in-memory (útil em testes).
    */
   readonly credentialVault?: CredentialVault;
+  /**
+   * Quando `true`, ignora validação Supabase e pré-autentica com sessão fake.
+   * Usado somente em E2E (`G4OS_E2E=1`). Em produção, `createAuthRuntime`
+   * precisa das envs reais para configurar o OTP flow.
+   */
+  readonly mockAuthMode?: boolean;
 }
 
 export interface AuthRuntime {
@@ -60,6 +70,11 @@ export interface AuthRuntime {
 
 export function createAuthRuntime(options: AuthRuntimeOptions): AuthRuntime {
   const filesLoaded: string[] = [];
+
+  if (options.mockAuthMode === true) {
+    return buildMockAuthRuntime();
+  }
+
   const combined: Record<string, string | undefined> = { ...(options.envSource ?? {}) };
 
   if (options.skipDotEnv !== true) {
@@ -197,4 +212,46 @@ function createUnavailableAuthService(missingEnv: readonly string[]): AuthServic
     verifyOtp: async () => err(buildError()),
     signOut: async () => ok(undefined),
   };
+}
+
+function buildMockAuthRuntime(): AuthRuntime {
+  log.warn({}, 'auth-runtime booting in mockAuthMode (G4OS_E2E) — Supabase bypassed');
+  const supabase: SupabaseAuthPort = {
+    signInWithOtp: () => Promise.reject(new Error('mockAuthMode: signInWithOtp disabled')),
+    verifyOtp: () => Promise.reject(new Error('mockAuthMode: verifyOtp disabled')),
+    refreshSession: () => Promise.reject(new Error('mockAuthMode: refreshSession disabled')),
+  };
+  const seed = {
+    [AUTH_ACCESS_TOKEN_KEY]: 'e2e-access-token',
+    [AUTH_SESSION_META_KEY]: JSON.stringify({
+      userId: '00000000-0000-0000-0000-00000000e2e0',
+      email: 'e2e@g4os.test',
+      expiresAt: Date.now() + 60 * 60 * 1000,
+    }),
+  };
+  const tokenStore: AuthTokenStore = createSeededTokenStore(seed);
+  const managedLogin = new ManagedLoginService({ supabase, tokenStore });
+  const refresher = new SessionRefresher({ supabase, tokenStore });
+  const service = createAuthServiceFromManagedLogin(managedLogin, async () => {
+    await refresher.refreshNow();
+  });
+  void managedLogin.restore();
+  return {
+    service,
+    configured: true,
+    missingEnv: [],
+    filesLoaded: [],
+    managedLogin,
+    refresher,
+    dispose: () => {
+      refresher.dispose();
+      managedLogin.dispose();
+    },
+  };
+}
+
+function createSeededTokenStore(seed: Readonly<Record<string, string>>): AuthTokenStore {
+  const base = createInMemoryTokenStore();
+  for (const [key, value] of Object.entries(seed)) void base.set(key, value);
+  return base;
 }

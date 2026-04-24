@@ -44,23 +44,15 @@ import {
   stopTurn as stopTurnOp,
 } from '@g4os/session-runtime';
 import { err, ok, type Result } from 'neverthrow';
-import type { SessionManager } from './session-manager.ts';
-import { type AnyTurnDispatcher, selectDispatcher } from './sessions/dispatcher-select.ts';
 import { archiveSession, restoreSession, softDeleteSession } from './sessions/lifecycle.ts';
 import { retryLastTurn, truncateSessionAfter } from './sessions/retry-truncate.ts';
 import type { TurnDispatcher } from './turn-dispatcher.ts';
-import type { WorkerTurnDispatcher } from './worker-turn-dispatcher.ts';
-
-export type { AnyTurnDispatcher };
 
 export interface SessionsServiceDeps {
   readonly db: Db;
   readonly drizzle: AppDb;
-  readonly sessionManager: SessionManager;
   readonly eventBus: SessionEventBus;
   readonly turnDispatcher: TurnDispatcher;
-  readonly workerTurnDispatcher?: WorkerTurnDispatcher;
-  readonly useSessionWorker?: boolean;
   readonly agentRuntime: { readonly available: boolean; readonly providers: readonly string[] };
   readonly permissionBroker: PermissionBroker;
 }
@@ -72,10 +64,6 @@ export class SqliteSessionsService implements SessionsServiceContract {
   constructor(deps: SessionsServiceDeps) {
     this.#deps = deps;
     this.#repo = new SessionsRepository(deps.drizzle);
-  }
-
-  private activeDispatcher(): AnyTurnDispatcher {
-    return selectDispatcher(this.#deps);
   }
 
   async list(workspaceId: WorkspaceId): Promise<Result<readonly Session[], AppError>> {
@@ -228,7 +216,7 @@ export class SqliteSessionsService implements SessionsServiceContract {
 
   async sendMessage(id: SessionId, text: string): Promise<Result<void, AppError>> {
     try {
-      const result = await this.activeDispatcher().dispatch({ sessionId: id, text });
+      const result = await this.#deps.turnDispatcher.dispatch({ sessionId: id, text });
       if (result.isErr()) return err(result.error);
       return ok(undefined);
     } catch (error) {
@@ -250,7 +238,7 @@ export class SqliteSessionsService implements SessionsServiceContract {
   }
 
   stopTurn(id: SessionId): Promise<Result<void, AppError>> {
-    return Promise.resolve(stopTurnOp(this.activeDispatcher(), this.#deps.sessionManager, id));
+    return Promise.resolve(stopTurnOp(this.#deps.turnDispatcher, id));
   }
 
   truncateAfter(id: SessionId, after: number): Promise<Result<{ removed: number }, AppError>> {
@@ -269,7 +257,7 @@ export class SqliteSessionsService implements SessionsServiceContract {
       {
         repo: this.#repo,
         drizzle: this.#deps.drizzle,
-        dispatcher: this.activeDispatcher(),
+        dispatcher: this.#deps.turnDispatcher,
       },
       id,
     );
