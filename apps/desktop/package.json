@@ -3,6 +3,11 @@
   "version": "0.0.2",
   "description": "G4 OS - Aplicativo desktop (Electron)",
   "private": true,
+  "homepage": "https://g4educacao.com",
+  "author": {
+    "name": "G4 Educação",
+    "email": "engenharia@g4educacao.com"
+  },
   "main": "./out/main/index.cjs",
   "type": "module",
   "scripts": {
