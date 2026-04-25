@@ -134,6 +134,9 @@ importers:
       '@g4os/ui':
         specifier: workspace:^
         version: link:../../packages/ui
+      '@pinojs/redact':
+        specifier: 0.4.0
+        version: 0.4.0
       '@supabase/supabase-js':
         specifier: 2.52.1
         version: 2.52.1
@@ -152,39 +155,72 @@ importers:
       archiver:
         specifier: 7.0.1
         version: 7.0.1
+      atomic-sleep:
+        specifier: 1.0.0
+        version: 1.0.0
+      date-fns:
+        specifier: 4.1.0
+        version: 4.1.0
       drizzle-orm:
         specifier: 1.0.0-beta.17-8a36f93
         version: 1.0.0-beta.17-8a36f93(@opentelemetry/api@1.9.0)(zod@4.3.6)
       electron-trpc:
         specifier: 0.7.1
-        version: 0.7.1(@trpc/client@11.16.0(@trpc/server@11.16.0(typescript@6.0.3))(typescript@6.0.3))(@trpc/server@11.16.0(typescript@6.0.3))(electron@41.2.1)
+        version: 0.7.1(@trpc/client@11.16.0(@trpc/server@11.16.0(typescript@6.0.3))(typescript@6.0.3))(@trpc/server@11.16.0(typescript@6.0.3))(electron@41.3.0)
       electron-updater:
         specifier: 6.8.3
         version: 6.8.3
       neverthrow:
         specifier: 8.2.0
         version: 8.2.0
+      on-exit-leak-free:
+        specifier: 2.1.2
+        version: 2.1.2
       pino:
         specifier: 10.3.1
         version: 10.3.1
+      pino-abstract-transport:
+        specifier: 3.0.0
+        version: 3.0.0
       pino-pretty:
         specifier: 13.1.3
         version: 13.1.3
       pino-roll:
         specifier: 4.0.0
         version: 4.0.0
+      pino-std-serializers:
+        specifier: 7.1.0
+        version: 7.1.0
+      process-warning:
+        specifier: 5.0.0
+        version: 5.0.0
+      quick-format-unescaped:
+        specifier: 4.0.4
+        version: 4.0.4
       react:
         specifier: ^19.2.5
         version: 19.2.5
       react-dom:
         specifier: ^19.2.5
         version: 19.2.5(react@19.2.5)
+      real-require:
+        specifier: 1.0.0
+        version: 1.0.0
       rxjs:
         specifier: 7.8.2
         version: 7.8.2
+      safe-stable-stringify:
+        specifier: 2.5.0
+        version: 2.5.0
+      sonic-boom:
+        specifier: 5.0.0
+        version: 5.0.0
       superjson:
         specifier: 2.2.6
         version: 2.2.6
+      thread-stream:
+        specifier: 4.0.0
+        version: 4.0.0
       yauzl:
         specifier: 3.3.0
         version: 3.3.0
@@ -214,8 +250,8 @@ importers:
         specifier: 7.0.3
         version: 7.0.3
       electron:
-        specifier: ^41.2.1
-        version: 41.2.1
+        specifier: ^41.3.0
+        version: 41.3.0
       electron-builder:
         specifier: 26.8.1
         version: 26.8.1
@@ -415,7 +451,7 @@ importers:
         version: 11.16.0(typescript@6.0.3)
       electron-trpc:
         specifier: 0.7.1
-        version: 0.7.1(@trpc/client@11.16.0(@trpc/server@11.16.0(typescript@6.0.3))(typescript@6.0.3))(@trpc/server@11.16.0(typescript@6.0.3))(electron@41.2.2)
+        version: 0.7.1(@trpc/client@11.16.0(@trpc/server@11.16.0(typescript@6.0.3))(typescript@6.0.3))(@trpc/server@11.16.0(typescript@6.0.3))(electron@41.3.0)
       neverthrow:
         specifier: 8.2.0
         version: 8.2.0
@@ -4262,13 +4298,13 @@ packages:
       '@swc/core':
         optional: true
 
-  electron@41.2.1:
-    resolution: {integrity: sha512-teeRThiYGTPKf/2yOW7zZA1bhb91KEQ4yLBPOg7GxpmnkLFLugKgQaAKOrCgdzwsXh/5mFIfmkm+4+wACJKwaA==}
+  electron@41.2.2:
+    resolution: {integrity: sha512-3rzz/hVIpF726W9g7nleQzyF2IOEZbzZnUTUYGhMaEfsoab8fDyOYAWbdBdo4+DczS1Ifz11rdYo8IAAGcRx/g==}
     engines: {node: '>= 12.20.55'}
     hasBin: true
 
-  electron@41.2.2:
-    resolution: {integrity: sha512-3rzz/hVIpF726W9g7nleQzyF2IOEZbzZnUTUYGhMaEfsoab8fDyOYAWbdBdo4+DczS1Ifz11rdYo8IAAGcRx/g==}
+  electron@41.3.0:
+    resolution: {integrity: sha512-2Q5aeocmFdeheZGDUTrAvSR3t+n0c3d104AJWWEnt7syJU0tE4VdibMYaPtQ47QuXSoUf0/xSsfUUvu/uSXIfg==}
     engines: {node: '>= 12.20.55'}
     hasBin: true
 
@@ -5987,6 +6023,9 @@ packages:
     resolution: {integrity: sha512-57frrGM/OCTLqLOAh0mhVA9VBMHd+9U7Zb2THMGdBUoZVOtGbJzjxsYGDJ3A9AYYCP4hn6y1TVbaOfzWtm5GFg==}
     engines: {node: '>= 12.13.0'}
 
+  real-require@1.0.0:
+    resolution: {integrity: sha512-P4nbQYQfePJxRSmY+v/KINxVucm4NF3p3s7pJveMTtom52FR4YGltUQLB8idDXwDDWW+eYrWDFbuzUnjoWHF7g==}
+
   rechoir@0.8.0:
     resolution: {integrity: sha512-/vxpCXddiX8NGfGO/mTafwjq4aFa/71pvamip0++IQk3zG8cbCj0fifNPrjjF1XMXUne91jL9OoxmdykoEtifQ==}
     engines: {node: '>= 10.13.0'}
@@ -6231,6 +6270,9 @@ packages:
 
   sonic-boom@4.2.1:
     resolution: {integrity: sha512-w6AxtubXa2wTXAUsZMMWERrsIRAdrK0Sc+FUytWvYAhBJLyuI4llrMIC1DtlNSdI99EI86KZum2MMq3EAZlF9Q==}
+
+  sonic-boom@5.0.0:
+    resolution: {integrity: sha512-znaUCPgeMBOX0vAuccd6GmnxtraZSB2y6VKepSPhG9P4A6Dvw2MKFVt12036vrSZqN9mWAt6oM1239/lPYyM4w==}
 
   sonner@2.0.7:
     resolution: {integrity: sha512-W6ZN4p58k8aDKA4XPcx2hpIQXBRAgyiWVkYhT7CvK6D3iAu7xjvVyhQHg2/iaKJZ1XVJ4r7XuwGL+WGEK37i9w==}
@@ -10343,21 +10385,12 @@ snapshots:
 
   electron-to-chromium@1.5.340: {}
 
-  electron-trpc@0.7.1(@trpc/client@11.16.0(@trpc/server@11.16.0(typescript@6.0.3))(typescript@6.0.3))(@trpc/server@11.16.0(typescript@6.0.3))(electron@41.2.1):
+  electron-trpc@0.7.1(@trpc/client@11.16.0(@trpc/server@11.16.0(typescript@6.0.3))(typescript@6.0.3))(@trpc/server@11.16.0(typescript@6.0.3))(electron@41.3.0):
     dependencies:
       '@trpc/client': 11.16.0(@trpc/server@11.16.0(typescript@6.0.3))(typescript@6.0.3)
       '@trpc/server': 11.16.0(typescript@6.0.3)
       debug: 4.4.3
-      electron: 41.2.1
-    transitivePeerDependencies:
-      - supports-color
-
-  electron-trpc@0.7.1(@trpc/client@11.16.0(@trpc/server@11.16.0(typescript@6.0.3))(typescript@6.0.3))(@trpc/server@11.16.0(typescript@6.0.3))(electron@41.2.2):
-    dependencies:
-      '@trpc/client': 11.16.0(@trpc/server@11.16.0(typescript@6.0.3))(typescript@6.0.3)
-      '@trpc/server': 11.16.0(typescript@6.0.3)
-      debug: 4.4.3
-      electron: 41.2.2
+      electron: 41.3.0
     transitivePeerDependencies:
       - supports-color
 
@@ -10386,7 +10419,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  electron@41.2.1:
+  electron@41.2.2:
     dependencies:
       '@electron/get': 2.0.3
       '@types/node': 24.12.2
@@ -10394,7 +10427,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  electron@41.2.2:
+  electron@41.3.0:
     dependencies:
       '@electron/get': 2.0.3
       '@types/node': 24.12.2
@@ -12476,6 +12509,8 @@ snapshots:
 
   real-require@0.2.0: {}
 
+  real-require@1.0.0: {}
+
   rechoir@0.8.0:
     dependencies:
       resolve: 1.22.12
@@ -12763,6 +12798,10 @@ snapshots:
   smol-toml@1.6.1: {}
 
   sonic-boom@4.2.1:
+    dependencies:
+      atomic-sleep: 1.0.0
+
+  sonic-boom@5.0.0:
     dependencies:
       atomic-sleep: 1.0.0
 

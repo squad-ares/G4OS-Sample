@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs';
+import { existsSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createVault } from '@g4os/credentials';
@@ -69,7 +69,6 @@ export async function bootstrapMain(options: BootstrapOptions = {}): Promise<voi
     log.warn('electron runtime unavailable; main boot skipped');
     return;
   }
-
   await electron.app.whenReady();
 
   const observability = await createObservabilityRuntime({
@@ -269,11 +268,30 @@ export async function bootstrapMain(options: BootstrapOptions = {}): Promise<voi
     },
   });
   await windowManager.load(mainWindow, { url: rendererUrl, openDevTools: isDev });
-
   log.info({ preloadPath, rendererUrl }, 'main ready');
 }
 
+// Logger determinístico pré-pino em $TMPDIR/g4os-{label}.log
+function writeStartupCrashLog(label: string, err: unknown): void {
+  try {
+    // biome-ignore lint/style/noProcessEnv: composition root
+    const tmp = process.env['TMPDIR'] ?? '/tmp';
+    const msg =
+      err instanceof Error ? `${err.name}: ${err.message}\n${err.stack ?? ''}` : String(err);
+    writeFileSync(`${tmp}/g4os-${label}.log`, `[${new Date().toISOString()}] ${msg}\n`, {
+      flag: 'a',
+    });
+  } catch {
+    /* ignore */
+  }
+}
+
 void bootstrapMain().catch((err: unknown) => {
+  writeStartupCrashLog('startup-error', err);
   log.fatal({ err }, 'fatal startup error');
+  process.exit(1);
+});
+process.on('uncaughtException', (err) => {
+  writeStartupCrashLog('uncaught', err);
   process.exit(1);
 });

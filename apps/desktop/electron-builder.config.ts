@@ -45,13 +45,13 @@ const config: Configuration = {
     // runtime/ só existirá quando bridge-mcp-server/session-mcp-server forem
     // adicionados ao V2; por enquanto é opcional.
     { from: 'dist/vendor', to: 'vendor', filter: ['**/*'] },
+    // drizzle migrations — main/index.ts resolve process.resourcesPath/drizzle
+    // em packaged. Sem isto, initDatabase crasha com ENOENT no readdirSync.
+    { from: '../../packages/data/drizzle', to: 'drizzle', filter: ['**/*'] },
   ],
 
   asar: true,
-  asarUnpack: [
-    // native bindings que precisam ficar fora do asar
-    '**/node_modules/@parcel/watcher*/**',
-  ],
+  asarUnpack: ['**/node_modules/@parcel/watcher*/**'],
 
   npmRebuild: true,
 
@@ -60,14 +60,32 @@ const config: Configuration = {
   mac: {
     category: 'public.app-category.productivity',
     icon: 'resources/icon.icns',
-    hardenedRuntime: true,
+    // hardenedRuntime exige Developer ID. Em ad-hoc, ligado causa crash
+    // silencioso ao abrir. Ligamos só em `signed`.
+    hardenedRuntime: macSignMode === 'signed',
     gatekeeperAssess: false,
-    entitlements: 'resources/entitlements.mac.plist',
-    entitlementsInherit: 'resources/entitlements.mac.plist',
+    // Entitlements `com.apple.security.cs.*` só funcionam com Developer ID
+    // — em ad-hoc, AMFI rejeita o launch (Code=-420). Usamos plist vazio
+    // em ad-hoc; full plist só em signed (precisa de Developer ID + cert).
+    entitlements:
+      macSignMode === 'signed'
+        ? 'resources/entitlements.mac.plist'
+        : 'resources/entitlements.mac.adhoc.plist',
+    entitlementsInherit:
+      macSignMode === 'signed'
+        ? 'resources/entitlements.mac.plist'
+        : 'resources/entitlements.mac.adhoc.plist',
     // identidade ad-hoc: `-` sinaliza para codesign assinar localmente
-    // sem Apple Developer ID. Usuário final precisa de right-click→Abrir.
+    // sem Apple Developer ID. Usuário final precisa de right-click→Abrir
+    // E rodar `xattr -cr` se o macOS marcou quarantine (download web).
     identity: macSignMode === 'signed' ? undefined : macSignMode === 'adhoc' ? '-' : null,
     notarize: false, // notarização via script separado, ver scripts/notarize-macos.ts
+    extendInfo: {
+      NSMicrophoneUsageDescription:
+        'G4 OS precisa acessar o microfone para gravar áudio durante sessões de chat e reuniões.',
+      NSCameraUsageDescription:
+        'G4 OS pode acessar a câmera para chamadas de vídeo em sessões colaborativas.',
+    },
     target: [
       { target: 'dmg', arch: ['arm64', 'x64'] },
       { target: 'zip', arch: ['arm64', 'x64'] },
