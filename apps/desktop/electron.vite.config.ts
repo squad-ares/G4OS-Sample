@@ -30,9 +30,22 @@ if (!isBuildMode) {
   }
 }
 
+// Constantes embutidas em build time. SUPABASE_ANON_KEY é desenhada para
+// ser pública (proteção real está em RLS no servidor) — pode entrar no
+// bundle. Em CI release, secrets do GitHub injetam via env. Em dev, vem
+// dos arquivos .env. Em build sem credenciais, fica string vazia e o app
+// reporta erro gracioso no login.
+const buildTimeDefines = {
+  __G4OS_SUPABASE_URL__: JSON.stringify(mergedEnv['SUPABASE_URL'] ?? ''),
+  __G4OS_SUPABASE_ANON_KEY__: JSON.stringify(
+    mergedEnv['SUPABASE_ANON_KEY'] ?? mergedEnv['SUPABASE_PUBLISHABLE_KEY'] ?? '',
+  ),
+};
+
 export default defineConfig({
   main: {
     plugins: [externalizeDepsPlugin({ exclude: [] })],
+    define: buildTimeDefines,
     build: {
       rollupOptions: {
         input: {

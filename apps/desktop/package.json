@@ -1,6 +1,6 @@
 {
   "name": "@g4os/desktop",
-  "version": "0.0.0",
+  "version": "0.1.0-beta.0",
   "description": "G4 OS - Aplicativo desktop (Electron)",
   "private": true,
   "main": "./out/main/index.cjs",
