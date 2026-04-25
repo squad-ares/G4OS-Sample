@@ -26,6 +26,15 @@ const config: Configuration = {
   productName: APP_NAME,
   copyright: `Copyright © ${new Date().getFullYear()} G4 Educação`,
 
+  // Sobrescreve o `name` no package.json empacotado. Sem isto, Electron
+  // usa `@g4os/desktop` como name → app.getName() retorna o slug do
+  // workspace e cria userData em ~/Library/Application Support/@g4os/desktop/
+  // (path com `@` e `/`). Aqui forçamos um slug limpo que vira o userData
+  // canonical.
+  extraMetadata: {
+    name: 'g4os',
+  },
+
   directories: {
     output: 'release/${version}',
     buildResources: 'resources',

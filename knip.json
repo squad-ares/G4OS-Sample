@@ -54,7 +54,18 @@
         "real-require",
         "safe-stable-stringify",
         "sonic-boom",
-        "thread-stream"
+        "thread-stream",
+        "@supabase/auth-js",
+        "@supabase/functions-js",
+        "@supabase/node-fetch",
+        "@supabase/postgrest-js",
+        "@supabase/realtime-js",
+        "@supabase/storage-js",
+        "whatwg-url",
+        "tr46",
+        "webidl-conversions",
+        "isows",
+        "ws"
       ],
       "ignoreBinaries": ["tar", "powershell", "xcrun", "signtool", "smctl", "AzureSignTool"]
     },
