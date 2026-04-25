@@ -64,32 +64,11 @@ jobs:
         include: ${{ fromJson(needs.matrix-plan.outputs.platforms) }}
     runs-on: ${{ matrix.os }}
     env:
-      # macOS signing — adhoc se secrets ausentes, signed se presentes
+      # Modo de signing — strings sempre não-vazias (electron-builder
+      # interpreta empty string como path inválido). Apenas as vars de
+      # secret real são exportadas dinamicamente em "Setup signing env".
       G4OS_MAC_SIGN_MODE: ${{ secrets.APPLE_TEAM_ID != '' && 'signed' || 'adhoc' }}
-      APPLE_ID: ${{ secrets.APPLE_ID }}
-      APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
-      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-      CSC_LINK: ${{ secrets.CSC_LINK }}
-      CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
-
-      # Windows signing — auto detecta PFX/KeyLocker/Azure
       WIN_SIGN_PROVIDER: ${{ secrets.WIN_CSC_LINK != '' && 'pfx' || secrets.SM_API_KEY != '' && 'keylocker' || secrets.AZURE_TENANT_ID != '' && 'azure' || 'none' }}
-      WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
-      WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
-      SM_API_KEY: ${{ secrets.SM_API_KEY }}
-      WIN_SM_KEYPAIR_ALIAS: ${{ secrets.WIN_SM_KEYPAIR_ALIAS }}
-      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-      AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
-      AZURE_TRUSTED_SIGNING_ENDPOINT: ${{ secrets.AZURE_TRUSTED_SIGNING_ENDPOINT }}
-      AZURE_TRUSTED_SIGNING_ACCOUNT: ${{ secrets.AZURE_TRUSTED_SIGNING_ACCOUNT }}
-      AZURE_TRUSTED_SIGNING_PROFILE: ${{ secrets.AZURE_TRUSTED_SIGNING_PROFILE }}
-
-      # R2 auto-update publish
-      R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
-      R2_BUCKET: ${{ secrets.R2_BUCKET }}
-      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
 
       # Supabase — embutidas no bundle main em build time. ANON_KEY é
       # pública por design (proteção real está em RLS). Sem essas vars,
@@ -99,6 +78,47 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+
+      # Exporta vars de signing/publish APENAS quando os secrets estão
+      # presentes — empty strings quebram electron-builder (codesign trata
+      # como path inválido) e sign-windows.ts (interpreta como provider
+      # ativo). Vars condicionalmente exportadas via $GITHUB_ENV.
+      - name: Setup signing env
+        shell: bash
+        run: |
+          set -e
+          export_if_set() {
+            local name="$1"
+            local value="$2"
+            if [ -n "$value" ]; then
+              echo "$name=$value" >> "$GITHUB_ENV"
+            fi
+          }
+
+          # macOS
+          export_if_set APPLE_ID '${{ secrets.APPLE_ID }}'
+          export_if_set APPLE_ID_PASSWORD '${{ secrets.APPLE_ID_PASSWORD }}'
+          export_if_set APPLE_TEAM_ID '${{ secrets.APPLE_TEAM_ID }}'
+          export_if_set CSC_LINK '${{ secrets.CSC_LINK }}'
+          export_if_set CSC_KEY_PASSWORD '${{ secrets.CSC_KEY_PASSWORD }}'
+
+          # Windows
+          export_if_set WIN_CSC_LINK '${{ secrets.WIN_CSC_LINK }}'
+          export_if_set WIN_CSC_KEY_PASSWORD '${{ secrets.WIN_CSC_KEY_PASSWORD }}'
+          export_if_set SM_API_KEY '${{ secrets.SM_API_KEY }}'
+          export_if_set WIN_SM_KEYPAIR_ALIAS '${{ secrets.WIN_SM_KEYPAIR_ALIAS }}'
+          export_if_set AZURE_TENANT_ID '${{ secrets.AZURE_TENANT_ID }}'
+          export_if_set AZURE_CLIENT_ID '${{ secrets.AZURE_CLIENT_ID }}'
+          export_if_set AZURE_CLIENT_SECRET '${{ secrets.AZURE_CLIENT_SECRET }}'
+          export_if_set AZURE_TRUSTED_SIGNING_ENDPOINT '${{ secrets.AZURE_TRUSTED_SIGNING_ENDPOINT }}'
+          export_if_set AZURE_TRUSTED_SIGNING_ACCOUNT '${{ secrets.AZURE_TRUSTED_SIGNING_ACCOUNT }}'
+          export_if_set AZURE_TRUSTED_SIGNING_PROFILE '${{ secrets.AZURE_TRUSTED_SIGNING_PROFILE }}'
+
+          # R2
+          export_if_set R2_ENDPOINT '${{ secrets.R2_ENDPOINT }}'
+          export_if_set R2_BUCKET '${{ secrets.R2_BUCKET }}'
+          export_if_set R2_ACCESS_KEY_ID '${{ secrets.R2_ACCESS_KEY_ID }}'
+          export_if_set R2_SECRET_ACCESS_KEY '${{ secrets.R2_SECRET_ACCESS_KEY }}'
 
       - uses: pnpm/action-setup@v4
 

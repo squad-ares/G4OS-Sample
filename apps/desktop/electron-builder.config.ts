@@ -113,7 +113,9 @@ const config: Configuration = {
       { target: 'deb', arch: ['x64', 'arm64'] },
       { target: 'rpm', arch: ['x64'] },
     ],
-    extraFiles: [{ from: 'build/linux/apparmor/g4os', to: '/etc/apparmor.d/g4os' }],
+    // AppArmor profile distribuído como Resource do app — postinst copia
+    // pra /etc/apparmor.d/ no install (precisa root, executado pelo dpkg).
+    extraResources: [{ from: 'build/linux/apparmor/g4os', to: 'apparmor/g4os' }],
   },
 
   deb: {
