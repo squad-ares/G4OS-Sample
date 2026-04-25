@@ -126,9 +126,11 @@ const config: Configuration = {
     category: 'Office',
     synopsis: 'G4 OS desktop',
     description: 'G4 OS — plataforma desktop para sessões AI colaborativas.',
-    // executableName define o nome do binário no Linux + slug do .deb/.rpm
-    // (sem `@g4os/` prefix que .deb rejeita por conter `@` e `/`).
+    // executableName define o nome do binário no Linux + slug do .deb/.rpm.
+    // artifactName força o filename final (sem `@g4os/` que vinha do package
+    // name e quebrava o .deb porque `@` e `/` não são válidos em paths debian).
     executableName: 'g4os',
+    artifactName: 'g4os-${version}-${arch}.${ext}',
     maintainer: 'G4 Educação <engenharia@g4educacao.com>',
     target: [
       { target: 'AppImage', arch: ['x64', 'arm64'] },
