@@ -83,7 +83,9 @@ function resolveUv(platform: Platform, arch: Arch): RuntimeSource {
   const format: RuntimeSource['format'] = platform === 'win32' ? 'zip' : 'tar.gz';
   const ext = format === 'zip' ? 'zip' : 'tar.gz';
   const base = `uv-${target}`;
-  const binary = platform === 'win32' ? `${base}/uv.exe` : `${base}/uv`;
+  // Windows zip de uv é flat (uv.exe + uvx.exe na raiz). POSIX tar.gz cria
+  // subfolder uv-{target}/uv.
+  const binary = platform === 'win32' ? 'uv.exe' : `${base}/uv`;
 
   return {
     runtime: 'uv',
