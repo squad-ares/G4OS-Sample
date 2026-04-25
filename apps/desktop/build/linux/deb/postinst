@@ -6,9 +6,14 @@
 
 set -e
 
-# 1. AppArmor profile (Ubuntu 24.04+ precisa)
-if [ -x /usr/sbin/apparmor_parser ] && [ -f /etc/apparmor.d/g4os ]; then
-  /usr/sbin/apparmor_parser -r /etc/apparmor.d/g4os 2>/dev/null || true
+# 1. AppArmor profile (Ubuntu 24.04+ precisa).
+# Profile foi instalado em /opt/G4 OS/resources/apparmor/g4os pelo electron-builder;
+# copiamos para /etc/apparmor.d/ se apparmor estiver disponível.
+APPARMOR_SRC="/opt/G4 OS/resources/apparmor/g4os"
+APPARMOR_DST="/etc/apparmor.d/g4os"
+if [ -x /usr/sbin/apparmor_parser ] && [ -f "$APPARMOR_SRC" ]; then
+  cp -f "$APPARMOR_SRC" "$APPARMOR_DST" 2>/dev/null || true
+  /usr/sbin/apparmor_parser -r "$APPARMOR_DST" 2>/dev/null || true
 fi
 
 # 2. Desktop database (menu entries, MIME handlers)
