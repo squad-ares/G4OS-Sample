@@ -91,6 +91,12 @@ jobs:
       R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
       R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
 
+      # Supabase — embutidas no bundle main em build time. ANON_KEY é
+      # pública por design (proteção real está em RLS). Sem essas vars,
+      # o app builda mas o login OTP fica desabilitado.
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+
     steps:
       - uses: actions/checkout@v4
 

@@ -85,6 +85,18 @@ export function createAuthRuntime(options: AuthRuntimeOptions): AuthRuntime {
     }
   }
 
+  // Em build empacotado, .env não existe e process.env vem vazio. Constantes
+  // injetadas em build time (electron.vite.config.ts → define) preenchem o
+  // gap. SUPABASE_ANON_KEY é desenhada para ser pública (RLS no servidor).
+  const buildTimeUrl = readBuildTimeConst('__G4OS_SUPABASE_URL__');
+  const buildTimeKey = readBuildTimeConst('__G4OS_SUPABASE_ANON_KEY__');
+  if (buildTimeUrl && combined['SUPABASE_URL'] === undefined) {
+    combined['SUPABASE_URL'] = buildTimeUrl;
+  }
+  if (buildTimeKey && combined['SUPABASE_ANON_KEY'] === undefined) {
+    combined['SUPABASE_ANON_KEY'] = buildTimeKey;
+  }
+
   const validation: SupabaseEnvValidationResult = validateSupabaseEnv(combined);
 
   if (!validation.ok || !validation.env) {
@@ -254,4 +266,24 @@ function createSeededTokenStore(seed: Readonly<Record<string, string>>): AuthTok
   const base = createInMemoryTokenStore();
   for (const [key, value] of Object.entries(seed)) void base.set(key, value);
   return base;
+}
+
+/**
+ * Lê constante embutida em build time pelo electron-vite (define). Quando a
+ * constante não foi substituída (dev sem build, ou JIT), o nome literal
+ * sobrevive — neste caso retornamos vazio para evitar usá-lo como valor.
+ */
+declare const __G4OS_SUPABASE_URL__: string;
+declare const __G4OS_SUPABASE_ANON_KEY__: string;
+
+function readBuildTimeConst(name: '__G4OS_SUPABASE_URL__' | '__G4OS_SUPABASE_ANON_KEY__'): string {
+  try {
+    const raw =
+      name === '__G4OS_SUPABASE_URL__' ? __G4OS_SUPABASE_URL__ : __G4OS_SUPABASE_ANON_KEY__;
+    if (typeof raw !== 'string') return '';
+    if (raw === name) return '';
+    return raw;
+  } catch {
+    return '';
+  }
 }
