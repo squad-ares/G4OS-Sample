@@ -159,6 +159,10 @@ const config: Configuration = {
   },
 
   rpm: {
+    // fpm usa o productName ("G4 OS") como --name por default — rpmbuild
+    // quebra ao escrever `G4 OS.spec` (espaço no path). Forçar nome
+    // sem espaço via fpm passthrough.
+    fpm: ['--name', 'g4os', '--rpm-summary', 'G4 OS desktop'],
     depends: ['libXScrnSaver', 'libnotify', 'libsecret', 'xdg-utils'],
   },
 
