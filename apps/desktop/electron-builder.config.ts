@@ -48,10 +48,7 @@ const config: Configuration = {
   ],
 
   asar: true,
-  asarUnpack: [
-    // native bindings que precisam ficar fora do asar
-    '**/node_modules/@parcel/watcher*/**',
-  ],
+  asarUnpack: ['**/node_modules/@parcel/watcher*/**'],
 
   npmRebuild: true,
 

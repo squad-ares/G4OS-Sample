@@ -33,36 +33,9 @@ export class StartupPreflightService {
   async run(options: StartupPreflightOptions): Promise<StartupPreflightReport> {
     const issues: StartupPreflightIssue[] = [];
     const createdDirectories: string[] = [];
-
     const filesLoaded: string[] = [];
-    const combined: Record<string, string | undefined> = {
-      // biome-ignore lint/style/noProcessEnv: composition root; leitura controlada
-      ...process.env,
-    };
 
-    if (!options.isPackaged) {
-      const loaded = loadSupabaseEnvFiles(options.rootDir);
-      filesLoaded.push(...loaded.filesLoaded);
-      for (const [k, v] of Object.entries(loaded.env)) {
-        if (combined[k] === undefined) combined[k] = v;
-      }
-    }
-
-    const envResult = validateSupabaseEnv(combined);
-
-    if (!envResult.ok) {
-      issues.push({
-        code: 'env.invalid',
-        severity: 'fatal',
-        message: [
-          `Boot bloqueado: contrato de env Supabase incompleto para desktop.`,
-          formatMissingEnv(envResult.missing),
-          `Arquivos carregados: ${filesLoaded.length > 0 ? filesLoaded.join(', ') : 'nenhum'}`,
-        ].join('\n\n'),
-        context: { filesLoaded, missing: envResult.missing },
-      });
-    }
-
+    this.checkSupabaseEnv(options, issues, filesLoaded);
     await ensureAppDirectories(createdDirectories);
     await this.checkConfigIntegrity(issues);
     this.checkRuntimeIntegrity(options, issues);
@@ -89,6 +62,44 @@ export class StartupPreflightService {
     return report;
   }
 
+  private checkSupabaseEnv(
+    options: StartupPreflightOptions,
+    issues: StartupPreflightIssue[],
+    filesLoaded: string[],
+  ): void {
+    const combined: Record<string, string | undefined> = {
+      // biome-ignore lint/style/noProcessEnv: composition root; leitura controlada
+      ...process.env,
+    };
+
+    if (!options.isPackaged) {
+      const loaded = loadSupabaseEnvFiles(options.rootDir);
+      filesLoaded.push(...loaded.filesLoaded);
+      for (const [k, v] of Object.entries(loaded.env)) {
+        if (combined[k] === undefined) combined[k] = v;
+      }
+    }
+
+    const envResult = validateSupabaseEnv(combined);
+    if (envResult.ok) return;
+
+    // Em packaged, auth-runtime aplica fallback via constantes injetadas em
+    // build time (electron.vite.config.ts → define) e degrada graciosamente
+    // se ambos faltarem. Não bloquear o boot — tornar recoverable.
+    issues.push({
+      code: 'env.invalid',
+      severity: options.isPackaged ? 'recoverable' : 'fatal',
+      message: [
+        options.isPackaged
+          ? 'Supabase env não disponível em runtime; auth-runtime usará fallback de build time.'
+          : 'Boot bloqueado: contrato de env Supabase incompleto para desktop.',
+        formatMissingEnv(envResult.missing),
+        `Arquivos carregados: ${filesLoaded.length > 0 ? filesLoaded.join(', ') : 'nenhum'}`,
+      ].join('\n\n'),
+      context: { filesLoaded, missing: envResult.missing },
+    });
+  }
+
   formatFatalDialog(report: StartupPreflightReport): string {
     return report.issues
       .filter((issue) => issue.severity === 'fatal')
@@ -107,11 +118,17 @@ export class StartupPreflightService {
     const integrity = validateRuntimeIntegrity();
     if (integrity.ok) return;
 
+    // Os 4 runtimes (claude-sdk-cli, interceptor, session-mcp-server,
+    // bridge-mcp-server) são scaffolding pendente em V2. Até que
+    // packages/bridge-mcp-server e packages/session-mcp-server sejam
+    // implementados e empacotados, mantemos a check em modo `recoverable`
+    // mesmo em produção — o app boota com aviso, fluxos que dependem
+    // desses runtimes ficam degradados.
     issues.push({
       code: 'runtime.missing',
-      severity: options.isPackaged ? 'fatal' : 'informational',
+      severity: 'recoverable',
       message: options.isPackaged
-        ? 'Runtime critico ausente no bundle empacotado.'
+        ? 'Runtimes secundarios ausentes (Claude SDK CLI, MCP servers). Funcionalidades dependentes ficam indisponiveis.'
         : 'Runtime bundle ainda nao esta presente no ambiente atual; o preflight continuou em modo informativo.',
       context: { missing: integrity.missing, runtimeLocation },
     });

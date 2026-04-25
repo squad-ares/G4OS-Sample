@@ -42,7 +42,19 @@
         "pino-roll",
         "@supabase/supabase-js",
         "pino",
-        "@anthropic-ai/sdk"
+        "@anthropic-ai/sdk",
+        "@pinojs/redact",
+        "atomic-sleep",
+        "date-fns",
+        "on-exit-leak-free",
+        "pino-abstract-transport",
+        "pino-std-serializers",
+        "process-warning",
+        "quick-format-unescaped",
+        "real-require",
+        "safe-stable-stringify",
+        "sonic-boom",
+        "thread-stream"
       ],
       "ignoreBinaries": ["tar", "powershell", "xcrun", "signtool", "smctl", "AzureSignTool"]
     },
