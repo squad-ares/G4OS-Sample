@@ -1,4 +1,6 @@
+import * as nodeFs from 'node:fs';
 import { existsSync } from 'node:fs';
+import * as nodePath from 'node:path';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createVault } from '@g4os/credentials';
@@ -273,7 +275,33 @@ export async function bootstrapMain(options: BootstrapOptions = {}): Promise<voi
   log.info({ preloadPath, rendererUrl }, 'main ready');
 }
 
+// Logger de último recurso — escreve em arquivo determinístico antes de
+// pino estar disponível. Garante diagnóstico no app empacotado quando o
+// crash acontece cedo (vault, env, native module).
+function writeStartupCrashLog(label: string, err: unknown): void {
+  try {
+    // biome-ignore lint/style/noProcessEnv: composition root
+    const tmp = process.env['TMPDIR'] ?? '/tmp';
+    const message =
+      err instanceof Error ? `${err.name}: ${err.message}\n${err.stack ?? ''}` : String(err);
+    nodeFs.writeFileSync(
+      nodePath.join(tmp, `g4os-${label}.log`),
+      `[${new Date().toISOString()}] ${message}\n`,
+      { flag: 'a' },
+    );
+  } catch {
+    // ignore — last-resort logging
+  }
+}
+
 void bootstrapMain().catch((err: unknown) => {
+  writeStartupCrashLog('startup-error', err);
   log.fatal({ err }, 'fatal startup error');
+  process.exit(1);
+});
+
+// Captura erros não tratados antes do bootstrap completar
+process.on('uncaughtException', (err) => {
+  writeStartupCrashLog('uncaught', err);
   process.exit(1);
 });

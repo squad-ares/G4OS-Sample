@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!--
+    Entitlements minimais para distribuição ad-hoc (sem Apple Developer ID).
+    Não inclui `com.apple.security.cs.*` porque AMFI rejeita essas keys
+    quando assinatura é ad-hoc (Code=-420 "signature on the file is invalid"
+    no launch). Sem hardenedRuntime, Electron/V8 rodam sem precisar declarar
+    JIT explicitamente.
+
+    Microphone description fica como Info.plist key (não entitlement) —
+    electron-builder injeta direto no Info.plist via build/info.plist.
+  -->
+</dict>
+</plist>
