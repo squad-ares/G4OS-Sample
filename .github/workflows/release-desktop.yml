@@ -135,16 +135,27 @@ jobs:
       - name: Build app
         run: pnpm -C apps/desktop build
 
+      # Resolve flag de publish: workflow_dispatch + publish=true → --publish=always.
+      # Default electron-builder é onTagOrDraft, que ignora workflow_dispatch.
+      - name: Resolve publish flag
+        shell: bash
+        run: |
+          if [ "${G4OS_PUBLISH_MODE}" = "r2" ] || [ "${G4OS_PUBLISH_MODE}" = "github" ]; then
+            echo "PUBLISH_FLAG=--publish=always" >> "$GITHUB_ENV"
+          else
+            echo "PUBLISH_FLAG=--publish=never" >> "$GITHUB_ENV"
+          fi
+
       # Platform-specific pack steps
       - name: Pack macOS
         if: matrix.platform == 'mac'
         run: |
-          pnpm -C apps/desktop exec electron-builder --mac --config electron-builder.config.ts
-          # Sign (adhoc ou signed — script decide via G4OS_MAC_SIGN_MODE)
-          for app in apps/desktop/release/*/mac*/G\ OS.app; do
-            bash apps/desktop/scripts/sign-macos.sh "$app" || true
-          done
-          # Notarize (no-op em adhoc)
+          # electron-builder assina inline via `identity: '-'` (adhoc) ou
+          # CSC_LINK + CSC_KEY_PASSWORD (signed). sign-macos.sh fica só para
+          # debug/manual; não chamamos no CI.
+          pnpm -C apps/desktop exec electron-builder --mac \
+            --config electron-builder.config.ts ${PUBLISH_FLAG}
+          # Notarize separado (electron-builder está com notarize: false).
           if [ "${G4OS_MAC_SIGN_MODE}" = "signed" ]; then
             for dmg in apps/desktop/release/*/*.dmg; do
               pnpm tsx apps/desktop/scripts/notarize-macos.ts "$dmg"
@@ -155,7 +166,8 @@ jobs:
         if: matrix.platform == 'win'
         shell: bash
         run: |
-          pnpm -C apps/desktop exec electron-builder --win --config electron-builder.config.ts
+          pnpm -C apps/desktop exec electron-builder --win \
+            --config electron-builder.config.ts ${PUBLISH_FLAG}
           # Sign (no-op quando WIN_SIGN_PROVIDER=none)
           for exe in apps/desktop/release/*/*.exe; do
             pnpm tsx apps/desktop/scripts/sign-windows.ts "$exe"
@@ -167,7 +179,9 @@ jobs:
 
       - name: Pack Linux
         if: matrix.platform == 'linux'
-        run: pnpm -C apps/desktop exec electron-builder --linux --config electron-builder.config.ts
+        run: |
+          pnpm -C apps/desktop exec electron-builder --linux \
+            --config electron-builder.config.ts ${PUBLISH_FLAG}
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4

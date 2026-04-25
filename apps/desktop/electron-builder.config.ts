@@ -138,10 +138,6 @@ const config: Configuration = {
     depends: ['libXScrnSaver', 'libnotify', 'libsecret', 'xdg-utils'],
   },
 
-  appImage: {
-    license: 'LICENSE',
-  },
-
   publish:
     publishMode === 'r2'
       ? [
