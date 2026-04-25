@@ -69,7 +69,6 @@ export async function bootstrapMain(options: BootstrapOptions = {}): Promise<voi
     log.warn('electron runtime unavailable; main boot skipped');
     return;
   }
-
   await electron.app.whenReady();
 
   const observability = await createObservabilityRuntime({
@@ -269,22 +268,21 @@ export async function bootstrapMain(options: BootstrapOptions = {}): Promise<voi
     },
   });
   await windowManager.load(mainWindow, { url: rendererUrl, openDevTools: isDev });
-
   log.info({ preloadPath, rendererUrl }, 'main ready');
 }
 
-// Logger determinístico para crashes pré-pino — fica em $TMPDIR/g4os-{label}.log
+// Logger determinístico pré-pino em $TMPDIR/g4os-{label}.log
 function writeStartupCrashLog(label: string, err: unknown): void {
   try {
     // biome-ignore lint/style/noProcessEnv: composition root
     const tmp = process.env['TMPDIR'] ?? '/tmp';
-    const m =
+    const msg =
       err instanceof Error ? `${err.name}: ${err.message}\n${err.stack ?? ''}` : String(err);
-    writeFileSync(`${tmp}/g4os-${label}.log`, `[${new Date().toISOString()}] ${m}\n`, {
+    writeFileSync(`${tmp}/g4os-${label}.log`, `[${new Date().toISOString()}] ${msg}\n`, {
       flag: 'a',
     });
   } catch {
-    // last-resort logger; nada a fazer se até writeFileSync falha
+    /* ignore */
   }
 }
 

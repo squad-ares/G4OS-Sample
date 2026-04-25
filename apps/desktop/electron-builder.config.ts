@@ -45,6 +45,9 @@ const config: Configuration = {
     // runtime/ só existirá quando bridge-mcp-server/session-mcp-server forem
     // adicionados ao V2; por enquanto é opcional.
     { from: 'dist/vendor', to: 'vendor', filter: ['**/*'] },
+    // drizzle migrations — main/index.ts resolve process.resourcesPath/drizzle
+    // em packaged. Sem isto, initDatabase crasha com ENOENT no readdirSync.
+    { from: '../../packages/data/drizzle', to: 'drizzle', filter: ['**/*'] },
   ],
 
   asar: true,
