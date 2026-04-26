@@ -40,8 +40,13 @@ export {
   RetryButton,
   SearchBar,
   type SearchBarProps,
+  SessionHeader,
+  type SessionHeaderProps,
+  type SuggestedPrompt,
   TranscriptView,
   type TranscriptViewProps,
+  WelcomeState,
+  type WelcomeStateProps,
 } from './components/transcript/index.ts';
 export {
   type WorkingDirOption,

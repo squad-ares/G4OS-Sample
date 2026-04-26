@@ -1,6 +1,7 @@
 import type { Message } from '../../../types.ts';
 import { MarkdownRenderer } from '../markdown/markdown-renderer.tsx';
 import { ThinkingBlock } from './thinking-block.tsx';
+import { ToolUseBlock } from './tool-use-block.tsx';
 
 interface AssistantMessageProps {
   readonly message: Message;
@@ -34,6 +35,12 @@ export function AssistantMessage({ message, isStreaming }: AssistantMessageProps
               />
             );
           }
+          if (block.type === 'tool_use') {
+            const k = `${message.id}-tooluse-${i}`;
+            return <ToolUseBlock key={k} block={block} />;
+          }
+          // tool_result não aparece em assistant turns no V2; vem em mensagem
+          // separada role='tool' (renderizada por ToolMessage).
           return null;
         })}
         {isStreaming && message.content.length === 0 && (

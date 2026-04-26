@@ -66,11 +66,39 @@ export const SessionSchema = z.object({
 export type Session = z.infer<typeof SessionSchema>;
 export type SessionId = Session['id'];
 
-export const SessionUpdateSchema = SessionSchema.partial().omit({
-  id: true,
-  workspaceId: true,
-  createdAt: true,
+/**
+ * Patch shape for `sessions.update`. Whitelist explícito de campos
+ * user-editáveis.
+ *
+ * Não usar `SessionSchema.partial()` aqui: campos com `.default(...)` no
+ * SessionSchema (messageCount, lastEventSequence, status, lifecycle,
+ * enabled/sticky/rejectedSourceSlugs, unread, metadata) são injetados
+ * pelo Zod ao parsear input mesmo quando ausentes — e o repository aplica
+ * `if (patch.X !== undefined)`, gravando o default `0`/`[]` por cima do
+ * estado event-driven. O sintoma é UNIQUE constraint em messages_index
+ * após qualquer update vindo da UI (ex.: model selector, source picker)
+ * resetar `lastEventSequence` para 0.
+ */
+export const SessionUpdateSchema = z.object({
+  name: z.string().min(1).max(200).optional(),
+  provider: SessionProviderSchema.optional(),
+  modelId: z.string().optional(),
+  workingDirectory: z.string().optional(),
+  enabledSourceSlugs: z.array(z.string()).optional(),
+  stickyMountedSourceSlugs: z.array(z.string()).optional(),
+  rejectedSourceSlugs: z.array(z.string()).optional(),
+  unread: z.boolean().optional(),
+  projectId: z.uuid().optional(),
+  metadata: z
+    .object({
+      thinkingLevel: z.enum(['low', 'think', 'high', 'ultra']).optional(),
+      titleGeneratedAt: z.number().int().positive().optional(),
+      turnCount: z.number().int().nonnegative().optional(),
+    })
+    .optional(),
 });
+
+export type SessionUpdate = z.infer<typeof SessionUpdateSchema>;
 
 export const SessionFilterSchema = z.object({
   workspaceId: z.uuid(),

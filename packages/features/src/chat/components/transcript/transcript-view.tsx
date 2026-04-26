@@ -9,6 +9,7 @@ import type { MessageCardCallbacks } from './message-card/message-card.tsx';
 import { MessageCard } from './message-card/message-card.tsx';
 import { SearchBar } from './search-bar.tsx';
 import { DateSeparator } from './separators/date-separator.tsx';
+import { type SuggestedPrompt, WelcomeState } from './welcome-state.tsx';
 
 export interface TranscriptViewProps {
   readonly sessionId: string;
@@ -16,6 +17,11 @@ export interface TranscriptViewProps {
   readonly isStreaming: boolean;
   readonly callbacks?: MessageCardCallbacks;
   readonly search?: SearchFn;
+  /** Quando provido e `messages` vazio, renderiza welcome state com
+   *  prompts sugeridos. O click chama esta callback com o texto do prompt. */
+  readonly onSelectSuggestedPrompt?: (prompt: SuggestedPrompt) => void;
+  /** Override dos prompts default do welcome state. */
+  readonly suggestedPrompts?: ReadonlyArray<SuggestedPrompt>;
 }
 
 interface DateSepItem {
@@ -68,6 +74,8 @@ export const TranscriptView = memo(function TranscriptView({
   isStreaming,
   callbacks,
   search,
+  onSelectSuggestedPrompt,
+  suggestedPrompts,
 }: TranscriptViewProps) {
   const { t } = useTranslate();
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -190,11 +198,17 @@ export const TranscriptView = memo(function TranscriptView({
             );
           })}
         </div>
-        {messages.length === 0 && (
-          <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-            {t('chat.transcript.empty')}
-          </div>
-        )}
+        {messages.length === 0 &&
+          (onSelectSuggestedPrompt ? (
+            <WelcomeState
+              {...(suggestedPrompts ? { prompts: suggestedPrompts } : {})}
+              onSelect={onSelectSuggestedPrompt}
+            />
+          ) : (
+            <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+              {t('chat.transcript.empty')}
+            </div>
+          ))}
       </div>
     </div>
   );

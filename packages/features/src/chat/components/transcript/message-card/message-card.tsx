@@ -1,10 +1,14 @@
 import { cn } from '@g4os/ui';
 import { memo, useState } from 'react';
+// Side-effect import: registra renderers built-in (bash/read-file/search-results)
+// no `tool-renderers/registry`. Sem isto, o dispatcher cai sempre no fallback.
+import '../../../tool-renderers/index.ts';
 import type { Message, TextBlock } from '../../../types.ts';
 import { BranchButton } from '../actions/branch-button.tsx';
 import { CopyButton } from '../actions/copy-button.tsx';
 import { RetryButton } from '../actions/retry-button.tsx';
 import { AssistantMessage } from './assistant-message.tsx';
+import { ToolMessage } from './tool-message.tsx';
 import { UserMessage } from './user-message.tsx';
 
 export interface MessageCardCallbacks {
@@ -48,8 +52,9 @@ export const MessageCard = memo(
         {message.role === 'assistant' && (
           <AssistantMessage message={message} isStreaming={isStreaming} />
         )}
+        {message.role === 'tool' && <ToolMessage message={message} />}
 
-        {!isStreaming && text && (
+        {!isStreaming && text && message.role !== 'tool' && (
           <div
             className={cn(
               'absolute -bottom-3 right-4 flex items-center gap-0.5 rounded-lg border border-foreground/10 bg-background/90 px-1 py-0.5 shadow-sm transition-opacity',

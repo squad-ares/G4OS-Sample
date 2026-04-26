@@ -51,7 +51,11 @@ export function AppShell({
         {t('shell.a11y.skipToContent')}
       </a>
 
-      <WorkspaceSidebar activePath={navigation.activePath} onNavigate={navigation.onNavigate} />
+      <WorkspaceSidebar
+        activePath={navigation.activePath}
+        onNavigate={navigation.onNavigate}
+        {...(workspace ? { workspace } : {})}
+      />
 
       <div className="flex min-h-0 flex-1 gap-3 py-3 pr-3">
         <ContextualSubSidebar

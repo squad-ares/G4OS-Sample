@@ -27,7 +27,7 @@ export function ThinkingBlock({ block, isStreaming }: ThinkingBlockProps) {
       {open && (
         <div className="border-t border-foreground/10 px-3 py-2">
           <pre className="whitespace-pre-wrap font-mono text-[11px] leading-relaxed text-muted-foreground">
-            {block.thinking}
+            {block.text}
           </pre>
         </div>
       )}

@@ -1,13 +1,19 @@
 import { useTranslate } from '@g4os/ui';
+import { ChevronDown } from 'lucide-react';
 import { shellNavigationEntries } from '../navigation.ts';
+import type { SubSidebarWorkspace } from './sub-sidebar/sub-sidebar-footer.tsx';
 
 export interface WorkspaceSidebarProps {
   readonly activePath: string;
   readonly onNavigate: (to: string) => void;
+  readonly workspace?: SubSidebarWorkspace | undefined;
 }
 
-export function WorkspaceSidebar({ activePath, onNavigate }: WorkspaceSidebarProps) {
+export function WorkspaceSidebar({ activePath, onNavigate, workspace }: WorkspaceSidebarProps) {
   const { t } = useTranslate();
+
+  const initial = (workspace?.name?.trim().charAt(0) ?? '').toUpperCase();
+  const switcherLabel = workspace?.name ?? t('workspace.switcher.empty');
 
   return (
     <aside
@@ -17,6 +23,28 @@ export function WorkspaceSidebar({ activePath, onNavigate }: WorkspaceSidebarPro
       <div className="titlebar-no-drag mb-1 flex size-9 items-center justify-center rounded-[11px] bg-foreground text-xs font-semibold tracking-wide text-background">
         {t('app.mark')}
       </div>
+
+      {workspace?.onOpenSwitcher ? (
+        <button
+          type="button"
+          onClick={workspace.onOpenSwitcher}
+          aria-label={t('workspace.switcher.ariaLabel')}
+          title={switcherLabel}
+          className="titlebar-no-drag group relative flex size-9 items-center justify-center rounded-[11px] border border-transparent text-foreground/85 transition-colors hover:border-border/45 hover:bg-foreground/[0.035]"
+        >
+          <span
+            aria-hidden={true}
+            className="flex size-6 items-center justify-center rounded-md text-[10px] font-semibold text-background"
+            style={{ backgroundColor: workspace.color ?? 'var(--foreground)' }}
+          >
+            {initial || '?'}
+          </span>
+          <ChevronDown
+            aria-hidden={true}
+            className="absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full bg-background p-px text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100"
+          />
+        </button>
+      ) : null}
 
       <div className="my-1 h-px w-6 bg-foreground/8" />
 

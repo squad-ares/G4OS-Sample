@@ -26,6 +26,12 @@ export const ptBR: Readonly<Record<TranslationKey, string>> = {
   'chat.transcript.ariaLabel': 'Transcrição da conversa',
   'chat.transcript.empty': 'Nenhuma mensagem ainda.',
 
+  'chat.header.sessionNameLabel': 'Nome da sessão',
+  'chat.header.clickToRename': 'Clique para renomear',
+  'chat.header.retryLast': 'Refazer último turno',
+  'chat.header.archive': 'Arquivar sessão',
+  'chat.header.moreActions': 'Mais ações',
+
   'chat.search.open': 'Buscar na conversa',
   'chat.search.close': 'Fechar busca',
   'chat.search.ariaLabel': 'Buscar na conversa',
