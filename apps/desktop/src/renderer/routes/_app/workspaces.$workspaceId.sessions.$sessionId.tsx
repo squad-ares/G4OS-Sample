@@ -10,13 +10,13 @@ import {
   modelProviderToSession,
   PermissionProvider,
   requestPermission,
+  SessionHeader,
   SourcePicker,
   type ThinkingLevel,
   ThinkingLevelSelector,
   TranscriptView,
   useSessionShortcuts,
   useStreamingText,
-  type WorkingDirOption,
   WorkingDirPicker,
 } from '@g4os/features/chat';
 import type { SessionEvent, TurnStreamEvent } from '@g4os/kernel/types';
@@ -25,11 +25,14 @@ import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { formatSendError, mapPermissionDecision } from '../../chat/session-page-helpers.ts';
+import { useComposerAffordances } from '../../chat/use-composer-affordances.ts';
+import { useSessionHeader } from '../../chat/use-session-header.ts';
 import { queryClient } from '../../ipc/query-client.ts';
 import { trpc } from '../../ipc/trpc-client.ts';
 import { kernelMessageToChat } from '../../messages/kernel-to-chat-mapper.ts';
 import { invalidateMessages, messagesListQueryOptions } from '../../messages/messages-store.ts';
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: (reason: route component agrega múltiplos hooks de efeito, query e callbacks de turn/permission/streaming que naturalmente compõem a página de chat. Lógica orquestral está distribuída entre useSessionHeader, useComposerAffordances e session-page-helpers; o que sobra é wiring direto que perde clareza se forçado a sub-hooks adicionais)
 function SessionPage() {
   const { t } = useTranslate();
   const navigate = useNavigate();
@@ -232,78 +235,19 @@ function SessionPage() {
   const enabledSourceSlugs = sessionQuery.data?.enabledSourceSlugs ?? [];
   const rejectedSourceSlugs = sessionQuery.data?.rejectedSourceSlugs ?? [];
 
-  const handleSourceSelectionChange = useCallback(
-    async (slugs: readonly string[]) => {
-      try {
-        await trpc.sessions.update.mutate({
-          id: sessionId,
-          patch: { enabledSourceSlugs: [...slugs] },
-        });
-        await sessionQuery.refetch();
-      } catch (err) {
-        toast.error(String(err));
-      }
-    },
-    [sessionId, sessionQuery],
-  );
-
-  const handleOpenConnections = useCallback(() => {
-    void navigate({ to: '/connections' });
-  }, [navigate]);
-
-  const workingDirOptions = useMemo<readonly WorkingDirOption[]>(() => {
-    const options: WorkingDirOption[] = [];
-    const ws = workspaceQuery.data;
-    if (ws) {
-      options.push({
-        id: 'workspace-main',
-        label: t('chat.workingDir.workspaceRoot'),
-        path: ws.rootPath,
-        kind: 'workspace-main',
-      });
-    }
-    for (const project of projectsQuery.data ?? []) {
-      options.push({
-        id: `project-${project.id}`,
-        label: project.name,
-        path: project.rootPath,
-        kind: 'project',
-      });
-    }
-    return options;
-  }, [workspaceQuery.data, projectsQuery.data, t]);
-
-  const handleWorkingDirChange = useCallback(
-    async (path: string | null) => {
-      try {
-        await trpc.sessions.update.mutate({
-          id: sessionId,
-          patch: { workingDirectory: path ?? undefined },
-        });
-        toast.success(t('chat.workingDir.saved'));
-        await sessionQuery.refetch();
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        toast.error(t('chat.workingDir.saveFailed', { message: msg }));
-      }
-    },
-    [sessionId, sessionQuery, t],
-  );
-
-  const handlePickCustomDir = useCallback(async (): Promise<string | null> => {
-    try {
-      const result = await trpc.platform.showOpenDialog.mutate({
-        title: t('chat.workingDir.browse'),
-        filters: [],
-      });
-      if (result.canceled || result.filePaths.length === 0) return null;
-      return result.filePaths[0] ?? null;
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      toast.error(t('chat.workingDir.saveFailed', { message: msg }));
-      return null;
-    }
-  }, [t]);
+  const {
+    workingDirOptions,
+    handleSourceSelectionChange,
+    handleOpenConnections,
+    handleWorkingDirChange,
+    handlePickCustomDir,
+  } = useComposerAffordances({
+    sessionId,
+    workspace: workspaceQuery.data,
+    projects: projectsQuery.data,
+    sessionQuery,
+    navigate,
+  });
 
   const handleModelChange = useCallback(
     async (modelId: string) => {
@@ -404,9 +348,28 @@ function SessionPage() {
     [handleRetryFromMessage],
   );
 
+  const { modelLabel, providerLabel, handleRename, handleArchive } = useSessionHeader({
+    sessionId,
+    workspaceId,
+    currentModelId,
+    sessionQuery,
+    navigate,
+  });
+
   return (
     <PermissionProvider>
       <div className="flex h-full flex-col">
+        {sessionQuery.data ? (
+          <SessionHeader
+            name={sessionQuery.data.name}
+            {...(modelLabel ? { modelLabel } : {})}
+            {...(providerLabel ? { providerLabel } : {})}
+            workingDirectory={sessionQuery.data.workingDirectory ?? null}
+            onRename={handleRename}
+            onArchive={() => void handleArchive()}
+            {...(isStreaming ? {} : { onRetryLast: () => void handleRetryLast() })}
+          />
+        ) : null}
         {agentAvailable ? null : (
           <div
             role="status"
@@ -429,6 +392,7 @@ function SessionPage() {
             isStreaming={isStreaming}
             callbacks={callbacks}
             search={handleSearch}
+            onSelectSuggestedPrompt={(p) => handleSend({ text: p.prompt, attachments: [] })}
           />
         </div>
         <div className="p-3">

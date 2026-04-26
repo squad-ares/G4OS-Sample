@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { AttachmentSchema } from '../schemas/attachment.schema.ts';
 import { SessionEventSchema } from '../schemas/event.schema.ts';
 import { PermissionConfigSchema } from '../schemas/permission.schema.ts';
-import { SessionSchema } from '../schemas/session.schema.ts';
+import { SessionSchema, SessionUpdateSchema } from '../schemas/session.schema.ts';
 import { ToolInvocationSchema } from '../schemas/tool.schema.ts';
 import { WorkspaceSchema } from '../schemas/workspace.schema.ts';
 
@@ -135,6 +135,49 @@ describe('SessionSchema', () => {
         updatedAt: now,
       }),
     ).toThrow();
+  });
+});
+
+// ─── SessionUpdateSchema ─────────────────────────────────────────────────────
+
+describe('SessionUpdateSchema', () => {
+  it('does not inject defaults for omitted event-driven fields', () => {
+    const parsed = SessionUpdateSchema.parse({ modelId: 'claude-sonnet-4-6' });
+    expect(parsed).not.toHaveProperty('messageCount');
+    expect(parsed).not.toHaveProperty('lastEventSequence');
+    expect(parsed).not.toHaveProperty('lastMessageAt');
+    expect(parsed).not.toHaveProperty('status');
+    expect(parsed).not.toHaveProperty('lifecycle');
+    expect(parsed).not.toHaveProperty('enabledSourceSlugs');
+    expect(parsed).not.toHaveProperty('stickyMountedSourceSlugs');
+    expect(parsed).not.toHaveProperty('rejectedSourceSlugs');
+    expect(parsed).not.toHaveProperty('unread');
+    expect(parsed).toEqual({ modelId: 'claude-sonnet-4-6' });
+  });
+
+  it('passes through whitelisted fields verbatim', () => {
+    const patch = {
+      enabledSourceSlugs: ['gmail'],
+      stickyMountedSourceSlugs: ['notion'],
+      rejectedSourceSlugs: ['slack'],
+      workingDirectory: '/tmp/foo',
+      unread: true,
+    };
+    expect(SessionUpdateSchema.parse(patch)).toEqual(patch);
+  });
+
+  it('rejects server-managed fields', () => {
+    const result = SessionUpdateSchema.safeParse({
+      modelId: 'x',
+      messageCount: 99,
+      lastEventSequence: 99,
+    });
+    // Por ser whitelist, campos extras são silenciosamente removidos
+    // (z.object default = strip). O importante é não vazarem pro DB.
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data).toEqual({ modelId: 'x' });
+    }
   });
 });
 

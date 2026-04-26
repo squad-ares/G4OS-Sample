@@ -3,6 +3,7 @@ import {
   SessionEventSchema,
   SessionFilterSchema,
   SessionSchema,
+  SessionUpdateSchema,
   TurnStreamEventSchema,
   WorkspaceIdSchema,
 } from '@g4os/kernel/schemas';
@@ -67,7 +68,7 @@ export const sessionsRouter = router({
     .input(
       z.object({
         id: SessionIdSchema,
-        patch: SessionSchema.partial().omit({ id: true, workspaceId: true, createdAt: true }),
+        patch: SessionUpdateSchema,
       }),
     )
     .output(z.void())

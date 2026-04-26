@@ -24,6 +24,12 @@ export const enUS = {
   'chat.transcript.ariaLabel': 'Conversation transcript',
   'chat.transcript.empty': 'No messages yet.',
 
+  'chat.header.sessionNameLabel': 'Session name',
+  'chat.header.clickToRename': 'Click to rename',
+  'chat.header.retryLast': 'Retry last turn',
+  'chat.header.archive': 'Archive session',
+  'chat.header.moreActions': 'More actions',
+
   'chat.search.open': 'Search in transcript',
   'chat.search.close': 'Close search',
   'chat.search.ariaLabel': 'Search in transcript',

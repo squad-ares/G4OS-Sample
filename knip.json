@@ -65,7 +65,8 @@
         "tr46",
         "webidl-conversions",
         "isows",
-        "ws"
+        "ws",
+        "piscina"
       ],
       "ignoreBinaries": ["tar", "powershell", "xcrun", "signtool", "smctl", "AzureSignTool"]
     },

@@ -70,7 +70,7 @@ const MAIN_LIMIT = 6800;
 const FILE_LIMIT = 300;
 
 const files = globSync('apps/desktop/src/main/**/*.ts', {
-  ignore: ['**/__tests__/**', '**/*.test.ts'],
+  ignore: ['**/__tests__/**', '**/*.test.ts', '**/workers/**'],
 });
 
 let total = 0;

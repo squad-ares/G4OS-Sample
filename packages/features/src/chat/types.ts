@@ -1,4 +1,9 @@
-export type MessageRole = 'user' | 'assistant' | 'system';
+// Estes tipos espelham o shape do kernel (`@g4os/kernel/schemas/message`).
+// Mantidos locais aqui para evitar acoplamento da package `features` ao kernel
+// nas dependências de tipo, mas SHAPE deve permanecer idêntico — qualquer
+// drift vai romper renderização silenciosamente (text vs thinking, id vs
+// toolUseId, etc). Se mudar aqui, sincronize com o kernel.
+export type MessageRole = 'user' | 'assistant' | 'system' | 'tool';
 
 export interface TextBlock {
   readonly type: 'text';
@@ -7,13 +12,13 @@ export interface TextBlock {
 
 export interface ThinkingBlock {
   readonly type: 'thinking';
-  readonly thinking: string;
+  readonly text: string;
 }
 
 export interface ToolUseBlock {
   readonly type: 'tool_use';
-  readonly id: string;
-  readonly name: string;
+  readonly toolUseId: string;
+  readonly toolName: string;
   readonly input: Record<string, unknown>;
 }
 

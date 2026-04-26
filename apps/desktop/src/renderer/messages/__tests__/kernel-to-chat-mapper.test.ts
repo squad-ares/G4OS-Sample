@@ -26,13 +26,13 @@ describe('kernelMessageToChat', () => {
     expect(result.content[0]).toEqual({ type: 'text', text: 'hello' });
   });
 
-  it('maps thinking.text to thinking.thinking', () => {
+  it('passes through thinking blocks with text field', () => {
     const msg = makeKernelMsg({ content: [{ type: 'thinking', text: 'chain of thought' }] });
     const result = kernelMessageToChat(msg);
-    expect(result.content[0]).toEqual({ type: 'thinking', thinking: 'chain of thought' });
+    expect(result.content[0]).toEqual({ type: 'thinking', text: 'chain of thought' });
   });
 
-  it('maps tool_use.toolUseId→id and toolName→name', () => {
+  it('passes through tool_use blocks with toolUseId/toolName', () => {
     const msg = makeKernelMsg({
       content: [
         {
@@ -46,8 +46,8 @@ describe('kernelMessageToChat', () => {
     const result = kernelMessageToChat(msg);
     expect(result.content[0]).toEqual({
       type: 'tool_use',
-      id: 'tool-123',
-      name: 'bash',
+      toolUseId: 'tool-123',
+      toolName: 'bash',
       input: { command: 'ls' },
     });
   });
@@ -72,9 +72,9 @@ describe('kernelMessageToChat', () => {
     });
   });
 
-  it('maps role "tool" to "system"', () => {
+  it('passes through "tool" role unchanged so ToolMessage can render results', () => {
     const msg = makeKernelMsg({ role: 'tool' });
-    expect(kernelMessageToChat(msg).role).toBe('system');
+    expect(kernelMessageToChat(msg).role).toBe('tool');
   });
 
   it('passes through user and assistant roles', () => {
