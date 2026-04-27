@@ -16,7 +16,7 @@ export function RetryButton({ onRetry, disabled, className }: RetryButtonProps) 
       disabled={disabled}
       aria-label={t('chat.actions.retry')}
       className={cn(
-        'flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-foreground/10 hover:text-foreground disabled:opacity-40',
+        'flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent/15 hover:text-foreground disabled:opacity-40',
         className,
       )}
     >

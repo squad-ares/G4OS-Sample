@@ -1,11 +1,21 @@
 import type { Workspace } from '@g4os/kernel/types';
+import type { TranslationKey, TranslationParams } from '@g4os/translate';
 import { Button, useTranslate } from '@g4os/ui';
-import { ExternalLink, Plus, Share, Trash2, Upload } from 'lucide-react';
+import { ExternalLink, MessagesSquare, Plus, Share, Trash2, Upload } from 'lucide-react';
+
+type TranslateFn = (key: TranslationKey, params?: TranslationParams) => string;
+
+export interface WorkspaceListItemStats {
+  readonly sessionCount?: number;
+  readonly projectCount?: number;
+  readonly lastActivityAt?: number;
+}
 
 export interface WorkspaceListPanelProps {
   readonly workspaces: readonly Workspace[];
   readonly activeWorkspaceId: string | null;
   readonly isLoading?: boolean;
+  readonly stats?: ReadonlyMap<string, WorkspaceListItemStats>;
   readonly onOpen: (id: Workspace['id']) => void;
   readonly onOpenInNewWindow?: (id: Workspace['id']) => void;
   readonly onCreate: () => void;
@@ -18,6 +28,7 @@ export function WorkspaceListPanel({
   workspaces,
   activeWorkspaceId,
   isLoading = false,
+  stats,
   onOpen,
   onOpenInNewWindow,
   onCreate,
@@ -70,6 +81,7 @@ export function WorkspaceListPanel({
               key={workspace.id}
               workspace={workspace}
               isActive={workspace.id === activeWorkspaceId}
+              stats={stats?.get(workspace.id)}
               onOpen={onOpen}
               {...(onOpenInNewWindow === undefined ? {} : { onOpenInNewWindow })}
               {...(onExport === undefined ? {} : { onExport })}
@@ -85,6 +97,7 @@ export function WorkspaceListPanel({
 interface WorkspaceListItemProps {
   readonly workspace: Workspace;
   readonly isActive: boolean;
+  readonly stats?: WorkspaceListItemStats | undefined;
   readonly onOpen: (id: Workspace['id']) => void;
   readonly onOpenInNewWindow?: (id: Workspace['id']) => void;
   readonly onExport?: (id: Workspace['id']) => void;
@@ -94,12 +107,15 @@ interface WorkspaceListItemProps {
 function WorkspaceListItem({
   workspace,
   isActive,
+  stats,
   onOpen,
   onOpenInNewWindow,
   onExport,
   onDelete,
 }: WorkspaceListItemProps) {
   const { t } = useTranslate();
+  const statsLine = formatStatsLine(stats, t);
+
   return (
     <li
       className={`flex items-center justify-between gap-3 rounded-2xl border px-4 py-3 transition-colors ${
@@ -120,11 +136,24 @@ function WorkspaceListItem({
         >
           {workspace.name.trim().charAt(0).toUpperCase() || '?'}
         </span>
-        <span className="flex flex-col">
-          <span className="text-sm font-medium">{workspace.name}</span>
-          <span className="text-xs text-muted-foreground">
+        <span className="flex min-w-0 flex-col">
+          <span className="flex items-center gap-1.5">
+            <span className="text-sm font-medium">{workspace.name}</span>
+            {isActive ? (
+              <span className="rounded-full bg-accent/15 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-accent">
+                {t('workspace.list.activeBadge')}
+              </span>
+            ) : null}
+          </span>
+          <span className="truncate text-xs text-muted-foreground" title={workspace.rootPath}>
             {workspace.slug} · {formatPath(workspace.rootPath)}
           </span>
+          {statsLine ? (
+            <span className="mt-0.5 flex items-center gap-1 text-[11px] text-muted-foreground/85">
+              <MessagesSquare className="size-3" aria-hidden={true} />
+              <span>{statsLine}</span>
+            </span>
+          ) : null}
         </span>
       </button>
       <div className="flex items-center gap-1">
@@ -171,4 +200,34 @@ function formatPath(path: string): string {
   const maxLen = 48;
   if (path.length <= maxLen) return path;
   return `…${path.slice(path.length - maxLen + 1)}`;
+}
+
+function formatStatsLine(stats: WorkspaceListItemStats | undefined, t: TranslateFn): string | null {
+  if (!stats) return null;
+  const parts: string[] = [];
+  if (typeof stats.sessionCount === 'number') {
+    parts.push(t('workspace.list.stats.sessions', { count: stats.sessionCount }));
+  }
+  if (typeof stats.projectCount === 'number') {
+    parts.push(t('workspace.list.stats.projects', { count: stats.projectCount }));
+  }
+  if (typeof stats.lastActivityAt === 'number' && stats.lastActivityAt > 0) {
+    parts.push(
+      t('workspace.list.stats.lastActivity', { when: formatRelative(stats.lastActivityAt) }),
+    );
+  }
+  return parts.length > 0 ? parts.join(' · ') : null;
+}
+
+function formatRelative(ms: number): string {
+  const delta = Date.now() - ms;
+  if (delta < 0) return 'agora';
+  const minutes = Math.floor(delta / 60_000);
+  if (minutes < 1) return 'agora';
+  if (minutes < 60) return `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d`;
+  return new Date(ms).toLocaleDateString(undefined, { month: 'short', day: '2-digit' });
 }

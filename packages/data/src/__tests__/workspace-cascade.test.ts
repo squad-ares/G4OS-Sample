@@ -51,7 +51,7 @@ function makeSession(id: string, workspaceId: string) {
     createdAt: NOW,
     updatedAt: NOW,
     enabledSourceSlugsJson: '[]',
-    stickySourceSlugsJson: '[]',
+    stickyMountedSourceSlugsJson: '[]',
     rejectedSourceSlugsJson: '[]',
   };
 }
@@ -104,9 +104,8 @@ describe('workspace delete cascade', () => {
       .values({
         consumerName: 'test',
         sessionId,
-        lastSeq: 0,
+        lastSequence: 0,
         checkpointedAt: NOW,
-        updatedAt: NOW,
       })
       .run();
 
@@ -134,7 +133,6 @@ describe('workspace delete cascade', () => {
         status: 'todo',
         order: '0|aaaaaa',
         createdAt: NOW,
-        updatedAt: NOW,
       })
       .run();
 

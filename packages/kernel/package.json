@@ -38,6 +38,10 @@
     "./serialization": {
       "types": "./src/serialization/index.ts",
       "import": "./src/serialization/index.ts"
+    },
+    "./fs": {
+      "types": "./src/fs/index.ts",
+      "import": "./src/fs/index.ts"
     }
   },
   "dependencies": {

@@ -69,11 +69,14 @@ export class RotationOrchestrator extends DisposableBase {
 
     try {
       const rotated = await handler.rotate(current.value);
-      const write = await this.vault.rotate(key, rotated.newValue);
-      if (write.isErr()) throw write.error;
-      await this.vault.set(expiryKey(key), String(rotated.expiresAt), {
+      // Grava novo valor + novo expiresAt na meta da MESMA key. Antes
+      // tinha um `set(<key>.expires_at, ...)` paralelo que deixava a
+      // meta da key principal com expiry vencido → próximo scan
+      // disparava handler em loop infinito.
+      const write = await this.vault.rotate(key, rotated.newValue, {
         expiresAt: rotated.expiresAt,
       });
+      if (write.isErr()) throw write.error;
       this.telemetry?.onRotation({ key, status: 'ok' });
       return true;
     } catch (cause) {
@@ -113,8 +116,4 @@ export class RotationOrchestrator extends DisposableBase {
       await this.rotateIfExpiring(meta.key);
     }
   }
-}
-
-function expiryKey(key: string): string {
-  return `${key}.expires_at`;
 }

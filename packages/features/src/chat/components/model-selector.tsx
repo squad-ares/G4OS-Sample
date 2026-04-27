@@ -66,7 +66,7 @@ export function ModelSelector({
           className="h-7 gap-1 text-xs"
           aria-label={t('chat.modelSelector.ariaLabel')}
         >
-          {selected?.label ?? t('chat.modelSelector.placeholder')}
+          {selected ? t(selected.labelKey) : t('chat.modelSelector.placeholder')}
           <ChevronDown className="h-3 w-3 opacity-60" />
         </Button>
       </PopoverTrigger>
@@ -120,9 +120,11 @@ interface ModelRowProps {
 }
 
 function ModelRow({ model, enabled, active, onSelect, unavailableLabel }: ModelRowProps) {
+  const { t } = useTranslate();
+  const label = t(model.labelKey);
   return (
     <CommandItem
-      value={`${model.provider} ${model.label} ${model.id}`}
+      value={`${model.provider} ${label} ${model.id}`}
       disabled={!enabled}
       onSelect={onSelect}
       onClick={onSelect}
@@ -131,7 +133,7 @@ function ModelRow({ model, enabled, active, onSelect, unavailableLabel }: ModelR
       <Check
         className={`h-3.5 w-3.5 shrink-0 text-accent ${active ? 'opacity-100' : 'opacity-0'}`}
       />
-      <span className="flex-1 truncate">{model.label}</span>
+      <span className="flex-1 truncate">{label}</span>
       {enabled ? (
         <span className="font-mono text-[10px] text-muted-foreground">
           {formatContextWindow(model.contextWindow)}

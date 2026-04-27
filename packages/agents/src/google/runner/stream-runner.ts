@@ -1,5 +1,6 @@
 import { AgentError } from '@g4os/kernel/errors';
 import type { AgentDoneReason, AgentEvent, AgentTurnInput } from '../../interface/agent.ts';
+import { wrapAgentError } from '../../shared/errors/wrap-agent-error.ts';
 import { resolveThinkingConfig } from '../../shared/thinking/level-resolver.ts';
 import { buildGeminiStreamParams } from '../config/mapper.ts';
 import { GeminiEventMapper } from '../event-mapper/event-mapper.ts';
@@ -95,9 +96,7 @@ export class StreamRunner {
   private *handleError(cause: unknown, signal: AbortSignal): Generator<AgentEvent, boolean, void> {
     const error = signal.aborted
       ? AgentError.network('google', { reason: 'aborted' })
-      : cause instanceof AgentError
-        ? cause
-        : AgentError.network('google', cause);
+      : wrapAgentError(cause, 'google');
     yield { type: 'error', error };
     yield { type: 'done', reason: 'error' };
     return true;

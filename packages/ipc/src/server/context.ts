@@ -57,12 +57,22 @@ export interface WorkspaceDeleteOptions {
   readonly removeFiles?: boolean;
 }
 
+export interface WorkspaceSetupNeeds {
+  /** `setupCompleted=false` → primeiro turn deve ser "/setup". */
+  readonly needsInitialSetup: boolean;
+  /** `setupCompleted=true && styleSetupCompleted=false` → segundo turn deve ser style interview. */
+  readonly needsStyleSetup: boolean;
+  /** Estado consolidado: `true` quando ambos os flags são `true`. */
+  readonly isFullyConfigured: boolean;
+}
+
 export interface WorkspacesService {
   list(): Promise<Result<readonly Workspace[], AppError>>;
   get(id: WorkspaceId): Promise<Result<Workspace, AppError>>;
   create(input: Pick<Workspace, 'name' | 'rootPath'>): Promise<Result<Workspace, AppError>>;
   update(id: WorkspaceId, patch: Partial<Workspace>): Promise<Result<void, AppError>>;
   delete(id: WorkspaceId, options?: WorkspaceDeleteOptions): Promise<Result<void, AppError>>;
+  getSetupNeeds(id: WorkspaceId): Promise<Result<WorkspaceSetupNeeds, AppError>>;
 }
 
 export interface SessionListPage {
@@ -247,6 +257,19 @@ export interface AuthService {
   sendOtp(email: string): Promise<Result<void, AppError>>;
   verifyOtp(email: string, code: string): Promise<Result<IpcSession, AppError>>;
   signOut(): Promise<Result<void, AppError>>;
+  /**
+   * Reset destrutivo: revoga sessão, apaga workspaces, credenciais e dados de
+   * preferência. Implementação owns the order — falhas parciais devem retornar
+   * `Result.err`. Após sucesso, o cliente deve invalidar a query de auth e
+   * navegar para `/login`. Uso esperado: feature `ResetConfirmationDialog`.
+   */
+  wipeAndReset(): Promise<Result<void, AppError>>;
+  /**
+   * Subscription para o backend pedir re-autenticação (ex.: token revogado
+   * fora do app). Renderer mostra toast com action `Sign in` ou navega para
+   * `/login?reauth=1`. Não recebemos sessão — só o sinal.
+   */
+  subscribeManagedLoginRequired(handler: (event: { reason: string }) => void): IDisposable;
 }
 
 export interface MarketplaceService {

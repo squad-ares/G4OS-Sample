@@ -1,4 +1,5 @@
 import type { Workspace } from '@g4os/kernel/types';
+import type { TranslationKey } from '@g4os/translate';
 
 export const WORKSPACE_WIZARD_STEPS = [
   'name',
@@ -17,17 +18,17 @@ export const DEFAULT_THINKING_LEVEL: ThinkingLevel = 'medium';
 
 export interface WorkspaceColor {
   readonly id: string;
-  readonly label: string;
+  readonly labelKey: TranslationKey;
   readonly hex: string;
 }
 
 export const WORKSPACE_COLORS: readonly WorkspaceColor[] = [
-  { id: 'indigo', label: 'Indigo', hex: '#6366f1' },
-  { id: 'emerald', label: 'Esmeralda', hex: '#10b981' },
-  { id: 'amber', label: 'Âmbar', hex: '#f59e0b' },
-  { id: 'rose', label: 'Rosa', hex: '#f43f5e' },
-  { id: 'sky', label: 'Azul', hex: '#0ea5e9' },
-  { id: 'violet', label: 'Violeta', hex: '#8b5cf6' },
+  { id: 'indigo', labelKey: 'workspace.colors.indigo', hex: '#6366f1' },
+  { id: 'emerald', labelKey: 'workspace.colors.emerald', hex: '#10b981' },
+  { id: 'amber', labelKey: 'workspace.colors.amber', hex: '#f59e0b' },
+  { id: 'rose', labelKey: 'workspace.colors.rose', hex: '#f43f5e' },
+  { id: 'sky', labelKey: 'workspace.colors.sky', hex: '#0ea5e9' },
+  { id: 'violet', labelKey: 'workspace.colors.violet', hex: '#8b5cf6' },
 ];
 
 export type PermissionPreset = 'permissive' | 'balanced' | 'strict';

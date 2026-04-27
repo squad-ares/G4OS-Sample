@@ -2,9 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { AttachmentSchema } from '../schemas/attachment.schema.ts';
 import { SessionEventSchema } from '../schemas/event.schema.ts';
 import { PermissionConfigSchema } from '../schemas/permission.schema.ts';
+import { ProjectPatchSchema, ProjectTaskPatchSchema } from '../schemas/project.schema.ts';
 import { SessionSchema, SessionUpdateSchema } from '../schemas/session.schema.ts';
 import { ToolInvocationSchema } from '../schemas/tool.schema.ts';
-import { WorkspaceSchema } from '../schemas/workspace.schema.ts';
+import { WorkspaceSchema, WorkspaceUpdateSchema } from '../schemas/workspace.schema.ts';
 
 const now = Date.now();
 const uuid = '550e8400-e29b-41d4-a716-446655440000';
@@ -178,6 +179,59 @@ describe('SessionUpdateSchema', () => {
     if (result.success) {
       expect(result.data).toEqual({ modelId: 'x' });
     }
+  });
+});
+
+// ─── WorkspaceUpdateSchema ───────────────────────────────────────────────────
+
+describe('WorkspaceUpdateSchema', () => {
+  it('does not inject defaults for setupCompleted/styleSetupCompleted/defaults/metadata', () => {
+    const parsed = WorkspaceUpdateSchema.parse({ name: 'New name' });
+    expect(parsed).not.toHaveProperty('setupCompleted');
+    expect(parsed).not.toHaveProperty('styleSetupCompleted');
+    expect(parsed).not.toHaveProperty('defaults');
+    expect(parsed).not.toHaveProperty('metadata');
+    expect(parsed).toEqual({ name: 'New name' });
+  });
+
+  it('passes through whitelisted fields verbatim', () => {
+    const patch = {
+      name: 'Workspace renomeado',
+      slug: 'workspace-renomeado',
+      setupCompleted: true,
+      defaults: { permissionMode: 'safe' as const },
+    };
+    expect(WorkspaceUpdateSchema.parse(patch)).toEqual(patch);
+  });
+});
+
+// ─── ProjectPatchSchema ──────────────────────────────────────────────────────
+
+describe('ProjectPatchSchema', () => {
+  it('does not inject default("active") for status', () => {
+    const parsed = ProjectPatchSchema.parse({ name: 'Renomeado' });
+    expect(parsed).not.toHaveProperty('status');
+    expect(parsed).toEqual({ name: 'Renomeado' });
+  });
+
+  it('preserves explicit archived status when sent', () => {
+    expect(ProjectPatchSchema.parse({ status: 'archived' })).toEqual({ status: 'archived' });
+  });
+});
+
+// ─── ProjectTaskPatchSchema ─────────────────────────────────────────────────
+
+describe('ProjectTaskPatchSchema', () => {
+  it('does not inject default("todo") for status nor default([]) for labels', () => {
+    const parsed = ProjectTaskPatchSchema.parse({ title: 'Tarefa renomeada' });
+    expect(parsed).not.toHaveProperty('status');
+    expect(parsed).not.toHaveProperty('labels');
+    expect(parsed).toEqual({ title: 'Tarefa renomeada' });
+  });
+
+  it('preserves explicit done status + labels when sent', () => {
+    const patch = { status: 'done' as const, labels: ['urgent', 'review'] };
+    expect(ProjectTaskPatchSchema.parse(patch)).toEqual(patch);
   });
 });
 

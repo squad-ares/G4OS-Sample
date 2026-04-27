@@ -139,7 +139,7 @@ export class SessionEventBus extends DisposableBase {
       try {
         handler(event);
       } catch (err) {
-        // Handler failures must not affect other subscribers. Log at debug
+        // Falha em um handler não pode afetar outros subscribers. Log em debug
         // so operators can diagnose via structured logs without noise.
         log.debug({ err, sessionId, eventType: event.type }, 'bus handler threw; isolated');
       }

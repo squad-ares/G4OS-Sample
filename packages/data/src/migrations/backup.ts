@@ -1,15 +1,15 @@
 /**
  * Backup do arquivo SQLite antes de aplicar migrations.
  *
- * Estratégia: copia `<data>/app.db` (ou caminho customizado) para
- * `<data>/app.db.backup-<timestamp>`. Usa `copyFile` de `node:fs/promises`
- * — em WAL mode isso é seguro porque `-wal` e `-shm` são reconstruídos
- * automaticamente no próximo `open()`; para recovery total o operador
- * deve restaurar também `app.db-wal` se existir.
+ * Estratégia: copia o trio `app.db` + `app.db-wal` + `app.db-shm` para
+ * caminhos com sufixo `.backup-<timestamp>`. Em WAL mode, dados recém-
+ * escritos podem residir em `-wal` ainda não checkpointed; copiar só
+ * `app.db` perde esses dados em restore. Os 3 arquivos juntos formam o
+ * estado consistente.
  *
- * Best-effort: se o DB ainda não existe (primeira execução), a função
- * retorna `null` em vez de lançar. Motivo: runtime de primeira boot
- * não deve falhar por ausência de fonte de backup.
+ * Best-effort: se `-wal`/`-shm` não existirem (DB foi fechado/checkpoint
+ * forçado antes), só `app.db` é copiado. Se `app.db` ainda não existe
+ * (primeira execução), a função retorna `null` em vez de lançar.
  */
 
 import { copyFile, stat } from 'node:fs/promises';
@@ -41,8 +41,25 @@ export async function backupBeforeMigration(options: BackupOptions = {}): Promis
   }
 
   await copyFile(source, target);
-  log.info({ source, target }, 'database backup created');
+  // -wal e -shm são opcionais (podem não existir se o DB foi fechado
+  // limpamente). Best-effort, não falha o backup principal.
+  await copyIfExists(`${source}-wal`, `${target}-wal`);
+  await copyIfExists(`${source}-shm`, `${target}-shm`);
+  log.info({ source, target }, 'database backup created (db + wal + shm)');
   return target;
+}
+
+async function copyIfExists(source: string, target: string): Promise<void> {
+  try {
+    await stat(source);
+  } catch {
+    return;
+  }
+  try {
+    await copyFile(source, target);
+  } catch (cause) {
+    log.warn({ source, target, err: cause }, 'failed to copy WAL sidecar (continuing)');
+  }
 }
 
 function defaultSource(): string {

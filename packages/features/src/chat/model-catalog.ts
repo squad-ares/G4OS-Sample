@@ -1,11 +1,13 @@
 // TODO!: Revisar, talvez esse conteúdo deva ficar em agents
 
+import type { TranslationKey } from '@g4os/translate';
+
 export type ThinkingLevel = 'minimal' | 'low' | 'medium' | 'high';
 export type ModelProvider = 'claude' | 'codex' | 'pi-google' | 'pi-openai';
 
 export interface ModelSpec {
   readonly id: string;
-  readonly label: string;
+  readonly labelKey: TranslationKey;
   readonly provider: ModelProvider;
   readonly family: string;
   readonly supportsThinking: boolean;
@@ -16,7 +18,7 @@ export interface ModelSpec {
 export const MODELS: ReadonlyArray<ModelSpec> = [
   {
     id: 'claude-opus-4-7',
-    label: 'Claude Opus 4.7',
+    labelKey: 'chat.models.claudeOpus47',
     provider: 'claude',
     family: 'claude-4',
     supportsThinking: true,
@@ -25,7 +27,7 @@ export const MODELS: ReadonlyArray<ModelSpec> = [
   },
   {
     id: 'claude-sonnet-4-6',
-    label: 'Claude Sonnet 4.6',
+    labelKey: 'chat.models.claudeSonnet46',
     provider: 'claude',
     family: 'claude-4',
     supportsThinking: true,
@@ -34,7 +36,7 @@ export const MODELS: ReadonlyArray<ModelSpec> = [
   },
   {
     id: 'claude-haiku-4-5',
-    label: 'Claude Haiku 4.5',
+    labelKey: 'chat.models.claudeHaiku45',
     provider: 'claude',
     family: 'claude-4',
     supportsThinking: false,
@@ -42,7 +44,7 @@ export const MODELS: ReadonlyArray<ModelSpec> = [
   },
   {
     id: 'gpt-5-codex',
-    label: 'Codex GPT-5',
+    labelKey: 'chat.models.codexGpt5',
     provider: 'codex',
     family: 'codex',
     supportsThinking: false,
@@ -50,7 +52,7 @@ export const MODELS: ReadonlyArray<ModelSpec> = [
   },
   {
     id: 'gemini-2.5-pro',
-    label: 'Gemini 2.5 Pro',
+    labelKey: 'chat.models.gemini25Pro',
     provider: 'pi-google',
     family: 'gemini',
     supportsThinking: false,

@@ -1,21 +1,26 @@
 import { LanguageSwitcher } from '@g4os/ui';
 import type { LoginController } from '../hooks/use-login-controller.ts';
-import { EmailStep } from './email-step.tsx';
-import { OtpStep } from './otp-step.tsx';
+import { LoginCard, type LoginCardMode } from './login-card.tsx';
 
 export interface LoginPageProps {
   readonly controller: LoginController;
+  /** Erro pré-existente mostrado ao abrir a tela (ex.: reauth expirada). */
+  readonly initialError?: string | undefined;
+  /** Modo visual: `login` (padrão, primeira vez) ou `reauth` (sessão expirada). */
+  readonly mode?: LoginCardMode | undefined;
+  /** Callback para abrir reset destrutivo. Quando ausente, o botão de reset não aparece. */
+  readonly onReset?: (() => void) | undefined;
+  /** Email pré-preenchido (útil em reauth — confiamos no email anterior). */
+  readonly reauthEmail?: string | undefined;
 }
 
-export function LoginPage({ controller }: LoginPageProps) {
-  const { state, cooldownSeconds, isResending, requestOtp, resendOtp, submitOtp, reset } =
-    controller;
-
-  const isAwaitingOtp = state.kind === 'awaiting_otp' || state.kind === 'verifying';
-  const otpError = state.kind === 'error' && state.email ? state.message : undefined;
-  const emailError =
-    state.kind === 'error' && state.email === undefined ? state.message : undefined;
-
+export function LoginPage({
+  controller,
+  initialError,
+  mode = 'login',
+  onReset,
+  reauthEmail,
+}: LoginPageProps) {
   return (
     <div className="relative flex min-h-screen w-full flex-col bg-foreground-2 text-foreground">
       <div className="titlebar-drag-region fixed inset-x-0 top-0 z-10 h-12.5" />
@@ -26,30 +31,13 @@ export function LoginPage({ controller }: LoginPageProps) {
 
       <main className="flex flex-1 items-center justify-center p-8">
         <div className="w-md max-w-full">
-          {isAwaitingOtp && 'email' in state ? (
-            <OtpStep
-              email={state.email}
-              isLoading={state.kind === 'verifying'}
-              cooldownSeconds={cooldownSeconds}
-              isResending={isResending}
-              {...(otpError ? { error: otpError } : {})}
-              onSubmit={(code) => {
-                void submitOtp(code);
-              }}
-              onResend={() => {
-                void resendOtp();
-              }}
-              onBack={reset}
-            />
-          ) : (
-            <EmailStep
-              isLoading={state.kind === 'requesting_otp'}
-              {...(emailError ? { error: emailError } : {})}
-              onSubmit={(email) => {
-                void requestOtp(email);
-              }}
-            />
-          )}
+          <LoginCard
+            controller={controller}
+            mode={mode}
+            initialError={initialError}
+            onReset={onReset}
+            reauthEmail={reauthEmail}
+          />
         </div>
       </main>
     </div>

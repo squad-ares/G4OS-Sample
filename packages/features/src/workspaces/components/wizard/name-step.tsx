@@ -53,7 +53,7 @@ export function NameStep({
                     className="size-3 rounded-full"
                     style={{ backgroundColor: color.hex }}
                   />
-                  {color.label}
+                  {t(color.labelKey)}
                 </button>
               </React.Fragment>
             );

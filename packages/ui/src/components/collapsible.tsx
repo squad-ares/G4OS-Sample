@@ -2,12 +2,12 @@ import * as CollapsiblePrimitive from '@radix-ui/react-collapsible';
 import { AnimatePresence, motion } from 'motion/react';
 import type * as React from 'react';
 
-// Radix primitives (unchanged)
+// Primitivos Radix re-exportados sem alteração
 const Collapsible = CollapsiblePrimitive.Root;
 const CollapsibleTrigger = CollapsiblePrimitive.CollapsibleTrigger;
 const CollapsibleContent = CollapsiblePrimitive.CollapsibleContent;
 
-// Spring config - snappy, no bounce
+// Config do spring — animação rápida sem bounce
 const springTransition = {
   type: 'spring' as const,
   stiffness: 1400,

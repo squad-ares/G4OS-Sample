@@ -34,4 +34,12 @@ export class AuthError extends AppError {
       context: { feature },
     });
   }
+
+  static bootstrapFailed(message: string): AuthError {
+    return new AuthError({
+      code: ErrorCode.AUTH_BOOTSTRAP_FAILED,
+      message: `Bootstrap failed: ${message}`,
+      context: { reason: message },
+    });
+  }
 }

@@ -1,24 +1,8 @@
 /**
- * TurnDispatcher — orquestra um turno do agente.
- *
- * Fluxo (OUTLIER-09 Fase 1):
- *   1. Persiste user message via MessagesService + emite `message.added`
- *   2. Resolve agent via registry (provider/model derivados da sessão)
- *   3. Emite `turn.started`
- *   4. Delega pro `runToolLoop` (`@g4os/session-runtime`) que:
- *      - Roda iterações do agent (runAgentIteration)
- *      - A cada `done.reason === 'tool_use'`: resolve perms via broker,
- *        executa tools via catalog, persiste assistant(text+tool_use) +
- *        tool(result) e continua
- *      - Ao `stop|max_tokens|error|interrupted`: finaliza e emite
- *        `message.added` do assistant final.
- *
- * Fases prévias:
- *   - OUTLIER-05: MVP Claude direct
- *   - OUTLIER-07: multi-provider
- *   - OUTLIER-08: credenciais via vault
- *
- * Reentrância: se sessão já tiver turno ativo, rejeita com erro.
+ * TurnDispatcher — orquestra um turno: persiste user msg → resolve agent →
+ * delega `runToolLoop` (multi-iteração tool use + perms broker + mounted MCP)
+ * → após ok, dispara title gen best-effort. Reentrância bloqueada (turn
+ * único por session). ADR-0135 + OUTLIER-09.
  */
 
 import { randomUUID } from 'node:crypto';
@@ -36,6 +20,7 @@ import { createLogger } from '@g4os/kernel/logger';
 import {
   type ContentBlock,
   connectionSlugForProvider,
+  type Message,
   type Session,
   type SessionId,
   type ToolDefinition,
@@ -64,6 +49,10 @@ const DEFAULT_MODEL_ID = 'claude-sonnet-4-6';
 const DEFAULT_CONNECTION_SLUG = 'anthropic-direct';
 const DEFAULT_MAX_TOKENS = 4096;
 
+export interface TitleHook {
+  scheduleGeneration(sessionId: SessionId, messages: readonly Message[]): void;
+}
+
 export interface TurnDispatcherDeps {
   readonly messages: MessagesService;
   readonly registry: AgentRegistry;
@@ -71,13 +60,13 @@ export interface TurnDispatcherDeps {
   readonly permissionBroker: PermissionBroker;
   readonly toolCatalog: ToolCatalog;
   readonly sourcesStore: SourcesStore;
-  /** Quando fornecido, sources `brokerFallback` sticky do tipo `mcp-stdio`
-   *  são montadas por turno e expostas como `mcp_<slug>__<tool>` no catálogo. */
+  /** Sources `brokerFallback` sticky `mcp-stdio` são montadas via `mcp_<slug>__<tool>`. */
   readonly mountRegistry?: McpMountRegistry;
+  /** Best-effort title gen pós-turn ok — não bloqueia retorno. */
+  readonly titleGenerator?: TitleHook;
   readonly getSession: (id: SessionId) => Promise<Session | null>;
   readonly resolveWorkingDirectory: (session: Session | null) => string;
-  /** Injeta o writer pra `rejectedSourceSlugs` / `stickyMountedSourceSlugs`
-   *  vindo do `SessionsRepository`. Sem isso, intent detection vira no-op. */
+  /** Writer pra `rejectedSourceSlugs` / `stickyMountedSourceSlugs`. */
   readonly sessionIntentUpdater?: SessionIntentUpdater;
   readonly defaults?: Partial<TurnDispatchDefaults>;
 }
@@ -264,7 +253,16 @@ export class TurnDispatcher extends DisposableBase {
     // teardown registered in the constructor — no explicit dispose here to
     // avoid double-dispose when DisposableBase.dispose() also fires.
     this.cleanup(sessionId, { disposeAgent: true });
+
+    if (loopResult.isOk() && this.#deps.titleGenerator) {
+      void this.fireTitleGen(sessionId);
+    }
     return loopResult;
+  }
+
+  private async fireTitleGen(sessionId: SessionId): Promise<void> {
+    const recent = await this.#deps.messages.list(sessionId);
+    if (recent.isOk()) this.#deps.titleGenerator?.scheduleGeneration(sessionId, recent.value);
   }
 
   interrupt(sessionId: SessionId): Result<void, AppError> {

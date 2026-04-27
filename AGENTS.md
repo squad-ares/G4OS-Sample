@@ -202,6 +202,13 @@ Pacotes em alpha/RC/beta **não entram em `dependencies`**, salvo exceção com 
 - `verbatimModuleSyntax` ligado — use `import type` quando o símbolo é só tipo.
 - Sem `default export` em código de aplicação (`noDefaultExport: error`). Default é permitido só em configs (`*.config.ts`, `tsup.config.ts`).
 
+### Comentários e documentação
+
+- **Idioma padrão: pt-BR.** JSDoc, file headers, inline comments, comentários de bloco — tudo em português brasileiro. Identificadores de código (variáveis, funções, types, classes) ficam em inglês.
+- **Exceções legítimas em inglês:** URLs e citações de specs (RFC, MDN), nomes de produtos/APIs (Anthropic, OpenAI, tRPC, GitHub), códigos HTTP (`401`, `429`), siglas técnicas (`AbortSignal`, `WebSocket`, `OAuth`).
+- **Comente o WHY, não o WHAT.** Nome bom > comentário. Comente quando: invariante hidden, workaround de bug específico, surpresa pra leitor futuro. Não comente "increment counter".
+- **Nunca referencie código atual ou tasks transitórias** ("usado por X", "fix do issue #123") — isso pertence ao PR description e apodrece à medida que o codebase evolui.
+
 ### Limites e organização
 
 - **Max 500 LOC por arquivo** (gate `check:file-lines`). Exceções via `EXEMPTIONS` com justificativa.
@@ -231,12 +238,25 @@ Pacotes em alpha/RC/beta **não entram em `dependencies`**, salvo exceção com 
   }
   ```
 
-- **Result<T, E>.** Erros esperados são tipos, não exceptions. Zero `try/catch` no caminho feliz.
+- **Result<T, E>.** Erros esperados são tipos, não exceptions. Zero `try/catch` no caminho feliz. Vale também para **helpers internos**, não só services públicos: validações em `file-ops`, parsers, factories de erro retornam `Result` para que o tipo do erro propague na cadeia. Throw genérico em helper força catch genérico no caller, perdendo tipagem. Exceções (ok jogar): bootstrap/setup que falha = bug + composição root que faz a ponte para IPC (`if (result.isErr()) throw result.error`).
 
   ```ts
   async function getCredential(key: string): Promise<Result<string, 'not_found' | 'locked'>>
   // chamador é OBRIGADO a tratar result.isErr() antes de acessar result.value
   ```
+
+- **i18n via `labelKey` em catálogos estáticos.** Catálogos exportados (model-catalog, workspace colors, settings categories, source seeds, permission presets) que vão para UI usam `labelKey: TranslationKey`, nunca `label: string`. Renderer faz `t(labelKey)` na renderização. Strings hardcoded em catálogos quebram troca de locale em runtime.
+
+  ```ts
+  // ❌ não fazer
+  export const MODELS = [{ id: 'claude-opus', label: 'Claude Opus 4.7' }];
+
+  // ✅ correto
+  export const MODELS = [{ id: 'claude-opus', labelKey: 'chat.models.claudeOpus47' }];
+  // consumer: <span>{t(model.labelKey)}</span>
+  ```
+
+- **Default-name "skip if same"** para services que sobrescrevem nomes via IA. `TitleGeneratorService` recebe array de `defaultNames` (ex.: `['Nova sessão', 'New session']`) e só atualiza quando `session.name` ainda bate com algum default — não toca em nomes editados manualmente. Aplicar em qualquer feature que regenere texto user-visible (title gen, summarization de threads, auto-rename).
 
 - **Event sourcing em sessões.** Sessão = sequência imutável de eventos em JSONL append-only + índice em SQLite. Estado é `fold(events)`. Crash recovery = replay até último evento commitado.
 
@@ -269,6 +289,9 @@ Pacotes em alpha/RC/beta **não entram em `dependencies`**, salvo exceção com 
 - `as any` → direto proibido por `noExplicitAny`
 - ARIA role interativo em elemento semântico não-interativo → `noNoninteractiveElementToInteractiveRole: error`. `ul`, `li`, `p`, `span`, etc. não aceitam `role="listbox"`, `role="option"`, `role="combobox"`, etc. Use `div`.
 - ARIA role interativo sem `tabIndex` → `useFocusableInteractive: error`. Todo elemento com role interativo precisa de `tabIndex` (normalmente `-1` para foco gerenciado via `aria-activedescendant`; `0` para inclusão no tab order natural).
+- **`Schema.partial()` em update procedures** → bug de defaults clobberando state. Schemas Zod com `.default(...)` (ex.: `setupCompleted: z.boolean().default(false)`) injetam o default ao parsear input parcial — então um `update({ name: 'X' })` reseta `setupCompleted=false` no servidor. Use **objeto explícito com `.optional()` em todos os campos** para `*UpdateSchema` (ver `WorkspaceUpdateSchema`/`SessionUpdateSchema` como referências). O bug é silencioso e leva o usuário de volta pra onboarding ao renomear workspace.
+- **`hover:bg-foreground/10 hover:text-foreground` em buttons icon-only** → contraste duvidoso em dark mode (foreground branco com 10% sobre dark = cinza médio + texto branco fica baixo contraste). Padrão correto: `hover:bg-accent/15 hover:text-foreground` (variável de tema dedicada com cor própria gold no dark).
+- **Strings hardcoded em catálogos estáticos** → catálogos `.ts` que exportam objetos com `label: string` para UI quebram troca de locale. Use `labelKey: TranslationKey` (ver "Padrões obrigatórios").
 
 ### Padrões de UI (ARIA + Acessibilidade)
 
@@ -289,6 +312,18 @@ Pacotes em alpha/RC/beta **não entram em `dependencies`**, salvo exceção com 
 ```
 
 **Pre-commit workflow:** sempre rodar `./node_modules/.bin/biome check --write <files>` **antes** de `git add`. O hook lefthook tem `stage_fixed: true`, mas opera sobre o snapshot staged — fazer `git add` antes do fix deixa a versão staged stale e o hook bloqueia mesmo após o auto-fix no working tree. Sequência segura: `biome check --write` → `git add` → `git commit`.
+
+**Search inline em listas (sub-sidebar, panels):** padrão consistente para listas que podem ter dezenas+ de itens (sessions, projects, sources):
+- State `query` + filtro via `useMemo` (filtro simples por `title.includes(q)` para começar; fuzzy só quando volume justificar)
+- `<HighlightedTitle text={item.title} query={query} />` recursivo no item
+- Empty state diferenciado: "no items yet" (CTA pra criar) vs "no matches for X" (botão clear)
+- Match count chip no header quando `isSearching`
+- Search input com `<Search>` à esquerda e botão `<X>` (clear) à direita quando há query
+- Para volume grande (>80 items) adicionar virtualização com `@tanstack/react-virtual`
+
+**Paridade visual com V1:** quando feature V2 substitui equivalente V1, comparar lado-a-lado padding/border-radius/shadow/font antes de declarar pronto. Divergências sem ADR justificando = regressão de UX. Padrões observados: V1 textarea `pt-4 pb-3 pl-5 pr-4 min-h-[76px]`, container `rounded-[16px] shadow-middle`, action bar com `border-t border-foreground/[0.05]`. V2 deve manter consistência ou documentar mudança.
+
+**Hover/focus em ícone-button (a11y + dark mode):** `text-muted-foreground hover:bg-accent/15 hover:text-foreground` é o pattern aprovado. Evita o problema de contraste de `hover:bg-foreground/N` em dark mode. Use `bg-accent/12` para densidade menor (search-bar inline buttons), `bg-accent/20` para destaque maior. Nunca aplicar `hover:text-muted-foreground` quando o estado normal já é muted (texto fica invisível em dark).
 
 ### Arquivos, naming, exports
 

@@ -49,6 +49,8 @@ function createWorkspacesMock(): WorkspacesService {
       }),
     update: async () => ok(undefined),
     delete: async () => ok(undefined),
+    getSetupNeeds: async () =>
+      ok({ needsInitialSetup: false, needsStyleSetup: false, isFullyConfigured: true }),
   };
 }
 
@@ -196,6 +198,8 @@ function createAuthMock(): AuthService {
     sendOtp: async () => ok(undefined),
     verifyOtp: async () => err(notImplemented('auth.verifyOtp')),
     signOut: async () => ok(undefined),
+    wipeAndReset: async () => ok(undefined),
+    subscribeManagedLoginRequired: () => ({ dispose: () => undefined }),
   };
 }
 

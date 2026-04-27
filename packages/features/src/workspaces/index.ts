@@ -9,6 +9,12 @@ export {
   type WorkspaceDeleteOptions,
 } from './components/workspace-delete-dialog.tsx';
 export {
+  WorkspaceLandingCanvas,
+  type WorkspaceLandingCanvasProps,
+  type WorkspaceLandingChip,
+} from './components/workspace-landing-canvas.tsx';
+export {
+  type WorkspaceListItemStats,
   WorkspaceListPanel,
   type WorkspaceListPanelProps,
 } from './components/workspace-list-panel.tsx';

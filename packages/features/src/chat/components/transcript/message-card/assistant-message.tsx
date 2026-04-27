@@ -43,12 +43,12 @@ export function AssistantMessage({ message, isStreaming }: AssistantMessageProps
           // separada role='tool' (renderizada por ToolMessage).
           return null;
         })}
-        {isStreaming && message.content.length === 0 && (
+        {isStreaming ? (
           <span
-            className="inline-block h-4 w-2 animate-pulse rounded-sm bg-foreground/40"
+            className="ml-0.5 inline-block h-4 w-2 animate-pulse rounded-sm bg-foreground/40 align-middle"
             aria-hidden={true}
           />
-        )}
+        ) : null}
       </div>
     </div>
   );

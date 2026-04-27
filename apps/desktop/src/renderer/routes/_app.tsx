@@ -8,13 +8,18 @@ import {
 } from '@g4os/features/settings';
 import {
   AppShell,
+  AutomationsPanel,
   type ContextualSubSidebarProps,
+  MarketplacePanel,
+  type MarketplacePanelItem,
   mapSessionToPanelItem,
   ProjectsPanel,
   SessionsPanel,
   type SessionsSubTab,
+  type ShellActionDefinition,
   ShellCommandPalette,
   ShellShortcutsDialog,
+  SourcesPanel,
   shellActionDefinitions,
   useGlobalShortcuts,
 } from '@g4os/features/shell';
@@ -40,6 +45,7 @@ import { ensureAuthState, setAuthUnauthenticated } from '../auth/auth-store.ts';
 import { queryClient } from '../ipc/query-client.ts';
 import { trpc } from '../ipc/trpc-client.ts';
 import { useSeenNewsIds } from '../news/seen-store.ts';
+import { useFirstLoginSetup } from '../onboarding/use-first-login-setup.ts';
 import { projectsListQueryOptions } from '../projects/projects-store.ts';
 import { invalidateSessions, sessionsListQueryOptions } from '../sessions/sessions-store.ts';
 import { workspacesListQueryOptions } from '../workspaces/workspaces-store.ts';
@@ -86,9 +92,39 @@ function AuthenticatedLayout() {
     enabled: activeWorkspaceSlug.length > 0,
   });
 
+  // Auto-onboarding: workspace recém-criado (setupCompleted=false + 0 sessions)
+  // dispara session "Workspace Setup" com prompt guiado. Equivalente a V1
+  // App.tsx:1431-1450. Sem skill bundled ainda (TASK-CR1-18 fará).
+  useFirstLoginSetup({
+    activeWorkspaceId: activeWorkspaceSlug.length > 0 ? activeWorkspaceSlug : null,
+    hasSessions: (sessionsListQuery.data?.items.length ?? 0) > 0,
+    onSessionCreated: (sessionId, workspaceId) => {
+      void invalidateSessions(queryClient).then(() =>
+        navigate({
+          to: '/workspaces/$workspaceId/sessions/$sessionId',
+          params: { workspaceId, sessionId },
+        }),
+      );
+    },
+  });
+
   const projectsQuery = useQuery({
     ...projectsListQueryOptions(activeWorkspaceSlug),
     enabled: activeWorkspaceSlug.length > 0,
+  });
+
+  const sourcesQuery = useQuery({
+    queryKey: ['sources', 'list', activeWorkspaceSlug],
+    queryFn: () => trpc.sources.list.query({ workspaceId: activeWorkspaceSlug }),
+    staleTime: 30_000,
+    enabled: activeWorkspaceSlug.length > 0,
+  });
+
+  const marketplaceQuery = useQuery({
+    queryKey: ['marketplace', 'list'],
+    queryFn: () => trpc.marketplace.list.query(),
+    staleTime: 5 * 60_000,
+    gcTime: 30 * 60_000,
   });
 
   const newsQuery = useQuery({
@@ -117,31 +153,28 @@ function AuthenticatedLayout() {
     });
   };
 
+  const runDialogIntent = (target: 'command-palette' | 'shortcuts'): void => {
+    startTransition(() => {
+      if (target === 'command-palette') setCommandOpen(true);
+      else setShortcutsOpen(true);
+    });
+  };
+
+  const runSessionIntent = (target: 'sign-out' | 'new-session'): void => {
+    if (target === 'new-session') void handleNewSession();
+    else void handleSignOut();
+  };
+
+  const runShellIntent = (intent: ShellActionDefinition['intent']): void => {
+    if (intent.kind === 'dialog') runDialogIntent(intent.target);
+    else if (intent.kind === 'navigate') handleNavigate(intent.to);
+    else runSessionIntent(intent.target);
+  };
+
   useGlobalShortcuts(
     shellActionDefinitions.map((definition) => ({
       definition,
-      run: () => {
-        if (definition.intent.kind === 'dialog') {
-          if (definition.intent.target === 'command-palette') {
-            startTransition(() => {
-              setCommandOpen(true);
-            });
-            return;
-          }
-
-          startTransition(() => {
-            setShortcutsOpen(true);
-          });
-          return;
-        }
-
-        if (definition.intent.kind === 'navigate') {
-          handleNavigate(definition.intent.to);
-          return;
-        }
-
-        void handleSignOut();
-      },
+      run: () => runShellIntent(definition.intent),
     })),
   );
 
@@ -176,50 +209,95 @@ function AuthenticatedLayout() {
     }
   };
 
+  const renderSessionsPanel = (footer: React.ReactNode) => {
+    const items = (sessionsListQuery.data?.items ?? []).map((s) => mapSessionToPanelItem(s));
+    return (
+      <SessionsPanel
+        sessions={items}
+        activeTab={sessionsTab}
+        onTabChange={setSessionsTab}
+        onOpenSession={(sessionId) => {
+          if (!activeWorkspaceSlug) return;
+          void navigate({
+            to: '/workspaces/$workspaceId/sessions/$sessionId',
+            params: { workspaceId: activeWorkspaceSlug, sessionId },
+          });
+        }}
+        onNewSession={() => void handleNewSession()}
+        loading={sessionsListQuery.isLoading}
+        footer={footer}
+      />
+    );
+  };
+
+  const renderProjectsPanel = (footer: React.ReactNode) => (
+    <ProjectsPanel
+      projects={projectsQuery.data ?? []}
+      loading={projectsQuery.isLoading}
+      onOpenProject={(projectId) =>
+        void navigate({ to: '/projects/$projectId', params: { projectId } })
+      }
+      onNewProject={() => void navigate({ to: '/projects' })}
+      footer={footer}
+    />
+  );
+
+  const renderConnectionsPanel = (footer: React.ReactNode) => (
+    <SourcesPanel
+      sources={sourcesQuery.data ?? []}
+      loading={sourcesQuery.isLoading}
+      onOpenSource={() => void navigate({ to: '/connections' })}
+      onManage={() => void navigate({ to: '/connections' })}
+      footer={footer}
+    />
+  );
+
+  const renderMarketplacePanel = (footer: React.ReactNode) => {
+    const items: ReadonlyArray<MarketplacePanelItem> = (marketplaceQuery.data ?? []).map(
+      toMarketplacePanelItem,
+    );
+    return (
+      <MarketplacePanel
+        items={items}
+        loading={marketplaceQuery.isLoading}
+        onOpenItem={() => void navigate({ to: '/marketplace' })}
+        onBrowse={() => void navigate({ to: '/marketplace' })}
+        footer={footer}
+      />
+    );
+  };
+
+  const renderAutomationsPanel = (footer: React.ReactNode) => (
+    <AutomationsPanel
+      items={[]}
+      onOpenItem={() => void navigate({ to: '/automations' })}
+      onNewAutomation={() => void navigate({ to: '/automations' })}
+      footer={footer}
+    />
+  );
+
   const renderSubSidebarPanel: ContextualSubSidebarProps['renderPanel'] = ({
     featureId,
     footer,
   }) => {
-    if (featureId === 'sessions') {
-      const items = (sessionsListQuery.data?.items ?? []).map((session) =>
-        mapSessionToPanelItem(session),
-      );
-      return (
-        <SessionsPanel
-          sessions={items}
-          activeTab={sessionsTab}
-          onTabChange={setSessionsTab}
-          onOpenSession={(sessionId) => {
-            if (!activeWorkspaceSlug) return;
-            void navigate({
-              to: '/workspaces/$workspaceId/sessions/$sessionId',
-              params: { workspaceId: activeWorkspaceSlug, sessionId },
-            });
-          }}
-          onNewSession={() => void handleNewSession()}
-          loading={sessionsListQuery.isLoading}
-          footer={footer}
-        />
-      );
+    switch (featureId) {
+      case 'sessions':
+        return renderSessionsPanel(footer);
+      case 'projects':
+        return renderProjectsPanel(footer);
+      case 'connections':
+        return renderConnectionsPanel(footer);
+      case 'marketplace':
+        return renderMarketplacePanel(footer);
+      case 'automations':
+        return renderAutomationsPanel(footer);
+      case 'news':
+        return renderNewsPanel(footer);
+      case 'settings':
+        return renderSettingsPanel(footer);
+      default:
+        return null;
     }
-
-    if (featureId === 'projects') {
-      return (
-        <ProjectsPanel
-          projects={projectsQuery.data ?? []}
-          loading={projectsQuery.isLoading}
-          onOpenProject={(projectId) =>
-            void navigate({ to: '/projects/$projectId', params: { projectId } })
-          }
-          onNewProject={() => void navigate({ to: '/projects' })}
-          footer={footer}
-        />
-      );
-    }
-
-    if (featureId === 'news') return renderNewsPanel(footer);
-    if (featureId === 'settings') return renderSettingsPanel(footer);
-    return null;
   };
 
   const renderNewsPanel = (footer: React.ReactNode) => {
@@ -320,4 +398,34 @@ function matchPathSegment(pathname: string, root: string): string | undefined {
   const re = new RegExp(`^/${root}/([^/]+)`);
   const match = pathname.match(re);
   return match?.[1];
+}
+
+/**
+ * Adapter best-effort: marketplace router atual retorna `z.array(z.unknown())`,
+ * sem schema firme. Tentamos extrair os campos quando o item for um objeto;
+ * se não casar, devolve um placeholder não-clicável que o panel renderiza
+ * só com o nome.
+ */
+function toMarketplacePanelItem(raw: unknown): MarketplacePanelItem {
+  if (raw && typeof raw === 'object') {
+    const r = raw as Record<string, unknown>;
+    const id = pickString(r['id']) ?? pickString(r['slug']) ?? 'unknown';
+    const name = pickString(r['name']) ?? pickString(r['displayName']) ?? id;
+    const item: MarketplacePanelItem = { id, name };
+    const category = pickString(r['category']);
+    if (category) (item as { category?: string }).category = category;
+    const description = pickString(r['description']);
+    if (description) (item as { description?: string }).description = description;
+    const creatorDisplayName = pickString(r['creatorDisplayName']);
+    if (creatorDisplayName)
+      (item as { creatorDisplayName?: string }).creatorDisplayName = creatorDisplayName;
+    if (typeof r['installed'] === 'boolean')
+      (item as { installed?: boolean }).installed = r['installed'];
+    return item;
+  }
+  return { id: 'unknown', name: '—' };
+}
+
+function pickString(value: unknown): string | undefined {
+  return typeof value === 'string' ? value : undefined;
 }

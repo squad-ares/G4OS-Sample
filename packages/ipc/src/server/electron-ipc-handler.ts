@@ -87,7 +87,7 @@ export async function handleIpcRequest(
     if (event.sender.isDestroyed()) return;
     event.reply(
       ELECTRON_TRPC_CHANNEL,
-      // biome-ignore lint/suspicious/noExplicitAny: tRPC internal response type
+      // biome-ignore lint/suspicious/noExplicitAny: (reason: tRPC v11 internal config + ResolveResponse types não são exportados de @trpc/server; remover quando electron-trpc adicionar suporte v11 nativo — tracker em FOLLOWUP-OUTLIER-23)
       transformTRPCResponse(config as unknown as any, payload as unknown as any),
     );
   };
@@ -100,7 +100,7 @@ export async function handleIpcRequest(
     respond({
       id,
       error: getErrorShape({
-        // biome-ignore lint/suspicious/noExplicitAny: tRPC internal config type
+        // biome-ignore lint/suspicious/noExplicitAny: (reason: tRPC v11 internal config type não é exportado; getErrorShape requer este shape — remover quando electron-trpc atualizar para v11)
         config: config as unknown as any,
         error,
         type,
@@ -146,7 +146,7 @@ export async function handleIpcRequest(
     respond({
       id,
       error: getErrorShape({
-        // biome-ignore lint/suspicious/noExplicitAny: tRPC internal config type
+        // biome-ignore lint/suspicious/noExplicitAny: (reason: tRPC v11 internal config type não é exportado; getErrorShape requer este shape — remover quando electron-trpc atualizar para v11)
         config: config as unknown as any,
         error,
         type,

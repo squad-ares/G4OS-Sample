@@ -1,0 +1,104 @@
+import { open, rename, unlink } from 'node:fs/promises';
+import { dirname } from 'node:path';
+
+/**
+ * Escrita atômica de arquivo via `tmp → fsync(file) → rename → fsync(dir)`.
+ *
+ * Garantias:
+ *   1. Ou o arquivo permanece com o conteúdo antigo, ou recebe o novo
+ *      conteúdo completo. Crash mid-write não deixa arquivo truncado.
+ *   2. `fsync` no fd força flush dos blocos para disco antes do rename.
+ *   3. `rename` é atômico no nível do filesystem em POSIX (POSIX.1-2017,
+ *      §rename(2)) e quase-atômico em NTFS (em Windows o `MoveFileEx`
+ *      via Node faz replace-with-rename).
+ *   4. `fsync(dirfd)` em Linux/macOS garante que a entrada de diretório
+ *      do rename também esteja durável (dir entry pode ficar em cache de
+ *      buffer do filesystem mesmo após o rename retornar).
+ *
+ * Trade-offs:
+ *   - Dois fsyncs (file + dir) custam I/O. Para escritas frequentes (>10/s)
+ *     considerar batching no caller.
+ *   - Em Windows, `fsync` no diretório não é suportado — silenciosamente
+ *     ignoramos `ENOTDIR`/`EPERM`/`EISDIR` no path do diretório.
+ *
+ * Uso:
+ *   ```ts
+ *   await writeAtomic('/path/to/file.json', JSON.stringify(data));
+ *   ```
+ *
+ * Substitui o padrão inseguro `fs.writeFile(path, data)` que sobrescreve
+ * in-place sem tmp+fsync — fonte da Dor #3 V1 (corrupção de
+ * credentials.enc após crash mid-write) que motivou ADR-0050.
+ */
+export async function writeAtomic(
+  path: string,
+  data: string | Uint8Array,
+  options?: { readonly mode?: number },
+): Promise<void> {
+  const tmpPath = `${path}.${process.pid}.${Date.now()}.tmp`;
+  const mode = options?.mode ?? 0o600;
+
+  let fileHandle: Awaited<ReturnType<typeof open>> | null = null;
+  try {
+    fileHandle = await open(tmpPath, 'w', mode);
+    await fileHandle.writeFile(data);
+    await fileHandle.sync();
+    await fileHandle.close();
+    fileHandle = null;
+
+    await rename(tmpPath, path);
+
+    await fsyncDir(dirname(path));
+  } catch (error) {
+    if (fileHandle !== null) {
+      try {
+        await fileHandle.close();
+      } catch {
+        // best-effort cleanup
+      }
+    }
+    try {
+      await unlink(tmpPath);
+    } catch {
+      // tmp may not exist if open() itself failed
+    }
+    throw error;
+  }
+}
+
+/**
+ * fsync em descritor de diretório. Em Windows não é suportado (retorna
+ * EPERM/ENOTDIR/EISDIR ou similar) — tratamos como no-op.
+ */
+async function fsyncDir(dir: string): Promise<void> {
+  let dirHandle: Awaited<ReturnType<typeof open>> | null = null;
+  try {
+    dirHandle = await open(dir, 'r');
+    await dirHandle.sync();
+  } catch (error) {
+    if (!isUnsupportedDirSyncError(error)) {
+      throw error;
+    }
+    // Windows: dir fsync não suportado, ignora silenciosamente
+  } finally {
+    if (dirHandle !== null) {
+      try {
+        await dirHandle.close();
+      } catch {
+        // best-effort
+      }
+    }
+  }
+}
+
+function isUnsupportedDirSyncError(error: unknown): boolean {
+  if (typeof error !== 'object' || error === null) return false;
+  const code = (error as { code?: unknown }).code;
+  return (
+    code === 'EPERM' ||
+    code === 'EISDIR' ||
+    code === 'ENOTDIR' ||
+    code === 'EACCES' ||
+    code === 'EINVAL'
+  );
+}

@@ -1,5 +1,5 @@
 import { Button, cn, useTranslate } from '@g4os/ui';
-import { Archive, MoreHorizontal, RotateCcw } from 'lucide-react';
+import { Archive, MoreHorizontal, PanelRight, RotateCcw } from 'lucide-react';
 import { type KeyboardEvent, useEffect, useRef, useState } from 'react';
 
 export interface SessionHeaderProps {
@@ -11,8 +11,11 @@ export interface SessionHeaderProps {
   readonly onArchive?: () => void;
   readonly onRetryLast?: () => void;
   readonly onOpenMenu?: () => void;
+  readonly onToggleMetadata?: () => void;
+  readonly metadataOpen?: boolean;
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: (reason: header coeso com inline-edit + 5 ações condicionais. Quebrá-lo em sub-componentes adicionaria boilerplate sem clareza — cada conditional é uma feature visível distinta)
 export function SessionHeader({
   name,
   modelLabel,
@@ -22,6 +25,8 @@ export function SessionHeader({
   onArchive,
   onRetryLast,
   onOpenMenu,
+  onToggleMetadata,
+  metadataOpen,
 }: SessionHeaderProps) {
   const { t } = useTranslate();
   const [editing, setEditing] = useState(false);
@@ -143,6 +148,19 @@ export function SessionHeader({
             className="size-7"
           >
             <Archive className="size-3.5" aria-hidden={true} />
+          </Button>
+        ) : null}
+        {onToggleMetadata ? (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onToggleMetadata}
+            aria-label={t('chat.header.toggleMetadata')}
+            aria-pressed={metadataOpen ? 'true' : 'false'}
+            title={t('chat.header.toggleMetadata')}
+            className={cn('size-7', metadataOpen && 'bg-foreground/[0.08] text-foreground')}
+          >
+            <PanelRight className="size-3.5" aria-hidden={true} />
           </Button>
         ) : null}
         {onOpenMenu ? (

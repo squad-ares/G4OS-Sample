@@ -26,7 +26,6 @@ export interface AgentConfig {
   readonly temperature?: number;
   readonly systemPrompt?: string;
   readonly tools?: readonly ToolDefinition[];
-  readonly signal?: AbortSignal;
 }
 
 export interface AgentTurnInput {

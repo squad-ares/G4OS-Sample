@@ -4,7 +4,7 @@ import * as React from 'react';
 
 import { cn } from '../libs/utils.ts';
 
-// Context for keyboard shortcut registration and menu control
+// Context para registrar shortcuts de teclado e controlar abertura do menu
 type ShortcutHandler = () => void;
 const ContextMenuShortcutContext = React.createContext<{
   register: (key: string, handler: ShortcutHandler) => void;

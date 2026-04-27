@@ -63,18 +63,23 @@ export const platformRouter = router({
       return await shell(input.path);
     }),
 
-  openExternal: procedure.input(z.object({ url: z.url() })).mutation(async ({ input, ctx }) => {
-    await ctx.platform?.openExternal?.(input.url);
-  }),
+  openExternal: procedure
+    .input(z.object({ url: z.url() }))
+    .output(z.void())
+    .mutation(async ({ input, ctx }) => {
+      await ctx.platform?.openExternal?.(input.url);
+    }),
 
   copyToClipboard: procedure
     .input(z.object({ text: z.string() }))
+    .output(z.void())
     .mutation(async ({ input, ctx }) => {
       await ctx.platform?.copyToClipboard?.(input.text);
     }),
 
   showItemInFolder: procedure
     .input(z.object({ path: z.string() }))
+    .output(z.void())
     .mutation(async ({ input, ctx }) => {
       await ctx.platform?.showItemInFolder?.(input.path);
     }),

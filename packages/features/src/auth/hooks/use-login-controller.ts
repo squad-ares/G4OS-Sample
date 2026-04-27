@@ -9,6 +9,19 @@ export type LoginControllerState =
   | { readonly kind: 'authenticated' }
   | { readonly kind: 'error'; readonly message: string; readonly email?: string };
 
+/**
+ * Status textual emitido durante operações longas. Diferente do `state`,
+ * `status` é puramente descritivo (renderizado abaixo do form). V1 mostrava
+ * `Enviando código...`, `Código enviado`, `Verificando...`, `Login bem-sucedido`
+ * para feedback contínuo além do spinner do botão.
+ */
+export type LoginControllerStatus =
+  | { readonly kind: 'idle' }
+  | { readonly kind: 'sending' }
+  | { readonly kind: 'sent' }
+  | { readonly kind: 'verifying' }
+  | { readonly kind: 'success' };
+
 export interface LoginControllerPorts {
   sendOtp(email: string): Promise<void>;
   verifyOtp(email: string, code: string): Promise<void>;
@@ -16,6 +29,7 @@ export interface LoginControllerPorts {
 
 export interface LoginController {
   readonly state: LoginControllerState;
+  readonly status: LoginControllerStatus;
   readonly cooldownSeconds: number;
   readonly isResending: boolean;
   requestOtp(email: string): Promise<void>;
@@ -29,6 +43,7 @@ const COOLDOWN_SECONDS = 60;
 export function useLoginController(ports: LoginControllerPorts): LoginController {
   const { t } = useTranslate();
   const [state, setState] = useState<LoginControllerState>({ kind: 'idle' });
+  const [status, setStatus] = useState<LoginControllerStatus>({ kind: 'idle' });
   const [cooldownSeconds, setCooldownSeconds] = useState(0);
   const [isResending, setIsResending] = useState(false);
   const cooldownTimer = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -58,11 +73,14 @@ export function useLoginController(ports: LoginControllerPorts): LoginController
   const requestOtp = useCallback(
     async (email: string) => {
       setState({ kind: 'requesting_otp', email });
+      setStatus({ kind: 'sending' });
       try {
         await ports.sendOtp(email);
         setState({ kind: 'awaiting_otp', email });
+        setStatus({ kind: 'sent' });
         startCooldown(COOLDOWN_SECONDS);
       } catch (err) {
+        setStatus({ kind: 'idle' });
         setState({
           kind: 'error',
           message: errorMessage(err) ?? t('auth.error.sendOtpFallback'),
@@ -72,37 +90,56 @@ export function useLoginController(ports: LoginControllerPorts): LoginController
     [ports, t, startCooldown],
   );
 
+  const handleResendError = useCallback(
+    (email: string, err: unknown) => {
+      const msg = errorMessage(err) ?? '';
+      const retryAfter = extractRetryAfterSeconds(msg);
+      if (retryAfter !== null && retryAfter > 0) {
+        startCooldown(Math.max(cooldownSeconds, retryAfter));
+      }
+      setStatus({ kind: 'idle' });
+      setState({
+        kind: 'error',
+        email,
+        message: msg || t('auth.error.sendOtpFallback'),
+      });
+    },
+    [cooldownSeconds, startCooldown, t],
+  );
+
   const resendOtp = useCallback(async () => {
     const email = 'email' in state ? state.email : undefined;
     if (!email || cooldownSeconds > 0 || isResending) return;
     setIsResending(true);
+    setStatus({ kind: 'sending' });
     try {
       await ports.sendOtp(email);
       startCooldown(COOLDOWN_SECONDS);
+      setStatus({ kind: 'sent' });
       if (state.kind === 'error') setState({ kind: 'awaiting_otp', email });
     } catch (err) {
-      setState({
-        kind: 'error',
-        email,
-        message: errorMessage(err) ?? t('auth.error.sendOtpFallback'),
-      });
+      handleResendError(email, err);
     } finally {
       setIsResending(false);
     }
-  }, [ports, state, cooldownSeconds, isResending, startCooldown, t]);
+  }, [ports, state, cooldownSeconds, isResending, startCooldown, handleResendError]);
 
   const submitOtp = useCallback(
     async (code: string) => {
       const email = 'email' in state ? state.email : undefined;
       if (!email) {
+        setStatus({ kind: 'idle' });
         setState({ kind: 'error', message: t('auth.error.resetRequired') });
         return;
       }
       setState({ kind: 'verifying', email });
+      setStatus({ kind: 'verifying' });
       try {
         await ports.verifyOtp(email, code);
+        setStatus({ kind: 'success' });
         setState({ kind: 'authenticated' });
       } catch (err) {
+        setStatus({ kind: 'idle' });
         setState({
           kind: 'error',
           email,
@@ -115,6 +152,7 @@ export function useLoginController(ports: LoginControllerPorts): LoginController
 
   const reset = useCallback(() => {
     setState({ kind: 'idle' });
+    setStatus({ kind: 'idle' });
     setCooldownSeconds(0);
     if (cooldownTimer.current) {
       clearInterval(cooldownTimer.current);
@@ -122,11 +160,25 @@ export function useLoginController(ports: LoginControllerPorts): LoginController
     }
   }, []);
 
-  return { state, cooldownSeconds, isResending, requestOtp, resendOtp, submitOtp, reset };
+  return {
+    state,
+    status,
+    cooldownSeconds,
+    isResending,
+    requestOtp,
+    resendOtp,
+    submitOtp,
+    reset,
+  };
 }
 
 function errorMessage(err: unknown): string | undefined {
   if (err instanceof Error) return err.message;
   if (typeof err === 'string') return err;
   return undefined;
+}
+
+function extractRetryAfterSeconds(msg: string): number | null {
+  const match = /after\s+(\d+)\s+seconds?/i.exec(msg);
+  return match ? Number(match[1]) : null;
 }

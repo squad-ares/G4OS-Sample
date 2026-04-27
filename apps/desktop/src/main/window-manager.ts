@@ -37,6 +37,7 @@ interface BoundsableWindow extends BrowserWindowInstance {
   once?(event: 'ready-to-show', listener: () => void): void;
   show?(): void;
   on?(event: string, listener: (...args: unknown[]) => void): void;
+  off?(event: string, listener: (...args: unknown[]) => void): void;
 }
 
 export interface WindowManagerOptions {
@@ -96,15 +97,23 @@ export class WindowManager extends DisposableBase {
     await this.load(win, { url: appendWorkspaceId(rendererUrl, workspaceId) });
 
     const w = win as BoundsableWindow;
-    w.on?.('close', () => {
+    const onClose = () => {
       void this.saveBounds(
         workspaceId,
         w.getBounds?.() ?? { x: 0, y: 0, width: DEFAULT_WIDTH, height: DEFAULT_HEIGHT },
       );
-    });
-    w.on?.('closed', () => {
+    };
+    const onClosed = () => {
       this.byWorkspace.delete(workspaceId);
-    });
+    };
+    w.on?.('close', onClose);
+    w.on?.('closed', onClosed);
+    this._register(
+      toDisposable(() => {
+        w.off?.('close', onClose);
+        w.off?.('closed', onClosed);
+      }),
+    );
 
     return win;
   }

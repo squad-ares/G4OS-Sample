@@ -7,31 +7,47 @@ interface ProcedureMeta {
   readonly path: string;
   readonly routerName: string;
   readonly inputSchema: unknown;
+  readonly outputSchema: unknown;
   readonly type: 'query' | 'mutation' | 'subscription' | 'unknown';
+}
+
+type AnyDef = {
+  procedure?: boolean;
+  record?: Record<string, unknown>;
+  type?: string;
+  inputs?: unknown[];
+  output?: unknown;
+};
+
+function isLeafProcedure(child: unknown): boolean {
+  // In tRPC v11, a leaf procedure is a function whose ._def.procedure === true.
+  return typeof child === 'function' && (child as { _def?: AnyDef })._def?.procedure === true;
 }
 
 function collectAllProcedures(node: unknown, prefix = ''): ProcedureMeta[] {
   const out: ProcedureMeta[] = [];
-  const def = (
-    node as { _def?: { record?: Record<string, unknown>; type?: string; inputs?: unknown[] } }
-  )._def;
-  if (!def) return out;
 
-  if (def.record) {
-    for (const [name, child] of Object.entries(def.record)) {
-      const currentPath = prefix ? `${prefix}.${name}` : name;
-      const childDef = (child as { _def?: { record?: unknown } })._def;
-      if (childDef?.record) {
-        out.push(...collectAllProcedures(child, currentPath));
-      } else {
-        const leafDef = (child as { _def?: { type?: string; inputs?: unknown[] } })._def;
-        out.push({
-          path: currentPath,
-          routerName: prefix || name,
-          inputSchema: leafDef?.inputs?.[0],
-          type: (leafDef?.type as ProcedureMeta['type']) ?? 'unknown',
-        });
-      }
+  // tRPC v11: root router exposes _def.record; sub-routers are plain objects.
+  const trpcDef = (node as { _def?: AnyDef })._def;
+  const entries: [string, unknown][] = trpcDef?.record
+    ? Object.entries(trpcDef.record)
+    : typeof node === 'object' && node !== null && !isLeafProcedure(node)
+      ? Object.entries(node as Record<string, unknown>)
+      : [];
+
+  for (const [name, child] of entries) {
+    const currentPath = prefix ? `${prefix}.${name}` : name;
+    if (isLeafProcedure(child)) {
+      const leafDef = (child as { _def?: AnyDef })._def;
+      out.push({
+        path: currentPath,
+        routerName: prefix || name,
+        inputSchema: leafDef?.inputs?.[0],
+        outputSchema: leafDef?.output,
+        type: (leafDef?.type as ProcedureMeta['type']) ?? 'unknown',
+      });
+    } else {
+      out.push(...collectAllProcedures(child, currentPath));
     }
   }
   return out;
@@ -56,6 +72,17 @@ describe('procedure contract coverage', () => {
       // de router quebradas.
       expect(() => proc.inputSchema).not.toThrow();
     });
+
+    // tRPC v11 subscriptions use async-generator return type; .output() is not
+    // supported on subscription procedures and causes overload resolution errors.
+    if (proc.type !== 'subscription') {
+      it(`${proc.path} declares an output schema`, () => {
+        expect(
+          proc.outputSchema,
+          `procedure "${proc.path}" is missing .output(Schema) — add a Zod output validator`,
+        ).toBeDefined();
+      });
+    }
   }
 
   it('every domain router file exists under routers/', () => {

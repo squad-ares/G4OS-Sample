@@ -162,7 +162,10 @@ export function Composer({
     >
       <div
         className={cn(
-          'flex w-full flex-col gap-1 rounded-[22px] border border-foreground/10 bg-background shadow-minimal transition-colors focus-within:border-foreground/25',
+          // Paridade V1 (`FreeFormInput`): container com border-radius e
+          // shadow `middle` (mais presente que o `minimal` anterior),
+          // ring-foreground quando focused para destaque consistente.
+          'flex w-full flex-col rounded-[18px] border border-foreground/10 bg-background shadow-middle transition-colors focus-within:border-foreground/30',
           disabled && 'opacity-70',
           className,
         )}
@@ -175,7 +178,7 @@ export function Composer({
           </p>
         )}
 
-        <div className="relative px-4 pt-3">
+        <div className="relative">
           <ComposerTextarea
             ref={(node) => {
               textareaRef.current = node;
@@ -249,7 +252,7 @@ function ComposerActionBar({
   onTranscript,
 }: ComposerActionBarProps) {
   return (
-    <div className="flex items-center justify-between gap-2 px-2.5 pb-2 pt-1">
+    <div className="flex items-center justify-between gap-2 border-t border-foreground/[0.05] px-2.5 py-2">
       <LeftActionGroup
         attachments={attachments}
         onAttach={onAttach}

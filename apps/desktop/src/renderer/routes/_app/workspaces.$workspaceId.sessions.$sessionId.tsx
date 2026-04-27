@@ -10,7 +10,10 @@ import {
   modelProviderToSession,
   PermissionProvider,
   requestPermission,
+  SessionActiveBadges,
+  SessionBanners,
   SessionHeader,
+  SessionMetadataPanel,
   SourcePicker,
   type ThinkingLevel,
   ThinkingLevelSelector,
@@ -22,11 +25,12 @@ import {
 import type { SessionEvent, TurnStreamEvent } from '@g4os/kernel/types';
 import { toast, useTranslate } from '@g4os/ui';
 import { useQuery } from '@tanstack/react-query';
-import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
+import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { formatSendError, mapPermissionDecision } from '../../chat/session-page-helpers.ts';
 import { useComposerAffordances } from '../../chat/use-composer-affordances.ts';
 import { useSessionHeader } from '../../chat/use-session-header.ts';
+import { useSessionMetadata } from '../../chat/use-session-metadata.ts';
 import { queryClient } from '../../ipc/query-client.ts';
 import { trpc } from '../../ipc/trpc-client.ts';
 import { kernelMessageToChat } from '../../messages/kernel-to-chat-mapper.ts';
@@ -49,6 +53,7 @@ function SessionPage() {
   const [streamingTurnId, setStreamingTurnId] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pendingTruncateAt, setPendingTruncateAt] = useState<number | null>(null);
+  const [metadataOpen, setMetadataOpen] = useState(false);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: sessionId is the intentional reset trigger
   useEffect(() => {
@@ -356,89 +361,116 @@ function SessionPage() {
     navigate,
   });
 
+  const { linkedProject, availableProjects, handleSelectProject, sessionBanners } =
+    useSessionMetadata({
+      sessionId,
+      sessionQuery,
+      projects: projectsQuery.data,
+      agentAvailable,
+      navigate,
+    });
+
   return (
     <PermissionProvider>
-      <div className="flex h-full flex-col">
+      <div className="flex h-full">
+        <div className="flex min-w-0 flex-1 flex-col">
+          {sessionQuery.data ? (
+            <>
+              <SessionHeader
+                name={sessionQuery.data.name}
+                {...(modelLabel ? { modelLabel } : {})}
+                {...(providerLabel ? { providerLabel } : {})}
+                workingDirectory={sessionQuery.data.workingDirectory ?? null}
+                onRename={handleRename}
+                onArchive={() => void handleArchive()}
+                {...(isStreaming ? {} : { onRetryLast: () => void handleRetryLast() })}
+                onToggleMetadata={() => setMetadataOpen((v) => !v)}
+                metadataOpen={metadataOpen}
+              />
+              <SessionActiveBadges
+                {...(modelLabel ? { modelLabel } : {})}
+                {...(providerLabel ? { providerLabel } : {})}
+                workingDirectory={sessionQuery.data.workingDirectory ?? null}
+                enabledSourceCount={enabledSourceSlugs.length}
+                stickySourceCount={sessionQuery.data.stickyMountedSourceSlugs?.length ?? 0}
+              />
+              <SessionBanners banners={sessionBanners} />
+            </>
+          ) : null}
+          <div className="min-h-0 flex-1">
+            <TranscriptView
+              sessionId={sessionId}
+              messages={chatMessages}
+              isStreaming={isStreaming}
+              callbacks={callbacks}
+              search={handleSearch}
+              onSelectSuggestedPrompt={(p) => handleSend({ text: p.prompt, attachments: [] })}
+            />
+          </div>
+          <div className="p-3">
+            <Composer
+              sessionId={sessionId}
+              onSend={(payload) => void handleSend(payload)}
+              {...(agentAvailable ? {} : { disabled: true })}
+              mentionSources={sourcesQuery.data ?? []}
+              affordances={{
+                sourcePicker: (
+                  <SourcePicker
+                    sources={sourcesQuery.data ?? []}
+                    enabledSlugs={enabledSourceSlugs}
+                    rejectedSlugs={rejectedSourceSlugs}
+                    onChange={(next) => void handleSourceSelectionChange(next)}
+                    onOpenManage={handleOpenConnections}
+                  />
+                ),
+                workingDirPicker: (
+                  <WorkingDirPicker
+                    value={sessionQuery.data?.workingDirectory ?? null}
+                    options={workingDirOptions}
+                    onSelect={(path) => void handleWorkingDirChange(path)}
+                    onPickCustom={handlePickCustomDir}
+                  />
+                ),
+                modelSelector: (
+                  <ModelSelector
+                    value={currentModelId}
+                    onChange={(id) => void handleModelChange(id)}
+                    availableProviders={availableProviders}
+                  />
+                ),
+                thinkingSelector: (
+                  <ThinkingLevelSelector
+                    modelId={currentModelId}
+                    value={thinkingLevel}
+                    onChange={setThinkingLevel}
+                  />
+                ),
+                partnersLabel: t('chat.composer.chip.partners'),
+                onOpenPartners: () => toast.info(t('chat.composer.chip.partnersTodo')),
+              }}
+              {...(isStreaming ? { onStop: () => void handleStop(), isProcessing: true } : {})}
+            />
+          </div>
+        </div>
         {sessionQuery.data ? (
-          <SessionHeader
+          <SessionMetadataPanel
+            open={metadataOpen}
+            onClose={() => setMetadataOpen(false)}
             name={sessionQuery.data.name}
-            {...(modelLabel ? { modelLabel } : {})}
-            {...(providerLabel ? { providerLabel } : {})}
-            workingDirectory={sessionQuery.data.workingDirectory ?? null}
             onRename={handleRename}
-            onArchive={() => void handleArchive()}
-            {...(isStreaming ? {} : { onRetryLast: () => void handleRetryLast() })}
+            project={linkedProject}
+            availableProjects={availableProjects}
+            onSelectProject={handleSelectProject}
+            onOpenProject={(id) =>
+              void navigate({ to: '/projects/$projectId', params: { projectId: id } })
+            }
+            workingDirectory={sessionQuery.data.workingDirectory ?? null}
+            onChooseWorkingDirectory={async () => {
+              const picked = await handlePickCustomDir();
+              if (picked) await handleWorkingDirChange(picked);
+            }}
           />
         ) : null}
-        {agentAvailable ? null : (
-          <div
-            role="status"
-            className="flex shrink-0 items-center justify-between gap-3 border-b border-accent/30 bg-accent/10 px-4 py-2 text-[11px] font-medium text-accent"
-          >
-            <span>{t('chat.runtime.pendingNotice')}</span>
-            <Link
-              to="/settings"
-              hash="api-keys"
-              className="rounded-full border border-accent/40 bg-accent/20 px-2.5 py-1 text-[11px] font-semibold text-accent transition-colors hover:bg-accent/30"
-            >
-              {t('chat.runtime.configureCTA')}
-            </Link>
-          </div>
-        )}
-        <div className="min-h-0 flex-1">
-          <TranscriptView
-            sessionId={sessionId}
-            messages={chatMessages}
-            isStreaming={isStreaming}
-            callbacks={callbacks}
-            search={handleSearch}
-            onSelectSuggestedPrompt={(p) => handleSend({ text: p.prompt, attachments: [] })}
-          />
-        </div>
-        <div className="p-3">
-          <Composer
-            sessionId={sessionId}
-            onSend={(payload) => void handleSend(payload)}
-            {...(agentAvailable ? {} : { disabled: true })}
-            mentionSources={sourcesQuery.data ?? []}
-            affordances={{
-              sourcePicker: (
-                <SourcePicker
-                  sources={sourcesQuery.data ?? []}
-                  enabledSlugs={enabledSourceSlugs}
-                  rejectedSlugs={rejectedSourceSlugs}
-                  onChange={(next) => void handleSourceSelectionChange(next)}
-                  onOpenManage={handleOpenConnections}
-                />
-              ),
-              workingDirPicker: (
-                <WorkingDirPicker
-                  value={sessionQuery.data?.workingDirectory ?? null}
-                  options={workingDirOptions}
-                  onSelect={(path) => void handleWorkingDirChange(path)}
-                  onPickCustom={handlePickCustomDir}
-                />
-              ),
-              modelSelector: (
-                <ModelSelector
-                  value={currentModelId}
-                  onChange={(id) => void handleModelChange(id)}
-                  availableProviders={availableProviders}
-                />
-              ),
-              thinkingSelector: (
-                <ThinkingLevelSelector
-                  modelId={currentModelId}
-                  value={thinkingLevel}
-                  onChange={setThinkingLevel}
-                />
-              ),
-              partnersLabel: t('chat.composer.chip.partners'),
-              onOpenPartners: () => toast.info(t('chat.composer.chip.partnersTodo')),
-            }}
-            {...(isStreaming ? { onStop: () => void handleStop(), isProcessing: true } : {})}
-          />
-        </div>
       </div>
       <ConfirmDestructiveDialog
         open={confirmOpen}

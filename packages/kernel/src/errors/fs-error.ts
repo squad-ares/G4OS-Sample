@@ -32,4 +32,20 @@ export class FsError extends AppError {
       context: { path },
     });
   }
+
+  static pathTraversal(relativePath: string): FsError {
+    return new FsError({
+      code: ErrorCode.FS_PATH_TRAVERSAL,
+      message: `Path traversal blocked: ${relativePath}`,
+      context: { relativePath },
+    });
+  }
+
+  static fileTooLarge(relativePath: string, sizeBytes: number, maxBytes: number): FsError {
+    return new FsError({
+      code: ErrorCode.FS_FILE_TOO_LARGE,
+      message: `File "${relativePath}" exceeds max size (${sizeBytes} > ${maxBytes} bytes)`,
+      context: { relativePath, sizeBytes, maxBytes },
+    });
+  }
 }

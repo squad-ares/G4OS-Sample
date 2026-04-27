@@ -54,6 +54,10 @@
     "./queries": {
       "types": "./src/queries/index.ts",
       "import": "./src/queries/index.ts"
+    },
+    "./workspaces": {
+      "types": "./src/workspaces/index.ts",
+      "import": "./src/workspaces/index.ts"
     }
   },
   "scripts": {

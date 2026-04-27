@@ -135,6 +135,7 @@ export function createFakeRuntime(options: FakeRuntimeOptions = {}): {
     whenReady: () => Promise.resolve(),
     quit: () => undefined,
     exit: () => undefined,
+    relaunch: () => undefined,
     on: () => undefined,
   };
 

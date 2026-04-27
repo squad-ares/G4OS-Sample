@@ -23,7 +23,7 @@ export function CopyButton({ text, className }: CopyButtonProps) {
       onClick={handleCopy}
       aria-label={copied ? 'Copied' : 'Copy message'}
       className={cn(
-        'flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-foreground/10 hover:text-foreground',
+        'flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent/15 hover:text-foreground',
         className,
       )}
     >

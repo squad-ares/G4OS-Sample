@@ -128,6 +128,12 @@ export class SessionRefresher extends DisposableBase {
   }
 
   override dispose(): void {
+    if (this.subject.closed) {
+      // Idempotente: dispose() chamado 2x não emite num subject completado
+      // (rxjs ignora silenciosamente, mas log noise some).
+      super.dispose();
+      return;
+    }
     this.cancelPending();
     this.subject.next({ kind: 'disabled' });
     this.subject.complete();

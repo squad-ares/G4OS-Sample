@@ -39,10 +39,9 @@ function AvatarFallback({
 }
 
 /**
- * CrossfadeAvatar - Avatar with smooth crossfade from fallback to image
- *
- * Shows the fallback initially, then crossfades to the image when loaded.
- * Both elements are layered so the transition is smooth.
+ * CrossfadeAvatar — avatar com transição suave (crossfade) do fallback para
+ * a imagem assim que ela carrega. Os dois elementos ficam empilhados no
+ * mesmo ponto, então a troca não tem flash.
  */
 interface CrossfadeAvatarProps {
   src?: string | null;
@@ -64,18 +63,18 @@ function CrossfadeAvatar({
   const [isLoaded, setIsLoaded] = React.useState(false);
   const [currentSrc, setCurrentSrc] = React.useState(src);
 
-  // Detect if the image is an SVG
+  // Detecta se é SVG (renderizamos como background pra preservar controle de aspect-ratio).
   const isSvg = React.useMemo(() => src?.endsWith('.svg') ?? false, [src]);
 
-  // Reset loaded state when src changes (but check if new image is already cached first)
+  // Reseta isLoaded quando `src` muda — mas se o navegador já tem a nova imagem
+  // em cache, evita flash do fallback marcando como carregada direto.
   React.useEffect(() => {
     if (src !== currentSrc) {
-      // Check if new image is already in browser cache
       if (src) {
         const img = new Image();
         img.src = src;
         if (img.complete && img.naturalWidth > 0) {
-          // Image is already cached, no need to show fallback
+          // Imagem já em cache — pula fallback.
           setCurrentSrc(src);
           setIsLoaded(true);
           return;
@@ -94,7 +93,7 @@ function CrossfadeAvatar({
 
   return (
     <div className={cn('relative flex shrink-0 overflow-hidden', className)}>
-      {/* Fallback - always rendered, fades out when image loads */}
+      {/* Fallback — sempre renderizado, fade-out quando imagem carrega */}
       <div
         className={cn(
           'absolute inset-0 flex items-center justify-center transition-opacity duration-200',
@@ -105,10 +104,10 @@ function CrossfadeAvatar({
         {fallback}
       </div>
 
-      {/* Image - fades in when loaded */}
+      {/* Imagem — fade-in quando carregada */}
       {src &&
         (isSvg ? (
-          // SVG as background image for better control
+          // SVG renderizado como background pra preservar contain/aspect-ratio
           <div
             className={cn(
               'w-full h-full transition-opacity duration-200',
@@ -124,7 +123,7 @@ function CrossfadeAvatar({
             role="img"
             aria-label={alt}
           >
-            {/* Hidden img for load detection and caching */}
+            {/* <img> oculto só pra detectar onLoad e popular o cache do navegador */}
             <img
               ref={imgCallbackRef}
               src={src}
@@ -134,7 +133,7 @@ function CrossfadeAvatar({
             />
           </div>
         ) : (
-          // Regular image
+          // Imagem raster comum (PNG/JPG/etc.)
           <img
             ref={imgCallbackRef}
             src={src}
@@ -148,7 +147,7 @@ function CrossfadeAvatar({
           />
         ))}
 
-      {/* Show fallback statically if no src */}
+      {/* Sem `src` — fallback fica estático sem transição */}
       {!src && (
         <div className={cn('flex h-full w-full items-center justify-center', fallbackClassName)}>
           {fallback}

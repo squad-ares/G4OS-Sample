@@ -105,14 +105,31 @@ export class CredentialVault {
     return await this.writeLock.runExclusive(() => this.deleteInternal(key));
   }
 
-  async rotate(key: string, newValue: string): Promise<Result<void, CredentialError>> {
+  /**
+   * Rotaciona o valor da credencial e (opcionalmente) atualiza expiry/tags
+   * na meta da MESMA key.
+   *
+   * Antes: `rotate(key, value)` só trocava o valor + tocava `updatedAt`.
+   * O `expiresAt` antigo persistia, então o próximo `scanOnce` do
+   * `RotationOrchestrator` lia meta vencida e re-disparava o handler em
+   * loop infinito (custo OAuth + rate-limit).
+   *
+   * Agora aceita `SetOptions` igual ao `set`: o caller passa o novo
+   * `expiresAt` e a meta da key é atualizada num único call. Isso fecha
+   * o loop de rotação sem precisar de chave paralela `<key>.expires_at`.
+   */
+  async rotate(
+    key: string,
+    newValue: string,
+    options: SetOptions = {},
+  ): Promise<Result<void, CredentialError>> {
     const keyValidation = validateKey(key);
     if (keyValidation.isErr()) return err(keyValidation.error);
     const valueValidation = validateValue(newValue);
     if (valueValidation.isErr()) return err(valueValidation.error);
 
     return await this.writeLock.runExclusive(async () => {
-      log.info({ key }, 'rotate credential');
+      log.info({ key, hasExpiry: options.expiresAt !== undefined }, 'rotate credential');
       await this.backupCurrent(key);
 
       const write = await this.keychain.set(key, newValue);
@@ -120,10 +137,16 @@ export class CredentialVault {
 
       const now = Date.now();
       const existing = await this.readMeta(key);
-      const base: CredentialMeta = existing.isOk()
-        ? existing.value
-        : { key, createdAt: now, updatedAt: now, tags: [] };
-      await this.writeMeta(key, { ...base, updatedAt: now });
+      const createdAt = existing.isOk() ? existing.value.createdAt : now;
+      const tags = options.tags ?? (existing.isOk() ? [...existing.value.tags] : []);
+      const meta: CredentialMeta = {
+        key,
+        createdAt,
+        updatedAt: now,
+        ...(options.expiresAt === undefined ? {} : { expiresAt: options.expiresAt }),
+        tags: Object.freeze([...tags]),
+      };
+      await this.writeMeta(key, meta);
       return ok(undefined);
     });
   }

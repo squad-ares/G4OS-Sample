@@ -7,7 +7,28 @@ export {
   type MessageCardProps,
 } from './message-card/message-card.tsx';
 export { SearchBar, type SearchBarProps } from './search-bar.tsx';
+export {
+  SessionActiveBadges,
+  type SessionActiveBadgesProps,
+} from './session-active-badges.tsx';
+export {
+  buildContextWarningBanner,
+  buildErrorBanner,
+  buildPermissionPendingBanner,
+  buildRuntimePendingBanner,
+  buildStatusBanner,
+  type SessionBanner,
+  type SessionBannerAction,
+  type SessionBannerSeverity,
+  SessionBanners,
+  type SessionBannersProps,
+} from './session-banners.tsx';
 export { SessionHeader, type SessionHeaderProps } from './session-header.tsx';
+export {
+  SessionMetadataPanel,
+  type SessionMetadataPanelProps,
+  type SessionMetadataProject,
+} from './session-metadata-panel.tsx';
 export { TranscriptView, type TranscriptViewProps } from './transcript-view.tsx';
 export {
   type SuggestedPrompt,

@@ -56,6 +56,8 @@ export function createNullServices(): NullServices {
       create: async () => err(notImplemented('workspaces.create')),
       update: async () => err(notImplemented('workspaces.update')),
       delete: async () => err(notImplemented('workspaces.delete')),
+      getSetupNeeds: async () =>
+        ok({ needsInitialSetup: false, needsStyleSetup: false, isFullyConfigured: true }),
     },
     sessions: {
       list: async () => err(notImplemented('sessions.list')),
@@ -145,6 +147,8 @@ export function createNullServices(): NullServices {
       sendOtp: async () => err(notImplemented('auth.sendOtp')),
       verifyOtp: async () => err(notImplemented('auth.verifyOtp')),
       signOut: async () => ok(undefined),
+      wipeAndReset: async () => err(notImplemented('auth.wipeAndReset')),
+      subscribeManagedLoginRequired: () => ({ dispose: () => undefined }),
     },
     marketplace: {
       list: async () => err(notImplemented('marketplace.list')),

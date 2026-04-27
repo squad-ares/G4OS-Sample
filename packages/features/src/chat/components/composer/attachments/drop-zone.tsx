@@ -46,8 +46,8 @@ export function DropZone({ existing, onAttach, onError, children, disabled }: Dr
     >
       {children}
       {dragging && (
-        <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-2xl border-2 border-dashed border-primary/60 bg-primary/5">
-          <span className="text-sm font-medium text-primary">
+        <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-[18px] border-2 border-dashed border-foreground/40 bg-foreground/5">
+          <span className="text-sm font-medium text-foreground">
             {t('chat.composer.dropZone.dropHint')}
           </span>
         </div>

@@ -1,7 +1,8 @@
 /**
  * PermissionStore — persistência de decisões `allow_always` do usuário
  * para tool calls. Arquivo `permissions.json` por workspace, escrita
- * atômica via write→rename.
+ * atômica via `writeAtomic` (`tmp → fsync → rename → fsync(dir)`) +
+ * mutex per-workspace para serializar persist/revoke concorrentes.
  *
  * Modelo:
  *   - Cada decisão é chaveada por `(toolName, argsHash)`. `argsHash` é
@@ -16,8 +17,9 @@
  */
 
 import { createHash } from 'node:crypto';
-import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
+import { mkdir, readFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
+import { writeAtomic } from '@g4os/kernel/fs';
 import { createLogger } from '@g4os/kernel/logger';
 import type { ToolPermissionDecision, ToolPermissionsFile } from '@g4os/kernel/schemas';
 import { ToolPermissionsFileSchema } from '@g4os/kernel/schemas';
@@ -33,9 +35,24 @@ export interface PermissionStoreOptions {
 
 export class PermissionStore {
   readonly #opts: PermissionStoreOptions;
+  /** Mutex per-workspace serializa read-modify-write para `permissions.json`. */
+  readonly #locks = new Map<string, Promise<unknown>>();
 
   constructor(opts: PermissionStoreOptions) {
     this.#opts = opts;
+  }
+
+  private withLock<T>(workspaceId: string, fn: () => Promise<T>): Promise<T> {
+    const previous = this.#locks.get(workspaceId) ?? Promise.resolve();
+    const next = previous.then(fn, fn);
+    this.#locks.set(
+      workspaceId,
+      next.then(
+        () => undefined,
+        () => undefined,
+      ),
+    );
+    return next;
   }
 
   async list(workspaceId: string): Promise<readonly PersistedPermissionDecision[]> {
@@ -62,53 +79,59 @@ export class PermissionStore {
     );
   }
 
-  async persist(
+  persist(
     workspaceId: string,
     input: { toolName: string; args: Readonly<Record<string, unknown>> },
   ): Promise<PersistedPermissionDecision> {
-    const decision: PersistedPermissionDecision = {
-      toolName: input.toolName,
-      argsHash: hashArgs(input.args),
-      argsPreview: previewArgs(input.args),
-      decidedAt: Date.now(),
-    };
-    const file = await this.readFile(workspaceId);
-    // Substitui existente com mesmo match OU insere novo
-    const filtered = file.decisions.filter(
-      (d) => !(d.toolName === decision.toolName && d.argsHash === decision.argsHash),
-    );
-    const next: ToolPermissionsFile = {
-      version: 1,
-      decisions: [...filtered, decision],
-    };
-    await this.writeFile(workspaceId, next);
-    log.info(
-      { workspaceId, toolName: decision.toolName, argsHash: decision.argsHash },
-      'permission persisted (allow_always)',
-    );
-    return decision;
+    return this.withLock(workspaceId, async () => {
+      const decision: PersistedPermissionDecision = {
+        toolName: input.toolName,
+        argsHash: hashArgs(input.args),
+        argsPreview: previewArgs(input.args),
+        decidedAt: Date.now(),
+      };
+      const file = await this.readFile(workspaceId);
+      // Substitui existente com mesmo match OU insere novo
+      const filtered = file.decisions.filter(
+        (d) => !(d.toolName === decision.toolName && d.argsHash === decision.argsHash),
+      );
+      const next: ToolPermissionsFile = {
+        version: 1,
+        decisions: [...filtered, decision],
+      };
+      await this.writeFile(workspaceId, next);
+      log.info(
+        { workspaceId, toolName: decision.toolName, argsHash: decision.argsHash },
+        'permission persisted (allow_always)',
+      );
+      return decision;
+    });
   }
 
-  async revoke(workspaceId: string, toolName: string, argsHash: string): Promise<boolean> {
-    const file = await this.readFile(workspaceId);
-    const before = file.decisions.length;
-    const next: ToolPermissionsFile = {
-      version: 1,
-      decisions: file.decisions.filter(
-        (d) => !(d.toolName === toolName && d.argsHash === argsHash),
-      ),
-    };
-    if (next.decisions.length === before) return false;
-    await this.writeFile(workspaceId, next);
-    return true;
+  revoke(workspaceId: string, toolName: string, argsHash: string): Promise<boolean> {
+    return this.withLock(workspaceId, async () => {
+      const file = await this.readFile(workspaceId);
+      const before = file.decisions.length;
+      const next: ToolPermissionsFile = {
+        version: 1,
+        decisions: file.decisions.filter(
+          (d) => !(d.toolName === toolName && d.argsHash === argsHash),
+        ),
+      };
+      if (next.decisions.length === before) return false;
+      await this.writeFile(workspaceId, next);
+      return true;
+    });
   }
 
-  async clearAll(workspaceId: string): Promise<number> {
-    const file = await this.readFile(workspaceId);
-    const count = file.decisions.length;
-    if (count === 0) return 0;
-    await this.writeFile(workspaceId, { version: 1, decisions: [] });
-    return count;
+  clearAll(workspaceId: string): Promise<number> {
+    return this.withLock(workspaceId, async () => {
+      const file = await this.readFile(workspaceId);
+      const count = file.decisions.length;
+      if (count === 0) return 0;
+      await this.writeFile(workspaceId, { version: 1, decisions: [] });
+      return count;
+    });
   }
 
   private path(workspaceId: string): string {
@@ -129,9 +152,7 @@ export class PermissionStore {
   private async writeFile(workspaceId: string, file: ToolPermissionsFile): Promise<void> {
     const path = this.path(workspaceId);
     await mkdir(dirname(path), { recursive: true });
-    const tmp = `${path}.tmp`;
-    await writeFile(tmp, JSON.stringify(file, null, 2), 'utf8');
-    await rename(tmp, path);
+    await writeAtomic(path, JSON.stringify(file, null, 2));
   }
 }
 

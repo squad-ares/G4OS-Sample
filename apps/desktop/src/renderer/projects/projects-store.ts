@@ -1,4 +1,4 @@
-import type { LegacyProject, Project, ProjectFile, ProjectTask, Session } from '@g4os/kernel/types';
+import type { Project, ProjectFile, ProjectTask, Session } from '@g4os/kernel/types';
 import type { QueryClient } from '@tanstack/react-query';
 import { trpc } from '../ipc/trpc-client.ts';
 
@@ -83,8 +83,7 @@ export function legacyCheckQueryOptions(workspaceId: string) {
 export function legacyDiscoverQueryOptions(workspaceId: string, workingDirectory: string) {
   return {
     queryKey: legacyDiscoverKey(workspaceId, workingDirectory),
-    queryFn: async (): Promise<readonly LegacyProject[]> =>
-      trpc.projects.discoverLegacyProjects.query({ workspaceId, workingDirectory }),
+    queryFn: () => trpc.projects.discoverLegacyProjects.query({ workspaceId, workingDirectory }),
     staleTime: Number.POSITIVE_INFINITY,
     gcTime: GC_TIME_MS,
     enabled: workspaceId.length > 0 && workingDirectory.length > 0,

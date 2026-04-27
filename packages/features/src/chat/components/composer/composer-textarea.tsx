@@ -2,7 +2,10 @@ import { cn } from '@g4os/ui';
 import { forwardRef, type KeyboardEvent, useEffect, useImperativeHandle, useRef } from 'react';
 import { type ComposerSubmitMode, shouldInsertNewline, shouldSubmit } from './submit-mode.ts';
 
-const DEFAULT_MIN_ROWS = 1;
+// Paridade V1 (`FreeFormInput`): textarea começa em ~3 linhas (~76px de altura),
+// não em 1 linha. Caller pode override via prop `minRows` quando precisar de
+// composer compacto (ex.: edição inline).
+const DEFAULT_MIN_ROWS = 3;
 const DEFAULT_MAX_ROWS = 10;
 
 export interface ComposerTextareaRef {
@@ -30,6 +33,17 @@ export interface ComposerTextareaProps {
   /** Captura de keydown ANTES do submit/newline — usado pelo MentionPicker
    *  para navegação (arrow/enter/esc). Handler retorna `true` se consumiu. */
   readonly onCaptureKeyDown?: (event: KeyboardEvent<HTMLTextAreaElement>) => boolean;
+
+  // ARIA combobox props — quando providos, o textarea atua como combobox
+  // ligado a um listbox externo (mention picker, slash commands, etc).
+  // CLAUDE.md V2 obriga combobox no `<input>/<textarea>` que detém foco,
+  // não no wrapper popover. Sem estes props, o screen reader nunca sabe
+  // que o textarea está conectado ao listbox.
+  readonly role?: 'textbox' | 'combobox';
+  readonly ariaExpanded?: boolean;
+  readonly ariaControls?: string;
+  readonly ariaActiveDescendant?: string;
+  readonly ariaAutoComplete?: 'list' | 'inline' | 'both' | 'none';
 }
 
 export const ComposerTextarea = forwardRef<ComposerTextareaRef, ComposerTextareaProps>(
@@ -47,6 +61,11 @@ export const ComposerTextarea = forwardRef<ComposerTextareaRef, ComposerTextarea
       className,
       ariaLabel,
       onCaptureKeyDown,
+      role,
+      ariaExpanded,
+      ariaControls,
+      ariaActiveDescendant,
+      ariaAutoComplete,
     },
     ref,
   ) {
@@ -102,6 +121,7 @@ export const ComposerTextarea = forwardRef<ComposerTextareaRef, ComposerTextarea
     };
 
     return (
+      // biome-ignore lint/a11y/useAriaPropsSupportedByRole: (reason: aria-expanded válido quando role="combobox" é passado pelo caller — biome não infere role dinâmico)
       <textarea
         ref={textareaRef}
         value={value}
@@ -110,10 +130,17 @@ export const ComposerTextarea = forwardRef<ComposerTextareaRef, ComposerTextarea
         placeholder={placeholder}
         disabled={disabled}
         aria-label={ariaLabel}
+        role={role}
+        aria-expanded={ariaExpanded}
+        aria-controls={ariaControls}
+        aria-activedescendant={ariaActiveDescendant}
+        aria-autocomplete={ariaAutoComplete}
         rows={minRows}
         spellCheck={true}
         className={cn(
-          'w-full resize-none bg-transparent px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none disabled:cursor-not-allowed disabled:opacity-50',
+          // Paridade V1: padding generoso (`pl-5 pr-4 pt-4 pb-3` no V1) +
+          // line-height confortável. Composer-pai cuida do container/shadow.
+          'w-full resize-none bg-transparent px-5 pt-4 pb-3 text-[15px] leading-[1.5] text-foreground placeholder:text-muted-foreground focus:outline-none disabled:cursor-not-allowed disabled:opacity-50',
           className,
         )}
       />

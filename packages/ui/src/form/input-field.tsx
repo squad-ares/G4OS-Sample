@@ -26,6 +26,8 @@ export interface InputFieldProps<TForm extends FieldValues> extends UseControlle
   inputClassName?: string | undefined;
   /** Indica campo obrigatório com * vermelho */
   required?: boolean | undefined;
+  /** Valor para o atributo autocomplete do navegador (ex.: "email", "current-password") */
+  autoComplete?: string | undefined;
 }
 
 /**
@@ -59,6 +61,7 @@ export function InputField<TForm extends FieldValues>({
   className,
   inputClassName,
   required,
+  autoComplete,
 }: Readonly<InputFieldProps<TForm>>) {
   const { t } = useTranslate();
   const controllerProps = {
@@ -110,6 +113,7 @@ export function InputField<TForm extends FieldValues>({
           }}
           type={resolvedType}
           placeholder={placeholder}
+          autoComplete={autoComplete}
           disabled={disabled || field.disabled}
           aria-invalid={Boolean(error)}
           aria-describedby={error ? `${name}-error` : undefined}

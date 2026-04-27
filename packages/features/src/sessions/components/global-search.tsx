@@ -17,6 +17,7 @@ import {
   CommandList,
   useTranslate,
 } from '@g4os/ui';
+import type { ReactNode } from 'react';
 
 export interface GlobalSearchProps {
   readonly open: boolean;
@@ -88,11 +89,9 @@ export function GlobalSearch({
               >
                 <div className="flex flex-col min-w-0">
                   <span className="text-sm font-medium truncate">{hit.sessionName}</span>
-                  <span
-                    className="text-xs text-muted-foreground truncate"
-                    // biome-ignore lint/security/noDangerouslySetInnerHtml: (reason: snippet vem de FTS5 SQLite com <mark>...</mark> apenas; nenhum HTML do usuário é injetado)
-                    dangerouslySetInnerHTML={{ __html: hit.snippet }}
-                  />
+                  <span className="text-xs text-muted-foreground truncate">
+                    {renderHighlightedSnippet(hit.snippet)}
+                  </span>
                 </div>
               </CommandItem>
             ))}
@@ -101,4 +100,37 @@ export function GlobalSearch({
       </CommandList>
     </CommandDialog>
   );
+}
+
+/**
+ * Snippet do FTS5 vem com `<mark>...</mark>` envelopando os trechos
+ * casados, mas o texto-fonte (mensagem user/assistant) pode conter HTML
+ * arbitrário (ex: usuário cola `<script>` numa mensagem). Render via
+ * `dangerouslySetInnerHTML` é XSS direto. Aqui parseamos apenas o
+ * `<mark>` (literal injetado pelo SQLite) e escapamos o resto via
+ * texto puro do React.
+ */
+function renderHighlightedSnippet(snippet: string): ReactNode {
+  const parts: ReactNode[] = [];
+  const re = /<mark>(.*?)<\/mark>/gi;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null = re.exec(snippet);
+  let segIndex = 0;
+  while (match !== null) {
+    if (match.index > lastIndex) {
+      parts.push(snippet.slice(lastIndex, match.index));
+    }
+    parts.push(
+      <mark key={`mark-${segIndex}`} className="bg-yellow-500/30 text-foreground rounded-sm px-0.5">
+        {match[1] ?? ''}
+      </mark>,
+    );
+    lastIndex = match.index + match[0].length;
+    segIndex += 1;
+    match = re.exec(snippet);
+  }
+  if (lastIndex < snippet.length) {
+    parts.push(snippet.slice(lastIndex));
+  }
+  return parts;
 }

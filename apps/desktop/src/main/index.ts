@@ -23,6 +23,7 @@ import { createLabelsService } from './services/labels-service.ts';
 import { SqliteMessagesService } from './services/messages-service.ts';
 import { createNewsService } from './services/news-service.ts';
 import { createObservabilityRuntime } from './services/observability-runtime.ts';
+import { createPerformWipe } from './services/perform-wipe.ts';
 import { createPermissionsService } from './services/permissions-service.ts';
 import { createPlatformService } from './services/platform-service.ts';
 import { createProjectsService } from './services/projects-service.ts';
@@ -30,6 +31,7 @@ import { SessionsCleanupScheduler } from './services/sessions-cleanup-scheduler.
 import { createSessionsService } from './services/sessions-service.ts';
 import { createMountRegistry } from './services/sources/mount-bootstrap.ts';
 import { createSourcesService } from './services/sources-service.ts';
+import { TitleGeneratorService } from './services/title-generator.ts';
 import { buildIntentUpdater, buildToolCatalog } from './services/tools-bootstrap.ts';
 import { TurnDispatcher } from './services/turn-dispatcher.ts';
 import { createWindowsService } from './services/windows-service.ts';
@@ -179,6 +181,13 @@ export async function bootstrapMain(options: BootstrapOptions = {}): Promise<voi
   const toolCatalog = buildToolCatalog({ sourcesStore, sessionsRepo });
   const mountRegistry = createMountRegistry();
 
+  // TitleGenerator checa session.name contra defaultNames antes de gerar — não sobrescreve nomes manuais.
+  const titleGenerator = new TitleGeneratorService({
+    vault: credentialVault,
+    sessionsRepo,
+    defaultNames: ['Nova sessão', 'New session'],
+  });
+
   const turnDispatcher = new TurnDispatcher({
     messages: messagesService,
     registry: agentsRuntime.registry,
@@ -187,6 +196,7 @@ export async function bootstrapMain(options: BootstrapOptions = {}): Promise<voi
     toolCatalog,
     sourcesStore,
     mountRegistry,
+    titleGenerator,
     getSession: async (id) => (await sessionsRepo.get(id)) ?? null,
     resolveWorkingDirectory: (session) =>
       session?.workingDirectory ?? appPaths.workspace(session?.workspaceId ?? 'default'),
@@ -216,6 +226,11 @@ export async function bootstrapMain(options: BootstrapOptions = {}): Promise<voi
   const sessionsCleanup = new SessionsCleanupScheduler({ drizzle: database.drizzle });
   sessionsCleanup.start();
 
+  const performWipe = createPerformWipe({
+    app: electron.app,
+    workspaces: workspacesService,
+    vault: credentialVault,
+  });
   const authRuntime = createAuthRuntime({
     rootDir,
     skipDotEnv: electron.app.isPackaged,
@@ -223,6 +238,7 @@ export async function bootstrapMain(options: BootstrapOptions = {}): Promise<voi
     envSource: process.env,
     credentialVault,
     mockAuthMode: isE2E,
+    performWipe,
   });
 
   if (!authRuntime.configured) {
@@ -235,10 +251,10 @@ export async function bootstrapMain(options: BootstrapOptions = {}): Promise<voi
   lifecycle.onQuit(() => cpuPool.destroy());
   lifecycle.onQuit(() => authRuntime.dispose());
   lifecycle.onQuit(() => sessionsCleanup.dispose());
+  lifecycle.onQuit(() => titleGenerator.dispose());
+  lifecycle.onQuit(() => newsService.dispose());
   lifecycle.onQuit(() => database.db.dispose());
-  lifecycle.onQuit(() => {
-    void observability.dispose();
-  });
+  lifecycle.onQuit(() => void observability.dispose());
   lifecycle.onAllWindowsClosed(() => {
     if (process.platform !== 'darwin') electron.app.quit();
   });
@@ -271,7 +287,7 @@ export async function bootstrapMain(options: BootstrapOptions = {}): Promise<voi
   log.info({ preloadPath, rendererUrl }, 'main ready');
 }
 
-// Logger determinístico pré-pino em $TMPDIR/g4os-{label}.log
+// Logger pré-pino em $TMPDIR/g4os-{label}.log
 function writeStartupCrashLog(label: string, err: unknown): void {
   try {
     // biome-ignore lint/style/noProcessEnv: composition root
@@ -285,7 +301,6 @@ function writeStartupCrashLog(label: string, err: unknown): void {
     /* ignore */
   }
 }
-
 void bootstrapMain().catch((err: unknown) => {
   writeStartupCrashLog('startup-error', err);
   log.fatal({ err }, 'fatal startup error');

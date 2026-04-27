@@ -58,18 +58,22 @@ export function FieldWrapper({
 
       {children}
 
-      {/* Área de erro: mantém altura reservada para evitar layout shift */}
-      <p
-        id={`${name}-error`}
-        role="alert"
-        aria-live="polite"
-        className={cn(
-          'text-xs text-destructive transition-opacity duration-200 h-1',
-          error ? 'opacity-100' : 'opacity-0 pointer-events-none',
-        )}
-      >
-        {error}
-      </p>
+      {/* Área de erro: mantém altura reservada para evitar layout shift.
+          `role="alert"` é renderizado APENAS quando há mensagem de erro;
+          antes ficava montado permanentemente com `opacity-0` e SR
+          anunciavam string vazia a cada render. */}
+      {error ? (
+        <p
+          id={`${name}-error`}
+          role="alert"
+          aria-live="polite"
+          className="text-xs text-destructive transition-opacity duration-200"
+        >
+          {error}
+        </p>
+      ) : (
+        <p aria-hidden={true} className="h-1 opacity-0 pointer-events-none" />
+      )}
     </div>
   );
 }

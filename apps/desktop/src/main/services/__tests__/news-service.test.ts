@@ -153,4 +153,42 @@ describe('NewsService', () => {
     await service.list();
     expect(fetchMock).toHaveBeenCalledWith('https://viewer.test/api/news', expect.any(Object));
   });
+
+  it('dispose() aborta fetch em voo e cancela timer de timeout', async () => {
+    let signalAtCallTime: AbortSignal | undefined;
+    fetchMock.mockImplementation((_url, init) => {
+      signalAtCallTime = (init as RequestInit | undefined)?.signal ?? undefined;
+      return new Promise<Response>((_resolve, reject) => {
+        signalAtCallTime?.addEventListener('abort', () =>
+          reject(new DOMException('aborted', 'AbortError')),
+        );
+      });
+    });
+
+    const service = createNewsService({
+      viewerUrl: 'https://viewer.test',
+      fetchImpl: fetchMock,
+    });
+
+    const pending = service.list();
+    // libera a fila para o fetch ser registrado em `inflight`
+    await Promise.resolve();
+    service.dispose();
+
+    const result = await pending;
+    expect(result.isErr()).toBe(true);
+    expect(signalAtCallTime?.aborted).toBe(true);
+  });
+
+  it('dispose() é idempotente', () => {
+    const service = createNewsService({
+      viewerUrl: 'https://viewer.test',
+      fetchImpl: fetchMock,
+    });
+
+    expect(() => {
+      service.dispose();
+      service.dispose();
+    }).not.toThrow();
+  });
 });

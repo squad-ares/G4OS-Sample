@@ -15,6 +15,8 @@ export interface ElectronApp {
   whenReady(): Promise<void>;
   quit(): void;
   exit(code: number): void;
+  /** Reinicia o processo. Usado em wipeAndReset depois de apagar dados. */
+  relaunch(options?: { args?: readonly string[]; execPath?: string }): void;
   on(event: 'window-all-closed', listener: () => void): void;
   on(event: 'before-quit', listener: (event: ElectronEvent) => void): void;
   on(event: 'open-url', listener: (event: ElectronEvent, url: string) => void): void;

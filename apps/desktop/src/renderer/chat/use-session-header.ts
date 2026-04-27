@@ -1,6 +1,6 @@
 import { findModel } from '@g4os/features/chat';
 import type { Session } from '@g4os/kernel/types';
-import { toast } from '@g4os/ui';
+import { toast, useTranslate } from '@g4os/ui';
 import type { UseQueryResult } from '@tanstack/react-query';
 import type { useNavigate } from '@tanstack/react-router';
 import { useCallback, useMemo } from 'react';
@@ -32,6 +32,7 @@ export function useSessionHeader({
   sessionQuery,
   navigate,
 }: UseSessionHeaderArgs): UseSessionHeaderResult {
+  const { t } = useTranslate();
   const spec = useMemo(() => findModel(currentModelId), [currentModelId]);
 
   const handleRename = useCallback(
@@ -56,7 +57,7 @@ export function useSessionHeader({
   }, [sessionId, workspaceId, navigate]);
 
   return {
-    modelLabel: spec?.label ?? currentModelId,
+    modelLabel: spec ? t(spec.labelKey) : currentModelId,
     ...(spec?.provider ? { providerLabel: spec.provider } : {}),
     handleRename,
     handleArchive,

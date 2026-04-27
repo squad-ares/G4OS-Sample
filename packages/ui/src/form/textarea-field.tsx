@@ -60,9 +60,9 @@ export function TextareaField<TForm extends FieldValues>({
     [field.ref],
   );
 
-  // Auto-resize
+  // Auto-resize do textarea conforme conteúdo cresce
   useEffect(() => {
-    // Explicit read allows Biome to consider field.value a correct exhaustive dependency
+    // Leitura explícita pra Biome considerar `field.value` como dependência exhaustiva
     void field.value;
     const el = textareaRef.current;
     if (!el) return;

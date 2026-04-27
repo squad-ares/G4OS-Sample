@@ -70,7 +70,7 @@ export function VoiceButton({ onTranscript, transcribe, disabled, className }: V
           type="button"
           onClick={cancel}
           aria-label={t('chat.composer.voice.cancelAriaLabel')}
-          className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-foreground/10 hover:text-foreground"
+          className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent/15 hover:text-foreground"
         >
           <X className="h-3.5 w-3.5" />
         </button>
@@ -85,7 +85,7 @@ export function VoiceButton({ onTranscript, transcribe, disabled, className }: V
       disabled={disabled}
       aria-label={t('chat.composer.voice.ariaLabel')}
       className={cn(
-        'flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-foreground/10 hover:text-foreground disabled:opacity-40',
+        'flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent/15 hover:text-foreground disabled:opacity-40',
         className,
       )}
     >

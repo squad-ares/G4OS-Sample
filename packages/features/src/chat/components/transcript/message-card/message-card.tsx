@@ -1,6 +1,6 @@
 import { cn } from '@g4os/ui';
 import { memo, useState } from 'react';
-// Side-effect import: registra renderers built-in (bash/read-file/search-results)
+// Side-effect import: registra renderers built-in (bash/read-file/search-results) no registry global
 // no `tool-renderers/registry`. Sem isto, o dispatcher cai sempre no fallback.
 import '../../../tool-renderers/index.ts';
 import type { Message, TextBlock } from '../../../types.ts';

@@ -105,7 +105,9 @@ class SqliteProjectsService implements ProjectsServiceContract {
     return this.#try('projects.getFileContent', async () => {
       const p = await this.#repo.get(projectId);
       if (!p) throw notFound(projectId);
-      return fileOps.getFileContent(p.rootPath, relativePath);
+      const result = await fileOps.getFileContent(p.rootPath, relativePath);
+      if (result.isErr()) throw result.error;
+      return result.value;
     });
   }
 
@@ -117,7 +119,8 @@ class SqliteProjectsService implements ProjectsServiceContract {
     return this.#try('projects.saveFile', async () => {
       const p = await this.#repo.get(projectId);
       if (!p) throw notFound(projectId);
-      await fileOps.saveFile(p.rootPath, relativePath, content);
+      const result = await fileOps.saveFile(p.rootPath, relativePath, content);
+      if (result.isErr()) throw result.error;
     });
   }
 
@@ -125,7 +128,8 @@ class SqliteProjectsService implements ProjectsServiceContract {
     return this.#try('projects.deleteFile', async () => {
       const p = await this.#repo.get(projectId);
       if (!p) throw notFound(projectId);
-      await fileOps.deleteFile(p.rootPath, relativePath);
+      const result = await fileOps.deleteFile(p.rootPath, relativePath);
+      if (result.isErr()) throw result.error;
     });
   }
 

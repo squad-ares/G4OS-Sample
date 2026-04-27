@@ -1,9 +1,15 @@
-import { WorkspaceIdSchema, WorkspaceSchema } from '@g4os/kernel/schemas';
+import { WorkspaceIdSchema, WorkspaceSchema, WorkspaceUpdateSchema } from '@g4os/kernel/schemas';
 import { z } from 'zod';
 import { authed } from '../middleware/authed.ts';
 import { router } from '../trpc.ts';
 
 const WorkspacesListOutput = z.array(WorkspaceSchema);
+
+const WorkspaceSetupNeedsSchema = z.object({
+  needsInitialSetup: z.boolean(),
+  needsStyleSetup: z.boolean(),
+  isFullyConfigured: z.boolean(),
+});
 
 export const workspacesRouter = router({
   list: authed.output(WorkspacesListOutput).query(async ({ ctx }) => {
@@ -34,14 +40,11 @@ export const workspacesRouter = router({
     .input(
       z.object({
         id: WorkspaceIdSchema,
-        patch: WorkspaceSchema.partial().omit({ id: true, createdAt: true }),
+        patch: WorkspaceUpdateSchema,
       }),
     )
     .output(z.void())
     .mutation(async ({ input, ctx }) => {
-      // O partial() do Zod gera campos opcionais `| undefined`, que são
-      // incompatíveis com exactOptionalPropertyTypes; o cast é seguro porque
-      // valores em runtime omitem entradas `undefined` após o parse do Zod.
       const patch = input.patch as Parameters<typeof ctx.workspaces.update>[1];
       const result = await ctx.workspaces.update(input.id, patch);
       if (result.isErr()) throw result.error;
@@ -62,5 +65,19 @@ export const workspacesRouter = router({
         removeFiles === undefined ? undefined : { removeFiles },
       );
       if (result.isErr()) throw result.error;
+    }),
+
+  /**
+   * Retorna flags de setup do workspace para o renderer decidir se
+   * dispara onboarding session automática (`/setup` skill ou prompt
+   * guiado no primeiro turn). Lê `setupCompleted` + `styleSetupCompleted`.
+   */
+  getSetupNeeds: authed
+    .input(z.object({ id: WorkspaceIdSchema }))
+    .output(WorkspaceSetupNeedsSchema)
+    .query(async ({ input, ctx }) => {
+      const result = await ctx.workspaces.getSetupNeeds(input.id);
+      if (result.isErr()) throw result.error;
+      return result.value;
     }),
 });

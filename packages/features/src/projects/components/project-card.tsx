@@ -1,5 +1,6 @@
 import {
   Button,
+  cn,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -20,9 +21,16 @@ const COLOR_FALLBACK = '#6366f1';
 export function ProjectCard({ project, onOpen, onArchive, onDelete }: ProjectCardProps) {
   const { t } = useTranslate();
   const accent = project.color ?? COLOR_FALLBACK;
+  const isArchived = project.status === 'archived';
+  const updatedRelative = formatRelativeTime(project.updatedAt);
 
   return (
-    <div className="group relative flex flex-col gap-2 rounded-lg border border-border bg-card p-4 transition-shadow hover:shadow-md">
+    <div
+      className={cn(
+        'group relative flex flex-col gap-2 rounded-lg border border-border bg-card p-4 transition-shadow hover:shadow-md',
+        isArchived && 'opacity-70',
+      )}
+    >
       <div className="flex items-start justify-between gap-2">
         <button
           type="button"
@@ -57,9 +65,44 @@ export function ProjectCard({ project, onOpen, onArchive, onDelete }: ProjectCar
         </DropdownMenu>
       </div>
 
-      {project.description && (
+      {project.description ? (
         <p className="line-clamp-2 text-xs text-muted-foreground">{project.description}</p>
-      )}
+      ) : null}
+
+      <div className="flex items-center gap-1.5">
+        <span
+          className={cn(
+            'rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider',
+            isArchived
+              ? 'bg-muted text-muted-foreground'
+              : 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
+          )}
+        >
+          {isArchived ? t('project.card.status.archived') : t('project.card.status.active')}
+        </span>
+        {updatedRelative ? (
+          <span className="text-[11px] text-muted-foreground">
+            {t('project.card.updatedRelative', { when: updatedRelative })}
+          </span>
+        ) : null}
+      </div>
     </div>
   );
+}
+
+function formatRelativeTime(ms: number): string | null {
+  try {
+    const delta = Date.now() - ms;
+    if (delta < 0) return null;
+    const minutes = Math.floor(delta / 60_000);
+    if (minutes < 1) return 'agora';
+    if (minutes < 60) return `${minutes}m`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours}h`;
+    const days = Math.floor(hours / 24);
+    if (days < 7) return `${days}d`;
+    return new Date(ms).toLocaleDateString(undefined, { month: 'short', day: '2-digit' });
+  } catch {
+    return null;
+  }
 }

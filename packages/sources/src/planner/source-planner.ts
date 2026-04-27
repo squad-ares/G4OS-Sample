@@ -119,7 +119,7 @@ function classifyBucket(source: SourceConfigView): SourceBucket {
 export function formatPlanForPrompt(plan: SourcePlan): string {
   const parts: string[] = [];
   const all = [...plan.nativeDeferred, ...plan.brokerFallback, ...plan.filesystemDirect];
-  // Hide sources that are not connected yet — model would misuse them otherwise.
+  // Esconde sources ainda não conectadas — caso contrário, o modelo tentaria usá-las indevidamente.
   // Agent must call `activate_sources` (broker_fallback) or receive auth CTA
   // from UI before the source becomes visible in the prompt.
   const ready = all.filter((s) => s.status === 'connected');
