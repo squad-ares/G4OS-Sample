@@ -95,7 +95,7 @@ function Chip({ icon, label, title, onClick, mono }: ChipProps) {
   const className = cn(
     'flex items-center gap-1 rounded-full border border-foreground/10 bg-foreground/[0.03] px-2 py-0.5 text-[11px] text-muted-foreground',
     mono && 'font-mono',
-    onClick && 'transition-colors hover:bg-foreground/[0.06] hover:text-foreground cursor-pointer',
+    onClick && 'transition-colors hover:bg-accent/12 hover:text-foreground cursor-pointer',
   );
 
   if (onClick) {

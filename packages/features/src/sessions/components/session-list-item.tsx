@@ -28,7 +28,7 @@ export function SessionListItemRow({
       className={`flex w-full items-start gap-3 rounded-xl border px-3 py-2.5 text-left transition-colors ${
         isActive
           ? 'border-accent/60 bg-accent/5'
-          : 'border-transparent hover:border-foreground/10 hover:bg-foreground/5'
+          : 'border-transparent hover:border-foreground/10 hover:bg-accent/12'
       }`}
       aria-current={isActive ? 'true' : undefined}
     >

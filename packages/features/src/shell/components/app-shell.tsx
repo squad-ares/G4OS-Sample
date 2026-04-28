@@ -13,6 +13,7 @@ export interface AppShellProps {
     readonly onNavigate: (to: string) => void;
   };
   readonly workspace?: SubSidebarWorkspace;
+  readonly onNewSession?: () => void;
   readonly onOpenSupport?: () => void;
   readonly onOpenCommandPalette?: () => void;
   readonly onOpenShortcuts?: () => void;
@@ -30,6 +31,7 @@ function isChatRoute(pathname: string): boolean {
 export function AppShell({
   navigation,
   workspace,
+  onNewSession,
   onOpenSupport,
   onOpenCommandPalette,
   onOpenShortcuts,
@@ -54,6 +56,7 @@ export function AppShell({
       <WorkspaceSidebar
         activePath={navigation.activePath}
         onNavigate={navigation.onNavigate}
+        {...(onNewSession ? { onNewSession } : {})}
         {...(workspace ? { workspace } : {})}
       />
 
@@ -70,7 +73,7 @@ export function AppShell({
 
         <main
           id="app-main-content"
-          className={`relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-[16px] ${
+          className={`titlebar-no-drag relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-[16px] ${
             chatMode ? 'bg-transparent' : 'bg-background shadow-middle'
           }`}
         >

@@ -7,7 +7,7 @@
  */
 
 import type { TranslationKey } from '@g4os/translate';
-import type { SessionsPanelSessionItem } from './sessions-panel.tsx';
+import type { SessionsPanelSessionItem } from './sessions-panel-types.ts';
 
 export interface SessionGroup {
   readonly key: string;

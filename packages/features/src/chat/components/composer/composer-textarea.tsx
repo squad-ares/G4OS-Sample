@@ -1,5 +1,12 @@
 import { cn } from '@g4os/ui';
-import { forwardRef, type KeyboardEvent, useEffect, useImperativeHandle, useRef } from 'react';
+import {
+  forwardRef,
+  type KeyboardEvent,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from 'react';
 import { type ComposerSubmitMode, shouldInsertNewline, shouldSubmit } from './submit-mode.ts';
 
 // Paridade V1 (`FreeFormInput`): textarea começa em ~3 linhas (~76px de altura),
@@ -41,8 +48,8 @@ export interface ComposerTextareaProps {
   // que o textarea está conectado ao listbox.
   readonly role?: 'textbox' | 'combobox';
   readonly ariaExpanded?: boolean;
-  readonly ariaControls?: string;
-  readonly ariaActiveDescendant?: string;
+  readonly ariaControls?: string | undefined;
+  readonly ariaActiveDescendant?: string | undefined;
   readonly ariaAutoComplete?: 'list' | 'inline' | 'both' | 'none';
 }
 
@@ -102,7 +109,18 @@ export const ComposerTextarea = forwardRef<ComposerTextareaRef, ComposerTextarea
       el.style.overflowY = el.scrollHeight > maxHeight ? 'auto' : 'hidden';
     }, [value, minRows, maxRows]);
 
+    // CR7-31: IME composition (CJK, Pinyin, Japanese, Korean) — Enter
+    // durante composição confirma o glyph, NÃO submete. Sem este flag,
+    // user CJK perdia caracteres mid-composição ou submetia inputs
+    // incompletos. `event.nativeEvent.isComposing` também é checado pra
+    // cobrir browsers que não disparam compositionstart limpo.
+    const [isComposing, setIsComposing] = useState(false);
+
     const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+      // Bloqueio durante composição IME — qualquer Enter/Esc/Arrow que
+      // chegue aqui é parte da seleção de glyph, não input final.
+      if (isComposing || event.nativeEvent.isComposing) return;
+
       // Capture hook (mention picker) pode consumir Arrow/Enter/Esc antes
       // do submit. Se consumido, o evento para aqui.
       if (onCaptureKeyDown?.(event)) {
@@ -127,6 +145,8 @@ export const ComposerTextarea = forwardRef<ComposerTextareaRef, ComposerTextarea
         value={value}
         onChange={(event) => onChange(event.target.value)}
         onKeyDown={handleKeyDown}
+        onCompositionStart={() => setIsComposing(true)}
+        onCompositionEnd={() => setIsComposing(false)}
         placeholder={placeholder}
         disabled={disabled}
         aria-label={ariaLabel}

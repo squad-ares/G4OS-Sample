@@ -97,12 +97,18 @@ export function SessionMetadataPanel({
     }
   };
 
-  if (!open) return null;
-
+  // CR-UX: NÃO unmonta quando `open=false`. Em vez disso, anima width
+  // de 320px → 0 + opacity → 0 em 200ms. Sem isso o painel aparecia/sumia
+  // bruscamente ("cortando") e o usuário percebia como bug visual. O DOM
+  // mantém o estado interno (drafts de nome/notes) entre toggles.
   return (
     <aside
       aria-label={t('chat.metadata.ariaLabel')}
-      className="flex h-full w-[320px] shrink-0 flex-col border-l border-foreground/8 bg-background/60 backdrop-blur-sm"
+      aria-hidden={!open}
+      className={cn(
+        'flex h-full shrink-0 flex-col overflow-hidden border-l border-foreground/8 bg-background/60 backdrop-blur-sm transition-[width,opacity] duration-200 ease-in-out',
+        open ? 'w-[320px] opacity-100' : 'pointer-events-none w-0 opacity-0',
+      )}
     >
       <div className="flex shrink-0 items-center justify-between border-b border-foreground/8 px-4 py-2.5">
         <h2 className="text-sm font-semibold">{t('chat.metadata.title')}</h2>
@@ -146,7 +152,7 @@ export function SessionMetadataPanel({
               disabled={!onRename}
               className={cn(
                 'flex w-full items-center justify-between gap-2 rounded-md border border-transparent px-2 py-1 text-left text-sm font-medium text-foreground',
-                onRename && 'cursor-text hover:border-foreground/15 hover:bg-foreground/[0.03]',
+                onRename && 'cursor-text hover:border-foreground/15 hover:bg-accent/10',
               )}
             >
               <span className="truncate">{name}</span>
@@ -187,7 +193,7 @@ export function SessionMetadataPanel({
               disabled={!onChooseWorkingDirectory}
               className={cn(
                 'flex w-full items-center gap-2 rounded-md border border-foreground/10 bg-foreground/[0.02] px-2 py-1.5 text-left text-xs',
-                onChooseWorkingDirectory && 'cursor-pointer hover:bg-foreground/[0.05]',
+                onChooseWorkingDirectory && 'cursor-pointer hover:bg-accent/12',
               )}
             >
               <FolderOpen className="size-3.5 shrink-0 text-muted-foreground" aria-hidden={true} />
@@ -248,7 +254,7 @@ function ProjectChip({ project, onOpen }: ProjectChipProps) {
       disabled={!onOpen}
       className={cn(
         'flex w-full items-center gap-2 rounded-md border border-foreground/10 bg-foreground/[0.02] px-2 py-1.5 text-left text-xs',
-        onOpen && 'cursor-pointer hover:bg-foreground/[0.05]',
+        onOpen && 'cursor-pointer hover:bg-accent/12',
       )}
     >
       <span
@@ -285,7 +291,7 @@ function ProjectPicker({
       <button
         type="button"
         onClick={onToggle}
-        className="flex w-full items-center justify-between gap-2 rounded-md border border-foreground/10 bg-foreground/[0.02] px-2 py-1.5 text-left text-xs hover:bg-foreground/[0.05]"
+        className="flex w-full items-center justify-between gap-2 rounded-md border border-foreground/10 bg-foreground/[0.02] px-2 py-1.5 text-left text-xs hover:bg-accent/12"
       >
         <span className="flex min-w-0 items-center gap-2">
           {project ? (
@@ -313,7 +319,7 @@ function ProjectPicker({
             <button
               type="button"
               onClick={() => onSelect(null)}
-              className="flex w-full items-center px-2 py-1 text-left text-xs text-muted-foreground hover:bg-foreground/[0.05]"
+              className="flex w-full items-center px-2 py-1 text-left text-xs text-muted-foreground hover:bg-accent/12"
             >
               {t('chat.metadata.noProject')}
             </button>
@@ -323,7 +329,7 @@ function ProjectPicker({
               <button
                 type="button"
                 onClick={() => onSelect(p.id)}
-                className="flex w-full items-center gap-2 px-2 py-1 text-left text-xs hover:bg-foreground/[0.05]"
+                className="flex w-full items-center gap-2 px-2 py-1 text-left text-xs hover:bg-accent/12"
               >
                 <span
                   aria-hidden={true}

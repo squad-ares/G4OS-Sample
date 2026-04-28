@@ -12,6 +12,7 @@ import {
   Archive,
   CircleDot,
   GitBranch,
+  PencilLine,
   Pin,
   PinOff,
   RotateCcw,
@@ -30,12 +31,14 @@ export interface SessionContextMenuProps {
   readonly onPin: (id: string, pinned: boolean) => void;
   readonly onStar: (id: string, starred: boolean) => void;
   readonly onMarkRead: (id: string, unread: boolean) => void;
+  readonly onRename?: (id: string) => void;
   readonly onArchive: (id: string) => void;
   readonly onRestore: (id: string) => void;
   readonly onDelete: (id: string) => void;
   readonly onBranch?: (id: string) => void;
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: menu declarativo concentra ações condicionais por lifecycle para manter o contrato de props simples.
 export function SessionContextMenu({
   open,
   position,
@@ -44,6 +47,7 @@ export function SessionContextMenu({
   onPin,
   onStar,
   onMarkRead,
+  onRename,
   onArchive,
   onRestore,
   onDelete,
@@ -78,7 +82,7 @@ export function SessionContextMenu({
     <div
       ref={ref}
       role="menu"
-      className="fixed z-50 flex min-w-52 flex-col gap-0.5 rounded-md border bg-background p-1 shadow-lg"
+      className="fixed z-50 flex min-w-52 flex-col gap-0.5 rounded-[10px] border border-foreground/8 bg-background/96 p-1 shadow-[0_10px_30px_rgba(0,0,0,0.12)] backdrop-blur-sm"
       style={{ top: position.y, left: position.x }}
     >
       {lifecycle === 'active' ? (
@@ -127,6 +131,16 @@ export function SessionContextMenu({
               }}
               icon={<GitBranch className="size-4" aria-hidden={true} />}
               label={t('session.action.branch')}
+            />
+          ) : null}
+          {onRename ? (
+            <Item
+              onSelect={() => {
+                onRename(session.id);
+                onClose();
+              }}
+              icon={<PencilLine className="size-4" aria-hidden={true} />}
+              label={t('session.action.rename')}
             />
           ) : null}
           <Separator />
@@ -187,9 +201,7 @@ function Item({ onSelect, icon, label, danger }: ItemProps) {
       role="menuitem"
       onClick={onSelect}
       className={`flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm transition-colors ${
-        danger
-          ? 'text-destructive hover:bg-destructive/10'
-          : 'text-foreground hover:bg-foreground/5'
+        danger ? 'text-destructive hover:bg-destructive/10' : 'text-foreground hover:bg-accent/12'
       }`}
     >
       {icon}
@@ -199,5 +211,5 @@ function Item({ onSelect, icon, label, danger }: ItemProps) {
 }
 
 function Separator() {
-  return <div aria-hidden={true} className="my-1 h-px bg-foreground/10" />;
+  return <div aria-hidden={true} className="my-1 h-px bg-foreground/6" />;
 }

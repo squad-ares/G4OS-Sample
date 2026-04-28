@@ -1,6 +1,5 @@
-import { type Theme, useTheme, useTranslate } from '@g4os/ui';
+import { StatusPanel, type Theme, useTheme, useTranslate } from '@g4os/ui';
 import { Monitor, Moon, Sun } from 'lucide-react';
-import { ShellStatusPanel } from '../../shell/index.ts';
 
 interface ThemeOption {
   readonly value: Theme;
@@ -23,7 +22,7 @@ export function AppearanceCategory() {
 
   return (
     <div className="flex flex-col gap-4">
-      <ShellStatusPanel
+      <StatusPanel
         title={t('settings.appearance.theme.title')}
         description={t('settings.appearance.theme.description')}
         badge={t('settings.category.appearance.label')}
@@ -52,15 +51,15 @@ export function AppearanceCategory() {
         <p className="mt-3 text-xs text-muted-foreground">
           {t('settings.appearance.theme.active', { resolved })}
         </p>
-      </ShellStatusPanel>
+      </StatusPanel>
 
-      <ShellStatusPanel
+      <StatusPanel
         title={t('settings.appearance.density.title')}
         description={t('settings.appearance.density.description')}
         tone="warning"
       >
         <p className="text-xs text-muted-foreground">{t('settings.category.plannedBadge')}</p>
-      </ShellStatusPanel>
+      </StatusPanel>
     </div>
   );
 }

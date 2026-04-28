@@ -132,7 +132,7 @@ function MarketplaceRow({ item, active, onOpen }: MarketplaceRowProps) {
       onClick={() => onOpen(item.id)}
       aria-current={active ? 'true' : undefined}
       className={`flex w-full items-start gap-2 rounded-[10px] px-3 py-2 text-left transition-colors ${
-        active ? 'bg-foreground/8 text-foreground' : 'text-foreground/85 hover:bg-foreground/5'
+        active ? 'bg-foreground/8 text-foreground' : 'text-foreground/85 hover:bg-accent/12'
       }`}
     >
       <span

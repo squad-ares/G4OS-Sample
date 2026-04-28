@@ -177,7 +177,7 @@ function AgentCard({
     <button
       type="button"
       onClick={onClick}
-      className="flex flex-col gap-1 rounded-[22px] border border-foreground/10 bg-background/84 p-4 text-left transition-all hover:-translate-y-0.5 hover:border-accent/60 hover:bg-accent/5"
+      className="flex cursor-pointer flex-col gap-1 rounded-[22px] border border-foreground/10 bg-background/84 p-4 text-left transition-colors hover:border-accent/60 hover:bg-accent/5"
     >
       <span className="text-sm font-medium">{name}</span>
       <span className="text-xs text-muted-foreground">{description}</span>

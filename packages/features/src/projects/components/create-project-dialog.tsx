@@ -105,7 +105,7 @@ export function CreateProjectDialog({
                 <button
                   key={c}
                   type="button"
-                  className="h-6 w-6 rounded-full border-2 transition-transform hover:scale-110"
+                  className="h-6 w-6 cursor-pointer rounded-full border-2 opacity-90 transition-opacity hover:opacity-100"
                   style={{
                     backgroundColor: c,
                     borderColor: color === c ? 'white' : 'transparent',

@@ -7,6 +7,7 @@ import {
   DropdownMenuTrigger,
   useTranslate,
 } from '@g4os/ui';
+import { FolderKanban, MoreHorizontal } from 'lucide-react';
 import type { ProjectListItem } from '../types.ts';
 
 export interface ProjectCardProps {
@@ -34,11 +35,20 @@ export function ProjectCard({ project, onOpen, onArchive, onDelete }: ProjectCar
       <div className="flex items-start justify-between gap-2">
         <button
           type="button"
-          className="flex min-w-0 flex-1 items-center gap-2 text-left"
+          className="flex min-w-0 flex-1 items-center gap-3 text-left"
           onClick={() => onOpen?.(project.id)}
         >
-          <div className="h-3 w-3 flex-shrink-0 rounded-full" style={{ backgroundColor: accent }} />
-          <span className="truncate text-sm font-medium">{project.name}</span>
+          <span
+            aria-hidden={true}
+            className="flex size-9 shrink-0 items-center justify-center rounded-md text-white"
+            style={{ backgroundColor: accent }}
+          >
+            <FolderKanban className="h-4 w-4" />
+          </span>
+          <span className="min-w-0">
+            <span className="block truncate text-sm font-semibold">{project.name}</span>
+            <span className="block truncate text-[11px] text-muted-foreground">{project.slug}</span>
+          </span>
         </button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild={true}>
@@ -48,7 +58,7 @@ export function ProjectCard({ project, onOpen, onArchive, onDelete }: ProjectCar
               className="h-6 w-6 opacity-0 group-hover:opacity-100"
             >
               <span className="sr-only">{t('project.card.options')}</span>
-              <span aria-hidden={true}>⋯</span>
+              <MoreHorizontal className="h-4 w-4" aria-hidden={true} />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">

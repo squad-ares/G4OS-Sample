@@ -1,7 +1,17 @@
-import { Spinner, useTranslate } from '@g4os/ui';
-import type { ReactNode } from 'react';
+import { Spinner, StatusPanel, type StatusPanelProps, useTranslate } from '@g4os/ui';
+import { type ReactNode, useEffect, useState } from 'react';
 import { formatShortcut, shellActionDefinitions } from '../actions.ts';
 import { getShellNavigationEntry, type ShellNavigationId } from '../navigation.ts';
+
+/**
+ * Alias retrocompatível para `StatusPanel` movido para `@g4os/ui` em CR5-04.
+ * Consumers internos de shell continuam usando este nome; cross-feature
+ * (settings/etc.) deve importar `StatusPanel` direto de `@g4os/ui`.
+ *
+ * @deprecated Use `StatusPanel` de `@g4os/ui`.
+ */
+export type ShellStatusPanelProps = StatusPanelProps;
+export const ShellStatusPanel = StatusPanel;
 
 export interface ShellPageScaffoldProps {
   readonly eyebrow?: string;
@@ -19,7 +29,7 @@ export function ShellPageScaffold({
   return (
     <section className="h-full overflow-y-auto p-6 md:p-8">
       <div className="space-y-6 pb-6">
-        <div className="rounded-[28px] border border-foreground/10 bg-[linear-gradient(160deg,rgba(255,255,255,0.72),rgba(255,255,255,0.34))] p-6 shadow-[0_18px_48px_rgba(0,31,53,0.08)]">
+        <div className="rounded-[28px] border border-foreground/10 p-6 shadow-[0_18px_48px_rgba(0,31,53,0.08)]">
           {eyebrow ? (
             <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-accent">
               {eyebrow}
@@ -36,50 +46,24 @@ export function ShellPageScaffold({
   );
 }
 
-export interface ShellStatusPanelProps {
-  readonly title: string;
-  readonly description: string;
-  readonly tone?: 'default' | 'warning' | 'danger';
-  readonly badge?: string;
-  readonly role?: 'status' | 'alert';
-  readonly children?: ReactNode;
-}
-
-export function ShellStatusPanel({
-  title,
-  description,
-  tone = 'default',
-  badge,
-  role = 'status',
-  children,
-}: ShellStatusPanelProps) {
-  const toneClass =
-    tone === 'warning'
-      ? 'border-accent/30 bg-accent/8'
-      : tone === 'danger'
-        ? 'border-destructive/30 bg-destructive/8'
-        : 'border-foreground/10 bg-background/82';
-
-  return (
-    <div
-      role={role}
-      aria-live={role === 'alert' ? 'assertive' : 'polite'}
-      className={`rounded-[24px] border p-5 shadow-[0_14px_34px_rgba(0,31,53,0.06)] ${toneClass}`}
-    >
-      {badge ? (
-        <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-accent">
-          {badge}
-        </div>
-      ) : null}
-      <h2 className="mt-2 text-lg font-semibold tracking-[-0.02em] text-foreground">{title}</h2>
-      <p className="mt-2 text-sm leading-6 text-muted-foreground">{description}</p>
-      {children ? <div className="mt-4">{children}</div> : null}
-    </div>
-  );
-}
+// Após `STUCK_THRESHOLD_MS` mostramos botão de recovery. Boot real é
+// tipicamente <500ms; se ultrapassar 5s, algo está pendurado e o usuário
+// precisa de uma saída visível — sem isso o app fica refém da pending
+// state e parece travado.
+const STUCK_THRESHOLD_MS = 5_000;
 
 export function ShellLoadingState() {
   const { t } = useTranslate();
+  const [showRecovery, setShowRecovery] = useState(false);
+
+  useEffect(() => {
+    const handle = setTimeout(() => setShowRecovery(true), STUCK_THRESHOLD_MS);
+    return () => clearTimeout(handle);
+  }, []);
+
+  const handleReload = (): void => {
+    if (typeof window !== 'undefined') window.location.reload();
+  };
 
   return (
     <div
@@ -87,7 +71,7 @@ export function ShellLoadingState() {
       aria-live="polite"
       className="flex min-h-screen w-full items-center justify-center bg-foreground-2 text-foreground"
     >
-      <div className="titlebar-drag-region fixed inset-x-0 top-0 z-10 h-[50px]" />
+      <div className="titlebar-drag-region pointer-events-none fixed inset-x-0 top-0 z-10 h-10" />
       <div className="flex w-[26rem] max-w-full flex-col items-center gap-5 px-8 py-10 text-center">
         <div className="flex items-center justify-center rounded-full border border-foreground/10 bg-background/82 p-4 shadow-[0_14px_34px_rgba(0,31,53,0.08)]">
           <span className="block text-[22px] font-semibold tracking-[-0.02em] text-foreground">
@@ -98,6 +82,15 @@ export function ShellLoadingState() {
           <Spinner size="sm" />
           <span>{t('shell.state.loading.progress')}</span>
         </div>
+        {showRecovery ? (
+          <button
+            type="button"
+            onClick={handleReload}
+            className="mt-2 rounded-md border border-foreground/15 bg-background px-4 py-2 text-xs font-medium hover:bg-accent/12"
+          >
+            {t('shell.state.loading.stuck')}
+          </button>
+        ) : null}
       </div>
     </div>
   );

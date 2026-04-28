@@ -24,7 +24,7 @@ export function SendButton({ onSend, onStop, disabled, isProcessing, className }
         onClick={onStop}
         disabled={!onStop}
         className={cn(
-          'size-9 shrink-0 rounded-full border-foreground/15 text-foreground/80 hover:bg-foreground/5',
+          'size-9 shrink-0 rounded-full border-foreground/15 text-foreground/80 hover:bg-accent/12',
           className,
         )}
       >

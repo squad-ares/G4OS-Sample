@@ -39,7 +39,7 @@ export function WelcomeState({ headline, subhead, prompts, onSelect }: WelcomeSt
               key={p.id}
               type="button"
               onClick={() => onSelect?.(p)}
-              className="group flex items-start gap-3 rounded-xl border border-foreground/10 bg-foreground/[0.02] p-3 text-left transition-colors hover:border-foreground/20 hover:bg-foreground/[0.04]"
+              className="group flex items-start gap-3 rounded-xl border border-foreground/10 bg-foreground/[0.02] p-3 text-left transition-colors hover:border-foreground/20 hover:bg-accent/12"
             >
               {Icon ? (
                 <Icon

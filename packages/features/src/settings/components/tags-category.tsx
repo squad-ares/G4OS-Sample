@@ -1,11 +1,10 @@
 import type { Label } from '@g4os/kernel/types';
-import { Button, InputField, useTranslate } from '@g4os/ui';
+import { Button, InputField, StatusPanel, useTranslate } from '@g4os/ui';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Trash2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
-import { ShellStatusPanel } from '../../shell/index.ts';
 
 export interface TagsCategoryProps {
   readonly labels: readonly Label[];
@@ -52,7 +51,7 @@ export function TagsCategory({
 
   if (workspaceMissing) {
     return (
-      <ShellStatusPanel
+      <StatusPanel
         title={t('settings.tags.empty.title')}
         description={t('settings.tags.empty.description')}
         tone="warning"
@@ -67,7 +66,7 @@ export function TagsCategory({
 
   return (
     <div className="flex flex-col gap-4">
-      <ShellStatusPanel
+      <StatusPanel
         title={t('settings.tags.create.title')}
         description={t('settings.tags.create.description')}
         badge={t('settings.category.tags.label')}
@@ -118,9 +117,9 @@ export function TagsCategory({
             </Button>
           </div>
         </form>
-      </ShellStatusPanel>
+      </StatusPanel>
 
-      <ShellStatusPanel
+      <StatusPanel
         title={t('settings.tags.list.title')}
         description={t('settings.tags.list.description', { count: labels.length })}
       >
@@ -140,7 +139,7 @@ export function TagsCategory({
             ))}
           </ul>
         )}
-      </ShellStatusPanel>
+      </StatusPanel>
     </div>
   );
 }

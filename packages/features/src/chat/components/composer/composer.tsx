@@ -5,6 +5,7 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
   useCallback,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -41,6 +42,26 @@ export interface ComposerAffordances {
   readonly extras?: ReactNode;
 }
 
+/**
+ * Composer principal do chat. Combina draft persistence, attachment list,
+ * voice recording, mention typeahead, source/working-dir/mode pickers e
+ * action bar.
+ *
+ * **ARIA combobox (CR3-11 + CR5-21):** o `<textarea>` recebe
+ * `role="combobox"` quando `mentionSources` é fornecido — papel
+ * pertence ao input/textarea (que detém foco), nunca ao popover. Outras
+ * decisões ARIA do composer:
+ * - `aria-expanded` reflete `mentionActive` (popover visível).
+ * - `aria-controls` aponta para o id do `<div role="listbox">` dentro
+ *   do `MentionPicker`. CR7 fix: id é gerado via `useId()` aqui no
+ *   Composer e injetado no MentionPicker, garantindo que aria-controls
+ *   case com o id real do listbox (multi-window safe).
+ * - `aria-autocomplete="list"` indica autocomplete via popover (vs.
+ *   `inline` que substituiria texto inline ou `both` que faz ambos).
+ * - Keyboard nav (Arrow/Enter/Esc) é delegada ao `MentionPicker` via
+ *   `handleCaptureKeyDown` que retorna `true` quando o evento foi
+ *   consumido — evita submit acidental do composer.
+ */
 export interface ComposerProps {
   readonly sessionId: string;
   readonly onSend: (payload: ComposerSendPayload) => void | Promise<void>;
@@ -62,6 +83,7 @@ export interface ComposerProps {
   readonly mentionSources?: readonly SourceConfigView[];
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: (reason: composition root do composer combina draft+attach+mention+combobox+streaming. Refator extrairia hooks pequenos demais para se entender no contexto; quebrar em sub-componentes exigiria N props ou Context API)
 export function Composer({
   sessionId,
   onSend,
@@ -93,6 +115,17 @@ export function Composer({
     textareaRef: elementRef,
   });
   const mentionActive = Boolean(mentionSources && mention.trigger);
+  // CR7 fix: id de listbox gerado aqui (e injetado no MentionPicker) para
+  // garantir que `aria-controls` aponte para o id real do popover. Antes:
+  // composer hardcoded `'mention-picker-listbox'`, picker usava `useId()`
+  // → mismatch silencioso quebrava ARIA combobox.
+  const mentionListboxId = useId();
+  const comboboxAriaProps = {
+    role: 'combobox' as const,
+    ariaExpanded: mentionActive,
+    ariaControls: mentionActive ? mentionListboxId : undefined,
+    ariaAutoComplete: 'list' as const,
+  };
 
   const handleCaptureKeyDown = useCallback(
     (event: ReactKeyboardEvent<HTMLTextAreaElement>): boolean => {
@@ -195,6 +228,11 @@ export function Composer({
             {...(disabled === undefined ? {} : { disabled })}
             autoFocus={autoFocus}
             onCaptureKeyDown={handleCaptureKeyDown}
+            // ARIA combobox: papel pertence ao textarea (recebe foco), não ao
+            // popover. CLAUDE.md "Padrões de UI" obriga essa estrutura para
+            // typeahead. `aria-expanded` reflete o picker aberto, `aria-controls`
+            // referencia o id do listbox dentro do MentionPicker.
+            {...comboboxAriaProps}
           />
           {mentionActive && mentionSources && mentionTriggerForUi && (
             <MentionPicker
@@ -203,6 +241,7 @@ export function Composer({
               onSelect={handleMentionSelect}
               onCancel={mention.cancel}
               registerKeyHandler={registerMentionKeyHandler}
+              listboxId={mentionListboxId}
             />
           )}
         </div>
@@ -407,7 +446,7 @@ function ComposerChipButton({ label, onClick, icon, trailing, disabled }: Compos
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="flex h-7 items-center gap-1.5 rounded-full border border-foreground/10 bg-foreground/[0.03] px-2.5 text-[11px] font-medium text-foreground/80 transition-colors enabled:hover:border-foreground/20 enabled:hover:bg-foreground/[0.06] enabled:hover:text-foreground disabled:opacity-50"
+      className="flex h-7 items-center gap-1.5 rounded-full border border-foreground/10 bg-foreground/[0.03] px-2.5 text-[11px] font-medium text-foreground/80 transition-colors enabled:hover:border-foreground/20 enabled:hover:bg-accent/12 enabled:hover:text-foreground disabled:opacity-50"
     >
       {icon}
       <span className="truncate">{label}</span>

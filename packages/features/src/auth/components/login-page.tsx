@@ -23,7 +23,7 @@ export function LoginPage({
 }: LoginPageProps) {
   return (
     <div className="relative flex min-h-screen w-full flex-col bg-foreground-2 text-foreground">
-      <div className="titlebar-drag-region fixed inset-x-0 top-0 z-10 h-12.5" />
+      <div className="titlebar-drag-region pointer-events-none fixed inset-x-0 top-0 z-10 h-10" />
 
       <div className="fixed right-4 top-4 z-20 titlebar-no-drag">
         <LanguageSwitcher size="sm" variant="ghost" />

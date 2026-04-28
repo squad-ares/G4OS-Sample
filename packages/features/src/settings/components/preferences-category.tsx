@@ -1,5 +1,4 @@
-import { useTranslate } from '@g4os/ui';
-import { ShellStatusPanel } from '../../shell/index.ts';
+import { StatusPanel, useTranslate } from '@g4os/ui';
 
 export interface PreferencesCategoryProps {
   readonly seenNewsCount: number;
@@ -16,7 +15,7 @@ export function PreferencesCategory({
 
   return (
     <div className="flex flex-col gap-4">
-      <ShellStatusPanel
+      <StatusPanel
         title={t('settings.preferences.news.title')}
         description={t('settings.preferences.news.description')}
         badge={t('settings.category.preferences.label')}
@@ -34,9 +33,9 @@ export function PreferencesCategory({
             {t('settings.preferences.news.reset')}
           </button>
         </div>
-      </ShellStatusPanel>
+      </StatusPanel>
 
-      <ShellStatusPanel
+      <StatusPanel
         title={t('settings.preferences.resetAll.title')}
         description={t('settings.preferences.resetAll.description')}
         tone="warning"
@@ -48,7 +47,7 @@ export function PreferencesCategory({
         >
           {t('settings.preferences.resetAll.action')}
         </button>
-      </ShellStatusPanel>
+      </StatusPanel>
     </div>
   );
 }

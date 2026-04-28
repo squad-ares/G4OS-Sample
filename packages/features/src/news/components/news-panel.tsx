@@ -76,7 +76,7 @@ export function NewsPanel({
                     className={`block w-full rounded-[10px] px-3 py-2 text-left transition-colors ${
                       isActive
                         ? 'bg-foreground/8 text-foreground'
-                        : 'text-foreground/85 hover:bg-foreground/5'
+                        : 'text-foreground/85 hover:bg-accent/12'
                     }`}
                   >
                     <div className="flex items-start justify-between gap-2">

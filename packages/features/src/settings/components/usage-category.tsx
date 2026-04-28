@@ -1,6 +1,5 @@
-import { useTranslate } from '@g4os/ui';
+import { StatusPanel, useTranslate } from '@g4os/ui';
 import type { ReactNode } from 'react';
-import { ShellStatusPanel } from '../../shell/index.ts';
 
 /**
  * UsageCategory — placeholder transparente até backend de billing/metrics
@@ -14,7 +13,7 @@ export function UsageCategory(): ReactNode {
   const { t } = useTranslate();
   return (
     <div className="flex flex-col gap-4">
-      <ShellStatusPanel
+      <StatusPanel
         title={t('settings.usage.currentMonth.title')}
         description={t('settings.usage.currentMonth.description')}
         badge={t('settings.comingSoon')}
@@ -24,9 +23,9 @@ export function UsageCategory(): ReactNode {
           <Stat label={t('settings.usage.stats.tokensOut')} value="—" />
           <Stat label={t('settings.usage.stats.turns')} value="—" />
         </div>
-      </ShellStatusPanel>
+      </StatusPanel>
 
-      <ShellStatusPanel
+      <StatusPanel
         title={t('settings.usage.budget.title')}
         description={t('settings.usage.budget.description')}
         badge={t('settings.comingSoon')}
@@ -34,9 +33,9 @@ export function UsageCategory(): ReactNode {
         <p className="text-xs text-muted-foreground italic">
           {t('settings.usage.budget.placeholder')}
         </p>
-      </ShellStatusPanel>
+      </StatusPanel>
 
-      <ShellStatusPanel
+      <StatusPanel
         title={t('settings.usage.export.title')}
         description={t('settings.usage.export.description')}
         badge={t('settings.comingSoon')}

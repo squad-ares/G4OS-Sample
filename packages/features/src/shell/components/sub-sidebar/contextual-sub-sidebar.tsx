@@ -50,7 +50,7 @@ export function ContextualSubSidebar({
   );
 
   const custom = renderPanel?.({ featureId, footer });
-  if (custom) return <>{custom}</>;
+  if (custom !== undefined) return <>{custom}</>;
 
   return <PlaceholderPanel titleKey={PLACEHOLDER_TITLE[featureId]} footer={footer} />;
 }

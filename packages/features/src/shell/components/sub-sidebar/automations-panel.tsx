@@ -37,7 +37,7 @@ export function AutomationsPanel({
     <>
       <Button
         variant="outline"
-        className="mb-3 h-10 w-full justify-start gap-2 rounded-[12px] px-3 text-sm font-semibold"
+        className="mb-3 h-10 w-full justify-start gap-2 rounded-xl px-3 text-sm font-semibold"
         onClick={onNewAutomation}
       >
         <Plus className="h-4 w-4" aria-hidden={true} />
@@ -91,12 +91,12 @@ function AutomationRow({ item, active, onOpen }: AutomationRowProps) {
       onClick={() => onOpen(item.id)}
       aria-current={active ? 'true' : undefined}
       className={`flex w-full items-start gap-2 rounded-[10px] px-3 py-2 text-left transition-colors ${
-        active ? 'bg-foreground/8 text-foreground' : 'text-foreground/85 hover:bg-foreground/5'
+        active ? 'bg-foreground/8 text-foreground' : 'text-foreground/85 hover:bg-accent/12'
       } ${item.active === false ? 'opacity-65' : ''}`}
     >
       <span
         aria-hidden={true}
-        className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-md bg-foreground/[0.05] text-foreground/80"
+        className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-md bg-foreground/5 text-foreground/80"
       >
         <Icon className="h-3.5 w-3.5" />
       </span>
@@ -114,7 +114,7 @@ function EmptyState() {
   const { t } = useTranslate();
   return (
     <div className="flex flex-col items-center gap-3 px-4 py-10 text-center">
-      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-foreground/[0.05] text-foreground/80">
+      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-foreground/5 text-foreground/80">
         <Workflow className="h-6 w-6" aria-hidden={true} />
       </div>
       <div className="space-y-1">

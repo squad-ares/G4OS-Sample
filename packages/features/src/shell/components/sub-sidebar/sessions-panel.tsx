@@ -1,10 +1,10 @@
 import type { Session } from '@g4os/kernel/types';
 import { Button, useTranslate } from '@g4os/ui';
 import {
+  Archive,
+  Bell,
   ChevronDown,
-  FolderKanban,
-  GitBranch,
-  Loader2,
+  Clock,
   Pin,
   Search,
   SquarePen,
@@ -13,41 +13,29 @@ import {
   X,
 } from 'lucide-react';
 import { type MouseEvent as ReactMouseEvent, type ReactNode, useMemo, useState } from 'react';
+import { SessionRow, TabIconButton } from './session-row.tsx';
 import { groupSessionsByDay } from './sessions-panel-grouping.ts';
 import {
-  HighlightedTitle,
   NoSearchResults,
   SessionListSkeleton,
   SessionsEmptyState,
 } from './sessions-panel-states.tsx';
+import type { SessionsPanelSessionItem, SessionsSubTab } from './sessions-panel-types.ts';
 import { SubSidebarShell } from './sub-sidebar-shell.tsx';
 
-export type SessionsSubTab = 'recent' | 'starred' | 'archived';
-
-export interface SessionsPanelSessionItem {
-  readonly id: string;
-  readonly title: string;
-  readonly timestamp?: string;
-  /** Epoch ms usado para agrupar por dia. */
-  readonly sortAt?: number;
-  readonly active?: boolean;
-  readonly pinned?: boolean;
-  readonly starred?: boolean;
-  readonly unread?: boolean;
-  readonly branched?: boolean;
-  /** Quando true, renderiza spinner em vez do unread dot — sessão tem turn rolando. */
-  readonly streaming?: boolean;
-  /** Nome do projeto vinculado (renderiza chip). */
-  readonly projectName?: string;
-  readonly labels?: readonly string[];
-}
+export type { SessionsPanelSessionItem, SessionsSubTab } from './sessions-panel-types.ts';
 
 export interface SessionsPanelProps {
   readonly sessions: readonly SessionsPanelSessionItem[];
   readonly activeTab: SessionsSubTab;
   readonly onTabChange: (next: SessionsSubTab) => void;
   readonly onOpenSession: (id: string) => void;
-  readonly onNewSession: () => void;
+  /**
+   * Callback de criar nova sessão. **Opcional** — quando ausente, o panel
+   * esconde o botão "Nova sessão" e o CTA do empty state. Útil em estados
+   * onde não há workspace ativo (sem destino para alocar a sessão).
+   */
+  readonly onNewSession?: () => void;
   readonly loading?: boolean;
   readonly footer?: ReactNode;
   readonly tagsContent?: ReactNode;
@@ -87,7 +75,7 @@ export function SessionsPanel({
     <SessionsPanelHeader
       activeTab={activeTab}
       onTabChange={onTabChange}
-      onNewSession={onNewSession}
+      {...(onNewSession ? { onNewSession } : {})}
       query={query}
       onQueryChange={setQuery}
       isSearching={isSearching}
@@ -106,7 +94,7 @@ export function SessionsPanel({
           isSearching={isSearching}
           query={trimmedQuery}
           onClearSearch={() => setQuery('')}
-          onNewSession={onNewSession}
+          {...(onNewSession ? { onNewSession } : {})}
           onOpenSession={onOpenSession}
           {...(onSessionContextMenu ? { onSessionContextMenu } : {})}
         />
@@ -118,7 +106,7 @@ export function SessionsPanel({
 interface SessionsPanelHeaderProps {
   readonly activeTab: SessionsSubTab;
   readonly onTabChange: (next: SessionsSubTab) => void;
-  readonly onNewSession: () => void;
+  readonly onNewSession?: () => void;
   readonly query: string;
   readonly onQueryChange: (next: string) => void;
   readonly isSearching: boolean;
@@ -137,22 +125,27 @@ function SessionsPanelHeader({
   const { t } = useTranslate();
   return (
     <>
-      <Button
-        variant="outline"
-        className="mb-3 h-10 w-full justify-start gap-2 rounded-[12px] px-3 text-sm font-semibold"
-        onClick={onNewSession}
-      >
-        <SquarePen className="h-4 w-4" aria-hidden={true} />
-        {t('shell.subsidebar.sessions.newSession')}
-      </Button>
-
+      {onNewSession ? (
+        <Button
+          variant="outline"
+          className="mb-3 h-10 w-full justify-start gap-2 rounded-[12px] px-3 text-sm font-semibold"
+          onClick={onNewSession}
+        >
+          <SquarePen className="size-4" aria-hidden={true} />
+          {t('shell.subsidebar.sessions.newSession')}
+        </Button>
+      ) : null}
       <div className="relative mb-2">
         <Search
           className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground"
           aria-hidden={true}
         />
         <input
-          type="search"
+          // CR-UX: type="text" em vez de "search". Webkit/Chromium adicionam
+          // um botão X nativo em `type="search"`; combinado com nosso custom
+          // clear button gerava DOIS X visíveis. Custom clear é melhor: bate
+          // com o tema (dark/light) e respeita a11y.
+          type="text"
           value={query}
           onChange={(e) => onQueryChange(e.target.value)}
           placeholder={t('shell.subsidebar.sessions.searchPlaceholder')}
@@ -175,25 +168,40 @@ function SessionsPanelHeader({
         <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
           {t('shell.subsidebar.sessions.section')}
         </span>
-        {isSearching && matchCount > 0 ? (
-          <span className="rounded-full bg-foreground/8 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+        {isSearching ? (
+          <span className="rounded-full bg-accent/15 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
             {t('shell.subsidebar.sessions.matchCount', { count: matchCount })}
           </span>
         ) : null}
       </div>
 
-      <div className="flex items-center gap-1 border-b border-foreground/5 pb-1">
-        <TabButton
+      <div className="flex items-center gap-0.5 border-b border-foreground/5 pb-1">
+        <TabIconButton
+          icon={Clock}
           label={t('shell.subsidebar.sessions.tab.recent')}
           active={activeTab === 'recent'}
           onClick={() => onTabChange('recent')}
         />
-        <TabButton
+        <TabIconButton
+          icon={Pin}
+          label={t('shell.subsidebar.sessions.tab.pinned')}
+          active={activeTab === 'pinned'}
+          onClick={() => onTabChange('pinned')}
+        />
+        <TabIconButton
+          icon={Star}
           label={t('shell.subsidebar.sessions.tab.starred')}
           active={activeTab === 'starred'}
           onClick={() => onTabChange('starred')}
         />
-        <TabButton
+        <TabIconButton
+          icon={Bell}
+          label={t('shell.subsidebar.sessions.tab.unread')}
+          active={activeTab === 'unread'}
+          onClick={() => onTabChange('unread')}
+        />
+        <TabIconButton
+          icon={Archive}
           label={t('shell.subsidebar.sessions.tab.archived')}
           active={activeTab === 'archived'}
           onClick={() => onTabChange('archived')}
@@ -211,7 +219,7 @@ function TagsToggle({ tagsContent }: { readonly tagsContent: ReactNode }) {
       <button
         type="button"
         onClick={() => setTagsOpen((v) => !v)}
-        className="flex w-full items-center justify-between rounded-[10px] px-2 py-2 text-left transition-colors hover:bg-foreground/[0.03]"
+        className="flex w-full items-center justify-between rounded-[10px] px-2 py-2 text-left transition-colors hover:bg-accent/10"
         aria-expanded={tagsOpen}
       >
         <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.16em] text-muted-foreground">
@@ -237,7 +245,7 @@ interface SessionsListBodyProps {
   readonly isSearching: boolean;
   readonly query: string;
   readonly onClearSearch: () => void;
-  readonly onNewSession: () => void;
+  readonly onNewSession?: () => void;
   readonly onOpenSession: (id: string) => void;
   readonly onSessionContextMenu?: (
     event: ReactMouseEvent<HTMLElement>,
@@ -272,12 +280,21 @@ function SessionsListBody({
       <div className="mask-fade-bottom min-h-0 flex-1 overflow-y-auto pb-3">
         {loading ? <SessionListSkeleton /> : null}
         {showEmpty ? (
-          <SessionsEmptyState
-            titleKey="shell.subsidebar.sessions.empty.title"
-            descriptionKey="shell.subsidebar.sessions.empty.description"
-            actionLabelKey="shell.subsidebar.sessions.newSession"
-            onAction={onNewSession}
-          />
+          // Sem onNewSession (sem workspace ativo), texto de empty muda para
+          // pedir criação de workspace primeiro.
+          onNewSession ? (
+            <SessionsEmptyState
+              titleKey="shell.subsidebar.sessions.empty.title"
+              descriptionKey="shell.subsidebar.sessions.empty.description"
+              actionLabelKey="shell.subsidebar.sessions.newSession"
+              onAction={onNewSession}
+            />
+          ) : (
+            <SessionsEmptyState
+              titleKey="shell.subsidebar.sessions.empty.noWorkspaceTitle"
+              descriptionKey="shell.subsidebar.sessions.empty.noWorkspaceDescription"
+            />
+          )
         ) : null}
         {showNoMatches ? <NoSearchResults query={query} onClear={onClearSearch} /> : null}
         {showList ? (
@@ -333,97 +350,6 @@ function SessionGroups({
         </div>
       ))}
     </div>
-  );
-}
-
-interface SessionRowProps {
-  readonly session: SessionsPanelSessionItem;
-  readonly onOpen: (id: string) => void;
-  readonly searchQuery?: string | undefined;
-  readonly onContextMenu?: (
-    event: ReactMouseEvent<HTMLElement>,
-    session: SessionsPanelSessionItem,
-  ) => void;
-}
-
-function SessionRow({ session, onOpen, searchQuery, onContextMenu }: SessionRowProps) {
-  return (
-    <button
-      type="button"
-      onClick={() => onOpen(session.id)}
-      onContextMenu={onContextMenu ? (event) => onContextMenu(event, session) : undefined}
-      aria-current={session.active ? 'true' : undefined}
-      className={`group flex w-full flex-col items-start gap-0.5 rounded-[10px] px-3 py-2 text-left transition-colors ${
-        session.active
-          ? 'bg-foreground/8 text-foreground'
-          : 'text-foreground/85 hover:bg-foreground/5'
-      }`}
-    >
-      <div className="flex w-full items-center gap-1.5">
-        {session.streaming ? (
-          <Loader2 className="size-3 shrink-0 animate-spin text-accent" aria-hidden={true} />
-        ) : session.unread ? (
-          <span aria-hidden={true} className="size-1.5 shrink-0 rounded-full bg-accent" />
-        ) : null}
-        <span className="line-clamp-1 flex-1 text-[13px] font-medium">
-          {searchQuery ? (
-            <HighlightedTitle text={session.title} query={searchQuery} />
-          ) : (
-            session.title
-          )}
-        </span>
-        {session.pinned ? (
-          <Pin className="size-3 shrink-0 text-muted-foreground" aria-hidden={true} />
-        ) : null}
-        {session.starred ? (
-          <Star className="size-3 shrink-0 fill-amber-400 text-amber-400" aria-hidden={true} />
-        ) : null}
-        {session.branched ? (
-          <GitBranch className="size-3 shrink-0 text-muted-foreground" aria-hidden={true} />
-        ) : null}
-      </div>
-      <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-        {session.timestamp ? <span>{session.timestamp}</span> : null}
-        {session.projectName ? (
-          <span className="flex items-center gap-1 truncate text-foreground/65">
-            <FolderKanban className="size-2.5 shrink-0" aria-hidden={true} />
-            <span className="truncate">{session.projectName}</span>
-          </span>
-        ) : null}
-        {session.labels?.slice(0, 2).map((label) => (
-          <span
-            key={label}
-            className="rounded-full bg-foreground/6 px-1.5 py-0.5 text-[9px] uppercase tracking-wider text-foreground/70"
-          >
-            {label}
-          </span>
-        ))}
-      </div>
-    </button>
-  );
-}
-
-function TabButton({
-  label,
-  active,
-  onClick,
-}: {
-  readonly label: string;
-  readonly active: boolean;
-  readonly onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`border-b-2 px-2 pb-2 text-[11px] font-medium transition-colors ${
-        active
-          ? 'border-foreground text-foreground'
-          : 'border-transparent text-muted-foreground hover:text-foreground'
-      }`}
-    >
-      {label}
-    </button>
   );
 }
 

@@ -1,5 +1,4 @@
-import { useTranslate } from '@g4os/ui';
-import { ShellStatusPanel } from '../../shell/index.ts';
+import { StatusPanel, useTranslate } from '@g4os/ui';
 
 export interface RepairCategoryProps {
   readonly appVersion: string;
@@ -18,7 +17,7 @@ export function RepairCategory({
 
   return (
     <div className="flex flex-col gap-4">
-      <ShellStatusPanel
+      <StatusPanel
         title={t('settings.repair.diagnostics.title')}
         description={t('settings.repair.diagnostics.description')}
         badge={t('settings.category.repair.label')}
@@ -27,9 +26,9 @@ export function RepairCategory({
           <Row label={t('settings.repair.diagnostics.appVersion')} value={appVersion || '—'} />
           <Row label={t('settings.repair.diagnostics.platform')} value={platform || '—'} />
         </dl>
-      </ShellStatusPanel>
+      </StatusPanel>
 
-      <ShellStatusPanel
+      <StatusPanel
         title={t('settings.repair.softReset.title')}
         description={t('settings.repair.softReset.description')}
       >
@@ -49,9 +48,9 @@ export function RepairCategory({
             {t('settings.repair.softReset.reload')}
           </button>
         </div>
-      </ShellStatusPanel>
+      </StatusPanel>
 
-      <ShellStatusPanel
+      <StatusPanel
         title={t('settings.repair.destructive.title')}
         description={t('settings.repair.destructive.description')}
         tone="warning"
@@ -59,7 +58,7 @@ export function RepairCategory({
         <p className="text-xs text-muted-foreground">
           {t('settings.category.plannedBadge')} · {t('settings.repair.destructive.planned')}
         </p>
-      </ShellStatusPanel>
+      </StatusPanel>
     </div>
   );
 }

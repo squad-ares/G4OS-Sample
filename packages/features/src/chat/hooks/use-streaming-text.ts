@@ -15,6 +15,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 const DRAIN_FRAMES_TARGET = 30;
+// CR7-11: cap do buffer para não acumular sem limite quando a tab está
+// hidden. requestAnimationFrame não dispara em tab oculta, mas `append`
+// continua chegando (resposta longa do LLM); ao retornar à tab, drenar
+// MB de texto trava UI por dezenas de frames. Cap de 512KB preserva
+// contexto recente e descarta o início — UX correta para streams longos.
+const MAX_BUFFER_SIZE = 512_000;
 
 export interface UseStreamingTextResult {
   readonly text: string;
@@ -53,6 +59,11 @@ export function useStreamingText(): UseStreamingTextResult {
     (chunk: string): void => {
       if (chunk.length === 0) return;
       bufferRef.current += chunk;
+      // CR7-11: cap do buffer. Tab hidden + stream longo poderia acumular
+      // megabytes sem drenar (rAF não fire em hidden), travando ao voltar.
+      if (bufferRef.current.length > MAX_BUFFER_SIZE) {
+        bufferRef.current = bufferRef.current.slice(-MAX_BUFFER_SIZE);
+      }
       if (rafRef.current === null) {
         rafRef.current = requestAnimationFrame(tick);
       }

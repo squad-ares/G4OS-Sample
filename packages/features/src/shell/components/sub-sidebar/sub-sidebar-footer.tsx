@@ -43,7 +43,7 @@ export function SubSidebarFooter({
         aria-label={label}
         title={label}
         disabled={!workspace?.onOpenSwitcher}
-        className="titlebar-no-drag flex min-w-0 flex-1 items-center gap-2 rounded-[10px] px-2 py-1.5 text-left text-xs font-medium text-foreground/85 transition-colors enabled:hover:bg-foreground/6 enabled:hover:text-foreground disabled:cursor-default"
+        className="titlebar-no-drag flex min-w-0 flex-1 items-center gap-2 rounded-[10px] px-2 py-1.5 text-left text-xs font-medium text-foreground/85 transition-colors enabled:hover:bg-accent/12 enabled:hover:text-foreground disabled:cursor-default"
       >
         <span
           aria-hidden={true}
@@ -66,7 +66,7 @@ export function SubSidebarFooter({
             <button
               type="button"
               aria-label={t('shell.header.commandPalette')}
-              className="titlebar-no-drag flex size-8 shrink-0 items-center justify-center rounded-[10px] text-foreground/55 transition-colors hover:bg-foreground/6 hover:text-foreground"
+              className="titlebar-no-drag flex size-8 shrink-0 items-center justify-center rounded-[10px] text-foreground/55 transition-colors hover:bg-accent/12 hover:text-foreground"
             >
               <MoreHorizontal className="size-4" aria-hidden={true} />
             </button>
@@ -107,7 +107,7 @@ export function SubSidebarFooter({
           onClick={onOpenSupport}
           aria-label={t('shell.sidebar.support')}
           title={t('shell.sidebar.support')}
-          className="titlebar-no-drag flex size-8 shrink-0 items-center justify-center rounded-[10px] text-foreground/55 transition-colors hover:bg-foreground/6 hover:text-foreground"
+          className="titlebar-no-drag flex size-8 shrink-0 items-center justify-center rounded-[10px] text-foreground/55 transition-colors hover:bg-accent/12 hover:text-foreground"
         >
           <HelpCircle className="size-4" aria-hidden={true} />
         </button>

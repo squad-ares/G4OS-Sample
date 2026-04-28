@@ -49,8 +49,11 @@ export function SessionsEmptyState({
 }: {
   readonly titleKey: TranslationKey;
   readonly descriptionKey: TranslationKey;
-  readonly actionLabelKey: TranslationKey;
-  readonly onAction: () => void;
+  // CR-UX: actionLabel + onAction são opcionais. Sem onAction (ex.: sem
+  // workspace ativo), o estado vazio só descreve a situação sem oferecer
+  // CTA que não funcionaria.
+  readonly actionLabelKey?: TranslationKey;
+  readonly onAction?: () => void;
 }) {
   const { t } = useTranslate();
   return (
@@ -60,15 +63,17 @@ export function SessionsEmptyState({
         <p className="text-xs font-semibold text-foreground">{t(titleKey)}</p>
         <p className="text-[11px] leading-snug text-muted-foreground">{t(descriptionKey)}</p>
       </div>
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={onAction}
-        className="h-7 gap-1.5 rounded-[10px] px-3 text-[11px]"
-      >
-        <SquarePen className="size-3" aria-hidden={true} />
-        {t(actionLabelKey)}
-      </Button>
+      {actionLabelKey && onAction ? (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={onAction}
+          className="h-7 gap-1.5 rounded-[10px] px-3 text-[11px]"
+        >
+          <SquarePen className="size-3" aria-hidden={true} />
+          {t(actionLabelKey)}
+        </Button>
+      ) : null}
     </div>
   );
 }

@@ -47,7 +47,7 @@ export function SettingsPanel({ categories, activeId, onSelect, footer }: Settin
                   className={`flex w-full items-start gap-3 rounded-[10px] px-3 py-2.5 text-left transition-colors ${
                     isActive
                       ? 'bg-foreground/8 text-foreground'
-                      : 'text-foreground/85 hover:bg-foreground/5'
+                      : 'text-foreground/85 hover:bg-accent/12'
                   }`}
                 >
                   <span

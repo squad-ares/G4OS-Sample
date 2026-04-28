@@ -92,7 +92,7 @@ export function SessionHeader({
             disabled={!onRename}
             className={cn(
               'min-w-0 truncate rounded-md px-2 py-1 text-left text-sm font-medium text-foreground',
-              onRename ? 'hover:bg-foreground/[0.04] enabled:cursor-text' : 'cursor-default',
+              onRename ? 'hover:bg-accent/12 enabled:cursor-text' : 'cursor-default',
             )}
             title={onRename ? t('chat.header.clickToRename') : undefined}
           >
