@@ -36,6 +36,11 @@ export class RotationOrchestrator extends DisposableBase {
   private readonly intervalMs: number;
   private readonly bufferMs: number;
   private telemetry: RotationTelemetry | null = null;
+  // CR9: guard contra scan paralelo. Sem isso, se OAuth refresh leva mais
+  // que `intervalMs` (timeout, network), o próximo tick lança outro scan
+  // em paralelo — duas iterações concorrentes podem rotar a mesma key
+  // duas vezes (gera token duplo, pode invalidar o anterior remotamente).
+  private scanInflight: Promise<void> | null = null;
 
   constructor(options: RotationOrchestratorOptions) {
     super();
@@ -76,7 +81,14 @@ export class RotationOrchestrator extends DisposableBase {
       const write = await this.vault.rotate(key, rotated.newValue, {
         expiresAt: rotated.expiresAt,
       });
-      if (write.isErr()) throw write.error;
+      if (write.isErr()) {
+        // CR5-08: ADR-0011 Result pattern — rotação falhada é caminho
+        // esperado, retorna false em vez de lançar. Telemetria preserva
+        // contexto via log estruturado.
+        log.warn({ key, err: write.error }, 'rotation write failed');
+        this.telemetry?.onRotation({ key, status: 'error', error: write.error });
+        return false;
+      }
       this.telemetry?.onRotation({ key, status: 'ok' });
       return true;
     } catch (cause) {
@@ -92,10 +104,21 @@ export class RotationOrchestrator extends DisposableBase {
    */
   start(): IDisposable {
     const timer = setInterval(() => {
-      this.scanOnce().catch((err: unknown) => {
-        log.error({ err }, 'rotation scan failed');
-      });
+      // CR9: skip se scan anterior ainda em flight. Caller que chama
+      // rotateIfExpiring direto não passa por aqui — guard cobre só o
+      // loop automático.
+      if (this.scanInflight) return;
+      this.scanInflight = this.scanOnce()
+        .catch((err: unknown) => {
+          log.error({ err }, 'rotation scan failed');
+        })
+        .finally(() => {
+          this.scanInflight = null;
+        });
     }, this.intervalMs);
+    // CR4-10: timer não pode segurar o process vivo após shutdown handler
+    // ser instalado mais tarde no boot. ADR-0032 exige graceful exit em 5s.
+    timer.unref?.();
 
     const disposable = toDisposable(() => clearInterval(timer));
     this._register(disposable);

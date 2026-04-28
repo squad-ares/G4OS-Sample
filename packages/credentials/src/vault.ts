@@ -17,6 +17,7 @@
 import type { CredentialError, Result } from '@g4os/kernel/errors';
 import { CredentialError as CredentialErrorClass } from '@g4os/kernel/errors';
 import { createLogger } from '@g4os/kernel/logger';
+import { CredentialMetaSchema } from '@g4os/kernel/schemas';
 import type { IKeychain } from '@g4os/platform';
 import { Mutex } from 'async-mutex';
 import { err, ok } from 'neverthrow';
@@ -26,7 +27,11 @@ const log = createLogger('credential-vault');
 const META_SUFFIX = '.meta';
 const BACKUP_SEPARATOR = '.backup-';
 const BACKUP_RETENTION = 3;
-const KEY_PATTERN = /^[a-z0-9._-]+$/i;
+// CR7-18: flag `i` removida — Unicode case folding permitia homoglyph
+// attacks (ß ↔ "ss", Cyrillic/Greek lookalikes que casam Latin via folding).
+// Sem `i`, o regex força bytes ASCII lowercase explícitos. Caller deve
+// normalizar para lowercase ANTES de passar para `set()`/`get()`.
+const KEY_PATTERN = /^[a-z0-9._-]+$/;
 const KEY_MAX_LENGTH = 100;
 const VALUE_MAX_LENGTH = 1_000_000;
 
@@ -93,7 +98,17 @@ export class CredentialVault {
         ...(options.expiresAt === undefined ? {} : { expiresAt: options.expiresAt }),
         tags: Object.freeze([...(options.tags ?? [])]),
       };
-      await this.writeMeta(key, meta);
+      // CR8-10: propagar erro de writeMeta. Se falhar, credencial já foi
+      // escrita — log warn explícito + retorna o err para caller decidir
+      // se quer retry ou rollback.
+      const metaWrite = await this.writeMeta(key, meta);
+      if (metaWrite.isErr()) {
+        log.warn(
+          { key, err: metaWrite.error.message },
+          'credential value written but metadata write failed',
+        );
+        return err(metaWrite.error);
+      }
       return ok(undefined);
     });
   }
@@ -146,7 +161,15 @@ export class CredentialVault {
         ...(options.expiresAt === undefined ? {} : { expiresAt: options.expiresAt }),
         tags: Object.freeze([...tags]),
       };
-      await this.writeMeta(key, meta);
+      // CR8-10: idem set() — propaga erro de writeMeta.
+      const metaWrite = await this.writeMeta(key, meta);
+      if (metaWrite.isErr()) {
+        log.warn(
+          { key, err: metaWrite.error.message },
+          'credential rotated but metadata write failed',
+        );
+        return err(metaWrite.error);
+      }
       return ok(undefined);
     });
   }
@@ -173,6 +196,16 @@ export class CredentialVault {
     return ok(metas);
   }
 
+  /**
+   * **Informational only** — não usar como gate antes de `set()`.
+   *
+   * CR7-17: TOCTOU window. Pattern `if (await exists(k)) skip; else set(k)` é
+   * inerentemente racy entre processos. Caller que precisa de "set se não
+   * existe" deve fazer `set()` direto e tratar o erro de chave duplicada,
+   * OU envolver `exists + set` num lock externo (ex.: mutex per-workspace).
+   * O migrator v1→v2 usa lookup local (`targetMap`) em vez de exists() pra
+   * evitar esse race.
+   */
   async exists(key: string): Promise<boolean> {
     const validation = validateKey(key);
     if (validation.isErr()) return false;
@@ -187,7 +220,17 @@ export class CredentialVault {
     const removed = await this.keychain.delete(key);
     if (removed.isErr()) return err(removed.error);
 
-    await this.keychain.delete(metaKey(key));
+    // CR8-11: se delete da meta falha (disk full, IO error), credencial
+    // ficaria órfã com meta apontando pra valor inexistente — `list()`
+    // retornaria entries fantasmas. Best-effort: log warn explícito, sem
+    // tentar rollback do delete da credencial (que já sucedeu).
+    const removedMeta = await this.keychain.delete(metaKey(key));
+    if (removedMeta.isErr()) {
+      log.warn(
+        { key, err: removedMeta.error.message },
+        'credential deleted but metadata delete failed; orphan meta entry remains',
+      );
+    }
     return ok(undefined);
   }
 
@@ -196,7 +239,18 @@ export class CredentialVault {
     if (current.isErr()) return;
 
     const backupName = `${key}${BACKUP_SEPARATOR}${Date.now()}`;
-    await this.keychain.set(backupName, current.value);
+    // CR7-19: logar erro de backup. Em disk-full / safeStorage indisponível
+    // o set silenciosamente falhava — próximo `delete()` ou `set()` chama
+    // backupCurrent que falha de novo, e usuário fica sem nenhum backup
+    // sem visibilidade. Log warn pra operador inspecionar via debug-export.
+    const setResult = await this.keychain.set(backupName, current.value);
+    if (setResult.isErr()) {
+      log.warn(
+        { key, backupName, err: setResult.error.message },
+        'failed to write credential backup; rotation may be inconsistent',
+      );
+      return;
+    }
 
     const all = await this.keychain.list();
     if (all.isErr()) return;
@@ -214,15 +268,36 @@ export class CredentialVault {
   private async readMeta(key: string): Promise<Result<CredentialMeta, CredentialError>> {
     const raw = await this.keychain.get(metaKey(key));
     if (raw.isErr()) return err(raw.error);
+    let parsed: unknown;
     try {
-      return ok(JSON.parse(raw.value) as CredentialMeta);
+      parsed = JSON.parse(raw.value);
     } catch (cause) {
+      // JSON inválido: provavelmente meta corrompida (write parcial, codec
+      // mismatch). Mantém `decryptFailed` por compatibilidade com callers
+      // que já tratam essa branch.
       return err(CredentialErrorClass.decryptFailed(metaKey(key), cause));
     }
+    // CR8-09: validação Zod separa shape mismatch (versão legacy, schema
+    // drift) de corrupção criptográfica. Mesmo error code mas com cause
+    // discriminada (`ZodError`) para diagnóstico.
+    const result = CredentialMetaSchema.safeParse(parsed);
+    if (!result.success) {
+      return err(CredentialErrorClass.decryptFailed(metaKey(key), result.error));
+    }
+    // Cast de volta a CredentialMeta (interface ainda exposta com
+    // `readonly tags`); safeParse garante shape, então o cast é seguro.
+    return ok(result.data as CredentialMeta);
   }
 
-  private async writeMeta(key: string, meta: CredentialMeta): Promise<void> {
-    await this.keychain.set(metaKey(key), JSON.stringify(meta));
+  private async writeMeta(
+    key: string,
+    meta: CredentialMeta,
+  ): Promise<Result<void, CredentialError>> {
+    // CR8-10: era `async void` — falha em `keychain.set` (disk full,
+    // safeStorage indisponível) era silenciada. Caller (`set`/`rotate`)
+    // não sabia que credencial OK + meta falhou → vault inconsistente
+    // até próximo write.
+    return await this.keychain.set(metaKey(key), JSON.stringify(meta));
   }
 }
 
@@ -244,8 +319,11 @@ function validateKey(key: string): Result<void, CredentialError> {
 }
 
 function validateValue(value: string): Result<void, CredentialError> {
-  if (value.length === 0 || value.length > VALUE_MAX_LENGTH) {
-    return err(CredentialErrorClass.invalidKey('value'));
+  if (value.length === 0) {
+    return err(CredentialErrorClass.invalidValue('empty'));
+  }
+  if (value.length > VALUE_MAX_LENGTH) {
+    return err(CredentialErrorClass.invalidValue('too_long'));
   }
   return ok(undefined);
 }
