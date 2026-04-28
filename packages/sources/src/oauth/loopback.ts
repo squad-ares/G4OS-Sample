@@ -21,6 +21,7 @@ const HTML =
 
 const DEFAULT_TIMEOUT_MS = 5 * 60 * 1000; // 5 min
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: (reason: setup do servidor loopback combina parsing flexível de input (number|options), promise lifecycle do waiter, retry de bind com EADDRINUSE (CR8-24), e timeout — quebrar perde o controle linear sobre a sequência listen → wait → close)
 export async function startLoopbackServer(
   portOrOptions: number | LoopbackServerOptions = 0,
   pathname?: string,
@@ -75,10 +76,36 @@ export async function startLoopbackServer(
     }
   });
 
-  await new Promise<void>((resolve, reject) => {
-    server.once('error', reject);
-    server.listen(port, '127.0.0.1', () => resolve());
-  });
+  // CR8-24: tenta listen com retry quando porta já está em uso (TCP race
+  // entre teardown anterior em FIN_WAIT2 e novo bind). Se `port: 0` (default),
+  // fallback escolhe portas aleatórias no range ephemeral; se port fixo,
+  // só uma tentativa é feita (caller pediu porta específica).
+  const MAX_LISTEN_ATTEMPTS = port === 0 ? 3 : 1;
+  let lastErr: unknown;
+  let bound = false;
+  for (let attempt = 0; attempt < MAX_LISTEN_ATTEMPTS && !bound; attempt++) {
+    const tryPort = attempt === 0 ? port : 49152 + Math.floor(Math.random() * 16000);
+    try {
+      await new Promise<void>((resolve, reject) => {
+        const onError = (err: unknown) => reject(err);
+        server.once('error', onError);
+        server.listen(tryPort, '127.0.0.1', () => {
+          server.removeListener('error', onError);
+          resolve();
+        });
+      });
+      bound = true;
+    } catch (err) {
+      lastErr = err;
+      const code = (err as { code?: string } | null)?.code;
+      if (code !== 'EADDRINUSE') break;
+      // pequena espera antes de retentar pra evitar busy-loop
+      await new Promise((r) => setTimeout(r, 50));
+    }
+  }
+  if (!bound) {
+    throw lastErr ?? new Error('OAuth loopback server failed to listen');
+  }
 
   // Timeout — rejeita o waiter se o usuário fechar a aba sem completar
   // o redirect. Antes, o handle ficava pendurado pra sempre.

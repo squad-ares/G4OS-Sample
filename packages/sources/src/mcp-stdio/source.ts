@@ -23,7 +23,7 @@ export class McpStdioSource extends DisposableBase implements ISource {
   constructor(
     private readonly config: McpStdioConfig,
     private readonly clientFactory: McpClientFactory,
-    private readonly platform: NodeJS.Platform = process.platform,
+    private readonly platform: NodeJS.Platform,
   ) {
     super();
     this.slug = config.slug;

@@ -11,9 +11,10 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import { mkdir, readFile } from 'node:fs/promises';
+import { mkdir, readFile, rename } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { writeAtomic } from '@g4os/kernel/fs';
+import { createLogger } from '@g4os/kernel/logger';
 import { SourcesFileSchema } from '@g4os/kernel/schemas';
 import type {
   SourceAuthKind,
@@ -23,6 +24,8 @@ import type {
   SourceStatus,
   SourcesFile,
 } from '@g4os/kernel/types';
+
+const log = createLogger('sources-store');
 
 const FILE_NAME = 'sources.json';
 
@@ -167,13 +170,37 @@ export class SourcesStore {
   }
 
   private async readFile(workspaceId: string): Promise<SourcesFile> {
+    const path = this.path(workspaceId);
+    let raw: string;
     try {
-      const raw = await readFile(this.path(workspaceId), 'utf8');
-      const parsed = SourcesFileSchema.parse(JSON.parse(raw));
-      return parsed;
+      raw = await readFile(path, 'utf8');
     } catch (err) {
       if (isNotFound(err)) return { version: 1, sources: [] };
       throw err;
+    }
+    try {
+      return SourcesFileSchema.parse(JSON.parse(raw));
+    } catch (parseErr) {
+      // CR9: sources.json corrompido (JSON inválido OU schema mismatch após
+      // versão antiga/upgrade) era propagado como exceção em qualquer leitura
+      // — derrubava `list()`, `get()`, `update()` permanentemente. Mesmo
+      // pattern do PermissionStore (CR7-27): preserva o arquivo como
+      // `.corrupt.<ts>`, retorna empty, segue. Operador inspeciona e
+      // restaura manualmente se necessário.
+      const corruptPath = `${path}.corrupt.${Date.now()}`;
+      try {
+        await rename(path, corruptPath);
+        log.warn(
+          { workspaceId, corruptPath, err: String(parseErr) },
+          'sources.json parse failed; corrupt file preserved as .corrupt.<ts>',
+        );
+      } catch (renameErr) {
+        log.warn(
+          { workspaceId, err: String(parseErr), renameErr: String(renameErr) },
+          'failed to backup corrupt sources.json; treating as empty',
+        );
+      }
+      return { version: 1, sources: [] };
     }
   }
 

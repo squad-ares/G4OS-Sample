@@ -102,9 +102,16 @@ export class SourceIntentDetector {
       if (match) hits.add(match.slug);
     }
 
+    // CR9: word-boundary check em vez de `includes()`. Sem isso, displayName
+    // `"AI"` matcha em qualquer mensagem com "main", "rain", "trail". O
+    // bound-test usa `\b` que respeita lookbehind/ahead em chars não-letra.
+    // Escapamos o display name pra evitar interpretação de regex chars.
     for (const src of available) {
       const display = src.displayName.toLowerCase();
-      if (display.length >= 3 && lower.includes(display)) {
+      if (display.length < 3) continue;
+      const escaped = display.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const re = new RegExp(`\\b${escaped}\\b`, 'i');
+      if (re.test(lower)) {
         hits.add(src.slug);
       }
     }

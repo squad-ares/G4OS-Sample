@@ -69,7 +69,17 @@ export class McpHttpSource extends DisposableBase implements ISource {
   }
 
   async listTools(): Promise<Result<readonly ToolDefinition[], SourceError>> {
-    if (!this.client) return err(SourceError.incompatible(this.slug, 'not activated'));
+    // CR9: distinguir `needs_auth` de outros estados não-ativados. Antes,
+    // qualquer estado sem client virava `incompatible`, e o broker (ou UI)
+    // perdia o sinal de "user precisa fazer OAuth pra continuar". Agora,
+    // `needs_auth` propaga como `authRequired` para o caller decidir
+    // mostrar o flow de auth em vez de tratar como erro de compatibilidade.
+    if (!this.client) {
+      if (this.statusSubject.value === 'needs_auth') {
+        return err(SourceError.authRequired(this.slug));
+      }
+      return err(SourceError.incompatible(this.slug, 'not activated'));
+    }
     const tools = await this.client.listTools();
     return ok(tools);
   }

@@ -20,6 +20,12 @@ import type { ISource, SourceConfig, SourceFactory, ToolDefinition } from '../in
 
 const log = createLogger('mcp-mount-registry');
 
+// CR6-04: ensureMounted no caminho hot do turn não pode ficar bloqueado se um
+// MCP stdio subprocess hang ou um server HTTP estagnar. ADR-0143 já usa 5s no
+// probe; aqui damos uma folga porque activate pode envolver handshake real.
+const DEFAULT_ACTIVATE_TIMEOUT_MS = 10_000;
+const DEFAULT_LIST_TOOLS_TIMEOUT_MS = 5_000;
+
 export interface MountedSource {
   readonly slug: string;
   readonly source: ISource;
@@ -28,15 +34,21 @@ export interface MountedSource {
 
 export interface MountRegistryDeps {
   readonly factories: readonly SourceFactory[];
+  readonly activateTimeoutMs?: number;
+  readonly listToolsTimeoutMs?: number;
 }
 
 export class McpMountRegistry extends DisposableBase {
   readonly #factories: readonly SourceFactory[];
   readonly #mounted = new Map<string, MountedSource>();
+  readonly #activateTimeoutMs: number;
+  readonly #listToolsTimeoutMs: number;
 
   constructor(deps: MountRegistryDeps) {
     super();
     this.#factories = deps.factories;
+    this.#activateTimeoutMs = deps.activateTimeoutMs ?? DEFAULT_ACTIVATE_TIMEOUT_MS;
+    this.#listToolsTimeoutMs = deps.listToolsTimeoutMs ?? DEFAULT_LIST_TOOLS_TIMEOUT_MS;
   }
 
   /**
@@ -107,13 +119,44 @@ export class McpMountRegistry extends DisposableBase {
     // Registra dispose cedo — se activate/listTools falharem, ainda limpamos.
     this._register(toDisposable(() => source.dispose()));
 
-    const activateResult = await source.activate();
+    const activateResult = await withTimeout(
+      source.activate(),
+      this.#activateTimeoutMs,
+      `source activate timed out (${config.slug})`,
+    );
+    if (activateResult === null) {
+      log.warn(
+        { slug: config.slug, timeoutMs: this.#activateTimeoutMs },
+        'source activate timeout',
+      );
+      // CR7: simétrico com o caminho de listTools — best-effort deactivate
+      // pra encerrar subprocess/transport iniciado no `source.activate()`
+      // mesmo que o handshake não tenha completado. Sem isso, MCP stdio
+      // subprocesses ficam pendurados quando activate trava.
+      await source.deactivate().catch(() => undefined);
+      return null;
+    }
     if (activateResult.isErr()) {
       log.warn({ slug: config.slug, err: activateResult.error.message }, 'source activate failed');
+      // Mesma simetria: activate retornou Err, mas pode ter parcialmente
+      // alocado recursos antes — deactivate best-effort.
+      await source.deactivate().catch(() => undefined);
       return null;
     }
 
-    const toolsResult = await source.listTools();
+    const toolsResult = await withTimeout(
+      source.listTools(),
+      this.#listToolsTimeoutMs,
+      `listTools timed out (${config.slug})`,
+    );
+    if (toolsResult === null) {
+      log.warn(
+        { slug: config.slug, timeoutMs: this.#listToolsTimeoutMs },
+        'listTools timeout after activate',
+      );
+      await source.deactivate().catch(() => undefined);
+      return null;
+    }
     if (toolsResult.isErr()) {
       log.warn(
         { slug: config.slug, err: toolsResult.error.message },
@@ -131,4 +174,35 @@ export class McpMountRegistry extends DisposableBase {
     this.#mounted.set(config.slug, entry);
     return entry;
   }
+}
+
+/**
+ * Resolve com `null` quando ultrapassa `timeoutMs`. Não usamos `p-timeout`
+ * para não adicionar dep — o sinal é simples: timeout = trate como falha,
+ * source não monta neste turn (próximo turn pode tentar de novo).
+ */
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, _label: string): Promise<T | null> {
+  return new Promise<T | null>((resolve, reject) => {
+    let settled = false;
+    const handle = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      resolve(null);
+    }, timeoutMs);
+    handle.unref?.();
+    promise.then(
+      (value) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(handle);
+        resolve(value);
+      },
+      (err) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(handle);
+        reject(err);
+      },
+    );
+  });
 }
