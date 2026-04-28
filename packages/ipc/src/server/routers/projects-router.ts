@@ -105,7 +105,7 @@ export const projectsRouter = router({
     }),
 
   getFileContent: authed
-    .input(z.object({ projectId: ProjectIdSchema, relativePath: z.string() }))
+    .input(z.object({ projectId: ProjectIdSchema, relativePath: z.string().max(500) }))
     .output(z.string())
     .query(async ({ input, ctx }) => {
       const result = await ctx.projects.getFileContent(input.projectId, input.relativePath);
@@ -114,7 +114,16 @@ export const projectsRouter = router({
     }),
 
   saveFile: authed
-    .input(z.object({ projectId: ProjectIdSchema, relativePath: z.string(), content: z.string() }))
+    // CR7-33: caps em string para prevenir DoS via input grande. 500 chars
+    // cobre paths razoáveis; 1MB cobre arquivos de texto típicos (file-ops
+    // já tem hard limit 10 MiB no service-side).
+    .input(
+      z.object({
+        projectId: ProjectIdSchema,
+        relativePath: z.string().max(500),
+        content: z.string().max(1_000_000),
+      }),
+    )
     .output(z.void())
     .mutation(async ({ input, ctx }) => {
       const result = await ctx.projects.saveFile(
@@ -126,7 +135,7 @@ export const projectsRouter = router({
     }),
 
   deleteFile: authed
-    .input(z.object({ projectId: ProjectIdSchema, relativePath: z.string() }))
+    .input(z.object({ projectId: ProjectIdSchema, relativePath: z.string().max(500) }))
     .output(z.void())
     .mutation(async ({ input, ctx }) => {
       const result = await ctx.projects.deleteFile(input.projectId, input.relativePath);

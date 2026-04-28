@@ -363,9 +363,28 @@ export interface WorkspaceTransferService {
   }): Promise<Result<WorkspaceImportSummary, AppError>>;
 }
 
+/**
+ * Contexto compartilhado por todas as procedures tRPC.
+ *
+ * **Optionality (CR4-22):**
+ * - `event?` é null em contextos headless/web (caller direto, não via
+ *   `electron-trpc`). Procedures que precisam de `BrowserWindow` devem
+ *   verificar e falhar com `TRPCError({ code: 'PRECONDITION_FAILED' })`.
+ * - `session?` é null em chamadas pré-auth (login flow). Procedures que
+ *   exigem usuário autenticado devem usar o middleware `authed` que
+ *   valida e estreita o tipo.
+ * - `platform?` é conditionally-available — depende do flavor do build.
+ *   Em web/headless é null. Procedures de file-system / abrir browser
+ *   devem lançar TRPCError se ausente (ver `platform-router`).
+ * - **Todos os outros services** (`workspaces`, `sessions`, ..., `labels`)
+ *   são always-on no main process. Tipo obrigatório, sem `?`.
+ */
 export interface IpcContext {
+  /** Electron IPC event handle. Null fora de Electron (web/headless/tests). */
   readonly event?: IpcInvokeEventLike;
+  /** Sempre presente. Trace ID propagado via OTel para o request inteiro. */
   readonly traceId: string;
+  /** Null em rotas pré-auth (login). `authed` middleware estreita pra obrigatório. */
   readonly session?: IpcSession;
 
   readonly workspaces: WorkspacesService;
@@ -382,6 +401,7 @@ export interface IpcContext {
   readonly scheduler: SchedulerService;
   readonly updates: UpdatesService;
   readonly voice: VoiceService;
+  /** Null em web/headless. Procedures que precisam devem lançar TRPCError. */
   readonly platform?: PlatformService;
   readonly windows: WindowsService;
   readonly workspaceTransfer: WorkspaceTransferService;

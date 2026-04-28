@@ -28,10 +28,21 @@ export const workspacesRouter = router({
     }),
 
   create: authed
-    .input(WorkspaceSchema.pick({ name: true, rootPath: true }))
+    // rootPath é opcional na criação — quando ausente, o service deriva
+    // `appPaths.workspace(id)` automaticamente (ver workspaces-service.ts:82).
+    // Permite UX de auto-create no boot sem ter que conhecer paths internos.
+    .input(
+      z.object({
+        name: WorkspaceSchema.shape.name,
+        rootPath: WorkspaceSchema.shape.rootPath.optional(),
+      }),
+    )
     .output(WorkspaceSchema)
     .mutation(async ({ input, ctx }) => {
-      const result = await ctx.workspaces.create(input);
+      const result = await ctx.workspaces.create({
+        name: input.name,
+        rootPath: input.rootPath ?? '',
+      });
       if (result.isErr()) throw result.error;
       return result.value;
     }),
