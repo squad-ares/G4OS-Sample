@@ -20,6 +20,12 @@ export interface ElectronApp {
   on(event: 'window-all-closed', listener: () => void): void;
   on(event: 'before-quit', listener: (event: ElectronEvent) => void): void;
   on(event: 'open-url', listener: (event: ElectronEvent, url: string) => void): void;
+  // CR6-06: removeListener é parte do contrato porque AppLifecycle precisa
+  // desfazer registros no dispose (E2E reboots, ADR-0142). Tipado opcional
+  // porque alguns mocks de runtime não implementam — caller usa `?.()`.
+  removeListener?(event: 'window-all-closed', listener: () => void): void;
+  removeListener?(event: 'before-quit', listener: (event: ElectronEvent) => void): void;
+  removeListener?(event: 'open-url', listener: (event: ElectronEvent, url: string) => void): void;
 }
 
 export interface ElectronDialogFilter {

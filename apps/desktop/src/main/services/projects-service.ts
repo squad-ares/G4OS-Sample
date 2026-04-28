@@ -4,7 +4,7 @@ import type { AppDb } from '@g4os/data';
 import { ProjectsRepository, ProjectTasksRepository } from '@g4os/data/projects';
 import { SessionsRepository } from '@g4os/data/sessions';
 import type { ProjectsService as ProjectsServiceContract } from '@g4os/ipc/server';
-import { AppError, ErrorCode } from '@g4os/kernel/errors';
+import { AppError, ErrorCode, ProjectError } from '@g4os/kernel/errors';
 import { createLogger } from '@g4os/kernel/logger';
 import type {
   LegacyImportEntry,
@@ -190,25 +190,38 @@ class SqliteProjectsService implements ProjectsServiceContract {
       const canonicalRoot = join(this.#workspacesRootPath, workspaceId, 'projects');
       const imported: Project[] = [];
       for (const entry of entries) {
-        if (entry.decision === 'skip') continue;
-        let rootPath = entry.path;
-        if (entry.decision === 'import') {
-          const targetPath = join(canonicalRoot, entry.slug);
-          await legacyImport.moveLegacyProject(entry.path, targetPath);
-          rootPath = targetPath;
-        }
-        const project = await this.#repo.registerLegacy({
-          ...(entry.existingId ? { id: entry.existingId } : {}),
-          workspaceId,
-          name: entry.name,
-          slug: entry.slug,
-          ...(entry.description ? { description: entry.description } : {}),
-          rootPath,
-        });
-        imported.push(project);
+        const project = await this.#importLegacyEntry(workspaceId, entry, canonicalRoot);
+        if (project) imported.push(project);
       }
       await legacyImport.markDone(this.#workspacesRootPath, workspaceId);
       return imported;
+    });
+  }
+
+  async #importLegacyEntry(
+    workspaceId: WorkspaceId,
+    entry: LegacyImportEntry,
+    canonicalRoot: string,
+  ): Promise<Project | null> {
+    if (entry.decision === 'skip') return null;
+    let rootPath = entry.path;
+    if (entry.decision === 'import') {
+      const targetPath = join(canonicalRoot, entry.slug);
+      const moveResult = await legacyImport.moveLegacyProject(entry.path, targetPath);
+      if (moveResult.isErr()) {
+        // Mantém comportamento equivalente ao throw anterior — caller
+        // recebe Result<..., AppError> via this.#try wrapper.
+        throw new Error(moveResult.error.message);
+      }
+      rootPath = targetPath;
+    }
+    return this.#repo.registerLegacy({
+      ...(entry.existingId ? { id: entry.existingId } : {}),
+      workspaceId,
+      name: entry.name,
+      slug: entry.slug,
+      ...(entry.description ? { description: entry.description } : {}),
+      rootPath,
     });
   }
 
@@ -216,6 +229,13 @@ class SqliteProjectsService implements ProjectsServiceContract {
     try {
       return ok(await fn());
     } catch (error) {
+      // CR4-13: se o caller já lançou um `AppError` tipado (ex.: `notFound`,
+      // ou erros propagados de helpers via `Result`), preserva o código
+      // original em vez de mascarar como `UNKNOWN_ERROR`.
+      if (error instanceof AppError) {
+        log.error({ err: error, code: error.code }, `${scope} failed`);
+        return err(error);
+      }
       log.error({ err: error }, `${scope} failed`);
       return err(
         new AppError({ code: ErrorCode.UNKNOWN_ERROR, message: `${scope} failed`, cause: error }),
@@ -239,7 +259,9 @@ async function bootstrapProjectDir(rootPath: string): Promise<void> {
 }
 
 function notFound(id: string): AppError {
-  return new AppError({ code: ErrorCode.UNKNOWN_ERROR, message: `project not found: ${id}` });
+  // CR5-17: usa factory tipada de ProjectError. Antes construía AppError
+  // direto, perdendo consistência com SessionError/CredentialError pattern.
+  return ProjectError.notFound(id);
 }
 
 function toSlug(name: string): string {

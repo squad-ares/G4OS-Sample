@@ -1,8 +1,6 @@
 /**
- * TurnDispatcher — orquestra um turno: persiste user msg → resolve agent →
- * delega `runToolLoop` (multi-iteração tool use + perms broker + mounted MCP)
- * → após ok, dispara title gen best-effort. Reentrância bloqueada (turn
- * único por session). ADR-0135 + OUTLIER-09.
+ * TurnDispatcher — orquestra um turno (user msg → agent → runToolLoop →
+ * title gen). Reentrância bloqueada por session. ADR-0135 + OUTLIER-09.
  */
 
 import { randomUUID } from 'node:crypto';
@@ -13,6 +11,7 @@ import {
   type ToolCatalog,
   type ToolHandler,
 } from '@g4os/agents/tools';
+import type { CredentialVault } from '@g4os/credentials';
 import type { MessagesService } from '@g4os/ipc/server';
 import { DisposableBase, toDisposable } from '@g4os/kernel/disposable';
 import { AppError, ErrorCode } from '@g4os/kernel/errors';
@@ -36,6 +35,7 @@ import { err, ok, type Result } from 'neverthrow';
 import { applyTurnIntent, type SessionIntentUpdater } from './sessions/apply-intent.ts';
 import { buildMountedHandlers } from './sessions/mount-plan.ts';
 import { buildSourcePlan, composeSystemPrompt } from './sessions/plan-build.ts';
+import { drainActiveTurns } from './sessions/turn-drain.ts';
 
 export type { SessionIntentUpdater };
 
@@ -60,13 +60,11 @@ export interface TurnDispatcherDeps {
   readonly permissionBroker: PermissionBroker;
   readonly toolCatalog: ToolCatalog;
   readonly sourcesStore: SourcesStore;
-  /** Sources `brokerFallback` sticky `mcp-stdio` são montadas via `mcp_<slug>__<tool>`. */
+  readonly credentialVault?: CredentialVault | undefined;
   readonly mountRegistry?: McpMountRegistry;
-  /** Best-effort title gen pós-turn ok — não bloqueia retorno. */
   readonly titleGenerator?: TitleHook;
   readonly getSession: (id: SessionId) => Promise<Session | null>;
   readonly resolveWorkingDirectory: (session: Session | null) => string;
-  /** Writer pra `rejectedSourceSlugs` / `stickyMountedSourceSlugs`. */
   readonly sessionIntentUpdater?: SessionIntentUpdater;
   readonly defaults?: Partial<TurnDispatchDefaults>;
 }
@@ -88,6 +86,7 @@ interface ActiveTurn {
   readonly agent: IAgent;
   readonly abortController: AbortController;
   subscription: UnsubscribableLike | null;
+  readonly completion: Promise<unknown>;
 }
 
 export class TurnDispatcher extends DisposableBase {
@@ -107,16 +106,20 @@ export class TurnDispatcher extends DisposableBase {
         ? {}
         : { systemPrompt: deps.defaults.systemPrompt }),
     };
-    this._register(
-      toDisposable(() => {
-        for (const [, active] of this.#active) {
-          active.abortController.abort();
-          active.subscription?.unsubscribe();
-          active.agent.dispose();
-        }
-        this.#active.clear();
-      }),
-    );
+    // CR6-08: teardown sync final (shutdown deve chamar drain antes).
+    this._register(toDisposable(() => this.cleanupAll()));
+  }
+
+  /** CR6-08: drain aguarda turnos quiescerem; dispose é sync fallback. */
+  drain = (deadlineMs?: number): Promise<void> => drainActiveTurns(this.#active, deadlineMs);
+
+  private cleanupAll(): void {
+    for (const [, active] of this.#active) {
+      active.abortController.abort();
+      active.subscription?.unsubscribe();
+      active.agent.dispose();
+    }
+    this.#active.clear();
   }
 
   dispatch(input: TurnDispatchInput): Promise<Result<void, AppError>> {
@@ -178,6 +181,7 @@ export class TurnDispatcher extends DisposableBase {
     const mountedHandlers: readonly ToolHandler[] = await buildMountedHandlers({
       mountRegistry: this.#deps.mountRegistry,
       sourcesStore: this.#deps.sourcesStore,
+      credentialVault: this.#deps.credentialVault,
       plan,
       session: refreshedSession,
     });
@@ -221,10 +225,18 @@ export class TurnDispatcher extends DisposableBase {
     this.#deps.eventBus.emit(sessionId, { type: 'turn.started', sessionId, turnId });
 
     const abortController = new AbortController();
-    const activeTurn: ActiveTurn = { turnId, agent, abortController, subscription: null };
-    this.#active.set(sessionId, activeTurn);
-
     const workingDirectory = this.#deps.resolveWorkingDirectory(session);
+    // CR6-08: `completion` deixa `drain()` aguardar quiescência no shutdown.
+    let resolveCompletion!: (value: unknown) => void;
+    const completion = new Promise<unknown>((r) => (resolveCompletion = r));
+    const activeTurn: ActiveTurn = {
+      turnId,
+      agent,
+      abortController,
+      subscription: null,
+      completion,
+    };
+    this.#active.set(sessionId, activeTurn);
 
     const loopResult = await runToolLoop(
       {
@@ -248,21 +260,15 @@ export class TurnDispatcher extends DisposableBase {
         },
       },
     );
-
-    // cleanup() nulls the entry. agent.dispose() is handled by the shared
-    // teardown registered in the constructor — no explicit dispose here to
-    // avoid double-dispose when DisposableBase.dispose() also fires.
+    resolveCompletion(loopResult);
     this.cleanup(sessionId, { disposeAgent: true });
 
     if (loopResult.isOk() && this.#deps.titleGenerator) {
-      void this.fireTitleGen(sessionId);
+      void this.#deps.messages.list(sessionId).then((r) => {
+        if (r.isOk()) this.#deps.titleGenerator?.scheduleGeneration(sessionId, r.value);
+      });
     }
     return loopResult;
-  }
-
-  private async fireTitleGen(sessionId: SessionId): Promise<void> {
-    const recent = await this.#deps.messages.list(sessionId);
-    if (recent.isOk()) this.#deps.titleGenerator?.scheduleGeneration(sessionId, recent.value);
   }
 
   interrupt(sessionId: SessionId): Result<void, AppError> {

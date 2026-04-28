@@ -42,6 +42,13 @@ class NewsServiceImpl extends DisposableBase implements NewsService {
   private readonly baseUrl: string;
   private readonly fetchImpl: typeof fetch;
   private readonly now: () => number;
+  /**
+   * CR4-24: usamos `Set` per-fetch manual em vez de `_register` por entry.
+   * Cada `loadItems()` cria controller+timer e remove ambos em `finally`.
+   * `_register` acumularia disposables no `DisposableStore` da classe pelo
+   * lifetime do service — em uso prolongado (semanas sem dispose) cresceria
+   * sem bound. O Set é limpado em cada ciclo + `dispose()` faz sweep final.
+   */
   private readonly inflight = new Set<AbortController>();
   private readonly pendingTimers = new Set<ReturnType<typeof setTimeout>>();
   private cache: CacheEntry | null = null;

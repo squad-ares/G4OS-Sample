@@ -176,7 +176,7 @@ describe('isDoneMarked() / markDone()', () => {
     await markDone(root, workspaceId);
     const content = await readFile(join(root, workspaceId, '.legacy-import-done'), 'utf-8');
     expect(() => new Date(content)).not.toThrow();
-    expect(isNaN(new Date(content).getTime())).toBe(false);
+    expect(Number.isNaN(new Date(content).getTime())).toBe(false);
   });
 });
 
@@ -197,19 +197,22 @@ describe('moveLegacyProject()', () => {
     await mkdir(from, { recursive: true });
     await writeFile(join(from, 'project.json'), JSON.stringify({ name: 'Test' }));
 
-    await moveLegacyProject(from, to);
-
+    const result = await moveLegacyProject(from, to);
+    expect(result.isOk()).toBe(true);
     expect(existsSync(from)).toBe(false);
     expect(existsSync(to)).toBe(true);
     expect(existsSync(join(to, 'project.json'))).toBe(true);
   });
 
-  it('lança erro quando destino já existe', async () => {
+  it('retorna Err target_exists quando destino já existe', async () => {
     const from = join(root, 'src');
     const to = join(root, 'dst');
     await mkdir(from, { recursive: true });
     await mkdir(to, { recursive: true });
 
-    await expect(moveLegacyProject(from, to)).rejects.toThrow('target already exists');
+    const result = await moveLegacyProject(from, to);
+    expect(result.isErr()).toBe(true);
+    expect(result._unsafeUnwrapErr().reason).toBe('target_exists');
+    expect(result._unsafeUnwrapErr().message).toContain('target already exists');
   });
 });

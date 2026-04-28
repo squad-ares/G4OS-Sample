@@ -2,8 +2,14 @@ import { existsSync } from 'node:fs';
 import { mkdir, readdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import type { LegacyProject } from '@g4os/kernel/types';
+import { err, ok, type Result } from 'neverthrow';
 
 const DONE_SENTINEL = '.legacy-import-done';
+
+export interface LegacyMoveError {
+  readonly reason: 'target_exists' | 'rename_failed';
+  readonly message: string;
+}
 
 interface RawProjectMeta {
   id?: unknown;
@@ -90,12 +96,32 @@ export async function discoverLegacyProjects(opts: {
   return found;
 }
 
-export async function moveLegacyProject(from: string, to: string): Promise<void> {
+/**
+ * ADR-0011 (Result pattern): falha em "target already exists" é caminho
+ * esperado (usuário pode ter projeto importado parcialmente). Devolve
+ * `Result` para o caller decidir UX (skip, abort, sufixar) sem catch
+ * genérico.
+ */
+export async function moveLegacyProject(
+  from: string,
+  to: string,
+): Promise<Result<void, LegacyMoveError>> {
   if (existsSync(to)) {
-    throw new Error(`target already exists: ${to}. Resolve manually before importing.`);
+    return err({
+      reason: 'target_exists',
+      message: `target already exists: ${to}. Resolve manually before importing.`,
+    });
   }
-  await mkdir(join(to, '..'), { recursive: true });
-  await rename(from, to);
+  try {
+    await mkdir(join(to, '..'), { recursive: true });
+    await rename(from, to);
+    return ok(undefined);
+  } catch (cause) {
+    return err({
+      reason: 'rename_failed',
+      message: cause instanceof Error ? cause.message : String(cause),
+    });
+  }
 }
 
 export function isDoneMarked(workspacesRootPath: string, workspaceId: string): boolean {

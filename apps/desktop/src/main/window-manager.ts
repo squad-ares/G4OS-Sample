@@ -1,6 +1,7 @@
-import { readFile, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { mkdir, readFile } from 'node:fs/promises';
+import { dirname, join } from 'node:path';
 import { DisposableBase, toDisposable } from '@g4os/kernel/disposable';
+import { writeAtomic } from '@g4os/kernel/fs';
 import { createLogger } from '@g4os/kernel/logger';
 import { getAppPaths, isLinux, isMacOS, isWindows } from '@g4os/platform';
 import type {
@@ -11,8 +12,8 @@ import type {
 
 const log = createLogger('window-manager');
 
-const DEFAULT_WIDTH = 1280;
-const DEFAULT_HEIGHT = 800;
+const DEFAULT_WIDTH = 1420;
+const DEFAULT_HEIGHT = 900;
 const MIN_WIDTH = 800;
 const MIN_HEIGHT = 600;
 const WINDOW_BACKGROUND_COLOR = '#0B0B0F';
@@ -255,7 +256,14 @@ export class WindowManager extends DisposableBase {
         x: bounds.x,
         y: bounds.y,
       };
-      await writeFile(this.statePath(workspaceId), JSON.stringify(data), 'utf-8');
+      const path = this.statePath(workspaceId);
+      // CR9: substitui `writeFile` direto por `writeAtomic` (tmp+fsync+rename).
+      // Antes, crash mid-write deixava arquivo parcial; próximo `loadBounds`
+      // recuperava via catch ENOENT-like, mas o JSON corrompido permanecia
+      // no disco até saveBounds próximo. Atomic rename é gratuito (já é
+      // padrão do projeto para credentials/permissions/sources).
+      await mkdir(dirname(path), { recursive: true });
+      await writeAtomic(path, JSON.stringify(data));
     } catch (err) {
       log.warn({ err, workspaceId }, 'failed to save window bounds');
     }

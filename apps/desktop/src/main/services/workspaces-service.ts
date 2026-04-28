@@ -81,6 +81,24 @@ export class SqliteWorkspacesService implements WorkspacesServiceContract {
     const now = Date.now();
     const rootPath = input.rootPath || this.#deps.resolveRootPath(id);
 
+    // Pré-check de slug duplicado antes do insert. SQLite tem UNIQUE
+    // constraint na coluna `slug`, mas sem o pré-check qualquer caller cai
+    // em erro genérico de driver — UI/i18n não consegue distinguir.
+    const existing = this.#deps.drizzle
+      .select({ id: workspaces.id })
+      .from(workspaces)
+      .where(eq(workspaces.slug, slug))
+      .get();
+    if (existing) {
+      return err(
+        new AppError({
+          code: ErrorCode.WORKSPACE_SLUG_CONFLICT,
+          message: `workspace slug already exists: ${slug}`,
+          context: { slug, name: input.name },
+        }),
+      );
+    }
+
     const workspace: Workspace = {
       id,
       name: input.name.trim(),

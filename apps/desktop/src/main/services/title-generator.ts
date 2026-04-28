@@ -21,7 +21,7 @@ import type { CredentialVault } from '@g4os/credentials';
 import type { SessionsRepository } from '@g4os/data/sessions';
 import { DisposableBase, toDisposable } from '@g4os/kernel/disposable';
 import { createLogger } from '@g4os/kernel/logger';
-import type { Message, SessionId } from '@g4os/kernel/types';
+import type { Message, Session, SessionId } from '@g4os/kernel/types';
 
 const log = createLogger('title-generator');
 
@@ -74,18 +74,21 @@ export class TitleGeneratorService extends DisposableBase {
 
     const prompt = this.buildPrompt(messages);
     if (!prompt) return;
+    const fallbackTitle = buildFallbackTitle(messages);
 
     const apiKeyResult = await this.deps.vault.get(VAULT_KEY_ANTHROPIC);
     if (apiKeyResult.isErr()) {
       log.debug({ sessionId }, 'no anthropic key in vault — skipping title gen');
+      if (fallbackTitle) await this.updateTitle(sessionId, fallbackTitle, session.metadata);
       return;
     }
 
     const title = await this.callAnthropic(apiKeyResult.value, prompt);
-    if (!title) return;
+    if (!title && !fallbackTitle) return;
 
-    await this.deps.sessionsRepo.update(sessionId, { name: title });
-    log.info({ sessionId, title }, 'session title generated');
+    const nextTitle = title ?? fallbackTitle;
+    if (!nextTitle) return;
+    await this.updateTitle(sessionId, nextTitle, session.metadata);
   }
 
   private isDefaultName(name: string): boolean {
@@ -147,6 +150,18 @@ export class TitleGeneratorService extends DisposableBase {
       this.inflight.delete(controller);
     }
   }
+
+  private async updateTitle(
+    sessionId: SessionId,
+    title: string,
+    metadata: Session['metadata'],
+  ): Promise<void> {
+    await this.deps.sessionsRepo.update(sessionId, {
+      name: title,
+      metadata: { ...metadata, titleGeneratedAt: Date.now() },
+    });
+    log.info({ sessionId, title }, 'session title generated');
+  }
 }
 
 function extractText(message: Message): string {
@@ -165,4 +180,16 @@ function sanitizeTitle(raw: string): string | null {
   if (cleaned.length === 0) return null;
   if (cleaned.length <= TITLE_MAX_CHARS) return cleaned;
   return `${cleaned.slice(0, TITLE_MAX_CHARS - 1).trim()}…`;
+}
+
+function buildFallbackTitle(messages: readonly Message[]): string | null {
+  const userMsg = messages.find((m) => m.role === 'user');
+  if (!userMsg) return null;
+  const text = extractText(userMsg)
+    .replace(/\s+/g, ' ')
+    .replace(/^["'`]+|["'`]+$/g, '')
+    .trim();
+  if (!text) return null;
+  const withoutTerminalPunctuation = text.replace(/[.!?;:]+$/g, '').trim();
+  return sanitizeTitle(withoutTerminalPunctuation || text);
 }
