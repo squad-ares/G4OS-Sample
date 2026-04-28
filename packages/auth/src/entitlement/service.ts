@@ -6,16 +6,28 @@ export interface EntitlementClient {
   fetch(accessToken: string): Promise<Result<Entitlements, AuthError>>;
 }
 
-export interface EntitlementServiceOptions {
+interface EntitlementServiceProdOptions {
   readonly client: EntitlementClient;
-  /**
-   * When true, `getEntitlements` returns synthesized dev entitlements and
-   * logs a warning. Must be wired behind an explicit env flag (see ADR-0093)
-   * and CI must assert it is false in release builds.
-   */
-  readonly devBypass?: boolean;
-  readonly onBypassUsed?: (entitlements: Entitlements) => void;
+  readonly devBypass?: false;
 }
+
+interface EntitlementServiceDevOptions {
+  readonly client: EntitlementClient;
+  readonly devBypass: true;
+  /**
+   * Callback obrigatório quando `devBypass: true`. Garante audit trail —
+   * sem ele, bypass ativaria silenciosamente em produção. ADR-0093 + CR4-11.
+   */
+  readonly onBypassUsed: (entitlements: Entitlements) => void;
+}
+
+/**
+ * Discriminated union: `devBypass: true` força `onBypassUsed` em compile time.
+ * Construir com `devBypass: true` sem callback é erro de tipo.
+ */
+export type EntitlementServiceOptions =
+  | EntitlementServiceProdOptions
+  | EntitlementServiceDevOptions;
 
 export class EntitlementService {
   private readonly client: EntitlementClient;
@@ -25,7 +37,9 @@ export class EntitlementService {
   constructor(options: EntitlementServiceOptions) {
     this.client = options.client;
     this.devBypass = options.devBypass === true;
-    if (options.onBypassUsed) this.onBypassUsed = options.onBypassUsed;
+    if (options.devBypass === true) {
+      this.onBypassUsed = options.onBypassUsed;
+    }
   }
 
   getEntitlements(accessToken: string): Promise<Result<Entitlements, AuthError>> {

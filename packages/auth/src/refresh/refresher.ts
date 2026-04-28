@@ -83,7 +83,20 @@ export class SessionRefresher extends DisposableBase {
       this.subject.next({ kind: 'idle' });
       return;
     }
-    const delay = Math.max(this.minDelayMs, meta.expiresAt - this.nowFn() - this.bufferMs);
+    const expiresAt = meta.expiresAt;
+    // CR8-29: meta.expiresAt corrompido (NaN, Infinity, negativo absurdo)
+    // chegava em `Math.max(min, expiresAt - now - buffer)` → NaN/Infinity →
+    // `setTimeout(fn, NaN)` dispara IMEDIATO em loop, ou pendura sem
+    // executar. Validar finitude antes do cálculo.
+    if (!Number.isFinite(expiresAt)) {
+      this.subject.next({ kind: 'reauth_required', reason: 'invalid_expiry' });
+      return;
+    }
+    const delay = Math.max(this.minDelayMs, expiresAt - this.nowFn() - this.bufferMs);
+    if (!Number.isFinite(delay)) {
+      this.subject.next({ kind: 'reauth_required', reason: 'invalid_expiry' });
+      return;
+    }
     const fireAt = this.nowFn() + delay;
     this.subject.next({ kind: 'scheduled', fireAt });
     this.pending = this.setTimerFn(() => {

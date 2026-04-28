@@ -3,7 +3,12 @@ import { ok, type Result } from 'neverthrow';
 import { firstValueFrom } from 'rxjs';
 import { describe, expect, it, vi } from 'vitest';
 import { ManagedLoginService } from '../managed-login/service.ts';
-import type { AuthTokenStore, SupabaseAuthPort } from '../types.ts';
+import {
+  AUTH_ACCESS_TOKEN_KEY,
+  AUTH_SESSION_META_KEY,
+  type AuthTokenStore,
+  type SupabaseAuthPort,
+} from '../types.ts';
 
 function makeStore(): AuthTokenStore & {
   readonly data: Map<string, string>;
@@ -102,5 +107,47 @@ describe('ManagedLoginService', () => {
     const service = new ManagedLoginService({ supabase: makePort(), tokenStore: makeStore() });
     const first = await firstValueFrom(service.state$);
     expect(first.kind).toBe('idle');
+  });
+
+  describe('restore() buffer (CR5-25)', () => {
+    function seedStore(opts: { expiresAt?: number; access?: string }) {
+      const store = makeStore();
+      store.data.set(AUTH_ACCESS_TOKEN_KEY, opts.access ?? 'access-T');
+      store.data.set(
+        AUTH_SESSION_META_KEY,
+        JSON.stringify({
+          userId: 'u1',
+          email: 'a@b.com',
+          ...(opts.expiresAt === undefined ? {} : { expiresAt: opts.expiresAt }),
+        }),
+      );
+      return store;
+    }
+
+    it('returns false when token expired', async () => {
+      const past = Date.now() - 60_000;
+      const store = seedStore({ expiresAt: past });
+      const service = new ManagedLoginService({ supabase: makePort(), tokenStore: store });
+      const restored = await service.restore();
+      expect(restored).toBe(false);
+      expect(service.state.kind).toBe('idle');
+    });
+
+    it('returns false when token within 5min buffer', async () => {
+      const insideBuffer = Date.now() + 60_000; // 1min ahead, < 5min buffer
+      const store = seedStore({ expiresAt: insideBuffer });
+      const service = new ManagedLoginService({ supabase: makePort(), tokenStore: store });
+      const restored = await service.restore();
+      expect(restored).toBe(false);
+    });
+
+    it('returns true when token valid and outside buffer', async () => {
+      const future = Date.now() + 60 * 60_000; // 1h ahead, > 5min buffer
+      const store = seedStore({ expiresAt: future });
+      const service = new ManagedLoginService({ supabase: makePort(), tokenStore: store });
+      const restored = await service.restore();
+      expect(restored).toBe(true);
+      expect(service.state.kind).toBe('authenticated');
+    });
   });
 });

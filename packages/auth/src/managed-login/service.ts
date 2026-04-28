@@ -2,7 +2,7 @@ import { DisposableBase } from '@g4os/kernel/disposable';
 import { AuthError } from '@g4os/kernel/errors';
 import { createLogger } from '@g4os/kernel/logger';
 import { err, ok, type Result } from 'neverthrow';
-import { BehaviorSubject, type Observable } from 'rxjs';
+import { BehaviorSubject, map, type Observable } from 'rxjs';
 import { sendOtp, verifyOtp } from '../otp/otp-flow.ts';
 import {
   AUTH_ACCESS_TOKEN_KEY,
@@ -12,7 +12,12 @@ import {
   type AuthTokenStore,
   type SupabaseAuthPort,
 } from '../types.ts';
-import { IDLE_STATE, type ManagedLoginState } from './state.ts';
+import {
+  IDLE_STATE,
+  type ManagedLoginState,
+  type RedactedManagedLoginState,
+  redactManagedLoginState,
+} from './state.ts';
 
 const log = createLogger('managed-login');
 
@@ -57,12 +62,31 @@ export class ManagedLoginService extends DisposableBase {
     return this.subject.value;
   }
 
+  /**
+   * @deprecated CR6-14: para telemetria/logs/Sentry use `redactedState$` —
+   * este Observable carrega o email do usuário (PII) e tokens preview no
+   * payload bruto. Suba pra UI/state-sync apenas onde a UI realmente
+   * precisa do email (ex: tela de login). Em qualquer outro contexto
+   * (breadcrumbs, métricas, exports), prefira a versão redacted.
+   */
   get state$(): Observable<ManagedLoginState> {
     return this.subject.asObservable();
   }
 
+  /**
+   * CR6-14: canal de telemetria PII-safe. Mesma semântica de FSM transitions
+   * de `state$`, mas sem email/tokens. Use este em Sentry breadcrumbs,
+   * métricas, debug exports e logs estruturados.
+   */
+  get redactedState$(): Observable<RedactedManagedLoginState> {
+    return this.subject.asObservable().pipe(map(redactManagedLoginState));
+  }
+
   async requestOtp(email: string): Promise<Result<void, AuthError>> {
-    const previous = this.subject.value;
+    // CR7-28: sanitiza `previous` para nunca aninhar error → error → error.
+    // Se o estado atual já é error, o "anterior" lógico é o `previous` dele
+    // (a chance de estado válido pra back-button). Evita nesting infinito.
+    const previous = sanitizePrevious(this.subject.value);
     this.setState({ kind: 'requesting_otp', email });
     const result = await sendOtp(this.supabase, email);
     if (result.isErr()) {
@@ -74,7 +98,7 @@ export class ManagedLoginService extends DisposableBase {
   }
 
   async submitOtp(email: string, token: string): Promise<Result<AuthSession, AuthError>> {
-    const previous = this.subject.value;
+    const previous = sanitizePrevious(this.subject.value);
     this.setState({ kind: 'verifying', email });
     const result = await verifyOtp(this.supabase, email, token);
     if (result.isErr()) {
@@ -110,9 +134,20 @@ export class ManagedLoginService extends DisposableBase {
   }
 
   async logout(): Promise<void> {
-    await this.tokenStore.delete(AUTH_ACCESS_TOKEN_KEY);
-    await this.tokenStore.delete(AUTH_REFRESH_TOKEN_KEY);
-    await this.tokenStore.delete(AUTH_SESSION_META_KEY);
+    // CR7-29: paralelizar deletes via Promise.allSettled. Sequencial era
+    // problemático: se primeiro falhasse, segundo nunca rodava → tokens
+    // órfãos. Agora todos rodam, partial failure só é logada — state
+    // SEMPRE volta pra idle pra UI fechar limpo.
+    const results = await Promise.allSettled([
+      this.tokenStore.delete(AUTH_ACCESS_TOKEN_KEY),
+      this.tokenStore.delete(AUTH_REFRESH_TOKEN_KEY),
+      this.tokenStore.delete(AUTH_SESSION_META_KEY),
+    ]);
+    for (const r of results) {
+      if (r.status === 'rejected') {
+        log.warn({ reason: r.reason }, 'logout delete failed; partial state may persist');
+      }
+    }
     this.setState(IDLE_STATE);
   }
 
@@ -162,6 +197,13 @@ export class ManagedLoginService extends DisposableBase {
     return true;
   }
 
+  // CR7-08: rollback explícito quando uma das 3 escritas falha. Sem isso,
+  // sucesso parcial deixa tokens órfãos (ex: setMeta falha mas setAccess
+  // já gravou) e `restore()` retorna false — usuário fica unauthenticated
+  // mas com lixo persistente até `wipeAndReset`.
+  // CR9: rollback erros agora são logados (antes silenciados via
+  // `.catch(() => undefined)`). Sem visibilidade, partial-rollback failures
+  // (ex: disk-full impede também o delete) ficavam invisíveis.
   private async persistSession(session: AuthSession): Promise<Result<void, AuthError>> {
     const setAccess = await this.tokenStore.set(
       AUTH_ACCESS_TOKEN_KEY,
@@ -169,18 +211,48 @@ export class ManagedLoginService extends DisposableBase {
       session.expiresAt === undefined ? undefined : { expiresAt: session.expiresAt },
     );
     if (setAccess.isErr()) return err(setAccess.error);
+
     if (session.refreshToken) {
       const setRefresh = await this.tokenStore.set(AUTH_REFRESH_TOKEN_KEY, session.refreshToken);
-      if (setRefresh.isErr()) return err(setRefresh.error);
+      if (setRefresh.isErr()) {
+        // Rollback access token — refresh-token write falhou
+        await this.rollbackDelete(AUTH_ACCESS_TOKEN_KEY, 'refresh-write-failed');
+        return err(setRefresh.error);
+      }
     }
+
     const metaJson = JSON.stringify({
       userId: session.userId,
       email: session.email,
       ...(session.expiresAt === undefined ? {} : { expiresAt: session.expiresAt }),
     } satisfies PersistedSessionMeta);
     const setMeta = await this.tokenStore.set(AUTH_SESSION_META_KEY, metaJson);
-    if (setMeta.isErr()) return err(setMeta.error);
+    if (setMeta.isErr()) {
+      // Rollback access + refresh — meta falhou
+      await this.rollbackDelete(AUTH_ACCESS_TOKEN_KEY, 'meta-write-failed');
+      if (session.refreshToken) {
+        await this.rollbackDelete(AUTH_REFRESH_TOKEN_KEY, 'meta-write-failed');
+      }
+      return err(setMeta.error);
+    }
     return ok(undefined);
+  }
+
+  private async rollbackDelete(key: string, phase: string): Promise<void> {
+    try {
+      const result = await this.tokenStore.delete(key);
+      if (result.isErr()) {
+        log.warn(
+          { key, phase, err: result.error.message },
+          'persistSession rollback delete failed; partial state may persist',
+        );
+      }
+    } catch (cause) {
+      log.warn(
+        { key, phase, err: cause instanceof Error ? cause.message : String(cause) },
+        'persistSession rollback delete threw; partial state may persist',
+      );
+    }
   }
 
   private setState(next: ManagedLoginState): void {
@@ -211,4 +283,19 @@ function parseMeta(raw: string): PersistedSessionMeta | null {
   } catch {
     return null;
   }
+}
+
+/**
+ * CR7-28: extrai um `previous` seguro pra `error` state. Sem isso, retry
+ * de OTP a partir de error nesting acumula:
+ *  - 1ª falha: state = `{error, previous: awaiting_otp}` ✓
+ *  - 2ª falha (retry de error): state = `{error, previous: {error, previous: awaiting_otp}}` ✗
+ * Solução: se o "atual" é error, usar `previous.previous` (o estado válido antes do
+ * primeiro error). Em último caso, IDLE.
+ */
+function sanitizePrevious(current: ManagedLoginState): ManagedLoginState {
+  if (current.kind !== 'error') return current;
+  const inner = current.previous;
+  if (inner.kind === 'error') return IDLE_STATE;
+  return inner;
 }
