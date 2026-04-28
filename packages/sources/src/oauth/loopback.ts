@@ -21,7 +21,6 @@ const HTML =
 
 const DEFAULT_TIMEOUT_MS = 5 * 60 * 1000; // 5 min
 
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: (reason: setup do servidor loopback combina parsing flexível de input (number|options), promise lifecycle do waiter, retry de bind com EADDRINUSE (CR8-24), e timeout — quebrar perde o controle linear sobre a sequência listen → wait → close)
 export async function startLoopbackServer(
   portOrOptions: number | LoopbackServerOptions = 0,
   pathname?: string,

@@ -15,7 +15,6 @@ export interface SessionHeaderProps {
   readonly metadataOpen?: boolean;
 }
 
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: (reason: header coeso com inline-edit + 5 ações condicionais. Quebrá-lo em sub-componentes adicionaria boilerplate sem clareza — cada conditional é uma feature visível distinta)
 export function SessionHeader({
   name,
   modelLabel,

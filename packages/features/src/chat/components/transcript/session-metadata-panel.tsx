@@ -37,7 +37,6 @@ const COLOR_FALLBACK = '#6366f1';
  * blocos de files / extras. Renderiza colapsado/oculto via prop `open`
  * — composer/header ficam responsáveis pelo toggle.
  */
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: (reason: panel agrega 4 sub-formulários (nome, projeto, working dir, notes) com states locais e modos de edição. Cada bloco é coeso e a quebra em sub-componentes existentes (Field, ProjectChip, ProjectPicker) já reduz duplicação)
 export function SessionMetadataPanel({
   open,
   onClose,

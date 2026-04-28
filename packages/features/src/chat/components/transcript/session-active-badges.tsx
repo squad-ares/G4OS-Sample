@@ -19,7 +19,6 @@ export interface SessionActiveBadgesProps {
  * trabalho, contagem de sources ativas. Cada chip é clicável e abre o
  * picker correspondente quando a callback é provida.
  */
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: (reason: composição de 3 chips condicionais — extrair sub-componentes não traz benefício pq cada chip tem props diferentes; complexidade vem das opções 1/N i18n + 3 booleanos visíveis)
 export function SessionActiveBadges({
   modelLabel,
   providerLabel,

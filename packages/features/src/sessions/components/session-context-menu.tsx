@@ -38,7 +38,6 @@ export interface SessionContextMenuProps {
   readonly onBranch?: (id: string) => void;
 }
 
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: menu declarativo concentra ações condicionais por lifecycle para manter o contrato de props simples.
 export function SessionContextMenu({
   open,
   position,

@@ -78,7 +78,6 @@ export class AppServerClient extends DisposableBase {
     return this.subprocess.write(frame);
   }
 
-  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: (reason: pumpStdout combina iterator manual (CR8-21), buffer chunking (LineBuffer), decode com 3-way result (ok/empty/error), trailing flush, catch + finally cleanup — separar perde o controle linear do stream pump.)
   private async pumpStdout(child: Subprocess): Promise<void> {
     const buffer = new LineBuffer();
     // CR8-21: usar iterator manual em vez de `for await ... of`, e armazenar

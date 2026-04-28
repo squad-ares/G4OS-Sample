@@ -83,7 +83,6 @@ export class SessionEventStore {
    * realidade do JSONL. `stats` resolve isso sem mudar a assinatura
    * principal — caller passa o objeto se quer rastrear.
    */
-  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: (reason: replay JSONL combina stream open ENOENT, buffer chunking, per-line skip-on-corruption (CR7-21), stats accumulator (CR8-12) e tail-flush — separar perde a continuidade do buffering linear)
   async *read(sessionId: string, stats?: ReadStats): AsyncGenerator<SessionEvent> {
     const path = this.path(sessionId);
     let stream: ReturnType<typeof createReadStream>;

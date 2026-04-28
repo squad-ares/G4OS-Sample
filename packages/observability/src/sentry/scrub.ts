@@ -50,7 +50,6 @@ function isSensitiveKey(key: string): boolean {
 // `mechanism.data` igual ao `extra`, etc.). Agora retornamos a cópia já
 // scrubada, e registramos `original → out` ANTES de recursar para suportar
 // ciclos sem stack overflow.
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: (reason: scrubObject precisa cobrir muitos type guards (null/undefined/string/object/cache hit/frozen/Date/Map/Set/RegExp/Array/plain object) numa única passagem para preservar identidade via WeakMap. Quebrar em sub-funções fragmenta o caching e reabre o bug CR6-03.)
 export function scrubObject<T>(input: T, seen: WeakMap<object, unknown> = new WeakMap()): T {
   if (input === null || input === undefined) return input;
   if (typeof input === 'string') return scrubString(input) as unknown as T;

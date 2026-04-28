@@ -83,7 +83,6 @@ export interface ComposerProps {
   readonly mentionSources?: readonly SourceConfigView[];
 }
 
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: (reason: composition root do composer combina draft+attach+mention+combobox+streaming. Refator extrairia hooks pequenos demais para se entender no contexto; quebrar em sub-componentes exigiria N props ou Context API)
 export function Composer({
   sessionId,
   onSend,

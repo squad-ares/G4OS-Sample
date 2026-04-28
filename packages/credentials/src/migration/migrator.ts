@@ -51,7 +51,6 @@ type EntryOutcome =
   | { readonly kind: 'skipped' }
   | { readonly kind: 'failed'; readonly errors: readonly string[] };
 
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: (reason: orchestrator de migration multi-passos — primary + refresh collision detection, dry-run, audit log persistence. Quebrar perde a sequência linear que torna o report final reconstrução simples)
 export async function migrateV1ToV2(options: MigrateOptions): Promise<MigrationReport> {
   const v1Path = options.v1Path ?? defaultV1Path();
 

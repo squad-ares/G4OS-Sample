@@ -21,7 +21,6 @@ export class StreamRunner {
     private readonly options: StreamRunnerOptions = { providerKind: 'claude' },
   ) {}
 
-  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: (reason: stream runner combina abort handling, error mapping, iterator cleanup e CR7-25 explicit `iterator.return()`. Complexity 17 = 3 try/catch + 2 sinal aborted checks + iterator dance — quebrar em sub-funções perde o flow linear que torna o controle de fluxo legível)
   async *run(input: AgentTurnInput, signal: AbortSignal): AsyncGenerator<AgentEvent, void, void> {
     yield { type: 'started', turnId: input.turnId };
 

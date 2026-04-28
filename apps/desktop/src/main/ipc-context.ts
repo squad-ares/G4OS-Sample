@@ -48,7 +48,6 @@ export interface IpcServiceOverrides {
   readonly platform?: PlatformService;
 }
 
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: (reason: 14 services wired via null-fallback; structural complexity is inherent in service-composition wiring)
 export async function createContext(input: CreateContextInput = {}): Promise<IpcContext> {
   const nulls = createNullServices();
   const services = {
