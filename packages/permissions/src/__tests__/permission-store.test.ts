@@ -26,6 +26,18 @@ describe('hashArgs', () => {
     const b = hashArgs({ input: { items: [1, { y: 'b', x: 'a' }] } });
     expect(a).toBe(b);
   });
+
+  it('rejects circular references with explicit error (CR5-11)', () => {
+    const obj: Record<string, unknown> = { name: 'foo' };
+    obj['self'] = obj;
+    expect(() => hashArgs(obj)).toThrow(/circular reference/);
+  });
+
+  it('rejects circular references via array (CR5-11)', () => {
+    const arr: unknown[] = [];
+    arr.push(arr);
+    expect(() => hashArgs({ data: arr })).toThrow(/circular reference/);
+  });
 });
 
 describe('PermissionStore', () => {
@@ -98,5 +110,43 @@ describe('PermissionStore', () => {
     );
     const found = await store.find('ws-1', 'read_file', args);
     expect(found?.argsHash).toBe(legacy);
+  });
+
+  it('persist removes legacy 32-char hash when writing full 64-char (CR5-24)', async () => {
+    const { writeFile, mkdir } = await import('node:fs/promises');
+    const args = { path: '/legacy-cleanup' };
+    const full = hashArgs(args);
+    const legacy = full.slice(0, 32);
+    await mkdir(root, { recursive: true });
+    await writeFile(
+      join(root, 'permissions.json'),
+      JSON.stringify({
+        version: 1,
+        decisions: [{ toolName: 'read_file', argsHash: legacy, argsPreview: '{}', decidedAt: 1 }],
+      }),
+      'utf8',
+    );
+    await store.persist('ws-1', { toolName: 'read_file', args });
+    const list = await store.list('ws-1');
+    // Single entry, com hash full (64-char). Legacy 32-char foi descartada.
+    expect(list).toHaveLength(1);
+    const first = list[0];
+    expect(first?.argsHash).toBe(full);
+    expect(first?.argsHash).toHaveLength(64);
+  });
+
+  it('withLock times out fn that hangs longer than lockTimeoutMs (CR5-23)', async () => {
+    const tightStore = new PermissionStore({
+      resolveWorkspaceRoot: () => root,
+      lockTimeoutMs: 50,
+    });
+    // Sequencia operações: primeira hung, segunda fica behind do lock e
+    // expecta timeout vindo do mesmo workspace queue.
+    const hung = (
+      tightStore as unknown as {
+        withLock: (ws: string, fn: () => Promise<unknown>) => Promise<unknown>;
+      }
+    ).withLock('ws-1', () => new Promise(() => undefined));
+    await expect(hung).rejects.toThrow(/lock timeout/);
   });
 });
