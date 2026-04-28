@@ -27,6 +27,8 @@ export default {
         'foundation',
         // Por pacote
         'kernel',
+        'auth',
+        'translate',
         'platform',
         'ipc',
         'credentials',
