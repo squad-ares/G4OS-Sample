@@ -88,7 +88,16 @@ import { globSync } from 'glob';
 // - CR6-09 try/catch no `onMutation` callback do CredentialsService.
 // - CR6-15 whitelist de scheme + path em deep-link-handler (~25 LOC).
 // - CR6-19 mount-plan log spam reduzido (sem mudança de LOC líquida).
-const MAIN_LIMIT = 7200;
+//
+// 2026-04-27 (code-review-10): teto sobe de 7200 → 7250 por conta de:
+// - sources/secrets.ts (189 LOC novos, módulo dedicado) — separa o vault
+//   de segredos por bucket (env/headers) do `sources-service.ts`, com
+//   `secureSourceConfigSecrets` / `hydrateSourceSecrets` /
+//   `migrateStoredSourceSecrets` / `deleteSourceSecrets`.
+// - sources-service.ts +69 LOC para wire de credentialRefs no create
+//   stdio/http/delete/testConnection. Crescimento líquido em main: +23 LOC
+//   após reaproveitamento dos helpers de secrets em vez de inline.
+const MAIN_LIMIT = 7250;
 const FILE_LIMIT = 300;
 
 const files = globSync('apps/desktop/src/main/**/*.ts', {

@@ -88,6 +88,9 @@
     "packages/ipc": {
       "ignoreDependencies": ["@trpc/client", "electron-trpc"]
     },
+    "packages/data": {
+      "ignoreDependencies": ["node:sqlite"]
+    },
     "packages/kernel": {
       "ignoreDependencies": ["pino-pretty", "pino-roll"]
     },
