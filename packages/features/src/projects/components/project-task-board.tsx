@@ -1,7 +1,12 @@
 import type { ProjectTask, ProjectTaskStatus } from '@g4os/kernel/types';
 import { Button, useTranslate } from '@g4os/ui';
-import { X } from 'lucide-react';
-import { type ProjectTaskGroup, TASK_STATUS_LABELS, TASK_STATUS_ORDER } from '../types.ts';
+import { Plus, X } from 'lucide-react';
+import {
+  type ProjectTaskGroup,
+  TASK_PRIORITY_LABEL_KEYS,
+  TASK_STATUS_LABEL_KEYS,
+  TASK_STATUS_ORDER,
+} from '../types.ts';
 
 export interface ProjectTaskBoardProps {
   readonly tasks: readonly ProjectTask[];
@@ -14,7 +19,7 @@ export interface ProjectTaskBoardProps {
 function groupTasks(tasks: readonly ProjectTask[]): readonly ProjectTaskGroup[] {
   return TASK_STATUS_ORDER.map((status) => ({
     status,
-    label: TASK_STATUS_LABELS[status],
+    labelKey: TASK_STATUS_LABEL_KEYS[status],
     tasks: tasks.filter((t) => t.status === status),
   }));
 }
@@ -38,39 +43,42 @@ export function ProjectTaskBoard({
 
   return (
     <div className="flex gap-4 overflow-x-auto pb-2">
-      {groups.map((group) => (
-        <div key={group.status} className="flex w-64 flex-shrink-0 flex-col gap-2">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium">
-              {group.label}
-              <span className="ml-1.5 text-xs text-muted-foreground">({group.tasks.length})</span>
-            </span>
-            {onCreateTask && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-5 w-5"
-                onClick={() => onCreateTask(group.status)}
-                aria-label={t('project.task.newAriaLabel', { label: group.label })}
-              >
-                +
-              </Button>
-            )}
-          </div>
+      {groups.map((group) => {
+        const groupLabel = t(group.labelKey);
+        return (
+          <div key={group.status} className="flex w-64 flex-shrink-0 flex-col gap-2">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">
+                {groupLabel}
+                <span className="ml-1.5 text-xs text-muted-foreground">({group.tasks.length})</span>
+              </span>
+              {onCreateTask && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-5 w-5"
+                  onClick={() => onCreateTask(group.status)}
+                  aria-label={t('project.task.newAriaLabel', { label: groupLabel })}
+                >
+                  <Plus className="h-3 w-3" />
+                </Button>
+              )}
+            </div>
 
-          <div className="flex flex-col gap-2 min-h-[80px]">
-            {group.tasks.map((task) => (
-              <TaskCard
-                key={task.id}
-                task={task}
-                {...(onUpdateStatus ? { onUpdateStatus } : {})}
-                {...(onDeleteTask ? { onDelete: onDeleteTask } : {})}
-                {...(onOpenTask ? { onOpen: onOpenTask } : {})}
-              />
-            ))}
+            <div className="flex flex-col gap-2 min-h-[80px]">
+              {group.tasks.map((task) => (
+                <TaskCard
+                  key={task.id}
+                  task={task}
+                  {...(onUpdateStatus ? { onUpdateStatus } : {})}
+                  {...(onDeleteTask ? { onDelete: onDeleteTask } : {})}
+                  {...(onOpenTask ? { onOpen: onOpenTask } : {})}
+                />
+              ))}
+            </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
@@ -108,7 +116,9 @@ function TaskCard({ task, onUpdateStatus, onDelete, onOpen }: TaskCardProps) {
 
       <div className="flex items-center gap-2 flex-wrap">
         {task.priority && (
-          <span className={`rounded px-1.5 py-0.5 text-xs ${priorityClass}`}>{task.priority}</span>
+          <span className={`rounded px-1.5 py-0.5 text-xs ${priorityClass}`}>
+            {t(TASK_PRIORITY_LABEL_KEYS[task.priority])}
+          </span>
         )}
         {onUpdateStatus && task.status !== 'done' && (
           <button
@@ -119,7 +129,9 @@ function TaskCard({ task, onUpdateStatus, onDelete, onOpen }: TaskCardProps) {
               if (next) onUpdateStatus(task.id, next);
             }}
           >
-            {`→ ${TASK_STATUS_LABELS[nextStatus(task.status) ?? 'done']}`}
+            {t('project.task.moveToNext', {
+              label: t(TASK_STATUS_LABEL_KEYS[nextStatus(task.status) ?? 'done']),
+            })}
           </button>
         )}
       </div>

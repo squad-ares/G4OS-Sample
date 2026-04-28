@@ -17,6 +17,7 @@ export {
   type ProjectDetailView,
   type ProjectListItem,
   type ProjectTaskGroup,
-  TASK_STATUS_LABELS,
+  TASK_PRIORITY_LABEL_KEYS,
+  TASK_STATUS_LABEL_KEYS,
   TASK_STATUS_ORDER,
 } from './types.ts';

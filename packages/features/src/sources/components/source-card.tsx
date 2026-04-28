@@ -1,6 +1,6 @@
 import type { SourceConfigView } from '@g4os/kernel/types';
 import type { TranslationKey } from '@g4os/translate';
-import { Button, useTranslate } from '@g4os/ui';
+import { Button, ConfirmDestructiveDialog, useTranslate } from '@g4os/ui';
 import {
   AlertCircle,
   CheckCircle2,
@@ -12,7 +12,7 @@ import {
   Power,
   Trash2,
 } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { type ReactNode, useState } from 'react';
 import { SourceGlyph } from './source-glyph.tsx';
 
 export interface SourceCardProps {
@@ -33,6 +33,7 @@ export function SourceCard({
   disabled,
 }: SourceCardProps): ReactNode {
   const { t } = useTranslate();
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const testable =
     source.kind === 'mcp-stdio' ||
     source.kind === 'mcp-http' ||
@@ -91,15 +92,22 @@ export function SourceCard({
       <Button
         variant="ghost"
         size="sm"
-        onClick={() => {
-          if (window.confirm(t('sources.delete.confirm'))) onDelete();
-        }}
+        onClick={() => setConfirmOpen(true)}
         disabled={disabled}
         aria-label={t('sources.delete')}
         className="h-8 px-2"
       >
         <Trash2 className="h-4 w-4 text-muted-foreground transition hover:text-destructive" />
       </Button>
+      <ConfirmDestructiveDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        title={t('sources.delete.title')}
+        description={t('sources.delete.confirm')}
+        confirmLabel={t('sources.delete.confirmLabel')}
+        cancelLabel={t('sources.delete.cancelLabel')}
+        onConfirm={onDelete}
+      />
     </li>
   );
 }
