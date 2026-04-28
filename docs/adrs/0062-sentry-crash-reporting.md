@@ -60,7 +60,19 @@ v2 precisa de:
 
 ## Validação
 
-- 9 testes (`packages/observability/src/__tests__/scrub.test.ts`): profundidade, arrays, circular refs, chaves case-insensitive, padrões OpenAI/Google/JWT, `scrubSentryEvent` immutabilidade, breadcrumb paths.
+- 13 testes (`packages/observability/src/__tests__/scrub.test.ts`):
+  profundidade, arrays, circular refs, chaves case-insensitive, padrões
+  OpenAI/Google/JWT, `scrubSentryEvent` immutabilidade, breadcrumb paths,
+  scrub de `exception.values[].value`, scrub de `exception.values[].stacktrace.frames[].vars`/`abs_path`,
+  redação de home dir paths (`/Users/<u>`, `/home/<u>`, `C:\Users\<u>`)
+  e e-mails via `scrubString` (CR3-02, 2026-04-26).
+- `SentryEventLike` agora declara `exception?: { values?: Array<{ type?, value?,
+  stacktrace?: { frames?: Array<{ vars?, abs_path?, filename? }> } }> }` e
+  `scrubSentryEvent` itera `out.exception.values[]` aplicando `scrubString`
+  em `value`/`abs_path`/`filename` e `scrubObject` em `vars`. Antes desta
+  cobertura, stack traces emitidos pelo Node (`Error.stack`) podiam vazar
+  home dir do usuário e tokens capturados em `vars` (quando
+  `attachStacktrace: true`).
 
 ## Referencias
 
@@ -73,3 +85,6 @@ v2 precisa de:
 ## Histórico de alterações
 
 - 2026-04-19: Proposta + aceita (TASK-06-03 landed)
+- 2026-04-26: `scrubSentryEvent` cobre `event.exception` (value, frame
+  vars, abs_path, filename); `SECRET_VALUE_PATTERNS` ganha home dir
+  paths e e-mails. Quatro testes novos. CR3-02.

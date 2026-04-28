@@ -367,7 +367,9 @@ pnpm lint                          # biome check
 pnpm test                          # vitest run
 pnpm build                         # tsup em todos os pacotes
 pnpm check:file-lines              # gate max-500 LOC
-pnpm check:main-size               # gate main <6800 LOC, ≤300/arquivo
+pnpm check:main-size               # gate main <6900 LOC, ≤300/arquivo
+pnpm check:platform-leaks          # gate ADR-0013 (process.platform fora de @g4os/platform)
+pnpm check:hover-pattern           # gate hover:bg-foreground/N legacy (AGENTS.md UI patterns)
 pnpm check:circular                # madge — 0 ciclos
 pnpm check:cruiser                 # dependency-cruiser — boundaries
 pnpm check:dead-code               # knip

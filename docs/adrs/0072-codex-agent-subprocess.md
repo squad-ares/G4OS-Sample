@@ -85,9 +85,33 @@ Todos ≤ 400 LOC (maior: `codex-agent.ts` com 121).
 
 **Dispose determinístico.**
 - `AppServerClient extends DisposableBase` registra um `toDisposable(() => child.kill('SIGTERM'))` no construtor.
-- `CodexAgent.dispose()` chama `bridgeMcp.detach()` (se presente), `appServer.dispose()` (propaga kill), limpa `activeRequests`, depois `super.dispose()`.
+- `CodexAgent.dispose()` é herdado de `DisposableBase`: o construtor
+  registra três disposables via `_register(toDisposable(...))` na ordem
+  de teardown desejada (LIFO em `super.dispose()`):
+  1. `activeRequests.clear()`
+  2. `appServer.dispose()` (kill subprocess)
+  3. `bridgeMcp.detach()` (se presente)
+  Antes (CR3-17, 2026-04-26) o override manual chamava `bridgeMcp.detach()`
+  primeiro, depois `appServer.dispose()`, com risco de race se NDJSON
+  inflight tentasse usar a bridge após a detach. A nova ordem garante
+  que o canal MCP é cortado **antes** do subprocess morrer e que
+  consumers não-finalizados não chamam handler em estado intermediário.
 - `run()` retorna uma Observable cujo teardown envia `{ type: 'cancel', requestId }` e remove o listener antes de deletar o request ativo — unsubscribe sempre cancela.
 - `interrupt(sessionId)` resolve `ok` mesmo quando não há turn ativo (idempotent) e envia `cancel` + retorna Result sem throw.
+
+**Frame decoder estruturado.** A função pública `decodeFrame(line)`
+(em `app-server/frame.ts`) retorna `DecodeResult`:
+- `{ ok: true, event }` — frame válido.
+- `{ ok: false, kind: 'parse_error', line }` — JSON malformado.
+- `{ ok: false, kind: 'schema_error', line }` — JSON ok mas type/requestId
+  fora do contrato `CodexResponseEventType`.
+- `{ ok: false, kind: 'empty' }` — linha em branco; ignorada silenciosamente.
+
+`AppServerClient.pumpStdout` usa `decodeFrame` para distinguir os dois
+modos de falha e logar `WARN` com `kind` (truncado a 200 chars). Antes
+(CR3-18, 2026-04-26) frames inválidos eram silenciados em `DEBUG` —
+falhas de protocol contract sumiam em produção. `jsonLineDecoder` legacy
+continua exportado para compat.
 
 **Request isolation multi-turn.** `CodexAgent` gera um `requestId` por turn (UUID v4, factory injetável para testes) e filtra eventos do listener por `event.requestId !== requestId`. Test simula dois requestIds no stream e valida que só o ativo chega no subscriber.
 
@@ -142,3 +166,8 @@ Se o host process quiser execa para DX melhor, implementa `ExecaSpawner extends 
 ## Histórico de alterações
 
 - 2026-04-19: Proposta + aceita (TASK-07-03 landed).
+- 2026-04-26: `CodexAgent.dispose()` migra para `_register` (LIFO determinístico:
+  clear → appServer.dispose → bridge.detach). Frame decoder ganha
+  `decodeFrame()` estruturado distinguindo `parse_error` / `schema_error`
+  / `empty`; pump de stdout loga WARN com `kind` em vez de DEBUG.
+  CR3-17 + CR3-18.

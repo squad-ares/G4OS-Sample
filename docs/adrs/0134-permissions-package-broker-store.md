@@ -55,6 +55,23 @@ Restrições:
 ### Neutras
 - Migration de hashes argsHash 32-char → 64-char é transparente: `find()` aceita ambos, novos writes sempre full. Elimina risco de colisão sem quebrar usuários existentes.
 
+### Comportamentos reforçados (CR3-07/08, 2026-04-26)
+
+- **`PermissionBroker.request()` coalesce concurrent.** Duas chamadas
+  para mesmo `(sessionId, toolName, argsHash)` enquanto a primeira ainda
+  está pendente reaproveitam o mesmo `Promise<PermissionDecision>`.
+  Antes, cada chamada criava um Deferred separado e emitia
+  `turn.permission_required` duplicado — UI podia mostrar dois prompts
+  modais idênticos, e cancelar um deixava o outro pendurado. Agora há
+  um `#coalesce: Map<coalesceKey, Promise>` indexado pelo trio acima;
+  o slot é limpo determinísticamente em `respond()` / `cancel()` /
+  `dispose()` (sem `.finally` pra evitar unhandled rejections).
+- **`PermissionStore.list()` e `find()` rodam dentro de `withLock`.**
+  Sem o lock, leitura concorrente com `persist()`/`revoke()` em curso
+  podia retornar snapshot pré-`writeAtomic` (FS rename é atômico, mas
+  a leitura ocorre antes do rename). Agora reads e writes serializam
+  por workspace, garantindo "leitura sempre pós-último write commitado".
+
 ## Validação
 
 - `check:main-size` passa com 5976/6200 LOC.
@@ -73,3 +90,7 @@ Restrições:
 ## Histórico de alterações
 
 - 2026-04-24: Proposta e aceita junto com extração do session-runtime.
+- 2026-04-26: `PermissionBroker.request()` coalesce concurrent requests
+  pelo trio `(sessionId, toolName, argsHash)`; `PermissionStore.list/find`
+  passam a executar dentro do `withLock` para garantir consistência
+  pós-write. 5 testes novos. CR3-07 + CR3-08.
