@@ -1,3 +1,10 @@
+/**
+ * Wrappers Radix tipados + estilizados. Ao crescer acima de 400 LOC,
+ * considerar split em `context-menu/{root,items,trigger,parts}.tsx` —
+ * por ora (316 LOC) o file mantém todos os subcomponents juntos para
+ * favorecer co-localização e jump-to-definition no IDE.
+ */
+
 import * as ContextMenuPrimitive from '@radix-ui/react-context-menu';
 import { CheckIcon, ChevronRightIcon, CircleIcon } from 'lucide-react';
 import * as React from 'react';

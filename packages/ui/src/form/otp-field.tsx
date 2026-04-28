@@ -2,6 +2,7 @@ import type * as React from 'react';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { type FieldValues, type UseControllerProps, useController } from 'react-hook-form';
 import { cn } from '../libs/utils.ts';
+import { useTranslate } from '../translate/translate-provider.tsx';
 import { FieldWrapper } from './field-wrapper.tsx';
 
 export interface OtpFieldProps<TForm extends FieldValues> extends UseControllerProps<TForm> {
@@ -27,6 +28,11 @@ export interface OtpFieldProps<TForm extends FieldValues> extends UseControllerP
  * - Layout 3-3 separado por "-" para length par, ou único grupo caso contrário.
  * - Suporta paste, arrows, backspace, delete, home/end.
  * - `onComplete` dispara quando todos os dígitos estão preenchidos — útil para auto-submit.
+ *
+ * **Browser support (CR4-23):** usa `inputMode="numeric"` + `pattern="[0-9]*"`
+ * para auto-enable de teclado numérico em mobile. Suportado em
+ * Chrome/Edge ≥ 66, Safari ≥ 12.2, Firefox ≥ 95. Browsers antigos caem
+ * para teclado padrão sem regressão funcional (validação JS continua).
  */
 export function OtpField<TForm extends FieldValues>({
   name,
@@ -44,6 +50,7 @@ export function OtpField<TForm extends FieldValues>({
   slotClassName,
   required,
 }: Readonly<OtpFieldProps<TForm>>) {
+  const { t } = useTranslate();
   const controllerProps = {
     name,
     ...(control !== undefined && { control }),
@@ -182,7 +189,11 @@ export function OtpField<TForm extends FieldValues>({
       onKeyDown={(e) => handleKeyDown(e, slotIndex)}
       onPaste={(e) => handlePaste(e, slotIndex)}
       onFocus={(e) => e.currentTarget.select()}
-      aria-label={`${label ?? name} ${slotIndex + 1}`}
+      aria-label={t('ui.otp.slotLabel', {
+        label: label ?? name,
+        index: slotIndex + 1,
+        total: length,
+      })}
       aria-invalid={error ? true : undefined}
       className={cn(
         'flex h-12 w-11 items-center justify-center rounded-[14px] border border-foreground/12 bg-background/82 text-center text-lg font-semibold tabular-nums shadow-[inset_0_1px_0_rgba(255,255,255,0.36)] transition-colors',

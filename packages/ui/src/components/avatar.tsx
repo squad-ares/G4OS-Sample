@@ -121,7 +121,10 @@ function CrossfadeAvatar({
               backgroundRepeat: 'no-repeat',
             }}
             role="img"
-            aria-label={alt}
+            // CR9: omitir aria-label quando `alt` é undefined em vez de
+            // emitir `aria-label="undefined"` literal — screen readers
+            // tratam string "undefined" como rótulo válido confuso.
+            {...(alt === undefined ? {} : { 'aria-label': alt })}
           >
             {/* <img> oculto só pra detectar onLoad e popular o cache do navegador */}
             <img

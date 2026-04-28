@@ -28,6 +28,14 @@ export interface InputFieldProps<TForm extends FieldValues> extends UseControlle
   required?: boolean | undefined;
   /** Valor para o atributo autocomplete do navegador (ex.: "email", "current-password") */
   autoComplete?: string | undefined;
+  // ARIA combobox: quando o input atua como typeahead (search, mention,
+  // slash command), o role pertence ao input — não ao popover wrapper.
+  // CLAUDE.md V2 obriga essa estrutura.
+  role?: 'textbox' | 'combobox' | 'searchbox' | undefined;
+  ariaExpanded?: boolean | undefined;
+  ariaControls?: string | undefined;
+  ariaActiveDescendant?: string | undefined;
+  ariaAutoComplete?: 'list' | 'inline' | 'both' | 'none' | undefined;
 }
 
 /**
@@ -62,6 +70,11 @@ export function InputField<TForm extends FieldValues>({
   inputClassName,
   required,
   autoComplete,
+  role,
+  ariaExpanded,
+  ariaControls,
+  ariaActiveDescendant,
+  ariaAutoComplete,
 }: Readonly<InputFieldProps<TForm>>) {
   const { t } = useTranslate();
   const controllerProps = {
@@ -117,6 +130,11 @@ export function InputField<TForm extends FieldValues>({
           disabled={disabled || field.disabled}
           aria-invalid={Boolean(error)}
           aria-describedby={error ? `${name}-error` : undefined}
+          role={role}
+          aria-expanded={ariaExpanded}
+          aria-controls={ariaControls}
+          aria-activedescendant={ariaActiveDescendant}
+          aria-autocomplete={ariaAutoComplete}
           className={cn(
             icon && 'pl-9',
             isPassword && 'pr-10',
@@ -133,6 +151,7 @@ export function InputField<TForm extends FieldValues>({
             onClick={() => setShowPassword((v) => !v)}
             className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
             aria-label={showPassword ? t('ui.password.hide') : t('ui.password.show')}
+            aria-pressed={showPassword}
           >
             {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
           </button>
