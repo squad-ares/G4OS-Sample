@@ -9,12 +9,15 @@ export const ErrorCode = {
   CREDENTIAL_LOCKED: 'credential.locked',
   CREDENTIAL_DECRYPT_FAILED: 'credential.decrypt_failed',
   CREDENTIAL_EXPIRED: 'credential.expired',
+  CREDENTIAL_INVALID_KEY: 'credential.invalid_key',
+  CREDENTIAL_INVALID_VALUE: 'credential.invalid_value',
 
   // Autenticação
   AUTH_NOT_AUTHENTICATED: 'auth.not_authenticated',
   AUTH_TOKEN_EXPIRED: 'auth.token_expired',
   AUTH_OTP_INVALID: 'auth.otp_invalid',
   AUTH_ENTITLEMENT_REQUIRED: 'auth.entitlement_required',
+  AUTH_BOOTSTRAP_FAILED: 'auth.bootstrap_failed',
 
   // IPC
   IPC_HANDLER_NOT_FOUND: 'ipc.handler_not_found',
@@ -32,11 +35,15 @@ export const ErrorCode = {
   WORKSPACE_BOOTSTRAP_FAILED: 'workspace.bootstrap_failed',
   WORKSPACE_SLUG_CONFLICT: 'workspace.slug_conflict',
 
+  // Project
+  PROJECT_NOT_FOUND: 'project.not_found',
+
   // Agent
   AGENT_UNAVAILABLE: 'agent.unavailable',
   AGENT_RATE_LIMITED: 'agent.rate_limited',
   AGENT_INVALID_INPUT: 'agent.invalid_input',
   AGENT_NETWORK: 'agent.network',
+  AGENT_INVALID_API_KEY: 'agent.invalid_api_key',
 
   // Source / MCP
   SOURCE_NOT_FOUND: 'source.not_found',
@@ -47,6 +54,8 @@ export const ErrorCode = {
   FS_ACCESS_DENIED: 'fs.access_denied',
   FS_NOT_FOUND: 'fs.not_found',
   FS_DISK_FULL: 'fs.disk_full',
+  FS_PATH_TRAVERSAL: 'fs.path_traversal',
+  FS_FILE_TOO_LARGE: 'fs.file_too_large',
 
   // Generic
   VALIDATION_ERROR: 'validation.error',

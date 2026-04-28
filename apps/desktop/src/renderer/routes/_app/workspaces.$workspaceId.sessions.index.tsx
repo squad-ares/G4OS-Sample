@@ -1,134 +1,107 @@
-import {
-  GlobalSearch,
-  NewSessionButton,
-  SessionContextMenu,
-  SessionFilterBar,
-  SessionLifecycleDialog,
-  type SessionLifecycleDialogKind,
-  SessionList,
-  type SessionListItem,
-  useSessionShortcuts,
-} from '@g4os/features/sessions';
-import { useTranslate } from '@g4os/ui';
+/**
+ * Route `/workspaces/:workspaceId/sessions/` — redirect inteligente, NÃO
+ * dashboard. CR-UX (2026-04-27): a versão anterior renderizava lista de
+ * sessões duplicando a sub-sidebar (sem paridade com V1).
+ *
+ * Fluxo:
+ *   1. Se há `lastSessionId` em `localStorage` E ela existe na lista do
+ *      workspace, navegar pra ela.
+ *   2. Senão, se a lista tem itens, navegar pra mais recente (primeiro).
+ *   3. Senão, criar uma nova session vazia ("Nova sessão") e navegar.
+ *      Composer vazio + transcript vazio dão a UX Gemini-like de "comece
+ *      a digitar pra abrir uma conversa".
+ *
+ * Tudo em `useEffect` pra rodar só client-side; durante a transição
+ * mostramos `ShellLoadingState` (spinner). Erros do `create.mutate`
+ * caem num toast e mantêm usuário na página com retry.
+ */
+import { ShellLoadingState } from '@g4os/features/shell';
+import type { SessionFilter } from '@g4os/kernel/types';
+import { toast, useTranslate } from '@g4os/ui';
+import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
-import { useState } from 'react';
-import { useSessionsPage } from '../../sessions/use-sessions-page.ts';
+import { useEffect, useMemo, useRef } from 'react';
+import { queryClient } from '../../ipc/query-client.ts';
+import { trpc } from '../../ipc/trpc-client.ts';
+import { getLastSessionId } from '../../sessions/last-session.ts';
+import { invalidateSessions, sessionsListQueryOptions } from '../../sessions/sessions-store.ts';
 
 export const Route = createFileRoute('/_app/workspaces/$workspaceId/sessions/')({
-  component: SessionsListPage,
+  component: SessionsIndexRedirect,
 });
 
-function SessionsListPage() {
+function SessionsIndexRedirect() {
   const { t } = useTranslate();
   const navigate = useNavigate();
   const { workspaceId } = Route.useParams();
-  const page = useSessionsPage(workspaceId);
+  const inFlightRef = useRef(false);
 
-  const [contextMenu, setContextMenu] = useState<{
-    readonly session: SessionListItem;
-    readonly x: number;
-    readonly y: number;
-  } | null>(null);
-  const [lifecycleDialog, setLifecycleDialog] = useState<{
-    readonly kind: SessionLifecycleDialogKind;
-    readonly session: SessionListItem;
-  } | null>(null);
+  const filter = useMemo<SessionFilter>(
+    () => ({
+      workspaceId,
+      lifecycle: 'active',
+      includeBranches: false,
+      limit: 1,
+      offset: 0,
+    }),
+    [workspaceId],
+  );
 
-  useSessionShortcuts({
-    onNewSession: () => handleCreate(),
-    onOpenSearch: () => page.openSearch(),
+  const sessionsQuery = useQuery({
+    ...sessionsListQueryOptions(filter),
+    enabled: workspaceId.length > 0,
   });
 
-  const handleCreate = async (): Promise<void> => {
-    const created = await page.createSession();
-    if (created) {
-      await navigate({
+  useEffect(() => {
+    if (inFlightRef.current) return;
+    if (sessionsQuery.isLoading || !sessionsQuery.data) return;
+
+    inFlightRef.current = true;
+    const items = sessionsQuery.data.items;
+    const lastId = getLastSessionId(workspaceId);
+    const lastStillExists = lastId && items.some((s) => s.id === lastId);
+
+    if (lastStillExists) {
+      void navigate({
         to: '/workspaces/$workspaceId/sessions/$sessionId',
-        params: { workspaceId, sessionId: created.id },
+        params: { workspaceId, sessionId: lastId },
+        replace: true,
       });
+      return;
     }
-  };
 
-  const handleOpen = (id: string): void => {
-    void navigate({
-      to: '/workspaces/$workspaceId/sessions/$sessionId',
-      params: { workspaceId, sessionId: id },
-    });
-  };
+    const mostRecent = items[0];
+    if (mostRecent) {
+      void navigate({
+        to: '/workspaces/$workspaceId/sessions/$sessionId',
+        params: { workspaceId, sessionId: mostRecent.id },
+        replace: true,
+      });
+      return;
+    }
 
-  const handleLifecycleConfirm = async (): Promise<void> => {
-    if (!lifecycleDialog) return;
-    const { kind, session } = lifecycleDialog;
-    if (kind === 'archive') await page.archive(session.id);
-    else if (kind === 'delete') await page.softDelete(session.id);
-    else if (kind === 'restore') await page.restore(session.id);
-    setLifecycleDialog(null);
-  };
+    // Sem histórico — cria uma sessão nova vazia e navega. UX Gemini-like:
+    // composer pronto pra digitar imediatamente.
+    (async () => {
+      try {
+        const created = await trpc.sessions.create.mutate({
+          workspaceId,
+          name: t('session.new.defaultName'),
+        });
+        await invalidateSessions(queryClient);
+        await navigate({
+          to: '/workspaces/$workspaceId/sessions/$sessionId',
+          params: { workspaceId, sessionId: created.id },
+          replace: true,
+        });
+      } catch (error) {
+        inFlightRef.current = false;
+        toast.error(t('session.create.failed'), {
+          description: error instanceof Error ? error.message : String(error),
+        });
+      }
+    })();
+  }, [sessionsQuery.isLoading, sessionsQuery.data, workspaceId, navigate, t]);
 
-  return (
-    <div className="flex h-full flex-col gap-4 px-4 py-4">
-      <header className="flex items-center justify-between gap-3">
-        <div>
-          <h1 className="text-lg font-semibold">{t('session.list.title')}</h1>
-          <p className="text-sm text-muted-foreground">{t('session.list.description')}</p>
-        </div>
-        <NewSessionButton onClick={handleCreate} />
-      </header>
-      <SessionFilterBar filters={page.filters} onChange={page.setFilters} />
-      <div className="min-h-0 flex-1 rounded-xl border">
-        <SessionList
-          sessions={page.items}
-          activeSessionId={null}
-          isLoading={page.isLoading}
-          onOpen={handleOpen}
-          onCreate={handleCreate}
-          onContextMenu={(event, session) => {
-            event.preventDefault();
-            setContextMenu({ session, x: event.clientX, y: event.clientY });
-          }}
-        />
-      </div>
-      {contextMenu ? (
-        <SessionContextMenu
-          open={true}
-          position={{ x: contextMenu.x, y: contextMenu.y }}
-          session={contextMenu.session}
-          onClose={() => setContextMenu(null)}
-          onPin={(id, pinned) => page.pin(id, pinned)}
-          onStar={(id, starred) => page.star(id, starred)}
-          onMarkRead={(id, unread) => page.markRead(id, unread)}
-          onArchive={(id) => {
-            const session = page.items.find((s) => s.id === id);
-            if (session) setLifecycleDialog({ kind: 'archive', session });
-          }}
-          onRestore={(id) => {
-            const session = page.items.find((s) => s.id === id);
-            if (session) setLifecycleDialog({ kind: 'restore', session });
-          }}
-          onDelete={(id) => {
-            const session = page.items.find((s) => s.id === id);
-            if (session) setLifecycleDialog({ kind: 'delete', session });
-          }}
-        />
-      ) : null}
-      {lifecycleDialog ? (
-        <SessionLifecycleDialog
-          open={true}
-          kind={lifecycleDialog.kind}
-          sessionName={lifecycleDialog.session.name}
-          onConfirm={handleLifecycleConfirm}
-          onCancel={() => setLifecycleDialog(null)}
-        />
-      ) : null}
-      <GlobalSearch
-        open={page.searchOpen}
-        query={page.searchQuery}
-        results={page.searchResults}
-        onQueryChange={page.setSearchQuery}
-        onOpenChange={(next) => (next ? page.openSearch() : page.closeSearch())}
-        onSelectSession={handleOpen}
-        onSelectMessage={(sessionId) => handleOpen(sessionId)}
-      />
-    </div>
-  );
+  return <ShellLoadingState />;
 }

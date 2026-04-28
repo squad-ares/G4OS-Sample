@@ -66,7 +66,38 @@
 import { readFileSync } from 'node:fs';
 import { globSync } from 'glob';
 
-const MAIN_LIMIT = 6800;
+// 2026-04-26 (code-review-3): teto sobe de 6800 → 6900 por conta de:
+// - CR3-06 slug conflict pre-check em workspaces-service (~13 LOC).
+// - CR3-13 transfer-manifest e legacy-import retornando Result em vez
+//   de throw (~40 LOC adicionais entre err/ok wrappers e callers).
+// - CR3-01 + CR3-03 wiring de @g4os/platform em platform-service e
+//   isMacOS no index (~10 LOC líquidos).
+//
+// 2026-04-27 (code-review-5): teto sobe de 6900 → 7100 por conta de:
+// - CR5-01 wiring de BackupScheduler + cleanupOrphanTmp no boot
+//   (~36 LOC líquidos no index.ts).
+// - Extrações para manter index ≤ 300: services/backup-bootstrap.ts,
+//   services/cleanup-orphan-tmp-bootstrap.ts, services/shutdown-bootstrap.ts
+//   (~95 LOC adicionais, mas são helpers focados de 1 responsabilidade).
+//
+// 2026-04-27 (code-review-6): teto sobe de 7100 → 7200 por conta de:
+// - CR6-06 AppLifecycle vira `DisposableBase` + remove de SIGINT/SIGTERM
+//   e listeners de `app` (~25 LOC líquidos em app-lifecycle.ts).
+// - CR6-08 `drainActiveTurns` extraído para sessions/turn-drain.ts
+//   (~35 LOC) + wiring de `completion` no `ActiveTurn` em turn-dispatcher.
+// - CR6-09 try/catch no `onMutation` callback do CredentialsService.
+// - CR6-15 whitelist de scheme + path em deep-link-handler (~25 LOC).
+// - CR6-19 mount-plan log spam reduzido (sem mudança de LOC líquida).
+//
+// 2026-04-27 (code-review-10): teto sobe de 7200 → 7250 por conta de:
+// - sources/secrets.ts (189 LOC novos, módulo dedicado) — separa o vault
+//   de segredos por bucket (env/headers) do `sources-service.ts`, com
+//   `secureSourceConfigSecrets` / `hydrateSourceSecrets` /
+//   `migrateStoredSourceSecrets` / `deleteSourceSecrets`.
+// - sources-service.ts +69 LOC para wire de credentialRefs no create
+//   stdio/http/delete/testConnection. Crescimento líquido em main: +23 LOC
+//   após reaproveitamento dos helpers de secrets em vez de inline.
+const MAIN_LIMIT = 7250;
 const FILE_LIMIT = 300;
 
 const files = globSync('apps/desktop/src/main/**/*.ts', {

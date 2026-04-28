@@ -9,6 +9,19 @@ import type { WindowManager } from './window-manager.ts';
 
 const log = createLogger('deep-link');
 
+// CR6-15: scheme + path whitelist. URLs `g4os://` que não casem com um
+// destino conhecido são rejeitadas — evita trafficking de path arbitrário
+// pra `windowManager.open` (que viraria URL do renderer).
+const ACCEPTED_SCHEMES: readonly string[] = ['g4os:', 'g4os-internal:'];
+// Hosts/paths reconhecidos. Qualquer deep-link novo precisa ser registrado
+// aqui, idealmente com teste de adversarial input.
+const PATH_WHITELIST: readonly RegExp[] = [
+  /^\/?$/, // raiz
+  /^\/workspace\/[a-z0-9-]{1,64}\/?$/i,
+  /^\/session\/[a-z0-9-]{1,64}\/?$/i,
+  /^\/auth\/callback\/?$/i,
+];
+
 export class DeepLinkHandler {
   constructor(private readonly windowManager: WindowManager) {}
 
@@ -21,7 +34,19 @@ export class DeepLinkHandler {
       return;
     }
 
-    log.info({ host: url.host, path: url.pathname }, 'deep link received');
+    if (!ACCEPTED_SCHEMES.includes(url.protocol)) {
+      log.warn({ scheme: url.protocol }, 'deep link rejected: unknown scheme');
+      return;
+    }
+
+    const path = url.pathname || '/';
+    const allowed = PATH_WHITELIST.some((re) => re.test(path));
+    if (!allowed) {
+      log.warn({ host: url.host, path }, 'deep link rejected: path not whitelisted');
+      return;
+    }
+
+    log.info({ host: url.host, path }, 'deep link received');
 
     const [existing] = this.windowManager.list();
     if (!existing) {

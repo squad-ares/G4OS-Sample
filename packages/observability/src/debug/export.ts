@@ -1,10 +1,26 @@
 import { createReadStream, createWriteStream, existsSync } from 'node:fs';
-import { readdir, readFile, stat } from 'node:fs/promises';
-import { basename, join } from 'node:path';
+import { readdir, readFile, realpath, stat } from 'node:fs/promises';
+import { basename, join, sep } from 'node:path';
 import { Readable } from 'node:stream';
 import archiver from 'archiver';
 import { exportMetrics, type G4Metrics, getMetrics } from '../metrics/index.ts';
 import { redactSecretsInText, sanitizeConfig } from './redact.ts';
+
+/**
+ * Garante que `child` (após resolver symlinks) está dentro de `root`. Previne
+ * inclusão acidental de arquivos externos via symlink dentro do logsDir/crashesDir
+ * (CR4-07: information disclosure em debug export compartilhado com support).
+ */
+async function isInsideRealRoot(child: string, root: string): Promise<boolean> {
+  try {
+    const realChild = await realpath(child);
+    const realRoot = await realpath(root);
+    const rootWithSep = realRoot.endsWith(sep) ? realRoot : `${realRoot}${sep}`;
+    return realChild === realRoot || realChild.startsWith(rootWithSep);
+  } catch {
+    return false;
+  }
+}
 
 export interface DebugExportSystemInfo {
   readonly app: { readonly name: string; readonly version: string; readonly flavor?: string };
@@ -50,22 +66,41 @@ export async function exportDebugInfo(options: DebugExportOptions): Promise<Debu
   });
   archive.pipe(output);
 
-  appendJson(archive, 'system.json', options.systemInfo);
-  entries.push('system.json');
+  // CR7-23: cleanup do ZIP parcial em qualquer falha de write/append.
+  // Sem isso, disk-full mid-write deixava arquivo corrompido com extensão
+  // .zip em uso pelo support team — diagnóstico ficava ainda mais difícil
+  // que sem export. Wrap completo em try/finally que rm() o output se
+  // não chegamos ao final OK.
+  let succeeded = false;
+  try {
+    appendJson(archive, 'system.json', options.systemInfo);
+    entries.push('system.json');
 
-  appendJson(archive, 'config.json', sanitizeConfig(options.config));
-  entries.push('config.json');
+    appendJson(archive, 'config.json', sanitizeConfig(options.config));
+    entries.push('config.json');
 
-  await appendLogs(archive, options, entries);
-  await appendMetrics(archive, options, entries);
-  appendCrashes(archive, options, entries);
-  appendProcessSnapshot(archive, options, entries);
+    await appendLogs(archive, options, entries);
+    await appendMetrics(archive, options, entries);
+    await appendCrashes(archive, options, entries);
+    appendProcessSnapshot(archive, options, entries);
 
-  await archive.finalize();
-  await closed;
+    await archive.finalize();
+    await closed;
+    succeeded = true;
 
-  const finalStat = await stat(options.outputPath);
-  return { outputPath: options.outputPath, byteLength: finalStat.size, entries };
+    const finalStat = await stat(options.outputPath);
+    return { outputPath: options.outputPath, byteLength: finalStat.size, entries };
+  } finally {
+    if (!succeeded) {
+      // best-effort cleanup; se falhou ao escrever, remover .zip parcial
+      try {
+        const { rm } = await import('node:fs/promises');
+        await rm(options.outputPath, { force: true });
+      } catch {
+        // best-effort
+      }
+    }
+  }
 }
 
 async function appendLogs(
@@ -79,6 +114,8 @@ async function appendLogs(
   for (const file of await readdir(options.logsDir)) {
     if (!file.endsWith('.log') && !file.endsWith('.log.jsonl')) continue;
     const filePath = join(options.logsDir, file);
+    // CR4-07: rejeita symlinks que escapam de logsDir.
+    if (!(await isInsideRealRoot(filePath, options.logsDir))) continue;
     const info = await stat(filePath);
     if (info.mtimeMs < cutoff || info.size > MAX_LOG_BYTES) continue;
     const content = await readFile(filePath, 'utf-8');
@@ -98,14 +135,31 @@ async function appendMetrics(
   entries.push('metrics.prom');
 }
 
-function appendCrashes(
+async function appendCrashes(
   archive: archiver.Archiver,
   options: DebugExportOptions,
   entries: string[],
-): void {
+): Promise<void> {
   if (!options.crashesDir || !existsSync(options.crashesDir)) return;
-  archive.directory(options.crashesDir, 'crashes');
-  entries.push('crashes/');
+  // CR5-03: itera per-arquivo com `isInsideRealRoot` para rejeitar symlinks
+  // que escapam de `crashesDir`. `archive.directory()` não permite filtro
+  // per-entry seguro contra path traversal — refator obrigatório.
+  const baseDir = options.crashesDir;
+  let added = false;
+  try {
+    const fileNames = await readdir(baseDir);
+    for (const name of fileNames) {
+      const filePath = join(baseDir, name);
+      if (!(await isInsideRealRoot(filePath, baseDir))) continue;
+      const info = await stat(filePath);
+      if (!info.isFile()) continue;
+      archive.file(filePath, { name: `crashes/${name}` });
+      added = true;
+    }
+  } catch {
+    // best-effort; ausência de crashes não é erro
+  }
+  if (added) entries.push('crashes/');
 }
 
 function appendProcessSnapshot(
@@ -114,7 +168,10 @@ function appendProcessSnapshot(
   entries: string[],
 ): void {
   if (options.processSnapshot === undefined) return;
-  appendJson(archive, 'processes.json', options.processSnapshot);
+  // CR9: processSnapshot pode embutir command lines (com tokens em argv),
+  // env vars, paths absolutos com username — passa por sanitize igual aos
+  // outros payloads. Antes era apendado raw e vazava PII no debug ZIP.
+  appendJson(archive, 'processes.json', sanitizeConfig(options.processSnapshot));
   entries.push('processes.json');
 }
 

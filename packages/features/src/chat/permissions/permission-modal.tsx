@@ -54,6 +54,12 @@ export function PermissionModal({ request, pendingCount, onDecide }: PermissionM
   const { t } = useTranslate();
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
+      // Antes: listener global capturava 'a'/'d' em qualquer input do app.
+      // Digitar essas letras em qualquer textarea/input disparava
+      // allow/deny. Agora ignoramos quando o foco está em campo
+      // editável ou quando há modifier (mod-A é select-all, etc).
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (isTypingTarget(e.target)) return;
       if (e.key === 'a') onDecide({ type: 'allow', scope: 'once' });
       if (e.key === 'd') onDecide({ type: 'deny' });
     }
@@ -106,4 +112,11 @@ export function PermissionModal({ request, pendingCount, onDecide }: PermissionM
       </DialogContent>
     </Dialog>
   );
+}
+
+function isTypingTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  if (target.isContentEditable) return true;
+  const tag = target.tagName;
+  return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
 }

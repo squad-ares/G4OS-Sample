@@ -18,7 +18,18 @@ describe('resolveRuntimeMode', () => {
     expect(resolveRuntimeMode({ platform: 'darwin', executionMode: 'host' })).toBe('compat');
   });
 
-  it('respects explicit container (protected) even on Windows', () => {
-    expect(resolveRuntimeMode({ platform: 'win32', executionMode: 'container' })).toBe('protected');
+  it('downgrades container to compat on Windows with warn (CR7-48)', () => {
+    // CR7-48: Windows não suporta protected runtime; mesmo com container
+    // explícito, downgrade para compat com log warn é o comportamento
+    // intencional. Antes este teste esperava 'protected', mas a impl
+    // (e o ADR-0081 / CLAUDE.md) confirma que Windows é compat-only.
+    expect(resolveRuntimeMode({ platform: 'win32', executionMode: 'container' })).toBe('compat');
+  });
+
+  it('respects explicit container (protected) on non-Windows', () => {
+    expect(resolveRuntimeMode({ platform: 'darwin', executionMode: 'container' })).toBe(
+      'protected',
+    );
+    expect(resolveRuntimeMode({ platform: 'linux', executionMode: 'container' })).toBe('protected');
   });
 });

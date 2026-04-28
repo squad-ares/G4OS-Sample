@@ -10,6 +10,7 @@ import { err, ok, type Result } from 'neverthrow';
 import {
   bootstrapWorkspaceFilesystem,
   cleanupWorkspaceFilesystem,
+  seedBundledSkills,
   seedDefaultLabels,
 } from './workspaces/filesystem.ts';
 import {
@@ -80,6 +81,24 @@ export class SqliteWorkspacesService implements WorkspacesServiceContract {
     const now = Date.now();
     const rootPath = input.rootPath || this.#deps.resolveRootPath(id);
 
+    // Pré-check de slug duplicado antes do insert. SQLite tem UNIQUE
+    // constraint na coluna `slug`, mas sem o pré-check qualquer caller cai
+    // em erro genérico de driver — UI/i18n não consegue distinguir.
+    const existing = this.#deps.drizzle
+      .select({ id: workspaces.id })
+      .from(workspaces)
+      .where(eq(workspaces.slug, slug))
+      .get();
+    if (existing) {
+      return err(
+        new AppError({
+          code: ErrorCode.WORKSPACE_SLUG_CONFLICT,
+          message: `workspace slug already exists: ${slug}`,
+          context: { slug, name: input.name },
+        }),
+      );
+    }
+
     const workspace: Workspace = {
       id,
       name: input.name.trim(),
@@ -111,6 +130,7 @@ export class SqliteWorkspacesService implements WorkspacesServiceContract {
     try {
       await bootstrapWorkspaceFilesystem(rootPath);
       await seedDefaultLabels(rootPath);
+      await seedBundledSkills(rootPath);
     } catch (fsErr) {
       log.error({ err: fsErr, id, rootPath }, 'workspace filesystem bootstrap failed');
       this.#deps.drizzle.delete(workspaces).where(eq(workspaces.id, id)).run();
@@ -179,6 +199,19 @@ export class SqliteWorkspacesService implements WorkspacesServiceContract {
 
     log.info({ id, removedFiles: options?.removeFiles === true }, 'workspace deleted');
     return ok(undefined);
+  }
+
+  async getSetupNeeds(id: WorkspaceId) {
+    const result = await this.get(id);
+    if (result.isErr()) return err(result.error);
+    const ws = result.value;
+    const needsInitialSetup = ws.setupCompleted !== true;
+    const needsStyleSetup = ws.setupCompleted === true && ws.styleSetupCompleted !== true;
+    return ok({
+      needsInitialSetup,
+      needsStyleSetup,
+      isFullyConfigured: !needsInitialSetup && !needsStyleSetup,
+    });
   }
 }
 

@@ -93,7 +93,7 @@ function LabelRow({ label, depth, onRename, onDelete, onCreateChild }: LabelRowP
   return (
     <li
       style={{ paddingLeft: depth * 16 }}
-      className="flex items-center gap-2 rounded-md px-2 py-1 text-sm hover:bg-foreground/5"
+      className="flex items-center gap-2 rounded-md px-2 py-1 text-sm hover:bg-accent/12"
     >
       {label.color ? (
         <span

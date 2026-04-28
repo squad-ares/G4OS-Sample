@@ -130,7 +130,7 @@ function SourceRow({ source, enabled, rejected, onToggle }: SourceRowProps): Rea
         className={`flex w-full items-center gap-2 px-3 py-1.5 text-left transition-colors ${
           unselectable
             ? 'cursor-not-allowed opacity-50'
-            : 'hover:bg-foreground/5 aria-[pressed=true]:bg-accent/60'
+            : 'hover:bg-accent/12 aria-[pressed=true]:bg-accent/60'
         }`}
         aria-pressed={enabled}
       >

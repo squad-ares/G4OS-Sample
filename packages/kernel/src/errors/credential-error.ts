@@ -44,9 +44,24 @@ export class CredentialError extends AppError {
 
   static invalidKey(key: string): CredentialError {
     return new CredentialError({
-      code: ErrorCode.CREDENTIAL_NOT_FOUND,
+      code: ErrorCode.CREDENTIAL_INVALID_KEY,
       message: `Invalid credential key: ${key}`,
       context: { key },
     });
   }
+
+  /**
+   * CR5-19: razão tipada (enum) para discriminação caller-side sem
+   * parsear strings. Caller pode `switch (err.context.reason)` se
+   * `err.code === CREDENTIAL_INVALID_VALUE`.
+   */
+  static invalidValue(reason: CredentialInvalidValueReason): CredentialError {
+    return new CredentialError({
+      code: ErrorCode.CREDENTIAL_INVALID_VALUE,
+      message: `Invalid credential value: ${reason}`,
+      context: { reason },
+    });
+  }
 }
+
+export type CredentialInvalidValueReason = 'empty' | 'too_long';

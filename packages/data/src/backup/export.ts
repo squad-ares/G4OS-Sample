@@ -9,7 +9,8 @@
  */
 
 import { createWriteStream } from 'node:fs';
-import { join } from 'node:path';
+import { mkdir } from 'node:fs/promises';
+import { dirname, join } from 'node:path';
 import { createLogger } from '@g4os/kernel/logger';
 import archiver from 'archiver';
 import { eq } from 'drizzle-orm';
@@ -38,7 +39,14 @@ export interface ExportBackupResult {
   manifestVersion: number;
 }
 
-export function exportWorkspaceBackup(params: ExportBackupParams): Promise<ExportBackupResult> {
+export async function exportWorkspaceBackup(
+  params: ExportBackupParams,
+): Promise<ExportBackupResult> {
+  // CR4-16: garante que o diretório de destino existe antes de abrir o
+  // stream. Sem isso, `createWriteStream` em path inexistente emite erro
+  // assíncrono ao invés de falhar fast no caller.
+  await mkdir(dirname(params.outputPath), { recursive: true });
+
   const workspace = params.db
     .select()
     .from(workspaces)

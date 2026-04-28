@@ -1,7 +1,6 @@
-import { useTranslate } from '@g4os/ui';
+import { StatusPanel, useTranslate } from '@g4os/ui';
 import { Cloud, HardDrive } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { ShellStatusPanel } from '../../shell/index.ts';
 
 /**
  * CloudSyncCategory — placeholder até backend de cloud sync estar wired.
@@ -13,7 +12,7 @@ export function CloudSyncCategory(): ReactNode {
   const { t } = useTranslate();
   return (
     <div className="flex flex-col gap-4">
-      <ShellStatusPanel
+      <StatusPanel
         title={t('settings.cloudSync.enable.title')}
         description={t('settings.cloudSync.enable.description')}
         badge={t('settings.comingSoon')}
@@ -22,9 +21,9 @@ export function CloudSyncCategory(): ReactNode {
           <Cloud className="size-5 shrink-0 text-muted-foreground" aria-hidden={true} />
           <p className="text-xs text-muted-foreground">{t('settings.cloudSync.enable.status')}</p>
         </div>
-      </ShellStatusPanel>
+      </StatusPanel>
 
-      <ShellStatusPanel
+      <StatusPanel
         title={t('settings.cloudSync.scope.title')}
         description={t('settings.cloudSync.scope.description')}
         badge={t('settings.comingSoon')}
@@ -34,9 +33,9 @@ export function CloudSyncCategory(): ReactNode {
           <ScopeItem label={t('settings.cloudSync.scope.config')} />
           <ScopeItem label={t('settings.cloudSync.scope.attachments')} negative={true} />
         </ul>
-      </ShellStatusPanel>
+      </StatusPanel>
 
-      <ShellStatusPanel
+      <StatusPanel
         title={t('settings.cloudSync.backups.title')}
         description={t('settings.cloudSync.backups.description')}
         badge={t('settings.comingSoon')}
@@ -45,7 +44,7 @@ export function CloudSyncCategory(): ReactNode {
           <HardDrive className="size-5 shrink-0 text-muted-foreground" aria-hidden={true} />
           <p className="text-xs text-muted-foreground">{t('settings.cloudSync.backups.status')}</p>
         </div>
-      </ShellStatusPanel>
+      </StatusPanel>
     </div>
   );
 }

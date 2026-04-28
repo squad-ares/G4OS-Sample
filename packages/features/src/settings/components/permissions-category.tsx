@@ -1,7 +1,6 @@
-import { Button, useTranslate } from '@g4os/ui';
+import { Button, StatusPanel, useTranslate } from '@g4os/ui';
 import { RotateCcw, ShieldCheck, ShieldQuestion, Wrench } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { ShellStatusPanel } from '../../shell/index.ts';
 
 export interface ToolPermissionDecisionView {
   readonly toolName: string;
@@ -43,7 +42,7 @@ export function PermissionsCategory(props: PermissionsCategoryProps): ReactNode 
 
   return (
     <div className="flex flex-col gap-4">
-      <ShellStatusPanel
+      <StatusPanel
         title={t('settings.permissions.tools.title')}
         description={t('settings.permissions.tools.description')}
       >
@@ -62,9 +61,9 @@ export function PermissionsCategory(props: PermissionsCategoryProps): ReactNode 
             ))}
           </ul>
         )}
-      </ShellStatusPanel>
+      </StatusPanel>
 
-      <ShellStatusPanel
+      <StatusPanel
         title={t('settings.permissions.sources.title')}
         description={t('settings.permissions.sources.description')}
       >
@@ -133,7 +132,7 @@ export function PermissionsCategory(props: PermissionsCategoryProps): ReactNode 
             )}
           </div>
         )}
-      </ShellStatusPanel>
+      </StatusPanel>
     </div>
   );
 }

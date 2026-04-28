@@ -4,14 +4,18 @@ import * as React from 'react';
 import { cn } from '../libs/utils.ts';
 
 const buttonVariants = cva(
-  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-[16px] text-sm font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 select-none',
+  // CR-UX: `cursor-pointer` no base + `transition-colors` (não `transition-all`)
+  // pra evitar transitions caras (transform, shadow). Hover muda só cor +
+  // opacity nas variantes — sem `translate` pra evitar movimento que parece
+  // "saltar" e atrapalha leitura/clique.
+  'inline-flex cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-[16px] text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 select-none',
   {
     variants: {
       variant: {
         default:
-          'bg-foreground text-background shadow-[0_18px_34px_rgba(0,31,53,0.18)] hover:-translate-y-0.5 hover:bg-foreground/92',
+          'bg-foreground text-background shadow-[0_18px_34px_rgba(0,31,53,0.18)] hover:bg-foreground/92',
         destructive:
-          'bg-destructive text-destructive-foreground shadow-[0_18px_34px_rgba(132,46,32,0.22)] hover:-translate-y-0.5 hover:bg-destructive/92',
+          'bg-destructive text-destructive-foreground shadow-[0_18px_34px_rgba(132,46,32,0.22)] hover:bg-destructive/92',
         outline:
           'border border-foreground/12 bg-background/82 shadow-[inset_0_1px_0_rgba(255,255,255,0.28)] hover:border-accent/60 hover:bg-accent/8',
         secondary:

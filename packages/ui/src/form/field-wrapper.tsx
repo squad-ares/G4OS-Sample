@@ -58,18 +58,21 @@ export function FieldWrapper({
 
       {children}
 
-      {/* Área de erro: mantém altura reservada para evitar layout shift */}
-      <p
-        id={`${name}-error`}
-        role="alert"
-        aria-live="polite"
-        className={cn(
-          'text-xs text-destructive transition-opacity duration-200 h-1',
-          error ? 'opacity-100' : 'opacity-0 pointer-events-none',
-        )}
-      >
-        {error}
-      </p>
+      {/* CR5-13: spacer phantom removido. `gap-1.5` no container parent
+          já cobre espaçamento; renderizar `<p aria-hidden>` em todos
+          os campos era anti-idiomático e poluía o DOM em forms grandes
+          (50 campos = 50 elementos extras). Layout shift inexistente
+          porque `gap` colapsa para 0 quando o sibling some. */}
+      {error ? (
+        <p
+          id={`${name}-error`}
+          role="alert"
+          aria-live="polite"
+          className="text-xs text-destructive transition-opacity duration-200"
+        >
+          {error}
+        </p>
+      ) : null}
     </div>
   );
 }

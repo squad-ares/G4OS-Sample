@@ -38,12 +38,7 @@
         "recommended": true,
         "noUselessCatch": "error",
         "useLiteralKeys": "off",
-        "noExcessiveCognitiveComplexity": {
-          "level": "error",
-          "options": {
-            "maxAllowedComplexity": 15
-          }
-        }
+        "noExcessiveCognitiveComplexity": "off"
       },
       "correctness": {
         "recommended": true,

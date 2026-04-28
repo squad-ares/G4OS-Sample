@@ -1,6 +1,6 @@
 import type { SessionId } from '@g4os/kernel';
-import { DisposableBase } from '@g4os/kernel/disposable';
-import { AgentError } from '@g4os/kernel/errors';
+import { DisposableBase, toDisposable } from '@g4os/kernel/disposable';
+import type { AgentError } from '@g4os/kernel/errors';
 import { createLogger, type Logger } from '@g4os/kernel/logger';
 import { ok, type Result } from 'neverthrow';
 import { Observable } from 'rxjs';
@@ -11,6 +11,7 @@ import type {
   AgentTurnInput,
   IAgent,
 } from '../interface/agent.ts';
+import { wrapAgentError } from '../shared/errors/wrap-agent-error.ts';
 import { detectGeminiCapabilities } from './capabilities.ts';
 import { StreamRunner } from './runner/stream-runner.ts';
 import type { GeminiProvider, GeminiTurnStrategy } from './types.ts';
@@ -37,6 +38,16 @@ export class GoogleAgent extends DisposableBase implements IAgent {
     this.capabilities = detectGeminiCapabilities(config.modelId);
     this.log = options.logger ?? createLogger('google-agent');
     this.runner = new StreamRunner(provider);
+    // CR5-06: cleanup centralizado via _register (FIFO no DisposableStore):
+    // abort PRIMEIRO, clear DEPOIS — caso contrário map vazio antes do abort.
+    this._register(
+      toDisposable(() => {
+        for (const controller of this.activeControllers.values()) {
+          if (!controller.signal.aborted) controller.abort();
+        }
+      }),
+    );
+    this._register(toDisposable(() => this.activeControllers.clear()));
   }
 
   run(input: AgentTurnInput): Observable<AgentEvent> {
@@ -57,7 +68,13 @@ export class GoogleAgent extends DisposableBase implements IAgent {
           }
           subscriber.complete();
         } catch (err) {
-          subscriber.error(err instanceof AgentError ? err : AgentError.network('google', err));
+          // Antes: `subscriber.error(...)` virava RxJS error sem nunca
+          // emitir `done`. Quebrava o contrato `AgentEvent` que outros
+          // backends respeitam (Claude, OpenAI, Codex emitem error +
+          // done:error antes de complete).
+          subscriber.next({ type: 'error', error: wrapAgentError(err, 'google') });
+          subscriber.next({ type: 'done', reason: 'error' });
+          subscriber.complete();
         } finally {
           this.releaseController(input.sessionId, controller);
         }
@@ -81,13 +98,8 @@ export class GoogleAgent extends DisposableBase implements IAgent {
     return Promise.resolve(ok(undefined));
   }
 
-  override dispose(): void {
-    for (const controller of this.activeControllers.values()) {
-      if (!controller.signal.aborted) controller.abort();
-    }
-    this.activeControllers.clear();
-    super.dispose();
-  }
+  // dispose() herdado de DisposableBase — executa LIFO os disposables
+  // registrados no constructor (CR5-06).
 
   private async resolveStrategy(
     input: AgentTurnInput,

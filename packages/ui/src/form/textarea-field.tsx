@@ -15,6 +15,20 @@ export interface TextareaFieldProps<TForm extends FieldValues> extends UseContro
   minRows?: number | undefined;
   /** Número máximo de linhas antes de scroll (default: 10) */
   maxRows?: number | undefined;
+  /**
+   * Browsers default `autoComplete` para `on` em textarea, o que pode poluir
+   * UI de chat composer com sugestões de histórico. Default permanece nativo
+   * (undefined → `on`); composer/forms passam `'off'` quando precisa.
+   */
+  autoComplete?: string | undefined;
+  // ARIA combobox: quando o textarea funciona como typeahead (mention,
+  // slash command, mention picker), o role pertence ao input/textarea —
+  // não ao popover. CLAUDE.md V2 obriga essa estrutura.
+  role?: 'textbox' | 'combobox' | undefined;
+  ariaExpanded?: boolean | undefined;
+  ariaControls?: string | undefined;
+  ariaActiveDescendant?: string | undefined;
+  ariaAutoComplete?: 'list' | 'inline' | 'both' | 'none' | undefined;
 }
 
 /**
@@ -37,6 +51,12 @@ export function TextareaField<TForm extends FieldValues>({
   required,
   minRows = 3,
   maxRows = 10,
+  autoComplete,
+  role,
+  ariaExpanded,
+  ariaControls,
+  ariaActiveDescendant,
+  ariaAutoComplete,
 }: Readonly<TextareaFieldProps<TForm>>) {
   const controllerProps = {
     name,
@@ -60,9 +80,9 @@ export function TextareaField<TForm extends FieldValues>({
     [field.ref],
   );
 
-  // Auto-resize
+  // Auto-resize do textarea conforme conteúdo cresce
   useEffect(() => {
-    // Explicit read allows Biome to consider field.value a correct exhaustive dependency
+    // Leitura explícita pra Biome considerar `field.value` como dependência exhaustiva
     void field.value;
     const el = textareaRef.current;
     if (!el) return;
@@ -82,6 +102,7 @@ export function TextareaField<TForm extends FieldValues>({
       required={required}
       className={className}
     >
+      {/* biome-ignore lint/a11y/useAriaPropsSupportedByRole: (reason: aria-expanded/-controls/-activedescendant válidos quando role="combobox" é passado pelo caller — biome não infere role dinâmico via prop) */}
       <textarea
         id={name}
         ref={setRef}
@@ -94,6 +115,12 @@ export function TextareaField<TForm extends FieldValues>({
         aria-invalid={Boolean(error)}
         aria-describedby={error ? `${name}-error` : undefined}
         rows={minRows}
+        autoComplete={autoComplete}
+        role={role}
+        aria-expanded={ariaExpanded}
+        aria-controls={ariaControls}
+        aria-activedescendant={ariaActiveDescendant}
+        aria-autocomplete={ariaAutoComplete}
         className={cn(
           'flex w-full rounded-md border border-foreground/15 bg-transparent px-3 py-2 text-sm shadow-sm',
           'placeholder:text-muted-foreground',

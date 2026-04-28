@@ -6,7 +6,13 @@ import { fileURLToPath } from 'node:url';
 import type { Message, SessionEvent } from '@g4os/kernel/schemas';
 import { eq } from 'drizzle-orm';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { applyEvent, catchUp, rebuildProjection, SessionEventStore } from '../events/index.ts';
+import {
+  applyEvent,
+  catchUp,
+  rebuildProjection,
+  SessionEventStore,
+  truncateProjection,
+} from '../events/index.ts';
 import {
   type AppDb,
   createDrizzle,
@@ -70,16 +76,22 @@ describe('SessionEventStore', () => {
     await expect(store.append(sessionId, bad)).rejects.toThrow();
   });
 
-  it('throws on corrupted JSON line during read', async () => {
+  it('skips corrupted JSON line during read but yields valid lines (CR7-21)', async () => {
     const store = new SessionEventStore('ws-1', { workspaceRoot: tmpDir });
     const sessionId = randomUUID();
     await store.append(sessionId, makeSessionCreated(sessionId, 0));
-    // Corrompe manualmente
+    // Corrompe manualmente: linha inválida no meio
     await writeFile(store.path(sessionId), 'not-json\n', { flag: 'a' });
+    await store.append(sessionId, makeMessageAdded(sessionId, 1, 'after-corruption'));
 
-    await expect(async () => {
-      for await (const _ of store.read(sessionId));
-    }).rejects.toThrow();
+    // CR7-21: linhas corrompidas devem ser puladas com log warn, não
+    // throw. Sem isso, sessão inteira ficava inacessível por uma linha
+    // ruim. Verifica que linhas válidas continuam sendo yielded.
+    const events = [];
+    for await (const event of store.read(sessionId)) events.push(event);
+    expect(events).toHaveLength(2);
+    expect(events[0]?.type).toBe('session.created');
+    expect(events[1]?.type).toBe('message.added');
   });
 
   it('truncateAfter removes events beyond the given sequence', async () => {
@@ -351,3 +363,117 @@ function makeMessageAdded(sessionId: string, seq: number, text = 'msg'): Session
     message,
   };
 }
+
+describe('truncateProjection', () => {
+  let db: Db;
+  let drizzle: AppDb;
+  let tmpDir: string;
+  const workspaceId = randomUUID();
+  const sessionId = randomUUID();
+
+  beforeEach(async () => {
+    tmpDir = await mkdtemp(join(tmpdir(), 'g4os-truncate-'));
+    db = new Db();
+    await db.open({ filename: join(tmpDir, 'app.db') });
+    drizzle = createDrizzle(db);
+    runMigrations(drizzle, { migrationsFolder: MIGRATIONS_FOLDER });
+    drizzle
+      .insert(workspaces)
+      .values({
+        id: workspaceId,
+        name: 'Test',
+        slug: `test-${Date.now()}`,
+        rootPath: tmpDir,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      })
+      .run();
+
+    // Seed projection: session + 3 messages at seq 0-3
+    applyEvent(drizzle, makeSessionCreated(sessionId, 0, workspaceId));
+    applyEvent(drizzle, makeMessageAdded(sessionId, 1, 'alpha'));
+    applyEvent(drizzle, makeMessageAdded(sessionId, 2, 'beta'));
+    applyEvent(drizzle, makeMessageAdded(sessionId, 3, 'gamma'));
+  });
+
+  afterEach(async () => {
+    db.dispose();
+    await rm(tmpDir, { recursive: true, force: true });
+  });
+
+  it('removes messages_index rows beyond cutoff', () => {
+    truncateProjection(drizzle, sessionId, 1);
+
+    const msgs = drizzle
+      .select()
+      .from(messagesIndex)
+      .where(eq(messagesIndex.sessionId, sessionId))
+      .all();
+    expect(msgs).toHaveLength(1);
+    expect(msgs[0]?.contentPreview).toBe('alpha');
+  });
+
+  it('updates sessions.lastEventSequence and messageCount', () => {
+    truncateProjection(drizzle, sessionId, 1);
+
+    const row = drizzle.select().from(sessions).where(eq(sessions.id, sessionId)).get();
+    expect(row?.lastEventSequence).toBe(1);
+    expect(row?.messageCount).toBe(1);
+  });
+
+  it('resets checkpoint to the cutoff sequence', () => {
+    truncateProjection(drizzle, sessionId, 1);
+
+    const cp = drizzle
+      .select()
+      .from(eventCheckpoints)
+      .where(eq(eventCheckpoints.sessionId, sessionId))
+      .get();
+    expect(cp?.lastSequence).toBe(1);
+  });
+
+  it('truncating at current tail is a no-op on rows', () => {
+    truncateProjection(drizzle, sessionId, 3);
+
+    const msgs = drizzle
+      .select()
+      .from(messagesIndex)
+      .where(eq(messagesIndex.sessionId, sessionId))
+      .all();
+    expect(msgs).toHaveLength(3);
+
+    const row = drizzle.select().from(sessions).where(eq(sessions.id, sessionId)).get();
+    expect(row?.messageCount).toBe(3);
+    expect(row?.lastEventSequence).toBe(3);
+  });
+
+  it('truncating at -1 removes all messages_index rows and sets messageCount to 0', () => {
+    truncateProjection(drizzle, sessionId, -1);
+
+    const msgs = drizzle
+      .select()
+      .from(messagesIndex)
+      .where(eq(messagesIndex.sessionId, sessionId))
+      .all();
+    expect(msgs).toHaveLength(0);
+
+    const row = drizzle.select().from(sessions).where(eq(sessions.id, sessionId)).get();
+    expect(row?.messageCount).toBe(0);
+    expect(row?.lastEventSequence).toBe(0);
+  });
+
+  it('creates checkpoint row if none existed before', () => {
+    // Remove existing checkpoint to simulate fresh state
+    drizzle.delete(eventCheckpoints).where(eq(eventCheckpoints.sessionId, sessionId)).run();
+
+    truncateProjection(drizzle, sessionId, 2);
+
+    const cp = drizzle
+      .select()
+      .from(eventCheckpoints)
+      .where(eq(eventCheckpoints.sessionId, sessionId))
+      .get();
+    expect(cp?.lastSequence).toBe(2);
+    expect(cp?.consumerName).toBe('messages-index');
+  });
+});

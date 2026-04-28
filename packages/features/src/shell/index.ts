@@ -24,9 +24,20 @@ export {
   type ShellShortcutsDialogProps,
 } from './components/shell-shortcuts-dialog.tsx';
 export {
+  type AutomationKind,
+  type AutomationPanelItem,
+  AutomationsPanel,
+  type AutomationsPanelProps,
+} from './components/sub-sidebar/automations-panel.tsx';
+export {
   ContextualSubSidebar,
   type ContextualSubSidebarProps,
 } from './components/sub-sidebar/contextual-sub-sidebar.tsx';
+export {
+  MarketplacePanel,
+  type MarketplacePanelItem,
+  type MarketplacePanelProps,
+} from './components/sub-sidebar/marketplace-panel.tsx';
 export {
   PlaceholderPanel,
   type PlaceholderPanelProps,
@@ -42,6 +53,10 @@ export {
   type SessionsPanelSessionItem,
   type SessionsSubTab,
 } from './components/sub-sidebar/sessions-panel.tsx';
+export {
+  SourcesPanel,
+  type SourcesPanelProps,
+} from './components/sub-sidebar/sources-panel.tsx';
 export {
   SubSidebarFooter,
   type SubSidebarFooterProps,

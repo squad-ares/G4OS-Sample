@@ -15,7 +15,11 @@ const TooltipContent = React.forwardRef<
       ref={ref}
       sideOffset={sideOffset}
       className={cn(
-        'z-50 overflow-hidden rounded-md border bg-popover px-3 py-1.5 text-xs text-popover-foreground shadow-md animate-in fade-in-0 zoom-in-95',
+        // Border soft: `border-foreground/8` em vez do default `border` (token
+        // de alto contraste). Em dark mode o default era praticamente branco
+        // sólido contra fundo escuro, criando moldura agressiva. /8 dá
+        // separação visual sem competir com o conteúdo.
+        'z-50 overflow-hidden rounded-md border border-foreground/8 bg-popover px-3 py-1.5 text-xs text-popover-foreground shadow-md animate-in fade-in-0 zoom-in-95',
         className,
       )}
       {...props}

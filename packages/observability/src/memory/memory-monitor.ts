@@ -29,6 +29,11 @@ export interface MemoryMonitorOptions {
 const DEFAULT_INTERVAL_MS = 30_000;
 const DEFAULT_HISTORY = 20;
 const DEFAULT_HEAP_GROWTH_RATIO = 1.5;
+// CR8-19: o primeiro sample logo após boot pega o spike de inicialização do
+// V8 (parsing, JIT warmup, framework load). Se virasse baseline, growth
+// threshold nunca dispararia. Skipa os primeiros N samples e usa o N+1
+// como baseline (heap já se estabilizou).
+const BASELINE_SKIP_SAMPLES = 3;
 
 export class MemoryMonitor extends DisposableBase {
   private readonly intervalMs: number;
@@ -41,6 +46,7 @@ export class MemoryMonitor extends DisposableBase {
   private readonly onThresholdExceeded?: (reason: string, sample: MemorySample) => void;
   private readonly history: MemorySample[] = [];
   private baselineHeap: number | undefined;
+  private samplesUntilBaseline = BASELINE_SKIP_SAMPLES;
   private timer: NodeJS.Timeout | undefined;
 
   constructor(options: MemoryMonitorOptions = {}) {
@@ -57,7 +63,19 @@ export class MemoryMonitor extends DisposableBase {
 
   start(): void {
     if (this.timer) return;
-    this.timer = setInterval(() => this.sampleOnce(), this.intervalMs).unref();
+    // CR7-43: `.unref()` é chained mas se timer não for `Timeout` (runtime
+    // exótico, edge worker), `.unref()` retorna undefined → erro silencioso.
+    // Detectar e logar pra operador investigar.
+    const handle = setInterval(() => this.sampleOnce(), this.intervalMs);
+    if (typeof handle.unref === 'function') {
+      this.timer = handle.unref();
+    } else {
+      this.log.warn(
+        { runtime: process.versions },
+        'setInterval handle has no unref(); timer may keep process alive on quit',
+      );
+      this.timer = handle;
+    }
     this._register(
       toDisposable(() => {
         if (this.timer) clearInterval(this.timer);
@@ -96,6 +114,12 @@ export class MemoryMonitor extends DisposableBase {
       this.history.shift();
     }
     if (this.baselineHeap === undefined) {
+      // CR8-19: skip primeiros samples (boot/JIT spike). Quando contador
+      // zera, próximo sample vira baseline.
+      if (this.samplesUntilBaseline > 0) {
+        this.samplesUntilBaseline -= 1;
+        return;
+      }
       this.baselineHeap = sample.heapUsedBytes;
     }
   }

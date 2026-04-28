@@ -1,3 +1,4 @@
+import { DisposableBase, toDisposable } from '@g4os/kernel/disposable';
 import { createLogger } from '@g4os/kernel/logger';
 import type { ElectronApp, ElectronEvent } from './electron-runtime.ts';
 
@@ -12,7 +13,12 @@ export interface AppLifecycleOptions {
   readonly shutdownTimeoutMs?: number;
 }
 
-export class AppLifecycle {
+// CR6-06: extends DisposableBase para que SIGINT/SIGTERM e listeners de
+// `app` sejam removidos no dispose. Cenário motivador: testes E2E
+// (ADR-0142) reutilizam o processo Node parent — sem dispose, cada
+// `launchApp()` empilha listeners no `process` global, causando double
+// `app.quit()` e logs ruidosos.
+export class AppLifecycle extends DisposableBase {
   private readonly shutdownHandlers: ShutdownHandler[] = [];
   private readonly allWindowsClosedHandlers: Array<() => void> = [];
   private readonly openUrlHandlers: OpenUrlHandler[] = [];
@@ -22,29 +28,42 @@ export class AppLifecycle {
     private readonly app: ElectronApp,
     private readonly options: AppLifecycleOptions = {},
   ) {
-    this.app.on('before-quit', (event: ElectronEvent) => {
+    super();
+
+    const onBeforeQuit = (event: ElectronEvent): void => {
       if (this.isShuttingDown) return;
       this.isShuttingDown = true;
       event.preventDefault();
       this.shutdown()
         .catch((err: unknown) => log.error({ err }, 'shutdown errored'))
         .finally(() => this.app.exit(0));
-    });
-
-    this.app.on('window-all-closed', () => {
+    };
+    const onWindowAllClosed = (): void => {
       for (const h of this.allWindowsClosedHandlers) h();
-    });
-
-    this.app.on('open-url', (event: ElectronEvent, url: string) => {
+    };
+    const onOpenUrl = (event: ElectronEvent, url: string): void => {
       event.preventDefault();
       for (const h of this.openUrlHandlers) h(url);
-    });
-
-    const handleSignal = (): void => {
+    };
+    const onSignal = (): void => {
       this.app.quit();
     };
-    process.on('SIGINT', handleSignal);
-    process.on('SIGTERM', handleSignal);
+
+    this.app.on('before-quit', onBeforeQuit);
+    this.app.on('window-all-closed', onWindowAllClosed);
+    this.app.on('open-url', onOpenUrl);
+    process.on('SIGINT', onSignal);
+    process.on('SIGTERM', onSignal);
+
+    this._register(
+      toDisposable(() => {
+        this.app.removeListener?.('before-quit', onBeforeQuit);
+        this.app.removeListener?.('window-all-closed', onWindowAllClosed);
+        this.app.removeListener?.('open-url', onOpenUrl);
+        process.off('SIGINT', onSignal);
+        process.off('SIGTERM', onSignal);
+      }),
+    );
   }
 
   onQuit(handler: ShutdownHandler): void {
@@ -79,6 +98,12 @@ export class AppLifecycle {
 
 function timeoutRejection(ms: number): Promise<never> {
   return new Promise<never>((_, reject) => {
-    setTimeout(() => reject(new Error('shutdown handler timeout')), ms);
+    // CR9: `unref()` para o timer não segurar o process vivo. Cada handler
+    // criava um setTimeout dedicado; sem unref, mesmo com handler resolvendo
+    // antes, o timer permanecia ativo até o ms expirar — o `app.exit(0)`
+    // final já cobre, mas usar unref alinha com pattern de outros timers
+    // (MemoryMonitor, RotationOrchestrator) e evita teste E2E ficar lento.
+    const handle = setTimeout(() => reject(new Error('shutdown handler timeout')), ms);
+    handle.unref?.();
   });
 }

@@ -13,6 +13,10 @@ export {
   CommandShortcut,
 } from './components/command.tsx';
 export {
+  ConfirmDestructiveDialog,
+  type ConfirmDestructiveDialogProps,
+} from './components/confirm-destructive-dialog.tsx';
+export {
   ContextMenu,
   ContextMenuCheckboxItem,
   ContextMenuContent,
@@ -87,6 +91,7 @@ export {
 } from './components/select.tsx';
 export { Separator } from './components/separator.tsx';
 export { Spinner, type SpinnerProps } from './components/spinner.tsx';
+export { StatusPanel, type StatusPanelProps } from './components/status-panel.tsx';
 export { StepFormLayout } from './components/step-form-layout.tsx';
 export { Switch } from './components/switch.tsx';
 export { Tabs, TabsContent, TabsList, TabsTrigger } from './components/tabs.tsx';

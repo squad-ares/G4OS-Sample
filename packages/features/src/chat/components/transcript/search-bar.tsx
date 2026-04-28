@@ -88,7 +88,7 @@ export function SearchBar({
         onClick={goPrev}
         disabled={matchCount === 0}
         aria-label={t('chat.search.prevMatch')}
-        className="rounded p-1 text-muted-foreground hover:bg-foreground/5 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+        className="rounded p-1 text-muted-foreground hover:bg-accent/12 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
       >
         <ChevronUp className="h-4 w-4" />
       </button>
@@ -97,7 +97,7 @@ export function SearchBar({
         onClick={goNext}
         disabled={matchCount === 0}
         aria-label={t('chat.search.nextMatch')}
-        className="rounded p-1 text-muted-foreground hover:bg-foreground/5 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+        className="rounded p-1 text-muted-foreground hover:bg-accent/12 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
       >
         <ChevronDown className="h-4 w-4" />
       </button>
@@ -105,7 +105,7 @@ export function SearchBar({
         type="button"
         onClick={onClose}
         aria-label={t('chat.search.close')}
-        className="rounded p-1 text-muted-foreground hover:bg-foreground/5 hover:text-foreground"
+        className="rounded p-1 text-muted-foreground hover:bg-accent/12 hover:text-foreground"
       >
         <X className="h-4 w-4" />
       </button>

@@ -1,5 +1,6 @@
 import { AgentError } from '@g4os/kernel/errors';
 import type { AgentDoneReason, AgentEvent, AgentTurnInput } from '../../interface/agent.ts';
+import { wrapAgentError } from '../../shared/errors/wrap-agent-error.ts';
 import { resolveThinkingConfig } from '../../shared/thinking/level-resolver.ts';
 import { buildGeminiStreamParams } from '../config/mapper.ts';
 import { GeminiEventMapper } from '../event-mapper/event-mapper.ts';
@@ -77,7 +78,19 @@ export class StreamRunner {
     mapper: GeminiEventMapper,
     signal: AbortSignal,
   ): AsyncGenerator<AgentEvent, boolean, void> {
+    // CR9: mesmo pattern do OpenAI/Claude stream-runner (CR8-20). Verifica
+    // signal antes e depois do await — janela entre setup e for-await é
+    // longa o suficiente para abort acontecer e o consumer ler 1 chunk
+    // antes do check periódico.
+    if (signal.aborted) {
+      yield { type: 'done', reason: 'interrupted' as AgentDoneReason };
+      return true;
+    }
     const stream = await this.provider.openStream(params, { signal });
+    if (signal.aborted) {
+      yield { type: 'done', reason: 'interrupted' as AgentDoneReason };
+      return true;
+    }
     let sawDone = false;
     for await (const chunk of stream) {
       if (signal.aborted) {
@@ -95,9 +108,7 @@ export class StreamRunner {
   private *handleError(cause: unknown, signal: AbortSignal): Generator<AgentEvent, boolean, void> {
     const error = signal.aborted
       ? AgentError.network('google', { reason: 'aborted' })
-      : cause instanceof AgentError
-        ? cause
-        : AgentError.network('google', cause);
+      : wrapAgentError(cause, 'google');
     yield { type: 'error', error };
     yield { type: 'done', reason: 'error' };
     return true;

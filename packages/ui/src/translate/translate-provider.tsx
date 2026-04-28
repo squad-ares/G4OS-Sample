@@ -66,8 +66,25 @@ export function TranslateProvider({
 
 export function useTranslate(): TranslateContextValue {
   const context = useContext(TranslateContext);
-  if (!context) {
-    throw new Error('useTranslate must be used within TranslateProvider');
+  if (context) return context;
+  // CR7-56: fallback graceful em vez de throw. Componentes carregados antes
+  // do TranslateProvider (Suspense, lazy boundary, dev hot-reload) caíam
+  // num error boundary ruidoso. Agora retornam um context degradado: `t`
+  // ecoa a chave, locale=DEFAULT_LOCALE. Preserva ergonomia e expõe as
+  // chaves não-traduzidas no UI pra o dev notar.
+  if (typeof window !== 'undefined') {
+    // biome-ignore lint/suspicious/noConsole: dev warn for missing provider
+    console.warn(
+      '[useTranslate] called outside TranslateProvider — falling back to identity translator',
+    );
   }
-  return context;
+  // Fallback degradado — só ergonomia/dev-mode, sem dependência do dictionary.
+  return {
+    locale: 'pt-BR' as AppLocale,
+    setLocale: () => undefined,
+    t: ((key: unknown) => String(key)) as TranslateContextValue['t'],
+    formatDate: (value) => String(value),
+    formatNumber: (value) => String(value),
+    formatRelativeTime: (value) => String(value),
+  };
 }

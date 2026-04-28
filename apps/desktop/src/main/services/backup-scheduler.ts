@@ -52,6 +52,9 @@ export class BackupScheduler extends DisposableBase {
     const timer = setInterval(() => {
       void this.runOnce().catch((err) => log.error({ err }, 'backup cycle failed'));
     }, this.intervalMs);
+    // CR4-10: ADR-0032 graceful shutdown 5s. Sem unref, timer mantém process
+    // vivo mesmo após sinal de quit se dispose ainda não foi acionado.
+    timer.unref?.();
     const disposer = this._register(toDisposable(() => clearInterval(timer)));
     return disposer;
   }

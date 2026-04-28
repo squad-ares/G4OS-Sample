@@ -22,4 +22,7 @@ class CustomBlockRegistry {
   }
 }
 
+// Safe as a module singleton: each Electron renderer runs in its own V8 isolate,
+// so windows never share this instance. Tests that register custom renderers must
+// call unregister() in afterEach to avoid cross-test pollution.
 export const customBlockRegistry = new CustomBlockRegistry();

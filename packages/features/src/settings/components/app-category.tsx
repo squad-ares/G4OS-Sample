@@ -1,5 +1,4 @@
-import { useTranslate } from '@g4os/ui';
-import { ShellStatusPanel } from '../../shell/index.ts';
+import { StatusPanel, useTranslate } from '@g4os/ui';
 
 export interface AppInfoView {
   readonly version: string;
@@ -20,7 +19,7 @@ export function AppCategory({ info, onCheckUpdates, updateState }: AppCategoryPr
 
   return (
     <div className="flex flex-col gap-4">
-      <ShellStatusPanel
+      <StatusPanel
         title={t('settings.app.runtime.title')}
         description={t('settings.app.runtime.description')}
         badge={t('settings.category.app.label')}
@@ -43,9 +42,9 @@ export function AppCategory({ info, onCheckUpdates, updateState }: AppCategoryPr
         ) : (
           <p className="text-sm text-muted-foreground">{t('settings.app.runtime.loading')}</p>
         )}
-      </ShellStatusPanel>
+      </StatusPanel>
 
-      <ShellStatusPanel
+      <StatusPanel
         title={t('settings.app.updates.title')}
         description={t('settings.app.updates.description')}
       >
@@ -64,9 +63,9 @@ export function AppCategory({ info, onCheckUpdates, updateState }: AppCategoryPr
             <p className="text-sm text-muted-foreground">{updateState.message}</p>
           )}
         </div>
-      </ShellStatusPanel>
+      </StatusPanel>
 
-      <ShellStatusPanel
+      <StatusPanel
         title={t('settings.app.diagnostics.title')}
         description={t('settings.app.diagnostics.description')}
         tone="warning"
@@ -74,7 +73,7 @@ export function AppCategory({ info, onCheckUpdates, updateState }: AppCategoryPr
         <p className="text-xs text-muted-foreground">
           {t('settings.category.plannedBadge')} · {t('settings.app.diagnostics.planned')}
         </p>
-      </ShellStatusPanel>
+      </StatusPanel>
     </div>
   );
 }

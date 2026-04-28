@@ -76,6 +76,16 @@ Adotamos **Opção C** com as seguintes regras de coerência:
 
 - Um blob pode ficar órfão entre o write físico e o commit SQL (janela de crash). Mitigado pelo GC; nunca causa perda de dado.
 - Custo de hashing é pago por attach (SHA-256 em Node é ~500MB/s em hardware moderno; aceitável para anexos < 100MB).
+- Race entre `gc()` e `attach()` concorrente para o mesmo hash: GC podia
+  ler `refCount = 0` para X, ser preempted por `attach()` que upserta X
+  para `refCount = 1`, e em seguida deletar o blob físico — deixando uma
+  ref viva apontando para arquivo que não existe mais. Mitigação aplicada
+  em 2026-04-26 (CR3-16): `gc()` finaliza cada candidato dentro de
+  transação SQLite que **re-checa** `refCount` e `lastAccessedAt` antes
+  do `DELETE` no DB; `storage.delete(hash)` físico só roda **após** o
+  commit SQL bem-sucedido. Se a tx aborta (refCount > 0 entre o SELECT
+  inicial e o DELETE), o blob não é tocado e fica para o próximo ciclo
+  de GC.
 
 ### Neutras
 
@@ -97,3 +107,5 @@ Adotamos **Opção C** com as seguintes regras de coerência:
 ## Histórico de alterações
 
 - 2026-04-18: Proposta inicial + aceita (TASK-04-05).
+- 2026-04-26: `gc()` ganha re-check transacional por hash antes do
+  delete físico — fecha race com `attach()` concorrente. CR3-16.

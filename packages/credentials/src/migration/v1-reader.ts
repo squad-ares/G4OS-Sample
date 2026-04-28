@@ -13,6 +13,7 @@
 
 import { createDecipheriv, pbkdf2Sync } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
+import { z } from 'zod';
 
 const IV_LENGTH = 16;
 const SALT_LENGTH = 16;
@@ -27,6 +28,18 @@ export interface V1Credential {
 }
 
 export type V1Credentials = Readonly<Record<string, V1Credential>>;
+
+// CR9: validação Zod do payload v1 após decrypt. Antes era cast `as
+// V1Credentials` cego — se o ciphertext decryptasse mas com shape
+// inesperado (formato corrompido, versão futura, downgrade attack),
+// o migrator iterava entries com `value: undefined` e crashava
+// silenciosamente, perdendo credenciais sem rastro.
+const V1CredentialSchema = z.object({
+  value: z.string(),
+  email: z.string().optional(),
+  refreshToken: z.string().optional(),
+});
+const V1CredentialsSchema = z.record(z.string(), V1CredentialSchema);
 
 export async function readV1Credentials(
   filePath: string,
@@ -51,5 +64,15 @@ export async function readV1Credentials(
   decipher.setAuthTag(authTag);
   const plaintext = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
 
-  return JSON.parse(plaintext.toString('utf-8')) as V1Credentials;
+  const decoded = JSON.parse(plaintext.toString('utf-8')) as unknown;
+  const parsed = V1CredentialsSchema.safeParse(decoded);
+  if (!parsed.success) {
+    throw new Error(
+      `v1 credentials shape invalid after decrypt: ${parsed.error.issues[0]?.message ?? 'unknown'}`,
+    );
+  }
+  // Zod retorna `email?: string | undefined`, V1Credential é `email?: string`
+  // (exactOptionalPropertyTypes). Cast porque o schema já validou que valores
+  // presentes são strings — apenas a presença é opcional.
+  return parsed.data as V1Credentials;
 }

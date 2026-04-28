@@ -11,6 +11,7 @@ export default defineConfig({
     'src/permissions/index.ts',
     'src/streaming/index.ts',
     'src/shared/index.ts',
+    'src/tools/index.ts',
   ],
   format: ['esm', 'cjs'],
   dts: true,

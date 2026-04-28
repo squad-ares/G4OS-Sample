@@ -11,7 +11,7 @@ export interface ShellActionDefinition {
   readonly intent:
     | { readonly kind: 'dialog'; readonly target: 'command-palette' | 'shortcuts' }
     | { readonly kind: 'navigate'; readonly to: string }
-    | { readonly kind: 'session'; readonly target: 'sign-out' };
+    | { readonly kind: 'session'; readonly target: 'sign-out' | 'new-session' };
 }
 
 export interface ShellActionBinding {
@@ -36,6 +36,14 @@ export const shellActionDefinitions: readonly ShellActionDefinition[] = [
     descriptionKey: 'shell.action.shortcuts.description',
     shortcut: 'shift+/',
     intent: { kind: 'dialog', target: 'shortcuts' },
+  },
+  {
+    id: 'new-session',
+    section: 'workspace',
+    labelKey: 'shell.action.newSession.label',
+    descriptionKey: 'shell.action.newSession.description',
+    shortcut: 'mod+n',
+    intent: { kind: 'session', target: 'new-session' },
   },
   {
     id: 'go-workspaces',

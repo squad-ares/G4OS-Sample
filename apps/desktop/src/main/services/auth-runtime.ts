@@ -27,11 +27,15 @@ import {
   validateSupabaseEnv,
 } from '@g4os/auth';
 import type { CredentialVault } from '@g4os/credentials';
-import type { AuthService, IpcSession } from '@g4os/ipc/server';
-import { AppError, AuthError, ErrorCode } from '@g4os/kernel/errors';
+import type { AuthService } from '@g4os/ipc/server';
 import { createLogger } from '@g4os/kernel/logger';
-import { err, ok, type Result } from 'neverthrow';
+import {
+  createAuthServiceFromManagedLogin,
+  createUnavailableAuthService,
+  type WipeFn,
+} from './auth-service-impl.ts';
 import { createInMemoryTokenStore, createVaultBackedTokenStore } from './auth-token-store.ts';
+import { ManagedLoginRequiredHub } from './managed-login-required-hub.ts';
 
 const log = createLogger('auth-runtime');
 
@@ -56,6 +60,13 @@ export interface AuthRuntimeOptions {
    * precisa das envs reais para configurar o OTP flow.
    */
   readonly mockAuthMode?: boolean;
+  /**
+   * Callback que executa o reset destrutivo (apagar workspaces, credenciais,
+   * preferences). Injetado por `index.ts` para evitar que o runtime de auth
+   * conheça o resto do sistema (vault, workspacesService, AppPaths). Quando
+   * ausente, `wipeAndReset` retorna erro indicando que reset não é suportado.
+   */
+  readonly performWipe?: WipeFn;
 }
 
 export interface AuthRuntime {
@@ -65,14 +76,21 @@ export interface AuthRuntime {
   readonly filesLoaded: readonly string[];
   readonly managedLogin?: ManagedLoginService;
   readonly refresher?: SessionRefresher;
+  /**
+   * Notifica todos os subscribers de `auth.managedLoginRequired` que um
+   * re-login é necessário. Chamado por outros módulos do main quando
+   * detectam token expirado/revogado fora do fluxo normal de OTP.
+   */
+  notifyManagedLoginRequired(reason: string): void;
   dispose(): void;
 }
 
 export function createAuthRuntime(options: AuthRuntimeOptions): AuthRuntime {
   const filesLoaded: string[] = [];
+  const reauthHub = new ManagedLoginRequiredHub();
 
   if (options.mockAuthMode === true) {
-    return buildMockAuthRuntime();
+    return buildMockAuthRuntime(reauthHub, options.performWipe);
   }
 
   const combined: Record<string, string | undefined> = { ...(options.envSource ?? {}) };
@@ -105,10 +123,11 @@ export function createAuthRuntime(options: AuthRuntimeOptions): AuthRuntime {
       'supabase env ausente; login OTP fica bloqueado até .env ser configurado',
     );
     return {
-      service: createUnavailableAuthService(validation.missing),
+      service: createUnavailableAuthService(validation.missing, reauthHub, options.performWipe),
       configured: false,
       missingEnv: validation.missing,
       filesLoaded,
+      notifyManagedLoginRequired: (reason) => reauthHub.notify(reason),
       dispose: () => {
         /* nothing to dispose */
       },
@@ -126,9 +145,14 @@ export function createAuthRuntime(options: AuthRuntimeOptions): AuthRuntime {
   const managedLogin = new ManagedLoginService({ supabase, tokenStore });
   const refresher = new SessionRefresher({ supabase, tokenStore });
 
-  const service = createAuthServiceFromManagedLogin(managedLogin, async () => {
-    await refresher.refreshNow();
-  });
+  const service = createAuthServiceFromManagedLogin(
+    managedLogin,
+    async () => {
+      await refresher.refreshNow();
+    },
+    reauthHub,
+    options.performWipe,
+  );
 
   // Start refresher automaticamente quando uma sessão for persistida.
   const subscription = managedLogin.state$.subscribe((state) => {
@@ -149,6 +173,7 @@ export function createAuthRuntime(options: AuthRuntimeOptions): AuthRuntime {
     filesLoaded,
     managedLogin,
     refresher,
+    notifyManagedLoginRequired: (reason) => reauthHub.notify(reason),
     dispose: () => {
       subscription.unsubscribe();
       refresher.dispose();
@@ -157,76 +182,10 @@ export function createAuthRuntime(options: AuthRuntimeOptions): AuthRuntime {
   };
 }
 
-function createAuthServiceFromManagedLogin(
-  managed: ManagedLoginService,
-  onPostVerify: () => Promise<void>,
-): AuthService {
-  const toIpcSession = (): IpcSession | null => {
-    const state = managed.state;
-    if (state.kind === 'authenticated' || state.kind === 'bootstrapping') {
-      const s = state.session;
-      return {
-        userId: s.userId,
-        email: s.email,
-        ...(s.expiresAt === undefined ? {} : { expiresAt: s.expiresAt }),
-      };
-    }
-    return null;
-  };
-
-  return {
-    getMe: (): Promise<Result<IpcSession, AppError>> => {
-      const session = toIpcSession();
-      if (!session) return Promise.resolve(err(AuthError.notAuthenticated()));
-      return Promise.resolve(ok(session));
-    },
-
-    sendOtp: async (email: string): Promise<Result<void, AppError>> => {
-      const result = await managed.requestOtp(email);
-      if (result.isErr()) return err(result.error);
-      return ok(undefined);
-    },
-
-    verifyOtp: async (email: string, code: string): Promise<Result<IpcSession, AppError>> => {
-      const result = await managed.submitOtp(email, code);
-      if (result.isErr()) return err(result.error);
-      await onPostVerify();
-      const session = toIpcSession();
-      if (!session) {
-        return err(
-          new AppError({
-            code: ErrorCode.UNKNOWN_ERROR,
-            message: 'Estado inconsistente após verify_otp',
-          }),
-        );
-      }
-      return ok(session);
-    },
-
-    signOut: async (): Promise<Result<void, AppError>> => {
-      await managed.logout();
-      return ok(undefined);
-    },
-  };
-}
-
-function createUnavailableAuthService(missingEnv: readonly string[]): AuthService {
-  const buildError = (): AppError =>
-    new AppError({
-      code: ErrorCode.VALIDATION_ERROR,
-      message: `Login OTP indisponível. Configure ${missingEnv.join(', ')} em .env na raiz do monorepo (veja .env.example).`,
-      context: { missingEnv },
-    });
-
-  return {
-    getMe: async () => err(AuthError.notAuthenticated()),
-    sendOtp: async () => err(buildError()),
-    verifyOtp: async () => err(buildError()),
-    signOut: async () => ok(undefined),
-  };
-}
-
-function buildMockAuthRuntime(): AuthRuntime {
+function buildMockAuthRuntime(
+  reauthHub: ManagedLoginRequiredHub,
+  performWipe: WipeFn | undefined,
+): AuthRuntime {
   log.warn({}, 'auth-runtime booting in mockAuthMode (G4OS_E2E) — Supabase bypassed');
   const supabase: SupabaseAuthPort = {
     signInWithOtp: () => Promise.reject(new Error('mockAuthMode: signInWithOtp disabled')),
@@ -244,9 +203,14 @@ function buildMockAuthRuntime(): AuthRuntime {
   const tokenStore: AuthTokenStore = createSeededTokenStore(seed);
   const managedLogin = new ManagedLoginService({ supabase, tokenStore });
   const refresher = new SessionRefresher({ supabase, tokenStore });
-  const service = createAuthServiceFromManagedLogin(managedLogin, async () => {
-    await refresher.refreshNow();
-  });
+  const service = createAuthServiceFromManagedLogin(
+    managedLogin,
+    async () => {
+      await refresher.refreshNow();
+    },
+    reauthHub,
+    performWipe,
+  );
   void managedLogin.restore();
   return {
     service,
@@ -255,6 +219,7 @@ function buildMockAuthRuntime(): AuthRuntime {
     filesLoaded: [],
     managedLogin,
     refresher,
+    notifyManagedLoginRequired: (reason) => reauthHub.notify(reason),
     dispose: () => {
       refresher.dispose();
       managedLogin.dispose();

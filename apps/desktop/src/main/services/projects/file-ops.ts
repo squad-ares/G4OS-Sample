@@ -2,7 +2,9 @@ import type { Dirent } from 'node:fs';
 import { existsSync } from 'node:fs';
 import { copyFile, mkdir, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { extname, join, relative, resolve } from 'node:path';
+import { FsError } from '@g4os/kernel/errors';
 import type { ProjectFile } from '@g4os/kernel/types';
+import { err, ok, type Result } from 'neverthrow';
 
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 const MAX_SNAPSHOTS = 10;
@@ -71,28 +73,52 @@ export function listFiles(rootPath: string): Promise<readonly ProjectFile[]> {
   return collectFiles(filesDir, filesDir);
 }
 
-export function getFileContent(rootPath: string, relativePath: string): Promise<string> {
-  const abs = safeResolve(rootPath, relativePath);
-  return readFile(abs, 'utf-8');
+export async function getFileContent(
+  rootPath: string,
+  relativePath: string,
+): Promise<Result<string, FsError>> {
+  const resolved = safeResolve(rootPath, relativePath);
+  if (resolved.isErr()) return err(resolved.error);
+  try {
+    const content = await readFile(resolved.value, 'utf-8');
+    return ok(content);
+  } catch (cause) {
+    return err(toFsError(relativePath, cause));
+  }
 }
 
 export async function saveFile(
   rootPath: string,
   relativePath: string,
   content: string,
-): Promise<void> {
-  const abs = safeResolve(rootPath, relativePath);
+): Promise<Result<void, FsError>> {
   if (content.length > MAX_UPLOAD_BYTES) {
-    throw new Error(`file exceeds ${MAX_UPLOAD_BYTES / 1024 / 1024} MiB limit`);
+    return err(FsError.fileTooLarge(relativePath, content.length, MAX_UPLOAD_BYTES));
   }
-  await snapshotIfExists(rootPath, relativePath, abs);
-  await mkdir(join(abs, '..'), { recursive: true });
-  await writeFile(abs, content, 'utf-8');
+  const resolved = safeResolve(rootPath, relativePath);
+  if (resolved.isErr()) return err(resolved.error);
+  try {
+    await snapshotIfExists(rootPath, relativePath, resolved.value);
+    await mkdir(join(resolved.value, '..'), { recursive: true });
+    await writeFile(resolved.value, content, 'utf-8');
+    return ok(undefined);
+  } catch (cause) {
+    return err(toFsError(relativePath, cause));
+  }
 }
 
-export async function deleteFile(rootPath: string, relativePath: string): Promise<void> {
-  const abs = safeResolve(rootPath, relativePath);
-  await rm(abs, { force: true });
+export async function deleteFile(
+  rootPath: string,
+  relativePath: string,
+): Promise<Result<void, FsError>> {
+  const resolved = safeResolve(rootPath, relativePath);
+  if (resolved.isErr()) return err(resolved.error);
+  try {
+    await rm(resolved.value, { force: true });
+    return ok(undefined);
+  } catch (cause) {
+    return err(toFsError(relativePath, cause));
+  }
 }
 
 async function snapshotIfExists(
@@ -123,11 +149,23 @@ async function pruneSnapshots(snapDir: string): Promise<void> {
   }
 }
 
-function safeResolve(rootPath: string, relativePath: string): string {
+function safeResolve(rootPath: string, relativePath: string): Result<string, FsError> {
   const filesDir = join(rootPath, 'files');
   const abs = resolve(filesDir, relativePath);
   if (!abs.startsWith(filesDir)) {
-    throw new Error('path traversal attempt');
+    return err(FsError.pathTraversal(relativePath));
   }
-  return abs;
+  return ok(abs);
+}
+
+function toFsError(relativePath: string, cause: unknown): FsError {
+  const message = cause instanceof Error ? cause.message : String(cause);
+  if (message.includes('ENOENT')) return FsError.notFound(relativePath);
+  if (message.includes('EACCES')) return FsError.accessDenied(relativePath);
+  if (message.includes('ENOSPC')) return FsError.diskFull(relativePath);
+  return new FsError({
+    code: 'fs.access_denied' as const,
+    message,
+    context: { relativePath },
+  });
 }

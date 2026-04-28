@@ -1,4 +1,4 @@
-import { index, integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
+import { index, integer, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
 import { workspaces } from './workspaces.ts';
 
 export const projects = sqliteTable(
@@ -21,7 +21,10 @@ export const projects = sqliteTable(
   },
   (t) => [
     index('idx_projects_workspace').on(t.workspaceId, t.status, t.updatedAt),
-    index('idx_projects_slug').on(t.workspaceId, t.slug),
+    // CR7-20: índice único por workspace+slug. Sem isso, dois projects no
+    // mesmo workspace podiam ter o mesmo slug — URL routing ambíguo. O
+    // service-side pode até fazer dedup, mas DB constraint é o último gate.
+    uniqueIndex('idx_projects_workspace_slug').on(t.workspaceId, t.slug),
   ],
 );
 

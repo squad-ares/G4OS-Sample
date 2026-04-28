@@ -203,10 +203,19 @@ describe('CodexAgent', () => {
 
   it('dispose() kills subprocess + detaches bridge MCP', () => {
     const { agent, subprocess } = buildAgent();
-    const bridgeMcp = { detach: vi.fn() };
-    const { agent: agentWithBridge } = buildAgent();
-    // re-attach bridge via constructor not possible post-init; simulate via direct property
-    (agentWithBridge as unknown as { deps: { bridgeMcp?: unknown } }).deps.bridgeMcp = bridgeMcp;
+    const bridgeMcp = { detach: vi.fn(), current: () => undefined };
+    // Bridge precisa ser injetada na construção (DisposableBase captura
+    // o disposer via `_register` no constructor para garantir ordem
+    // determinística de teardown — ADR-0012).
+    const spawner = new ScriptedSpawner();
+    const client = new AppServerClient({ command: '/bin/codex', spawner });
+    client.start();
+    const config: AgentConfig = { connectionSlug: 'openai-codex', modelId: 'gpt-5-codex' };
+    const agentWithBridge = new CodexAgent(config, {
+      appServer: client,
+      requestIdFactory: () => 'req-bridge',
+      bridgeMcp,
+    });
     agentWithBridge.dispose();
     expect(bridgeMcp.detach).toHaveBeenCalled();
     agent.dispose();

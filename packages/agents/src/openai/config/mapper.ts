@@ -133,7 +133,7 @@ function mapToolMessage(message: Message): OpenAIChatMessage | null {
       };
     }
   }
-  // Fallback: treat any text as tool response (shouldn't happen with well-formed data)
+  // Fallback: trata qualquer texto como tool response (não deveria acontecer com payloads bem-formados)
   const text = extractPlainText(message.content);
   if (text.length === 0) return null;
   return { role: 'user', content: text };

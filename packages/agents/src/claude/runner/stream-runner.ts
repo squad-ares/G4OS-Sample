@@ -28,15 +28,30 @@ export class StreamRunner {
     const state = createEventMapperState();
     let sawDone = false;
 
+    let iterator: AsyncIterator<ClaudeStreamEvent> | undefined;
     try {
       const stream = await this.openStream(params, signal);
-      for await (const event of stream) {
+      // CR7-25: usar iterator manual para poder chamar `return()` em abort.
+      // `for await` automaticamente fecha o iterator no `break`, mas `yield`
+      // dentro de `for await` + `return` não garante cleanup imediato no
+      // upstream (ex.: SSE socket continua open). `iterator.return()`
+      // explícito sinaliza ao source pra liberar recursos.
+      iterator = stream[Symbol.asyncIterator]();
+      while (true) {
+        const next = await iterator.next();
+        if (next.done) break;
         if (signal.aborted) {
           yield { type: 'done', reason: 'interrupted' };
           sawDone = true;
+          // Best-effort: notifica iterator pra fechar conexão upstream
+          try {
+            await iterator.return?.();
+          } catch {
+            // best-effort cleanup
+          }
           return;
         }
-        for (const mapped of mapStreamEvent(event, state)) {
+        for (const mapped of mapStreamEvent(next.value, state)) {
           yield mapped;
           if (mapped.type === 'done') sawDone = true;
         }
@@ -50,6 +65,12 @@ export class StreamRunner {
       yield { type: 'error', error };
       yield { type: 'done', reason: 'error' };
       sawDone = true;
+      // CR7-25: também fechar iterator no erro path
+      try {
+        await iterator?.return?.();
+      } catch {
+        // best-effort
+      }
       return;
     }
 

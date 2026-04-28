@@ -125,12 +125,28 @@ export function eventStoreReader(store: SessionEventStore) {
   };
 }
 
+/**
+ * @internal Wrapper experimental — não usado em produção.
+ *
+ * Limitações conhecidas (CR5-09):
+ * - `event.payload` é cast direto para `SessionEvent` sem validação Zod;
+ *   caller deve garantir que o payload já passou pelo schema antes.
+ * - Retorna `{ sequence: 0 }` placeholder. Callers que precisam do
+ *   sequence real devem usar `appendLifecycleEvent` / `emitLifecycleEvent`
+ *   diretamente, que leem `session.lastEventSequence + 1` e propagam.
+ *
+ * Mantido apenas para compatibilidade com testes antigos que esperam
+ * a interface `{ append(sessionId, event): { sequence } }`. Não usar
+ * em código novo — preferir `appendLifecycleEvent`.
+ */
 export function eventStoreWriter(store: SessionEventStore) {
   return {
     async append(sessionId: string, event: { readonly type: string; readonly payload?: unknown }) {
       const normalized = (event.payload ?? { type: event.type, at: Date.now() }) as SessionEvent;
       await store.append(sessionId, normalized);
-      return { sequence: 0 };
+      // Sequence real exige acesso ao SQLite projection; este wrapper é
+      // file-only — caller deve usar appendLifecycleEvent para sequence.
+      return { sequence: 0 } as const;
     },
   };
 }

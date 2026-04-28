@@ -14,9 +14,11 @@ function extractText(message: Message): string {
 export function UserMessage({ message }: UserMessageProps) {
   const text = extractText(message);
 
+  // Largura cap close ao V1 (~34rem em telas grandes) — texto >80% viewport
+  // fica difícil de ler em monitor wide. V1: 30rem sm, 34rem lg.
   return (
     <div className="flex justify-end px-4 py-1">
-      <div className="max-w-[80%] rounded-2xl bg-foreground/10 px-3.5 py-2.5 text-sm leading-relaxed text-foreground">
+      <div className="ml-auto w-fit max-w-[calc(100vw-5.5rem)] rounded-2xl bg-foreground/10 px-3.5 py-2.5 text-sm leading-relaxed text-foreground sm:max-w-[30rem] lg:max-w-[34rem]">
         <p className="whitespace-pre-wrap">{text}</p>
       </div>
     </div>

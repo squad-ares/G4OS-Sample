@@ -109,7 +109,7 @@ export function WorkspaceSettingsPanel({
                     className="size-3 rounded-full"
                     style={{ backgroundColor: color.hex }}
                   />
-                  {color.label}
+                  {t(color.labelKey)}
                 </button>
               );
             })}

@@ -12,8 +12,9 @@
  */
 
 import { existsSync } from 'node:fs';
+import { mkdir, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { createLogger } from '@g4os/kernel/logger';
 import type { CredentialVault } from '../vault.ts';
 import { readV1Credentials, type V1Credentials } from './v1-reader.ts';
@@ -28,6 +29,13 @@ export interface MigrateOptions {
   readonly masterKey: string;
   readonly v1Path?: string;
   readonly dryRun?: boolean;
+  /**
+   * Quando informado, persiste o `MigrationReport` final como JSON neste path
+   * para auditoria pós-execução (CR5-20). Útil quando usuário reporta key
+   * faltando — operador consulta arquivo persistido em vez de log volátil.
+   * Default: não persiste.
+   */
+  readonly reportPath?: string;
 }
 
 export interface MigrationReport {
@@ -67,7 +75,44 @@ export async function migrateV1ToV2(options: MigrateOptions): Promise<MigrationR
   let failed = 0;
   const errors: string[] = [];
 
+  // CR6-13: detecta colisão de chave sanitizada antes de gravar. Sem isso,
+  // se duas chaves v1 (`openai-api-key` e `openai_api_key`) convergem para
+  // o mesmo target (`openai_api_key`), a segunda escrita sobrescreve a
+  // primeira silenciosamente (data loss em momento crítico — migração).
+  // CR7-07: também rastreia chave secundária `<key>.refresh_token` —
+  // duas chaves v1 que colidem no primário também colidem no `.refresh_token`,
+  // causando perda de OAuth tokens.
+  const targetMap = new Map<string, string>(); // target → first rawKey que claimed
   for (const [rawKey, v1] of entries) {
+    const primaryTarget = sanitizeKey(rawKey);
+    const refreshTarget = sanitizeKey(`${rawKey}.refresh_token`);
+
+    const primaryClaimedBy = targetMap.get(primaryTarget);
+    const refreshClaimedBy = targetMap.get(refreshTarget);
+
+    if (primaryClaimedBy && primaryClaimedBy !== rawKey) {
+      const msg = `${rawKey}: target key "${primaryTarget}" already claimed by "${primaryClaimedBy}" (collision after sanitization)`;
+      log.error(
+        { rawKey, target: primaryTarget, claimedBy: primaryClaimedBy },
+        'sanitized key collision',
+      );
+      errors.push(msg);
+      failed++;
+      continue;
+    }
+    if (refreshClaimedBy && refreshClaimedBy !== rawKey) {
+      const msg = `${rawKey}: refresh-token target "${refreshTarget}" already claimed by "${refreshClaimedBy}" (CR7-07 collision)`;
+      log.error(
+        { rawKey, target: refreshTarget, claimedBy: refreshClaimedBy },
+        'sanitized refresh-token key collision',
+      );
+      errors.push(msg);
+      failed++;
+      continue;
+    }
+    targetMap.set(primaryTarget, rawKey);
+    targetMap.set(refreshTarget, rawKey);
+
     const outcome = await migrateEntry(rawKey, v1, options);
     if (outcome.kind === 'migrated') migrated++;
     else if (outcome.kind === 'skipped') skipped++;
@@ -78,7 +123,25 @@ export async function migrateV1ToV2(options: MigrateOptions): Promise<MigrationR
   }
 
   log.info({ found: entries.length, migrated, skipped, failed }, 'migration complete');
-  return { found: entries.length, migrated, skipped, failed, errors };
+  const report: MigrationReport = { found: entries.length, migrated, skipped, failed, errors };
+
+  // CR5-20: persiste relatório como JSON quando reportPath foi informado.
+  // Operador consulta arquivo em "user reportou key X faltando" sem
+  // depender de log volátil.
+  if (options.reportPath) {
+    try {
+      await mkdir(dirname(options.reportPath), { recursive: true });
+      await writeFile(
+        options.reportPath,
+        `${JSON.stringify({ ...report, completedAt: new Date().toISOString() }, null, 2)}\n`,
+        'utf-8',
+      );
+    } catch (err) {
+      log.warn({ err, reportPath: options.reportPath }, 'failed to persist migration report');
+    }
+  }
+
+  return report;
 }
 
 async function migrateEntry(

@@ -23,7 +23,7 @@ export class McpStdioSource extends DisposableBase implements ISource {
   constructor(
     private readonly config: McpStdioConfig,
     private readonly clientFactory: McpClientFactory,
-    private readonly platform: NodeJS.Platform = process.platform,
+    private readonly platform: NodeJS.Platform,
   ) {
     super();
     this.slug = config.slug;
@@ -90,9 +90,30 @@ export class McpStdioSource extends DisposableBase implements ISource {
     return this.client.callTool(name, input, signal);
   }
 
+  /**
+   * Aguarda `deactivate()` (subprocess kill) antes de declarar
+   * `disposed`. Antes era `void this.deactivate()` fire-and-forget — em
+   * Windows o `@modelcontextprotocol/sdk` demora pra fechar o stdin do
+   * child, e o test runner ou app quit podiam encerrar antes do close.
+   *
+   * NOTA: chamadores síncronos (ex: `_register(toDisposable(() => src.dispose()))`)
+   * ainda chamam `dispose()` retornando void; este override permanece
+   * sync por compatibilidade. Quem precisa do close completo deve
+   * chamar `await disposeAsync()`.
+   */
   override dispose(): void {
     void this.deactivate();
-    this.statusSubject.complete();
+    if (!this.statusSubject.closed) this.statusSubject.complete();
+    super.dispose();
+  }
+
+  /**
+   * Versão async do dispose para chamadores que precisam aguardar o
+   * subprocess fechar (test cleanup, app quit graceful).
+   */
+  async disposeAsync(): Promise<void> {
+    await this.deactivate();
+    if (!this.statusSubject.closed) this.statusSubject.complete();
     super.dispose();
   }
 }

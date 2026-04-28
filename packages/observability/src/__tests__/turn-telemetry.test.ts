@@ -7,7 +7,7 @@ describe('createTurnTelemetry', () => {
   const now = () => clock;
 
   beforeEach(() => {
-    metrics = createMetrics();
+    metrics = createMetrics({ includeDefaults: false });
     clock = 0;
   });
 

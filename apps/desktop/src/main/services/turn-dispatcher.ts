@@ -1,24 +1,6 @@
 /**
- * TurnDispatcher — orquestra um turno do agente.
- *
- * Fluxo (OUTLIER-09 Fase 1):
- *   1. Persiste user message via MessagesService + emite `message.added`
- *   2. Resolve agent via registry (provider/model derivados da sessão)
- *   3. Emite `turn.started`
- *   4. Delega pro `runToolLoop` (`@g4os/session-runtime`) que:
- *      - Roda iterações do agent (runAgentIteration)
- *      - A cada `done.reason === 'tool_use'`: resolve perms via broker,
- *        executa tools via catalog, persiste assistant(text+tool_use) +
- *        tool(result) e continua
- *      - Ao `stop|max_tokens|error|interrupted`: finaliza e emite
- *        `message.added` do assistant final.
- *
- * Fases prévias:
- *   - OUTLIER-05: MVP Claude direct
- *   - OUTLIER-07: multi-provider
- *   - OUTLIER-08: credenciais via vault
- *
- * Reentrância: se sessão já tiver turno ativo, rejeita com erro.
+ * TurnDispatcher — orquestra um turno (user msg → agent → runToolLoop →
+ * title gen). Reentrância bloqueada por session. ADR-0135 + OUTLIER-09.
  */
 
 import { randomUUID } from 'node:crypto';
@@ -29,6 +11,7 @@ import {
   type ToolCatalog,
   type ToolHandler,
 } from '@g4os/agents/tools';
+import type { CredentialVault } from '@g4os/credentials';
 import type { MessagesService } from '@g4os/ipc/server';
 import { DisposableBase, toDisposable } from '@g4os/kernel/disposable';
 import { AppError, ErrorCode } from '@g4os/kernel/errors';
@@ -36,6 +19,7 @@ import { createLogger } from '@g4os/kernel/logger';
 import {
   type ContentBlock,
   connectionSlugForProvider,
+  type Message,
   type Session,
   type SessionId,
   type ToolDefinition,
@@ -51,6 +35,7 @@ import { err, ok, type Result } from 'neverthrow';
 import { applyTurnIntent, type SessionIntentUpdater } from './sessions/apply-intent.ts';
 import { buildMountedHandlers } from './sessions/mount-plan.ts';
 import { buildSourcePlan, composeSystemPrompt } from './sessions/plan-build.ts';
+import { drainActiveTurns } from './sessions/turn-drain.ts';
 
 export type { SessionIntentUpdater };
 
@@ -64,6 +49,10 @@ const DEFAULT_MODEL_ID = 'claude-sonnet-4-6';
 const DEFAULT_CONNECTION_SLUG = 'anthropic-direct';
 const DEFAULT_MAX_TOKENS = 4096;
 
+export interface TitleHook {
+  scheduleGeneration(sessionId: SessionId, messages: readonly Message[]): void;
+}
+
 export interface TurnDispatcherDeps {
   readonly messages: MessagesService;
   readonly registry: AgentRegistry;
@@ -71,13 +60,11 @@ export interface TurnDispatcherDeps {
   readonly permissionBroker: PermissionBroker;
   readonly toolCatalog: ToolCatalog;
   readonly sourcesStore: SourcesStore;
-  /** Quando fornecido, sources `brokerFallback` sticky do tipo `mcp-stdio`
-   *  são montadas por turno e expostas como `mcp_<slug>__<tool>` no catálogo. */
+  readonly credentialVault?: CredentialVault | undefined;
   readonly mountRegistry?: McpMountRegistry;
+  readonly titleGenerator?: TitleHook;
   readonly getSession: (id: SessionId) => Promise<Session | null>;
   readonly resolveWorkingDirectory: (session: Session | null) => string;
-  /** Injeta o writer pra `rejectedSourceSlugs` / `stickyMountedSourceSlugs`
-   *  vindo do `SessionsRepository`. Sem isso, intent detection vira no-op. */
   readonly sessionIntentUpdater?: SessionIntentUpdater;
   readonly defaults?: Partial<TurnDispatchDefaults>;
 }
@@ -99,6 +86,7 @@ interface ActiveTurn {
   readonly agent: IAgent;
   readonly abortController: AbortController;
   subscription: UnsubscribableLike | null;
+  readonly completion: Promise<unknown>;
 }
 
 export class TurnDispatcher extends DisposableBase {
@@ -118,16 +106,20 @@ export class TurnDispatcher extends DisposableBase {
         ? {}
         : { systemPrompt: deps.defaults.systemPrompt }),
     };
-    this._register(
-      toDisposable(() => {
-        for (const [, active] of this.#active) {
-          active.abortController.abort();
-          active.subscription?.unsubscribe();
-          active.agent.dispose();
-        }
-        this.#active.clear();
-      }),
-    );
+    // CR6-08: teardown sync final (shutdown deve chamar drain antes).
+    this._register(toDisposable(() => this.cleanupAll()));
+  }
+
+  /** CR6-08: drain aguarda turnos quiescerem; dispose é sync fallback. */
+  drain = (deadlineMs?: number): Promise<void> => drainActiveTurns(this.#active, deadlineMs);
+
+  private cleanupAll(): void {
+    for (const [, active] of this.#active) {
+      active.abortController.abort();
+      active.subscription?.unsubscribe();
+      active.agent.dispose();
+    }
+    this.#active.clear();
   }
 
   dispatch(input: TurnDispatchInput): Promise<Result<void, AppError>> {
@@ -189,6 +181,7 @@ export class TurnDispatcher extends DisposableBase {
     const mountedHandlers: readonly ToolHandler[] = await buildMountedHandlers({
       mountRegistry: this.#deps.mountRegistry,
       sourcesStore: this.#deps.sourcesStore,
+      credentialVault: this.#deps.credentialVault,
       plan,
       session: refreshedSession,
     });
@@ -232,10 +225,18 @@ export class TurnDispatcher extends DisposableBase {
     this.#deps.eventBus.emit(sessionId, { type: 'turn.started', sessionId, turnId });
 
     const abortController = new AbortController();
-    const activeTurn: ActiveTurn = { turnId, agent, abortController, subscription: null };
-    this.#active.set(sessionId, activeTurn);
-
     const workingDirectory = this.#deps.resolveWorkingDirectory(session);
+    // CR6-08: `completion` deixa `drain()` aguardar quiescência no shutdown.
+    let resolveCompletion!: (value: unknown) => void;
+    const completion = new Promise<unknown>((r) => (resolveCompletion = r));
+    const activeTurn: ActiveTurn = {
+      turnId,
+      agent,
+      abortController,
+      subscription: null,
+      completion,
+    };
+    this.#active.set(sessionId, activeTurn);
 
     const loopResult = await runToolLoop(
       {
@@ -259,11 +260,14 @@ export class TurnDispatcher extends DisposableBase {
         },
       },
     );
-
-    // cleanup() nulls the entry. agent.dispose() is handled by the shared
-    // teardown registered in the constructor — no explicit dispose here to
-    // avoid double-dispose when DisposableBase.dispose() also fires.
+    resolveCompletion(loopResult);
     this.cleanup(sessionId, { disposeAgent: true });
+
+    if (loopResult.isOk() && this.#deps.titleGenerator) {
+      void this.#deps.messages.list(sessionId).then((r) => {
+        if (r.isOk()) this.#deps.titleGenerator?.scheduleGeneration(sessionId, r.value);
+      });
+    }
     return loopResult;
   }
 

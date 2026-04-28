@@ -5,11 +5,20 @@ Camada de credenciais: armazenamento seguro (Electron `safeStorage` + escrita at
 ## Sub-paths de importação
 
 ```ts
-import { CredentialVault }                       from '@g4os/credentials';
-import { createVault, createTestVault }          from '@g4os/credentials';
-import type { IVault, VaultBackend }             from '@g4os/credentials';
-import { RotationOrchestrator, OAuthRotationHandler, type RotationHandler } from '@g4os/credentials/rotation';
-import { migrateV1Credentials }                  from '@g4os/credentials/migration';
+import {
+  CredentialVault,
+  createVault,
+  type VaultMode,
+  type CreateVaultOptions,
+  type CredentialMeta,
+  type SetOptions,
+} from '@g4os/credentials';
+import {
+  RotationOrchestrator,
+  OAuthRotationHandler,
+  type RotationHandler,
+} from '@g4os/credentials/rotation';
+import { migrateV1Credentials } from '@g4os/credentials/migration';
 ```
 
 ## Módulos

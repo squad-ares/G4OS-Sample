@@ -38,13 +38,30 @@ export interface CreateSupabaseAdapterOptions {
  * Devolve um `SupabaseAuthPort` que fala com o SDK real (ou com um fake em
  * testes) sem expor detalhes do cliente para cima. O cliente é lazy — só
  * instanciado na primeira chamada — mas é reusado entre chamadas.
+ *
+ * CR8-28: generation counter (mesmo pattern do `DirectApiProvider.loadSdk`
+ * em CR7-24). Antes, se `clientFactory` rejeitasse intermitentemente
+ * (network blip, módulo ainda não disponível), `clientPromise` ficava
+ * rejected forever — todas as próximas chamadas reutilizavam a mesma
+ * promise rejeitada sem chance de recovery. Agora, o slot é zerado quando
+ * a promise rejeita, e a próxima chamada tenta de novo (com nova
+ * generation, evitando race entre tentativas concorrentes).
  */
 export function createSupabaseAdapter(options: CreateSupabaseAdapterOptions): SupabaseAuthPort {
   let clientPromise: Promise<SupabaseClientLike> | null = null;
+  let generation = 0;
 
   const getClient = (): Promise<SupabaseClientLike> => {
     if (clientPromise === null) {
-      clientPromise = options.clientFactory(options.env);
+      const myGeneration = ++generation;
+      const promise = options.clientFactory(options.env);
+      clientPromise = promise;
+      promise.catch(() => {
+        // Só limpa se a generation atual ainda é a desta tentativa —
+        // chamada concorrente que iniciou uma nova generation não pode
+        // ser invalidada por um reject antigo.
+        if (generation === myGeneration) clientPromise = null;
+      });
     }
     return clientPromise;
   };

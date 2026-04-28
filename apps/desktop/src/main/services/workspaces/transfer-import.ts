@@ -22,7 +22,11 @@ export async function readWorkspaceZip(zipPath: string): Promise<ReadWorkspaceZi
   const manifestRaw = entries.get('manifest.json');
   if (!manifestRaw) throw new Error('workspace zip missing manifest.json');
   const manifestJson = JSON.parse(manifestRaw.toString('utf8')) as unknown;
-  const manifest = parseManifest(manifestJson);
+  const manifestResult = parseManifest(manifestJson);
+  if (manifestResult.isErr()) {
+    throw new Error(`invalid workspace manifest: ${manifestResult.error.reason}`);
+  }
+  const manifest = manifestResult.value;
 
   const configRaw = entries.get('workspace/config.json');
   if (!configRaw) throw new Error('workspace zip missing workspace/config.json');

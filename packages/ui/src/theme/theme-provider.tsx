@@ -12,21 +12,43 @@ interface ThemeContextValue {
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
+const isBrowser = typeof window !== 'undefined' && typeof document !== 'undefined';
+
 function resolveTheme(t: Theme): ResolvedTheme {
   if (t === 'system') {
-    return globalThis.window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    if (!isBrowser) return 'dark';
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   }
   return t;
 }
 
+function readPersistedTheme(): Theme {
+  if (!isBrowser) return 'system';
+  try {
+    const stored = window.localStorage?.getItem('theme');
+    if (stored === 'light' || stored === 'dark' || stored === 'system') return stored;
+  } catch {
+    // localStorage indisponível (SSR, modo privado restrito)
+  }
+  return 'system';
+}
+
+function persistTheme(theme: Theme): void {
+  if (!isBrowser) return;
+  try {
+    window.localStorage?.setItem('theme', theme);
+  } catch {
+    // best-effort
+  }
+}
+
 export function ThemeProvider({ children }: { readonly children: ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>(
-    () => (localStorage.getItem('theme') as Theme | null) ?? 'system',
-  );
+  const [theme, setThemeState] = useState<Theme>(readPersistedTheme);
   const [resolved, setResolved] = useState<ResolvedTheme>(() => resolveTheme(theme));
 
   useEffect(() => {
-    const mql = globalThis.window.matchMedia('(prefers-color-scheme: dark)');
+    if (!isBrowser) return;
+    const mql = window.matchMedia('(prefers-color-scheme: dark)');
     const update = () => {
       setResolved(resolveTheme(theme));
     };
@@ -38,11 +60,12 @@ export function ThemeProvider({ children }: { readonly children: ReactNode }) {
   }, [theme]);
 
   useEffect(() => {
+    if (!isBrowser) return;
     document.documentElement.dataset['theme'] = resolved;
   }, [resolved]);
 
   const setTheme = useCallback((t: Theme) => {
-    localStorage.setItem('theme', t);
+    persistTheme(t);
     setThemeState(t);
   }, []);
 

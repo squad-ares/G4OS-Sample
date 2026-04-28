@@ -42,4 +42,13 @@ export class AgentError extends AppError {
       cause,
     });
   }
+
+  static invalidApiKey(provider: string, cause?: unknown): AgentError {
+    return new AgentError({
+      code: ErrorCode.AGENT_INVALID_API_KEY,
+      message: `Invalid API key for provider: ${provider}`,
+      context: { provider },
+      cause,
+    });
+  }
 }

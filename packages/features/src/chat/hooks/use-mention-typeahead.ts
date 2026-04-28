@@ -108,7 +108,7 @@ export function useMentionTypeahead(options: MentionTypeaheadOptions): MentionTy
  */
 export function detectTrigger(value: string, cursor: number): MentionTrigger | null {
   if (cursor <= 0) return null;
-  // Walk backwards from cursor to find nearest `@` or whitespace/start.
+  // Anda de trás pra frente a partir do cursor até achar `@` ou whitespace/início.
   let atIdx = -1;
   for (let i = cursor - 1; i >= 0; i--) {
     const ch = value[i];

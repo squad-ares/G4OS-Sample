@@ -1,6 +1,6 @@
 import type { SourceConfigView } from '@g4os/kernel/types';
 import type { TranslationKey } from '@g4os/translate';
-import { Button, useTranslate } from '@g4os/ui';
+import { Button, ConfirmDestructiveDialog, useTranslate } from '@g4os/ui';
 import {
   AlertCircle,
   CheckCircle2,
@@ -12,7 +12,8 @@ import {
   Power,
   Trash2,
 } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { type ReactNode, useState } from 'react';
+import { SourceGlyph } from './source-glyph.tsx';
 
 export interface SourceCardProps {
   readonly source: SourceConfigView;
@@ -32,6 +33,7 @@ export function SourceCard({
   disabled,
 }: SourceCardProps): ReactNode {
   const { t } = useTranslate();
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const testable =
     source.kind === 'mcp-stdio' ||
     source.kind === 'mcp-http' ||
@@ -39,7 +41,12 @@ export function SourceCard({
     source.kind === 'filesystem';
   return (
     <li className="flex items-center gap-3 rounded-lg border border-foreground/10 bg-foreground/[0.02] px-4 py-3">
-      <StatusIcon status={source.status} />
+      <div className="relative">
+        <SourceGlyph source={source} />
+        <span className="absolute -bottom-1 -right-1 rounded-full bg-background">
+          <StatusIcon status={source.status} />
+        </span>
+      </div>
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <span className="truncate text-sm font-medium">{source.displayName}</span>
@@ -85,13 +92,22 @@ export function SourceCard({
       <Button
         variant="ghost"
         size="sm"
-        onClick={onDelete}
+        onClick={() => setConfirmOpen(true)}
         disabled={disabled}
         aria-label={t('sources.delete')}
         className="h-8 px-2"
       >
         <Trash2 className="h-4 w-4 text-muted-foreground transition hover:text-destructive" />
       </Button>
+      <ConfirmDestructiveDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        title={t('sources.delete.title')}
+        description={t('sources.delete.confirm')}
+        confirmLabel={t('sources.delete.confirmLabel')}
+        cancelLabel={t('sources.delete.cancelLabel')}
+        onConfirm={onDelete}
+      />
     </li>
   );
 }
@@ -99,15 +115,15 @@ export function SourceCard({
 function StatusIcon({ status }: { readonly status: SourceConfigView['status'] }): ReactNode {
   switch (status) {
     case 'connected':
-      return <CheckCircle2 className="size-5 shrink-0 text-emerald-500" aria-hidden={true} />;
+      return <CheckCircle2 className="size-4 shrink-0 text-emerald-500" aria-hidden={true} />;
     case 'connecting':
-      return <Loader2 className="size-5 shrink-0 animate-spin text-sky-500" aria-hidden={true} />;
+      return <Loader2 className="size-4 shrink-0 animate-spin text-sky-500" aria-hidden={true} />;
     case 'needs_auth':
-      return <KeyRound className="size-5 shrink-0 text-amber-500" aria-hidden={true} />;
+      return <KeyRound className="size-4 shrink-0 text-amber-500" aria-hidden={true} />;
     case 'error':
-      return <AlertCircle className="size-5 shrink-0 text-destructive" aria-hidden={true} />;
+      return <AlertCircle className="size-4 shrink-0 text-destructive" aria-hidden={true} />;
     default:
-      return <CircleDashed className="size-5 shrink-0 text-muted-foreground" aria-hidden={true} />;
+      return <CircleDashed className="size-4 shrink-0 text-muted-foreground" aria-hidden={true} />;
   }
 }
 

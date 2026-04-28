@@ -1,5 +1,5 @@
 import { Button, cn, useTranslate } from '@g4os/ui';
-import { Archive, MoreHorizontal, RotateCcw } from 'lucide-react';
+import { Archive, MoreHorizontal, PanelRight, RotateCcw } from 'lucide-react';
 import { type KeyboardEvent, useEffect, useRef, useState } from 'react';
 
 export interface SessionHeaderProps {
@@ -11,6 +11,8 @@ export interface SessionHeaderProps {
   readonly onArchive?: () => void;
   readonly onRetryLast?: () => void;
   readonly onOpenMenu?: () => void;
+  readonly onToggleMetadata?: () => void;
+  readonly metadataOpen?: boolean;
 }
 
 export function SessionHeader({
@@ -22,6 +24,8 @@ export function SessionHeader({
   onArchive,
   onRetryLast,
   onOpenMenu,
+  onToggleMetadata,
+  metadataOpen,
 }: SessionHeaderProps) {
   const { t } = useTranslate();
   const [editing, setEditing] = useState(false);
@@ -87,7 +91,7 @@ export function SessionHeader({
             disabled={!onRename}
             className={cn(
               'min-w-0 truncate rounded-md px-2 py-1 text-left text-sm font-medium text-foreground',
-              onRename ? 'hover:bg-foreground/[0.04] enabled:cursor-text' : 'cursor-default',
+              onRename ? 'hover:bg-accent/12 enabled:cursor-text' : 'cursor-default',
             )}
             title={onRename ? t('chat.header.clickToRename') : undefined}
           >
@@ -143,6 +147,19 @@ export function SessionHeader({
             className="size-7"
           >
             <Archive className="size-3.5" aria-hidden={true} />
+          </Button>
+        ) : null}
+        {onToggleMetadata ? (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onToggleMetadata}
+            aria-label={t('chat.header.toggleMetadata')}
+            aria-pressed={metadataOpen ? 'true' : 'false'}
+            title={t('chat.header.toggleMetadata')}
+            className={cn('size-7', metadataOpen && 'bg-foreground/[0.08] text-foreground')}
+          >
+            <PanelRight className="size-3.5" aria-hidden={true} />
           </Button>
         ) : null}
         {onOpenMenu ? (

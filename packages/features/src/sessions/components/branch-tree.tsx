@@ -58,7 +58,7 @@ function NodeItem({ node, currentId, onSelect, depth }: NodeItemProps) {
         className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors ${
           isCurrent
             ? 'bg-accent/10 font-medium text-foreground'
-            : 'text-foreground/80 hover:bg-foreground/5'
+            : 'text-foreground/80 hover:bg-accent/12'
         }`}
       >
         {depth > 0 ? (

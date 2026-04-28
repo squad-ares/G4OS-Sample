@@ -39,8 +39,8 @@ export interface LegacyProject {
   readonly path: string;
   readonly name: string;
   readonly slug: string;
-  readonly existingId?: string;
-  readonly description?: string;
+  readonly existingId?: string | undefined;
+  readonly description?: string | undefined;
   readonly inCanonicalRoot: boolean;
 }
 

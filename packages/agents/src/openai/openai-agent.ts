@@ -1,5 +1,5 @@
 import type { SessionId } from '@g4os/kernel';
-import { DisposableBase } from '@g4os/kernel/disposable';
+import { DisposableBase, toDisposable } from '@g4os/kernel/disposable';
 import type { AgentError } from '@g4os/kernel/errors';
 import { createLogger, type Logger } from '@g4os/kernel/logger';
 import { ok, type Result } from 'neverthrow';
@@ -39,6 +39,16 @@ export class OpenAIAgent extends DisposableBase implements IAgent {
     this.kind = provider.kind === 'responses' ? 'openai-responses' : 'openai';
     this.capabilities = detectCapabilities(config.modelId);
     this.log = options.logger ?? createLogger('openai-agent');
+    // CR5-06: cleanup centralizado via _register (FIFO no DisposableStore):
+    // abort PRIMEIRO, clear DEPOIS — caso contrário map vazio antes do abort.
+    this._register(
+      toDisposable(() => {
+        for (const controller of this.activeControllers.values()) {
+          if (!controller.signal.aborted) controller.abort();
+        }
+      }),
+    );
+    this._register(toDisposable(() => this.activeControllers.clear()));
   }
 
   run(input: AgentTurnInput): Observable<AgentEvent> {
@@ -74,13 +84,8 @@ export class OpenAIAgent extends DisposableBase implements IAgent {
     return Promise.resolve(ok(undefined));
   }
 
-  override dispose(): void {
-    for (const controller of this.activeControllers.values()) {
-      if (!controller.signal.aborted) controller.abort();
-    }
-    this.activeControllers.clear();
-    super.dispose();
-  }
+  // dispose() herdado de DisposableBase — executa LIFO os disposables
+  // registrados no constructor (CR5-06).
 
   private buildRunnerDeps(): StreamRunnerDeps {
     return {

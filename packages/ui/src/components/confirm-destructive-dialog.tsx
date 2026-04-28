@@ -1,27 +1,28 @@
+import { Button } from './button.tsx';
 import {
-  Button,
   Dialog,
   DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  useTranslate,
-} from '@g4os/ui';
+} from './dialog.tsx';
 
 export interface ConfirmDestructiveDialogProps {
   readonly open: boolean;
   readonly onOpenChange: (open: boolean) => void;
   readonly title: string;
   readonly description: string;
-  readonly confirmLabel?: string;
-  readonly cancelLabel?: string;
+  readonly confirmLabel: string;
+  readonly cancelLabel: string;
   readonly onConfirm: () => void;
 }
 
 /**
- * Diálogo de confirmação para ações destrutivas (TASK-11-00-08).
- * Usado por truncate/delete-from-here onde a operação não é reversível.
+ * Diálogo de confirmação para ações destrutivas (deletes, truncates, resets).
+ * Caller passa todas as labels já traduzidas — o dialog é primitivo de UI sem
+ * dependência de namespace de tradução, então pode ser usado por qualquer
+ * feature.
  */
 export function ConfirmDestructiveDialog({
   open,
@@ -32,7 +33,6 @@ export function ConfirmDestructiveDialog({
   cancelLabel,
   onConfirm,
 }: ConfirmDestructiveDialogProps) {
-  const { t } = useTranslate();
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
@@ -42,7 +42,7 @@ export function ConfirmDestructiveDialog({
         </DialogHeader>
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
-            {cancelLabel ?? t('chat.actions.cancel')}
+            {cancelLabel}
           </Button>
           <Button
             variant="destructive"
@@ -51,7 +51,7 @@ export function ConfirmDestructiveDialog({
               onOpenChange(false);
             }}
           >
-            {confirmLabel ?? t('chat.actions.confirmDestructive')}
+            {confirmLabel}
           </Button>
         </DialogFooter>
       </DialogContent>

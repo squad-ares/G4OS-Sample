@@ -1,5 +1,6 @@
 import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { join, normalize, resolve, sep } from 'node:path';
+import { BUNDLED_SKILLS, renderBundledSkill } from '@g4os/data/workspaces';
 
 const SUBFOLDERS: readonly string[] = ['context', 'people', 'goals', 'projects'];
 
@@ -67,6 +68,21 @@ export async function seedDefaultLabels(rootPath: string): Promise<void> {
     `${JSON.stringify(LABELS_CONFIG, null, 2)}\n`,
     'utf8',
   );
+}
+
+/**
+ * Planta as skills bundled (workspace-setup, onboarding-style-interview,
+ * project-setup) em `<rootPath>/skills/<slug>/SKILL.md`. Idempotente —
+ * sobrescreve só se conteúdo mudou (atualizações de skill via novas builds).
+ */
+export async function seedBundledSkills(rootPath: string): Promise<void> {
+  const skillsRoot = join(rootPath, 'skills');
+  await mkdir(skillsRoot, { recursive: true });
+  for (const skill of BUNDLED_SKILLS) {
+    const skillDir = join(skillsRoot, skill.slug);
+    await mkdir(skillDir, { recursive: true });
+    await writeFile(join(skillDir, 'SKILL.md'), renderBundledSkill(skill), 'utf8');
+  }
 }
 
 export interface CleanupOptions {

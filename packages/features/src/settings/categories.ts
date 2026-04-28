@@ -12,6 +12,21 @@
  */
 
 import type { TranslationKey } from '@g4os/translate';
+import {
+  Bot,
+  Briefcase,
+  CloudUpload,
+  Keyboard,
+  type LucideIcon,
+  Palette,
+  Settings as SettingsIcon,
+  ShieldCheck,
+  SlidersHorizontal,
+  Tag,
+  Type,
+  Wrench,
+  Zap,
+} from 'lucide-react';
 
 export type SettingsCategoryId =
   | 'app'
@@ -39,6 +54,7 @@ export type SettingsPersistence =
 
 export interface SettingsCategory {
   readonly id: SettingsCategoryId;
+  readonly icon: LucideIcon;
   readonly labelKey: TranslationKey;
   readonly descriptionKey: TranslationKey;
   readonly status: SettingsCategoryStatus;
@@ -48,6 +64,7 @@ export interface SettingsCategory {
 export const SETTINGS_CATEGORIES: readonly SettingsCategory[] = [
   {
     id: 'app',
+    icon: SettingsIcon,
     labelKey: 'settings.category.app.label',
     descriptionKey: 'settings.category.app.description',
     status: 'ready',
@@ -55,6 +72,7 @@ export const SETTINGS_CATEGORIES: readonly SettingsCategory[] = [
   },
   {
     id: 'agents',
+    icon: Bot,
     labelKey: 'settings.category.agents.label',
     descriptionKey: 'settings.category.agents.description',
     status: 'ready',
@@ -62,6 +80,7 @@ export const SETTINGS_CATEGORIES: readonly SettingsCategory[] = [
   },
   {
     id: 'appearance',
+    icon: Palette,
     labelKey: 'settings.category.appearance.label',
     descriptionKey: 'settings.category.appearance.description',
     status: 'ready',
@@ -69,6 +88,7 @@ export const SETTINGS_CATEGORIES: readonly SettingsCategory[] = [
   },
   {
     id: 'input',
+    icon: Type,
     labelKey: 'settings.category.input.label',
     descriptionKey: 'settings.category.input.description',
     status: 'ready',
@@ -76,6 +96,7 @@ export const SETTINGS_CATEGORIES: readonly SettingsCategory[] = [
   },
   {
     id: 'workspace',
+    icon: Briefcase,
     labelKey: 'settings.category.workspace.label',
     descriptionKey: 'settings.category.workspace.description',
     status: 'ready',
@@ -83,6 +104,7 @@ export const SETTINGS_CATEGORIES: readonly SettingsCategory[] = [
   },
   {
     id: 'usage',
+    icon: Zap,
     labelKey: 'settings.category.usage.label',
     descriptionKey: 'settings.category.usage.description',
     status: 'ready',
@@ -90,6 +112,7 @@ export const SETTINGS_CATEGORIES: readonly SettingsCategory[] = [
   },
   {
     id: 'permissions',
+    icon: ShieldCheck,
     labelKey: 'settings.category.permissions.label',
     descriptionKey: 'settings.category.permissions.description',
     status: 'ready',
@@ -97,6 +120,7 @@ export const SETTINGS_CATEGORIES: readonly SettingsCategory[] = [
   },
   {
     id: 'tags',
+    icon: Tag,
     labelKey: 'settings.category.tags.label',
     descriptionKey: 'settings.category.tags.description',
     status: 'ready',
@@ -104,6 +128,7 @@ export const SETTINGS_CATEGORIES: readonly SettingsCategory[] = [
   },
   {
     id: 'cloud-sync',
+    icon: CloudUpload,
     labelKey: 'settings.category.cloudSync.label',
     descriptionKey: 'settings.category.cloudSync.description',
     status: 'ready',
@@ -111,6 +136,7 @@ export const SETTINGS_CATEGORIES: readonly SettingsCategory[] = [
   },
   {
     id: 'repair',
+    icon: Wrench,
     labelKey: 'settings.category.repair.label',
     descriptionKey: 'settings.category.repair.description',
     status: 'ready',
@@ -118,6 +144,7 @@ export const SETTINGS_CATEGORIES: readonly SettingsCategory[] = [
   },
   {
     id: 'shortcuts',
+    icon: Keyboard,
     labelKey: 'settings.category.shortcuts.label',
     descriptionKey: 'settings.category.shortcuts.description',
     status: 'ready',
@@ -125,6 +152,7 @@ export const SETTINGS_CATEGORIES: readonly SettingsCategory[] = [
   },
   {
     id: 'preferences',
+    icon: SlidersHorizontal,
     labelKey: 'settings.category.preferences.label',
     descriptionKey: 'settings.category.preferences.description',
     status: 'ready',

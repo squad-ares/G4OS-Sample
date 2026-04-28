@@ -105,6 +105,17 @@ describe('getAppPaths()', () => {
     const paths = getAppPaths();
     expect(Object.isFrozen(paths)).toBe(true);
   });
+
+  it('state e cache resolvem para diretórios distintos (estado persistente vs cache descartável)', () => {
+    const paths = getAppPaths();
+    expect(paths.state).not.toBe(paths.cache);
+    expect(paths.state).not.toBe(paths.data);
+  });
+
+  it('state nunca aponta para tmp do SO (env-paths.state, não env-paths.temp)', () => {
+    const paths = getAppPaths();
+    expect(paths.state.toLowerCase()).not.toContain(tmpdir().toLowerCase());
+  });
 });
 
 describe('validateRuntimeIntegrity()', () => {

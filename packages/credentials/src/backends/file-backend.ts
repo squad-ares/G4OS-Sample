@@ -3,15 +3,17 @@
  * fornecido (Electron `safeStorage` em produção, noop em dev).
  *
  * Layout: `<baseDir>/<base64url(key)>.enc`. Cada escrita é atômica
- * (`write→fsync→rename` no `writeFile` do Node satisfaz para este uso
- * porque o vault já serializa via mutex — não há races de dois writers
- * pelo mesmo nome).
+ * via `writeAtomic` do kernel (`write→fsync→rename + dir fsync`).
+ * Combinada com o mutex do `CredentialVault`, garante que crash
+ * mid-write não corrompa o `.enc` — Dor #3 V1 (perda de credenciais
+ * por arquivo truncado pós-crash) está coberta pela ADR-0050.
  */
 
-import { mkdir, readdir, readFile, unlink, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { CredentialError, Result } from '@g4os/kernel/errors';
 import { CredentialError as CredentialErrorClass } from '@g4os/kernel/errors';
+import { writeAtomic } from '@g4os/kernel/fs';
 import type { IKeychain } from '@g4os/platform';
 import { err, ok } from 'neverthrow';
 
@@ -44,7 +46,7 @@ export class FileKeychain implements IKeychain {
 
     try {
       const payload = this.codec.encrypt(value);
-      await writeFile(this.pathFor(key), payload);
+      await writeAtomic(this.pathFor(key), payload, { mode: 0o600 });
       return ok(undefined);
     } catch (cause) {
       return err(CredentialErrorClass.decryptFailed(key, cause));
@@ -52,6 +54,12 @@ export class FileKeychain implements IKeychain {
   }
 
   async get(key: string): Promise<Result<string, CredentialError>> {
+    // CR7-06: bloquear leitura quando codec não está disponível.
+    // Sem isso, em Linux sem libsecret ou Windows sem DPAPI, decrypt
+    // tentaria operar em buffer vazio/inválido e retornaria erro genérico.
+    const ready = await this.ensureReady();
+    if (ready.isErr()) return err(ready.error);
+
     try {
       const payload = await readFile(this.pathFor(key));
       const value = this.codec.decrypt(payload);
@@ -65,6 +73,7 @@ export class FileKeychain implements IKeychain {
   }
 
   async delete(key: string): Promise<Result<void, CredentialError>> {
+    // delete não opera no codec — não precisa de ensureReady.
     try {
       await unlink(this.pathFor(key));
       return ok(undefined);

@@ -8,6 +8,10 @@ const IpcSessionSchema = z.object({
   expiresAt: z.number().int().positive().optional(),
 });
 
+const ManagedLoginRequiredEventSchema = z.object({
+  reason: z.string(),
+});
+
 export const authRouter = router({
   getMe: authed.output(IpcSessionSchema).query(async ({ ctx }) => {
     const result = await ctx.auth.getMe();
@@ -35,5 +39,52 @@ export const authRouter = router({
   signOut: authed.output(z.void()).mutation(async ({ ctx }) => {
     const result = await ctx.auth.signOut();
     if (result.isErr()) throw result.error;
+  }),
+
+  /**
+   * Reset destrutivo. Aceita só com confirmação explícita no input para
+   * evitar invocação acidental. Não exige `authed` — pode rodar em estado
+   * `unauthenticated` (ex.: sessão expirou e usuário quer resetar antes de
+   * tentar logar de novo).
+   */
+  wipeAndReset: procedure
+    .input(z.object({ confirm: z.literal(true) }))
+    .output(z.void())
+    .mutation(async ({ ctx }) => {
+      const result = await ctx.auth.wipeAndReset();
+      if (result.isErr()) throw result.error;
+    }),
+
+  /**
+   * Subscription async-generator (tRPC v11) para eventos de re-auth pedidos
+   * pelo backend. Renderer subscreve no app shell e mostra toast/redirect
+   * quando recebe.
+   */
+  managedLoginRequired: procedure.input(z.void()).subscription(async function* ({ ctx, signal }) {
+    const queue: { reason: string }[] = [];
+    let notify: (() => void) | null = null;
+
+    const disposable = ctx.auth.subscribeManagedLoginRequired((event) => {
+      queue.push(event);
+      notify?.();
+    });
+
+    try {
+      while (!signal?.aborted) {
+        if (queue.length === 0) {
+          await new Promise<void>((resolve) => {
+            notify = resolve;
+            signal?.addEventListener('abort', () => resolve(), { once: true });
+          });
+          notify = null;
+        }
+        while (queue.length > 0) {
+          const next = queue.shift();
+          if (next !== undefined) yield ManagedLoginRequiredEventSchema.parse(next);
+        }
+      }
+    } finally {
+      disposable.dispose();
+    }
   }),
 });

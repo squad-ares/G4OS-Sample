@@ -29,7 +29,7 @@ function ProjectsIndexPage() {
   }
 
   return (
-    <div className="flex h-full flex-col gap-4 overflow-auto px-4 py-4">
+    <div className="flex h-full flex-col gap-4 overflow-y-scroll overflow-x-hidden px-4 py-4">
       {page.legacyCheck.needsReview && (
         <div className="rounded-md border p-4">
           <LegacyProjectsReview

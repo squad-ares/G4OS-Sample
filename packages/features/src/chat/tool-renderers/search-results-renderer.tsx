@@ -12,7 +12,6 @@ function SearchResultsComponent({ result }: ToolRendererComponent) {
     <CollapsibleResult summary={`${lines.length} result${lines.length === 1 ? '' : 's'}`}>
       <ul className="space-y-0.5">
         {lines.map((line, i) => (
-          // biome-ignore lint/suspicious/noArrayIndexKey: stable ordered search results
           <li key={i} className="font-mono text-[11px] text-foreground/80 truncate">
             {line}
           </li>

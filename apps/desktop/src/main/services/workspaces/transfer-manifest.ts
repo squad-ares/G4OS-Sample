@@ -1,3 +1,5 @@
+import { err, ok, type Result } from 'neverthrow';
+
 export const WORKSPACE_TRANSFER_VERSION = 1 as const;
 export const WORKSPACE_TRANSFER_FORMAT = 'g4os-workspace-v1' as const;
 
@@ -13,22 +15,43 @@ export interface WorkspaceTransferManifest {
   readonly filesCount: number;
 }
 
-export function parseManifest(raw: unknown): WorkspaceTransferManifest {
-  if (typeof raw !== 'object' || raw === null) throw new Error('invalid manifest: not an object');
+export interface ManifestParseError {
+  readonly reason: string;
+}
+
+/**
+ * ADR-0011 (Result pattern): falha de validação de manifesto é caminho
+ * esperado (input externo via ZIP do usuário), não bug. Devolvemos
+ * `Result` para que o caller no main module consiga traduzir o erro para
+ * IPC sem catch genérico.
+ */
+export function parseManifest(raw: unknown): Result<WorkspaceTransferManifest, ManifestParseError> {
+  if (typeof raw !== 'object' || raw === null) {
+    return err({ reason: 'invalid manifest: not an object' });
+  }
   const m = raw as Record<string, unknown>;
-  if (m['version'] !== WORKSPACE_TRANSFER_VERSION)
-    throw new Error(`unsupported manifest version: ${String(m['version'])}`);
-  if (m['format'] !== WORKSPACE_TRANSFER_FORMAT)
-    throw new Error(`invalid manifest format: ${String(m['format'])}`);
-  if (typeof m['exportedAt'] !== 'number') throw new Error('invalid manifest: exportedAt');
-  if (typeof m['workspaceId'] !== 'string') throw new Error('invalid manifest: workspaceId');
-  if (typeof m['workspaceSlug'] !== 'string') throw new Error('invalid manifest: workspaceSlug');
-  if (typeof m['workspaceName'] !== 'string') throw new Error('invalid manifest: workspaceName');
-  if (typeof m['originalRootPath'] !== 'string')
-    throw new Error('invalid manifest: originalRootPath');
-  if (m['includesCredentials'] !== false) throw new Error('manifest claims to include credentials');
-  if (typeof m['filesCount'] !== 'number') throw new Error('invalid manifest: filesCount');
-  return raw as WorkspaceTransferManifest;
+  if (m['version'] !== WORKSPACE_TRANSFER_VERSION) {
+    return err({ reason: `unsupported manifest version: ${String(m['version'])}` });
+  }
+  if (m['format'] !== WORKSPACE_TRANSFER_FORMAT) {
+    return err({ reason: `invalid manifest format: ${String(m['format'])}` });
+  }
+  if (typeof m['exportedAt'] !== 'number') return err({ reason: 'invalid manifest: exportedAt' });
+  if (typeof m['workspaceId'] !== 'string') return err({ reason: 'invalid manifest: workspaceId' });
+  if (typeof m['workspaceSlug'] !== 'string') {
+    return err({ reason: 'invalid manifest: workspaceSlug' });
+  }
+  if (typeof m['workspaceName'] !== 'string') {
+    return err({ reason: 'invalid manifest: workspaceName' });
+  }
+  if (typeof m['originalRootPath'] !== 'string') {
+    return err({ reason: 'invalid manifest: originalRootPath' });
+  }
+  if (m['includesCredentials'] !== false) {
+    return err({ reason: 'manifest claims to include credentials' });
+  }
+  if (typeof m['filesCount'] !== 'number') return err({ reason: 'invalid manifest: filesCount' });
+  return ok(raw as WorkspaceTransferManifest);
 }
 
 /**

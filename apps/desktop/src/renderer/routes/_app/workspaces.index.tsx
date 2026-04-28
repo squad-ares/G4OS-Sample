@@ -2,13 +2,14 @@ import {
   useActiveWorkspaceId,
   useSetActiveWorkspaceId,
   WorkspaceDeleteDialog,
+  type WorkspaceListItemStats,
   WorkspaceListPanel,
 } from '@g4os/features/workspaces';
 import type { Workspace } from '@g4os/kernel/types';
 import { toast, useTranslate } from '@g4os/ui';
-import { useQuery } from '@tanstack/react-query';
+import { useQueries, useQuery } from '@tanstack/react-query';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { queryClient } from '../../ipc/query-client.ts';
 import { trpc } from '../../ipc/trpc-client.ts';
 import {
@@ -29,6 +30,56 @@ function WorkspacesIndex() {
 
   const [pendingDelete, setPendingDelete] = useState<Workspace | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  const sessionsQueries = useQueries({
+    queries: workspaces.map((w) => ({
+      queryKey: ['workspaces', 'stats', 'sessions', w.id],
+      queryFn: () =>
+        trpc.sessions.listFiltered.query({
+          workspaceId: w.id,
+          lifecycle: 'active',
+          includeBranches: false,
+          limit: 50,
+          offset: 0,
+        }),
+      staleTime: 30_000,
+    })),
+  });
+
+  const projectsQueries = useQueries({
+    queries: workspaces.map((w) => ({
+      queryKey: ['workspaces', 'stats', 'projects', w.id],
+      queryFn: () => trpc.projects.list.query({ workspaceId: w.id }),
+      staleTime: 60_000,
+    })),
+  });
+
+  const statsMap = useMemo(() => {
+    const map = new Map<string, WorkspaceListItemStats>();
+    workspaces.forEach((w, i) => {
+      const sessionsResult = sessionsQueries[i]?.data;
+      const projectsResult = projectsQueries[i]?.data;
+      const items = sessionsResult?.items ?? [];
+      const sessionCount = sessionsResult?.total ?? items.length;
+      const projectCount = projectsResult?.length;
+      const lastActivityAt = items.reduce<number>((acc, s) => {
+        const ts = s.lastMessageAt ?? s.updatedAt;
+        return ts > acc ? ts : acc;
+      }, 0);
+
+      const stats: WorkspaceListItemStats = {};
+      if (sessionsResult) (stats as { sessionCount?: number }).sessionCount = sessionCount;
+      if (typeof projectCount === 'number')
+        (stats as { projectCount?: number }).projectCount = projectCount;
+      if (lastActivityAt > 0)
+        (stats as { lastActivityAt?: number }).lastActivityAt = lastActivityAt;
+
+      if (Object.keys(stats).length > 0) {
+        map.set(w.id, stats);
+      }
+    });
+    return map;
+  }, [workspaces, sessionsQueries, projectsQueries]);
 
   const handleOpen = (id: Workspace['id']) => {
     setActiveWorkspaceId(id);
@@ -118,6 +169,7 @@ function WorkspacesIndex() {
         workspaces={workspaces}
         activeWorkspaceId={activeWorkspaceId}
         isLoading={isLoading}
+        stats={statsMap}
         onOpen={handleOpen}
         onOpenInNewWindow={(id) => {
           void trpc.windows.openWorkspaceWindow.mutate({ workspaceId: id });

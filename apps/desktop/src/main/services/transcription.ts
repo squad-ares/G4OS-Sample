@@ -5,6 +5,20 @@ const log = createLogger('transcription');
 
 const OPENAI_TRANSCRIBE_URL = 'https://api.openai.com/v1/audio/transcriptions';
 const WHISPER_MODEL = 'whisper-1';
+// CR9: timeout default de 60s. Whisper típico responde em <10s; se passar de
+// 60s indica server lento ou conexão hung — abortar é melhor UX que travar
+// VoiceService indefinidamente. Voice notes têm cap 60s então payload é
+// pequeno; timeout 60s é folgado.
+const TRANSCRIBE_TIMEOUT_MS = 60_000;
+
+function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number): Promise<Response> {
+  const controller = new AbortController();
+  const handle = setTimeout(() => controller.abort(), timeoutMs);
+  handle.unref?.();
+  return fetch(url, { ...init, signal: controller.signal }).finally(() => {
+    clearTimeout(handle);
+  });
+}
 
 export interface TranscriptionDeps {
   readonly getOpenAIKey: () => Promise<string | null>;
@@ -46,11 +60,15 @@ export class TranscriptionService implements VoiceService {
     form.append('file', new Blob([toBlobPart(audio)], { type: mimeType }), 'audio.webm');
     form.append('model', WHISPER_MODEL);
 
-    const res = await fetch(OPENAI_TRANSCRIBE_URL, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${apiKey}` },
-      body: form,
-    });
+    const res = await fetchWithTimeout(
+      OPENAI_TRANSCRIBE_URL,
+      {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${apiKey}` },
+        body: form,
+      },
+      TRANSCRIBE_TIMEOUT_MS,
+    );
 
     if (!res.ok) {
       throw new Error(`OpenAI transcription HTTP ${String(res.status)}`);
@@ -64,11 +82,15 @@ export class TranscriptionService implements VoiceService {
     const form = new FormData();
     form.append('file', new Blob([toBlobPart(audio)], { type: mimeType }), 'audio.webm');
 
-    const res = await fetch(`${this.#deps.managedEndpoint}/api/voice/transcribe`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
-      body: form,
-    });
+    const res = await fetchWithTimeout(
+      `${this.#deps.managedEndpoint}/api/voice/transcribe`,
+      {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: form,
+      },
+      TRANSCRIBE_TIMEOUT_MS,
+    );
 
     if (!res.ok) {
       throw new Error(`Managed transcription HTTP ${String(res.status)}`);

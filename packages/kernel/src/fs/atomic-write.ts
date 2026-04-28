@@ -1,0 +1,137 @@
+import { copyFile, open, rename, unlink } from 'node:fs/promises';
+import { dirname } from 'node:path';
+
+import { createLogger } from '../logger/index.ts';
+
+const log = createLogger('fs:atomic-write');
+
+/**
+ * Escrita atômica de arquivo via `tmp → fsync(file) → rename → fsync(dir)`.
+ *
+ * Garantias:
+ *   1. Ou o arquivo permanece com o conteúdo antigo, ou recebe o novo
+ *      conteúdo completo. Crash mid-write não deixa arquivo truncado.
+ *   2. `fsync` no fd força flush dos blocos para disco antes do rename.
+ *   3. `rename` é atômico no nível do filesystem em POSIX (POSIX.1-2017,
+ *      §rename(2)) e quase-atômico em NTFS (em Windows o `MoveFileEx`
+ *      via Node faz replace-with-rename).
+ *   4. `fsync(dirfd)` em Linux/macOS garante que a entrada de diretório
+ *      do rename também esteja durável (dir entry pode ficar em cache de
+ *      buffer do filesystem mesmo após o rename retornar).
+ *
+ * Trade-offs:
+ *   - Dois fsyncs (file + dir) custam I/O. Para escritas frequentes (>10/s)
+ *     considerar batching no caller.
+ *   - Em Windows, `fsync` no diretório não é suportado — silenciosamente
+ *     ignoramos `ENOTDIR`/`EPERM`/`EISDIR` no path do diretório.
+ *
+ * Uso:
+ *   ```ts
+ *   await writeAtomic('/path/to/file.json', JSON.stringify(data));
+ *   ```
+ *
+ * Substitui o padrão inseguro `fs.writeFile(path, data)` que sobrescreve
+ * in-place sem tmp+fsync — fonte da Dor #3 V1 (corrupção de
+ * credentials.enc após crash mid-write) que motivou ADR-0050.
+ */
+export async function writeAtomic(
+  path: string,
+  data: string | Uint8Array,
+  options?: { readonly mode?: number },
+): Promise<void> {
+  const tmpPath = `${path}.${process.pid}.${Date.now()}.tmp`;
+  const mode = options?.mode ?? 0o600;
+
+  let fileHandle: Awaited<ReturnType<typeof open>> | null = null;
+  try {
+    fileHandle = await open(tmpPath, 'w', mode);
+    await fileHandle.writeFile(data);
+    await fileHandle.sync();
+    await fileHandle.close();
+    fileHandle = null;
+
+    // CR7-01: rename() lança EXDEV quando tmp e target estão em
+    // filesystems diferentes (ex.: Docker volume mount, /tmp em tmpfs vs
+    // workspace em ext4, OneDrive sync no Windows). Sem fallback,
+    // CredentialVault, PermissionStore e SourcesStore falhavam silenciosamente.
+    // Fallback: copy + unlink (não-atômico mas funcional).
+    try {
+      await rename(tmpPath, path);
+    } catch (renameErr) {
+      const code = (renameErr as { code?: string } | null)?.code;
+      if (code !== 'EXDEV') throw renameErr;
+      log.warn(
+        { path, code },
+        'rename failed with EXDEV (cross-device); falling back to copy+unlink',
+      );
+      await copyFile(tmpPath, path);
+      // CR8-02: copyFile não preserva mode do source. Sem chmod explícito
+      // após copy, credenciais escritas via fallback EXDEV viravam 0o644
+      // (legíveis por outros usuários). Reaplica `mode` (default 0o600)
+      // antes do unlink do tmp para garantir o invariante de privacidade.
+      try {
+        const { chmod } = await import('node:fs/promises');
+        await chmod(path, mode);
+      } catch (chmodErr) {
+        log.warn(
+          { path, err: String(chmodErr) },
+          'chmod after EXDEV copy failed (may be FAT/NTFS without POSIX modes)',
+        );
+      }
+      await unlink(tmpPath);
+    }
+
+    await fsyncDir(dirname(path));
+  } catch (error) {
+    if (fileHandle !== null) {
+      try {
+        await fileHandle.close();
+      } catch {
+        // best-effort cleanup
+      }
+    }
+    try {
+      await unlink(tmpPath);
+    } catch {
+      // tmp may not exist if open() itself failed
+    }
+    throw error;
+  }
+}
+
+/**
+ * fsync em descritor de diretório. Em Windows não é suportado (retorna
+ * EPERM/ENOTDIR/EISDIR ou similar) — tratamos como no-op.
+ */
+async function fsyncDir(dir: string): Promise<void> {
+  let dirHandle: Awaited<ReturnType<typeof open>> | null = null;
+  try {
+    dirHandle = await open(dir, 'r');
+    await dirHandle.sync();
+  } catch (error) {
+    if (!isUnsupportedDirSyncError(error)) {
+      throw error;
+    }
+    // Windows: dir fsync não suportado, ignora silenciosamente
+  } finally {
+    if (dirHandle !== null) {
+      try {
+        await dirHandle.close();
+      } catch {
+        // best-effort
+      }
+    }
+  }
+}
+
+function isUnsupportedDirSyncError(error: unknown): boolean {
+  if (typeof error !== 'object' || error === null) return false;
+  const code = (error as { code?: unknown }).code;
+  return (
+    code === 'EPERM' ||
+    code === 'EISDIR' ||
+    code === 'ENOTDIR' ||
+    code === 'EACCES' ||
+    code === 'EINVAL'
+  );
+}

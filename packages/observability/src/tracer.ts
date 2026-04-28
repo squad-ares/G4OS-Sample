@@ -25,13 +25,30 @@ export function withSpan<T>(
           return result;
         })
         .catch((err: unknown) => {
-          span.recordException(err as Error);
-          span.setStatus({
-            code: SpanStatusCode.ERROR,
-            message: err instanceof Error ? err.message : String(err),
-          });
+          // CR7-22: span.recordException ou span.setStatus podem throw em
+          // alguns transports (ex.: OTel SDK Node com endpoint indisponível
+          // momentaneamente). Sem try/catch aqui o original `err` ficava
+          // mascarado e finally `span.end()` nunca rodava → spans órfãos
+          // no exporter que depois travam o batch processor.
+          try {
+            span.recordException(err as Error);
+            span.setStatus({
+              code: SpanStatusCode.ERROR,
+              message: err instanceof Error ? err.message : String(err),
+            });
+          } catch {
+            // best-effort — preserve `err` original re-throwado abaixo
+          }
           throw err;
         })
-        .finally(() => span.end()),
+        .finally(() => {
+          // span.end() também pode throw em transport falho — silenciamos
+          // pra garantir que cleanup do span sempre roda.
+          try {
+            span.end();
+          } catch {
+            // best-effort cleanup
+          }
+        }),
   );
 }

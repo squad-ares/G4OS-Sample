@@ -16,8 +16,8 @@
     "@g4os/kernel": "workspace:*"
   },
   "devDependencies": {
-    "@types/node": "25.6.0",
-    "vitest": "4.1.4"
+    "@types/node": "catalog:",
+    "vitest": "catalog:"
   },
   "scripts": {
     "build": "tsup",

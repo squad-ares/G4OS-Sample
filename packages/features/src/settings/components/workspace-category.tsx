@@ -7,13 +7,13 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  StatusPanel,
   useTranslate,
 } from '@g4os/ui';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
-import { ShellStatusPanel } from '../../shell/index.ts';
 
 export interface WorkspaceCategoryProps {
   readonly workspaces: readonly Workspace[];
@@ -71,7 +71,7 @@ export function WorkspaceCategory({
 
   if (workspaces.length === 0) {
     return (
-      <ShellStatusPanel
+      <StatusPanel
         title={t('settings.workspace.empty.title')}
         description={t('settings.workspace.empty.description')}
         tone="warning"
@@ -89,7 +89,7 @@ export function WorkspaceCategory({
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       {workspaces.length > 1 && (
-        <ShellStatusPanel
+        <StatusPanel
           title={t('settings.workspace.selector.title')}
           description={t('settings.workspace.selector.description')}
         >
@@ -107,10 +107,10 @@ export function WorkspaceCategory({
               </SelectContent>
             </Select>
           </div>
-        </ShellStatusPanel>
+        </StatusPanel>
       )}
 
-      <ShellStatusPanel
+      <StatusPanel
         title={t('settings.workspace.identity.title')}
         description={t('settings.workspace.identity.description')}
         badge={t('settings.category.workspace.label')}
@@ -128,9 +128,9 @@ export function WorkspaceCategory({
           />
           <ReadOnlyField label={t('settings.workspace.identity.slug')} value={active?.slug ?? ''} />
         </div>
-      </ShellStatusPanel>
+      </StatusPanel>
 
-      <ShellStatusPanel
+      <StatusPanel
         title={t('settings.workspace.defaults.title')}
         description={t('settings.workspace.defaults.description')}
       >
@@ -159,7 +159,7 @@ export function WorkspaceCategory({
             {isSaving ? t('settings.workspace.saving') : t('settings.workspace.save')}
           </Button>
         </div>
-      </ShellStatusPanel>
+      </StatusPanel>
     </form>
   );
 }

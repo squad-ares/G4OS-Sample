@@ -1,3 +1,4 @@
+import { DisposableBase } from '@g4os/kernel/disposable';
 import { SourceError } from '@g4os/kernel/errors';
 import type { SourceRegistry } from '../interface/registry.ts';
 import type { ISource } from '../interface/source.ts';
@@ -27,14 +28,23 @@ export interface PlanTurnInput {
   readonly enabledNativeSources?: readonly string[];
 }
 
-export class SourceLifecycleManager {
+export class SourceLifecycleManager extends DisposableBase {
   private readonly sticky = new Map<string, Set<string>>();
   private readonly rejected = new Map<string, Set<string>>();
 
   constructor(
     private readonly registry: SourceRegistry,
     private readonly detector: SourceIntentDetector,
-  ) {}
+  ) {
+    super();
+  }
+
+  override dispose(): void {
+    if (this._disposed) return;
+    this.sticky.clear();
+    this.rejected.clear();
+    super.dispose();
+  }
 
   planTurn(input: PlanTurnInput): TurnPlan {
     const intent = this.detector.detect(input.message, input.context);

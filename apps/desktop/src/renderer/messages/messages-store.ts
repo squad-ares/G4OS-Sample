@@ -11,6 +11,7 @@ export function messagesListQueryOptions(sessionId: string) {
   return {
     queryKey: messagesListKey(sessionId),
     queryFn: async (): Promise<readonly Message[]> => trpc.messages.list.query({ sessionId }),
+    placeholderData: (previous: readonly Message[] | undefined) => previous,
     staleTime: STALE_TIME_MS,
     gcTime: GC_TIME_MS,
   } as const;

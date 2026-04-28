@@ -196,7 +196,12 @@ Como saberemos que essa decisão foi boa?
 - Todos os OS-specific code está em `platform/macos.ts`, `platform/windows.ts`, `platform/linux.ts`
 - IKeychain, ISpawn têm type-safe implementações por OS
 - Testes rodam matrix Mac/Win/Linux sem ifdef
-- Code review rejeita `process.platform` fora de platform package
+- **Gate `pnpm check:platform-leaks`** (`scripts/check-platform-leaks.ts`,
+  adicionado em 2026-04-26) varre `packages/**/src` + `apps/**/src` e
+  falha se qualquer arquivo fora de `packages/platform/src/` ou
+  `scripts/` contém `process.platform`, `os.platform()`, `os.homedir()`
+  ou `os.tmpdir()` direto. Antes desse gate a regra era "code review
+  rejeita" — sugestão sem forcing function.
 - Revisão em 2026-05-15 para avaliar cobertura de casos edge
 
 ## Implementação no kernel
@@ -251,4 +256,12 @@ export interface ISpawn {
 ## Histórico de alterações
 
 - 2026-04-17: Proposta inicial
+- 2026-04-26: Adicionado gate de CI `check:platform-leaks` para enforçar
+  o boundary; corrigidos 3 leaks pré-existentes (`apps/desktop/src/main/index.ts:261`,
+  `packages/agents/src/tools/shared/shell-launcher.ts:18`,
+  `packages/sources/src/mcp-stdio/source.ts:26`); `apps/desktop/src/main/services/platform-service.ts`
+  passou a usar `getPlatformInfo()` mapeado para `NodeJS.Platform` em
+  vez de `process.platform` direto. `@g4os/agents` e `@g4os/sources`
+  ganharam `@g4os/platform` como dep para suportar a migração (ver
+  ADR-0152).
 - (pendente) Aceita pelo time

@@ -142,4 +142,43 @@ describe('PermissionBroker', () => {
     broker.dispose();
     await expect(p).rejects.toThrow(/disposed/);
   });
+
+  it('coalesces concurrent identical requests into a single onRequest emission', async () => {
+    broker = new PermissionBroker((req) => emitted.push(req));
+    const p1 = broker.request(makeInput());
+    const p2 = broker.request(makeInput()); // same (sessionId, toolName, argsHash)
+    expect(emitted).toHaveLength(1);
+    expect(broker.pendingCount).toBe(1);
+
+    broker.respond(firstRequestId(emitted), 'allow_once');
+    await expect(p1).resolves.toBe('allow_once');
+    await expect(p2).resolves.toBe('allow_once');
+  });
+
+  it('does NOT coalesce when args differ (different argsHash)', async () => {
+    broker = new PermissionBroker((req) => emitted.push(req));
+    const p1 = broker.request(makeInput({ input: { path: '/a' } }));
+    const p2 = broker.request(makeInput({ input: { path: '/b' } }));
+    expect(emitted).toHaveLength(2);
+
+    const [req0, req1] = emitted;
+    if (!req0 || !req1) throw new Error('expected 2 pending permission requests');
+    broker.respond(req0.requestId, 'allow_once');
+    broker.respond(req1.requestId, 'deny');
+    await expect(p1).resolves.toBe('allow_once');
+    await expect(p2).resolves.toBe('deny');
+  });
+
+  it('coalesce slot is freed after settlement so next call asks again', async () => {
+    broker = new PermissionBroker((req) => emitted.push(req));
+    const p1 = broker.request(makeInput());
+    broker.respond(firstRequestId(emitted), 'deny');
+    await expect(p1).resolves.toBe('deny');
+
+    // Now a new identical request should emit again (coalesce slot was cleared).
+    const p2 = broker.request(makeInput()).catch(() => undefined);
+    expect(emitted).toHaveLength(2);
+    broker.cancel('sess-1');
+    await p2;
+  });
 });

@@ -2,8 +2,27 @@ import { AuthError, ErrorCode } from '@g4os/kernel/errors';
 import { err, ok, type Result } from 'neverthrow';
 import type { AuthSession, SupabaseAuthPort } from '../types.ts';
 
+// CR9: validação leve de email antes de enviar para Supabase. Sem isso,
+// emails malformados (vazio, sem @, espaço duplo) viram round-trip pra
+// Supabase só pra retornar erro com message vaga. Validar local economiza
+// rede + dá feedback mais claro ao caller. Padrão RFC-5322 simplificado.
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
+}
+
+function validateEmail(normalized: string): Result<void, AuthError> {
+  if (normalized.length === 0 || normalized.length > 320 || !EMAIL_RE.test(normalized)) {
+    return err(
+      new AuthError({
+        code: ErrorCode.AUTH_NOT_AUTHENTICATED,
+        message: 'invalid email format',
+        context: { phase: 'validate_email' },
+      }),
+    );
+  }
+  return ok(undefined);
 }
 
 export async function sendOtp(
@@ -11,6 +30,8 @@ export async function sendOtp(
   email: string,
 ): Promise<Result<void, AuthError>> {
   const normalized = normalizeEmail(email);
+  const validation = validateEmail(normalized);
+  if (validation.isErr()) return err(validation.error);
   const { error } = await port.signInWithOtp({ email: normalized, shouldCreateUser: true });
   if (error) {
     return err(

@@ -1,5 +1,11 @@
 import { z } from 'zod';
 
+/**
+ * Schema canônico para IDs de sessão. Routers devem importar daqui em vez
+ * de redeclarar `z.uuid()` inline (CR4-04).
+ */
+export const SessionIdSchema = z.uuid();
+
 export const SessionStatusSchema = z.enum(['idle', 'running', 'paused', 'error', 'archived']);
 
 export type SessionStatus = z.infer<typeof SessionStatusSchema>;

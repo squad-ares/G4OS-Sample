@@ -4,11 +4,19 @@ import { router } from '../trpc.ts';
 
 const WorkspaceIdSchema = z.uuid();
 
+// CR9: caps em campos de Permission. `toolName` em uso fica < 50 chars.
+// `argsHash` é sempre SHA-256 hex 64 chars exatos (legacy 32 chars era
+// suportado em find/persist mas writes novos usam 64). `argsPreview` é
+// truncado em 200 chars no store. Caps espelham invariantes do produtor.
 const PermissionDecisionViewSchema = z.object({
-  toolName: z.string(),
-  argsHash: z.string(),
-  argsPreview: z.string(),
-  decidedAt: z.number().int().positive(),
+  toolName: z.string().min(1).max(256),
+  argsHash: z
+    .string()
+    .min(32)
+    .max(64)
+    .regex(/^[a-f0-9]+$/),
+  argsPreview: z.string().max(256),
+  decidedAt: z.number().int().finite().positive(),
 });
 
 export const permissionsRouter = router({
@@ -25,8 +33,12 @@ export const permissionsRouter = router({
     .input(
       z.object({
         workspaceId: WorkspaceIdSchema,
-        toolName: z.string().min(1),
-        argsHash: z.string().min(1),
+        toolName: z.string().min(1).max(256),
+        argsHash: z
+          .string()
+          .min(32)
+          .max(64)
+          .regex(/^[a-f0-9]+$/),
       }),
     )
     .output(z.void())

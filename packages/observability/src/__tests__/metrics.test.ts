@@ -5,7 +5,7 @@ describe('metrics registry', () => {
   let metrics: ReturnType<typeof createMetrics>;
 
   beforeEach(() => {
-    metrics = createMetrics();
+    metrics = createMetrics({ includeDefaults: false });
   });
 
   it('exports in Prometheus text format with the app default label', async () => {
@@ -54,7 +54,7 @@ describe('metrics registry', () => {
   });
 
   it('registries created separately do not share state', async () => {
-    const other = createMetrics();
+    const other = createMetrics({ includeDefaults: false });
     metrics.sessionActive.set(5);
     other.sessionActive.set(9);
     const textA = await exportMetrics(metrics);

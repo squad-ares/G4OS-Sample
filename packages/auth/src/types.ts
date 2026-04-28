@@ -60,11 +60,24 @@ export interface SupabaseRefreshResult {
  * Storage port used to persist session tokens. Mirrors the
  * `CredentialVault` surface without importing @g4os/credentials
  * (keeps this package boundary-clean).
+ *
+ * Contrato (consumidores como `SessionRefresher` dependem disso):
+ * - `get(key)` em chave ausente: deve retornar `err(AuthError.tokenMissing)`
+ *   ou similar, NUNCA `ok('')`.
+ * - `set(key, value, meta?)`: persistência atômica; sucesso = `ok(undefined)`.
+ * - `delete(key)`: idempotente — apagar chave inexistente retorna `ok(undefined)`.
+ * - `list()`: deve retornar `ok([])` quando o store está vazio. **Nunca**
+ *   `err` apenas porque não há chaves armazenadas. Implementações de file-backed
+ *   stores devem tratar ENOENT do diretório como "store vazio".
  */
 export interface AuthTokenStore {
   get(key: string): Promise<Result<string, AuthError>>;
   set(key: string, value: string, meta?: { expiresAt?: number }): Promise<Result<void, AuthError>>;
   delete(key: string): Promise<Result<void, AuthError>>;
+  /**
+   * Lista todas as chaves armazenadas com suas expirações.
+   * @returns `ok([])` se o store está vazio. Nunca `err` para ausência de chaves.
+   */
   list(): Promise<Result<ReadonlyArray<{ key: string; expiresAt?: number }>, AuthError>>;
 }
 

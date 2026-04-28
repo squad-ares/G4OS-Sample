@@ -74,23 +74,48 @@ interface TokenPayload {
 }
 
 function parseTokenPayload(payload: TokenPayload): Result<OAuthTokens, OAuthError> {
-  if (!payload.access_token) {
-    return err(OAuthError.exchangeFailed('missing access_token'));
+  // Validação defensiva: alguns IdPs malcomportados retornam HTTP 200 com
+  // `access_token` vazio/whitespace ou `expires_in` zero/negativo. Sem
+  // este guard, o vault persistiria credencial inútil e callers falham
+  // depois com "auth failed" genérico.
+  if (typeof payload.access_token !== 'string' || payload.access_token.trim().length === 0) {
+    return err(OAuthError.exchangeFailed('missing or empty access_token'));
   }
-  const expiresAt =
-    typeof payload.expires_in === 'number' ? Date.now() + payload.expires_in * 1000 : undefined;
+  if (typeof payload.refresh_token === 'string' && payload.refresh_token.trim().length === 0) {
+    return err(OAuthError.exchangeFailed('empty refresh_token in response'));
+  }
+  if (typeof payload.expires_in === 'number' && payload.expires_in <= 0) {
+    return err(OAuthError.exchangeFailed(`invalid expires_in: ${payload.expires_in}`));
+  }
+  // CR5-16: IdPs inconsistentes podem omitir `expires_in`. Sem default,
+  // `expiresAt` ficaria undefined e o token nunca expiraria — escapa do
+  // RotationOrchestrator. 1h é conservador: força refresh logo, em caso
+  // dúvida (inferior ao default ~1h da maioria dos providers).
+  const DEFAULT_EXPIRES_IN_SEC = 3600;
+  const expiresInSec =
+    typeof payload.expires_in === 'number' ? payload.expires_in : DEFAULT_EXPIRES_IN_SEC;
+  const expiresAt = Date.now() + expiresInSec * 1000;
   const scope =
     typeof payload.scope === 'string' && payload.scope.length > 0 ? payload.scope.split(/\s+/) : [];
   return ok({
     accessToken: payload.access_token,
     ...(payload.refresh_token ? { refreshToken: payload.refresh_token } : {}),
-    ...(expiresAt === undefined ? {} : { expiresAt }),
+    expiresAt,
     tokenType: payload.token_type ?? 'Bearer',
     scope,
   });
 }
 
-export function createFetchTokenExchanger(fetcher: typeof fetch = fetch): TokenExchanger {
+// CR9: timeout default para troca de tokens. Sem isso, IdP lento/offline
+// trava o fluxo OAuth indefinidamente — UI fica em "Conectando..." sem
+// recovery automático até o usuário matar/reabrir o app.
+const DEFAULT_TOKEN_EXCHANGE_TIMEOUT_MS = 30_000;
+
+export function createFetchTokenExchanger(
+  fetcher: typeof fetch = fetch,
+  options: { readonly timeoutMs?: number } = {},
+): TokenExchanger {
+  const timeoutMs = options.timeoutMs ?? DEFAULT_TOKEN_EXCHANGE_TIMEOUT_MS;
   return {
     async exchange({ code, codeVerifier, config }) {
       const body = new URLSearchParams({
@@ -101,6 +126,9 @@ export function createFetchTokenExchanger(fetcher: typeof fetch = fetch): TokenE
         code_verifier: codeVerifier,
       });
 
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
+      timer.unref?.();
       try {
         const response = await fetcher(config.tokenEndpoint, {
           method: 'POST',
@@ -109,6 +137,7 @@ export function createFetchTokenExchanger(fetcher: typeof fetch = fetch): TokenE
             Accept: 'application/json',
           },
           body: body.toString(),
+          signal: controller.signal,
         });
         if (!response.ok) {
           const text = await response.text().catch(() => '');
@@ -116,7 +145,12 @@ export function createFetchTokenExchanger(fetcher: typeof fetch = fetch): TokenE
         }
         return parseTokenPayload((await response.json()) as TokenPayload);
       } catch (cause) {
+        if (controller.signal.aborted) {
+          return err(OAuthError.exchangeFailed(`token exchange timed out after ${timeoutMs}ms`));
+        }
         return err(OAuthError.exchangeFailed(cause));
+      } finally {
+        clearTimeout(timer);
       }
     },
   };

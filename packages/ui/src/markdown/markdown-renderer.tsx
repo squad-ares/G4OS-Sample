@@ -1,8 +1,9 @@
-import type { ComponentType } from 'react';
+import type { ComponentType, HTMLAttributes } from 'react';
 import { useMemo } from 'react';
 import type { ExtraProps } from 'react-markdown';
 import ReactMarkdown from 'react-markdown';
 import rehypeRaw from 'rehype-raw';
+import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
 import remarkGfm from 'remark-gfm';
 import { CodeBlock } from './code-block.tsx';
 import { customBlockRegistry } from './custom-block-registry.ts';
@@ -14,6 +15,34 @@ export interface MarkdownRendererProps {
   readonly className?: string;
 }
 
+/**
+ * Schema permissivo para markdown vindo de agentes/tools. Estende o
+ * defaultSchema do `rehype-sanitize` permitindo:
+ * - `class` global (para syntax highlighting do CodeBlock e custom blocks)
+ * - `style` apenas em `code`/`pre`/`span` (Shiki injeta cores inline)
+ * - `target` + `rel` em `a`
+ * - GFM tables já cobertas pelo defaultSchema
+ *
+ * Bloqueia `<script>`, `<iframe>`, `<object>`, `<embed>`, `on*` handlers,
+ * e qualquer URL que não seja `http(s):`/`mailto:`/`#`. Sem este sanitize
+ * o `rehypeRaw` deixava XSS direto via `<img onerror>` etc.
+ */
+const sanitizeSchema = {
+  ...defaultSchema,
+  attributes: {
+    ...defaultSchema.attributes,
+    '*': [...(defaultSchema.attributes?.['*'] ?? []), 'className', 'class'],
+    code: [...(defaultSchema.attributes?.['code'] ?? []), 'style'],
+    pre: [...(defaultSchema.attributes?.['pre'] ?? []), 'style'],
+    span: [...(defaultSchema.attributes?.['span'] ?? []), 'style'],
+    a: [
+      ...(defaultSchema.attributes?.['a'] ?? []),
+      ['target', '_blank'],
+      ['rel', 'noopener', 'noreferrer'],
+    ],
+  },
+};
+
 function sanitizeIncompleteStreaming(content: string): string {
   const fenceCount = (content.match(/```/g) ?? []).length;
   if (fenceCount % 2 === 1) {
@@ -22,8 +51,6 @@ function sanitizeIncompleteStreaming(content: string): string {
   }
   return content;
 }
-
-import type { HTMLAttributes } from 'react';
 
 type CodeProps = HTMLAttributes<HTMLElement> & ExtraProps;
 
@@ -65,7 +92,7 @@ export function MarkdownRenderer({
     >
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
-        rehypePlugins={[rehypeRaw]}
+        rehypePlugins={[rehypeRaw, [rehypeSanitize, sanitizeSchema]]}
         components={components}
       >
         {safeContent}

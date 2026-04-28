@@ -97,7 +97,7 @@ export function SessionList({
   }
 
   return (
-    <div ref={scrollRef} className="h-full overflow-auto">
+    <div ref={scrollRef} className="h-full overflow-y-auto overflow-x-hidden">
       <div style={{ height: virtualizer.getTotalSize() }} className="relative">
         {virtualizer.getVirtualItems().map((virtualRow) => {
           const row = rows[virtualRow.index];

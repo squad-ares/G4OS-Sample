@@ -1,5 +1,7 @@
+import { useTranslate } from '@g4os/ui';
 import { Code2, FileText, Lightbulb, Sparkles } from 'lucide-react';
 import type { ComponentType, SVGProps } from 'react';
+import { useMemo } from 'react';
 
 export interface SuggestedPrompt {
   readonly id: string;
@@ -16,45 +18,15 @@ export interface WelcomeStateProps {
   readonly onSelect?: (prompt: SuggestedPrompt) => void;
 }
 
-const DEFAULT_PROMPTS: ReadonlyArray<SuggestedPrompt> = [
-  {
-    id: 'explain-code',
-    title: 'Explicar código',
-    subtitle: 'Cole um trecho e peça uma explicação',
-    prompt: 'Explique este código linha por linha:\n\n```\n\n```',
-    Icon: Code2,
-  },
-  {
-    id: 'brainstorm',
-    title: 'Brainstorm de ideias',
-    subtitle: 'Liste opções para um problema',
-    prompt: 'Me ajude a fazer brainstorm sobre ',
-    Icon: Lightbulb,
-  },
-  {
-    id: 'summarize',
-    title: 'Resumir documento',
-    subtitle: 'Pontos-chave em bullets',
-    prompt: 'Resuma este texto em até 5 bullets:\n\n',
-    Icon: FileText,
-  },
-  {
-    id: 'plan',
-    title: 'Planejar tarefa',
-    subtitle: 'Quebrar em passos acionáveis',
-    prompt: 'Quebre esta tarefa em passos concretos:\n\n',
-    Icon: Sparkles,
-  },
-];
-
 export function WelcomeState({ headline, subhead, prompts, onSelect }: WelcomeStateProps) {
-  const items = prompts ?? DEFAULT_PROMPTS;
+  const { t } = useTranslate();
+  const items = useMemo(() => prompts ?? buildDefaultPrompts(t), [prompts, t]);
 
   return (
     <div className="flex h-full flex-col items-center justify-center gap-6 p-8">
       <div className="text-center">
         <h2 className="text-2xl font-semibold text-foreground">
-          {headline ?? 'Como posso ajudar hoje?'}
+          {headline ?? t('chat.welcome.headline')}
         </h2>
         {subhead ? <p className="mt-1 text-sm text-muted-foreground">{subhead}</p> : null}
       </div>
@@ -67,7 +39,7 @@ export function WelcomeState({ headline, subhead, prompts, onSelect }: WelcomeSt
               key={p.id}
               type="button"
               onClick={() => onSelect?.(p)}
-              className="group flex items-start gap-3 rounded-xl border border-foreground/10 bg-foreground/[0.02] p-3 text-left transition-colors hover:border-foreground/20 hover:bg-foreground/[0.04]"
+              className="group flex items-start gap-3 rounded-xl border border-foreground/10 bg-foreground/[0.02] p-3 text-left transition-colors hover:border-foreground/20 hover:bg-accent/12"
             >
               {Icon ? (
                 <Icon
@@ -87,4 +59,39 @@ export function WelcomeState({ headline, subhead, prompts, onSelect }: WelcomeSt
       </div>
     </div>
   );
+}
+
+function buildDefaultPrompts(
+  t: ReturnType<typeof useTranslate>['t'],
+): ReadonlyArray<SuggestedPrompt> {
+  return [
+    {
+      id: 'explain-code',
+      title: t('chat.welcome.prompts.explainCode.title'),
+      subtitle: t('chat.welcome.prompts.explainCode.subtitle'),
+      prompt: t('chat.welcome.prompts.explainCode.prompt'),
+      Icon: Code2,
+    },
+    {
+      id: 'brainstorm',
+      title: t('chat.welcome.prompts.brainstorm.title'),
+      subtitle: t('chat.welcome.prompts.brainstorm.subtitle'),
+      prompt: t('chat.welcome.prompts.brainstorm.prompt'),
+      Icon: Lightbulb,
+    },
+    {
+      id: 'summarize',
+      title: t('chat.welcome.prompts.summarize.title'),
+      subtitle: t('chat.welcome.prompts.summarize.subtitle'),
+      prompt: t('chat.welcome.prompts.summarize.prompt'),
+      Icon: FileText,
+    },
+    {
+      id: 'plan',
+      title: t('chat.welcome.prompts.plan.title'),
+      subtitle: t('chat.welcome.prompts.plan.subtitle'),
+      prompt: t('chat.welcome.prompts.plan.prompt'),
+      Icon: Sparkles,
+    },
+  ];
 }

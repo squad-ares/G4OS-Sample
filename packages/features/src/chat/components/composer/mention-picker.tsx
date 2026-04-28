@@ -13,7 +13,7 @@ import type { SourceConfigView } from '@g4os/kernel/types';
 import type { TranslationKey } from '@g4os/translate';
 import { useTranslate } from '@g4os/ui';
 import { LayoutGrid } from 'lucide-react';
-import { type KeyboardEvent, type ReactNode, useEffect, useMemo, useState } from 'react';
+import { type KeyboardEvent, type ReactNode, useEffect, useId, useMemo, useState } from 'react';
 
 export interface MentionPickerProps {
   readonly sources: readonly SourceConfigView[];
@@ -21,6 +21,12 @@ export interface MentionPickerProps {
   readonly onSelect: (slug: string) => void;
   readonly onCancel: () => void;
   readonly registerKeyHandler?: (handler: (event: KeyboardEvent) => boolean) => () => void;
+  /**
+   * CR7: listbox id injetado pelo Composer pai para que `aria-controls` no
+   * textarea bata com o id real do `<div role="listbox">`. Caso ausente,
+   * gera id local via `useId()` como fallback (componente standalone).
+   */
+  readonly listboxId?: string;
 }
 
 const MAX_ITEMS = 8;
@@ -31,9 +37,16 @@ export function MentionPicker({
   onSelect,
   onCancel,
   registerKeyHandler,
+  listboxId: listboxIdProp,
 }: MentionPickerProps): ReactNode {
   const { t } = useTranslate();
   const [activeIndex, setActiveIndex] = useState(0);
+  // CR6-07 + CR7 fix: id deve ser o MESMO usado pelo `aria-controls` do
+  // textarea pai. Composer injeta via prop; fallback usa `useId()` para
+  // suportar uso standalone. Multi-window (ADR-0107) safe.
+  const reactId = useId();
+  const listboxId = listboxIdProp ?? `mention-picker-listbox-${reactId}`;
+  const optionIdPrefix = `mention-option-${reactId}`;
 
   const matches = useMemo(
     () => filterSources(sources, query).slice(0, MAX_ITEMS),
@@ -70,9 +83,8 @@ export function MentionPicker({
     );
   }
 
-  const listboxId = 'mention-picker-listbox';
   const activeOptionId = matches[activeIndex]
-    ? `mention-option-${matches[activeIndex].id}`
+    ? `${optionIdPrefix}-${matches[activeIndex].id}`
     : undefined;
 
   // Composer textarea (fora deste componente) é o combobox real ARIA — detém
@@ -98,7 +110,7 @@ export function MentionPicker({
         {matches.map((source, index) => (
           <MentionRow
             key={source.id}
-            id={`mention-option-${source.id}`}
+            id={`${optionIdPrefix}-${source.id}`}
             source={source}
             active={index === activeIndex}
             onHover={() => setActiveIndex(index)}
@@ -120,30 +132,35 @@ interface MentionRowProps {
 
 function MentionRow({ id, source, active, onHover, onSelect }: MentionRowProps): ReactNode {
   const { t } = useTranslate();
+  // CR5-22: role="option" aplicado direto no <button> em vez de wrapper
+  // <div>. SR antes via duas semânticas (option estática + button
+  // clicável) sobrepostas — agora cleaner. tabIndex=-1 mantém foco
+  // gerenciado pelo textarea via aria-activedescendant.
   return (
-    <div id={id} role="option" aria-selected={active} tabIndex={-1}>
-      <button
-        type="button"
-        onMouseDown={(e) => {
-          e.preventDefault();
-          onSelect();
-        }}
-        onMouseEnter={onHover}
-        tabIndex={-1}
-        className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs transition-colors ${
-          active ? 'bg-accent/60' : 'hover:bg-foreground/5'
-        }`}
-      >
-        <LayoutGrid className="size-3.5 shrink-0 opacity-60" aria-hidden={true} />
-        <div className="min-w-0 flex-1">
-          <div className="truncate font-medium">{source.displayName}</div>
-          <div className="truncate font-mono text-[10px] text-muted-foreground">{source.slug}</div>
-        </div>
-        <span className={`text-[9px] uppercase tracking-wider ${statusColor(source.status)}`}>
-          {t(`sources.status.${source.status}` as TranslationKey)}
-        </span>
-      </button>
-    </div>
+    <button
+      id={id}
+      type="button"
+      role="option"
+      aria-selected={active}
+      tabIndex={-1}
+      onMouseDown={(e) => {
+        e.preventDefault();
+        onSelect();
+      }}
+      onMouseEnter={onHover}
+      className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs transition-colors ${
+        active ? 'bg-accent/60' : 'hover:bg-accent/12'
+      }`}
+    >
+      <LayoutGrid className="size-3.5 shrink-0 opacity-60" aria-hidden={true} />
+      <div className="min-w-0 flex-1">
+        <div className="truncate font-medium">{source.displayName}</div>
+        <div className="truncate font-mono text-[10px] text-muted-foreground">{source.slug}</div>
+      </div>
+      <span className={`text-[9px] uppercase tracking-wider ${statusColor(source.status)}`}>
+        {t(`sources.status.${source.status}` as TranslationKey)}
+      </span>
+    </button>
   );
 }
 

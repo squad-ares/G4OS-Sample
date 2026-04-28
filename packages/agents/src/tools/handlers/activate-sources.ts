@@ -88,7 +88,11 @@ export function createActivateSourcesHandler(deps: ActivateSourcesDeps): ToolHan
       }
 
       const enabled = await deps.catalog.list(session.workspaceId);
-      const outcome = classifySlugs(parsed.value, {
+      // CR7-46: dedup input slugs. Caller pode passar `["gmail", "gmail"]`
+      // (LLM gerou repetido), e classifySlugs duplicava o slug em activated[].
+      // Resposta UI mostrava "gmail (2)" confuso.
+      const requested = Array.from(new Set(parsed.value));
+      const outcome = classifySlugs(requested, {
         enabledSlugs: new Set(enabled.filter((s) => s.enabled).map((s) => s.slug)),
         rejectedSlugs: new Set(session.rejectedSourceSlugs),
         stickySlugs: new Set(session.stickyMountedSourceSlugs),
@@ -155,6 +159,12 @@ function skipReason(
   return null;
 }
 
+// CR9: caps defensivos na entrada. LLM pode gerar `slugs` patológicos
+// (string gigante, lista de 10000 entries) — sem limites, isso atinge
+// o backend (busca em sourcesStore, update SQLite) com payload absurdo.
+const MAX_SLUGS_PER_CALL = 32;
+const MAX_SLUG_LENGTH = 100;
+
 function parseInput(
   raw: Readonly<Record<string, unknown>>,
 ): Result<readonly string[], { readonly code: string; readonly message: string }> {
@@ -165,12 +175,18 @@ function parseInput(
       message: 'slugs must be an array of strings',
     });
   }
+  if (input.slugs.length > MAX_SLUGS_PER_CALL) {
+    return err({
+      code: 'tool.activate_sources.invalid_input',
+      message: `too many slugs (max ${MAX_SLUGS_PER_CALL})`,
+    });
+  }
   const slugs: string[] = [];
   for (const s of input.slugs) {
-    if (typeof s !== 'string' || s.length === 0) {
+    if (typeof s !== 'string' || s.length === 0 || s.length > MAX_SLUG_LENGTH) {
       return err({
         code: 'tool.activate_sources.invalid_input',
-        message: 'each slug must be a non-empty string',
+        message: `each slug must be a non-empty string up to ${MAX_SLUG_LENGTH} chars`,
       });
     }
     slugs.push(s);

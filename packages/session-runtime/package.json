@@ -19,11 +19,11 @@
     "@g4os/kernel": "workspace:*",
     "@g4os/observability": "workspace:*",
     "@g4os/permissions": "workspace:*",
-    "neverthrow": "8.2.0"
+    "neverthrow": "catalog:"
   },
   "devDependencies": {
-    "@types/node": "25.6.0",
-    "vitest": "4.1.4"
+    "@types/node": "catalog:",
+    "vitest": "catalog:"
   },
   "scripts": {
     "build": "tsup",

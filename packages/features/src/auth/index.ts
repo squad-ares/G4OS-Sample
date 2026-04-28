@@ -1,2 +1,9 @@
+export { LoginCard, type LoginCardMode } from './components/login-card.tsx';
 export { LoginPage, type LoginPageProps } from './components/login-page.tsx';
-export { type LoginControllerState, useLoginController } from './hooks/use-login-controller.ts';
+export { ResetConfirmationDialog } from './components/reset-confirmation-dialog.tsx';
+export {
+  type LoginController,
+  type LoginControllerState,
+  type LoginControllerStatus,
+  useLoginController,
+} from './hooks/use-login-controller.ts';

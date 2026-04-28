@@ -2,26 +2,35 @@ import { AgentError } from '@g4os/kernel/errors';
 import { err, ok, type Result } from 'neverthrow';
 import type { AgentConfig, AgentFactory, IAgent } from './agent.ts';
 
+// CR7-47: normalizar `kind` pra lowercase ANTES de armazenar/lookup.
+// Sem isso, registrar `'Claude'` e fazer `resolve({kind:'claude'})` falham
+// silenciosamente — registry parecia vazio. Pattern de defensive code:
+// força contrato bem definido sem trocar a API.
+function normalizeKind(kind: string): string {
+  return kind.toLowerCase();
+}
+
 export class AgentRegistry {
   private readonly factories = new Map<string, AgentFactory>();
 
   register(factory: AgentFactory): void {
-    if (this.factories.has(factory.kind)) {
+    const key = normalizeKind(factory.kind);
+    if (this.factories.has(key)) {
       throw new Error(`Agent kind already registered: ${factory.kind}`);
     }
-    this.factories.set(factory.kind, factory);
+    this.factories.set(key, factory);
   }
 
   unregister(kind: string): boolean {
-    return this.factories.delete(kind);
+    return this.factories.delete(normalizeKind(kind));
   }
 
   has(kind: string): boolean {
-    return this.factories.has(kind);
+    return this.factories.has(normalizeKind(kind));
   }
 
   get(kind: string): AgentFactory | undefined {
-    return this.factories.get(kind);
+    return this.factories.get(normalizeKind(kind));
   }
 
   list(): readonly AgentFactory[] {

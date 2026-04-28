@@ -1,5 +1,6 @@
 import { AgentError } from '@g4os/kernel/errors';
 import type { AgentEvent, AgentTurnInput } from '../../interface/agent.ts';
+import { wrapAgentError } from '../../shared/errors/wrap-agent-error.ts';
 import { OpenAIEventMapper } from '../event-mapper/event-mapper.ts';
 import type { OpenAIProvider, OpenAIStreamParams } from '../types.ts';
 
@@ -20,10 +21,11 @@ export class StreamRunner {
     } catch (cause) {
       if (signal.aborted) {
         yield { type: 'error', error: AgentError.network('openai', { reason: 'aborted' }) };
-      } else if (cause instanceof AgentError) {
-        yield { type: 'error', error: cause };
       } else {
-        yield { type: 'error', error: AgentError.network('openai', cause) };
+        // wrapAgentError mapeia 401/403→invalidApiKey, 429→rateLimited,
+        // 5xx→network, resto→unavailable. Antes caía sempre em
+        // AgentError.network(...) mesmo em chave inválida.
+        yield { type: 'error', error: wrapAgentError(cause, 'openai') };
       }
       yield { type: 'done', reason: 'error' };
       sawDone = true;
@@ -40,7 +42,19 @@ export class StreamRunner {
   ): AsyncGenerator<AgentEvent, boolean, void> {
     const params = this.deps.buildParams(input);
     const mapper = new OpenAIEventMapper();
+    // CR8-20: checar signal antes do await openStream e logo após. Se abort
+    // dispara entre buildParams e openStream, ou durante setup, queremos
+    // sair imediato com `interrupted` em vez de processar primeiro chunk
+    // antes do check do for-await.
+    if (signal.aborted) {
+      yield { type: 'done', reason: 'interrupted' };
+      return true;
+    }
     const stream = await this.deps.provider.openStream(params, { signal });
+    if (signal.aborted) {
+      yield { type: 'done', reason: 'interrupted' };
+      return true;
+    }
 
     let sawDone = false;
     for await (const chunk of stream) {

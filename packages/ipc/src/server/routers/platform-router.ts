@@ -1,3 +1,4 @@
+import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
 import type { OpenDialogOptions, SaveDialogOptions } from '../context.ts';
 import { procedure, router } from '../trpc.ts';
@@ -59,22 +60,42 @@ export const platformRouter = router({
     .output(z.string())
     .query(async ({ input, ctx }) => {
       const shell = ctx.platform?.readFileAsDataUrl;
-      if (!shell) throw new Error('readFileAsDataUrl not available');
+      if (!shell) {
+        throw new TRPCError({
+          code: 'PRECONDITION_FAILED',
+          message: 'platform readFileAsDataUrl unavailable for this build flavor',
+        });
+      }
       return await shell(input.path);
     }),
 
-  openExternal: procedure.input(z.object({ url: z.url() })).mutation(async ({ input, ctx }) => {
-    await ctx.platform?.openExternal?.(input.url);
-  }),
+  openExternal: procedure
+    .input(z.object({ url: z.url() }))
+    .output(z.void())
+    .mutation(async ({ input, ctx }) => {
+      const handler = ctx.platform?.openExternal;
+      if (!handler) {
+        // Sem handler de plataforma → caller deve mostrar erro/toast em vez
+        // de assumir sucesso silencioso. Antes era no-op e o usuário ficava
+        // sem feedback de "abrir link" que não fazia nada.
+        throw new TRPCError({
+          code: 'PRECONDITION_FAILED',
+          message: 'platform openExternal unavailable for this build flavor',
+        });
+      }
+      await handler(input.url);
+    }),
 
   copyToClipboard: procedure
     .input(z.object({ text: z.string() }))
+    .output(z.void())
     .mutation(async ({ input, ctx }) => {
       await ctx.platform?.copyToClipboard?.(input.text);
     }),
 
   showItemInFolder: procedure
     .input(z.object({ path: z.string() }))
+    .output(z.void())
     .mutation(async ({ input, ctx }) => {
       await ctx.platform?.showItemInFolder?.(input.path);
     }),

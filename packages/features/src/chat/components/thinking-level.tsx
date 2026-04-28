@@ -1,3 +1,4 @@
+import type { TranslationKey } from '@g4os/translate';
 import {
   Select,
   SelectContent,
@@ -9,11 +10,11 @@ import {
 import type { ThinkingLevel } from '../model-catalog.ts';
 import { findModel } from '../model-catalog.ts';
 
-const LABELS: Record<ThinkingLevel, string> = {
-  minimal: 'Minimal',
-  low: 'Low',
-  medium: 'Medium',
-  high: 'High',
+const LABEL_KEYS: Record<ThinkingLevel, TranslationKey> = {
+  minimal: 'chat.thinkingLevel.minimal',
+  low: 'chat.thinkingLevel.low',
+  medium: 'chat.thinkingLevel.medium',
+  high: 'chat.thinkingLevel.high',
 };
 
 interface ThinkingLevelSelectorProps {
@@ -45,7 +46,7 @@ export function ThinkingLevelSelector({
       <SelectContent>
         {spec.thinkingLevels.map((level) => (
           <SelectItem key={level} value={level} className="text-xs">
-            {LABELS[level]}
+            {t(LABEL_KEYS[level])}
           </SelectItem>
         ))}
       </SelectContent>

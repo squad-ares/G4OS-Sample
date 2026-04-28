@@ -154,6 +154,13 @@ export const TranscriptView = memo(function TranscriptView({
         role="log"
         aria-live="polite"
         aria-label={t('chat.transcript.ariaLabel')}
+        // Fade gradient top/bottom — esconde início/fim duro ao rolar.
+        style={{
+          maskImage:
+            'linear-gradient(to bottom, transparent 0, black 32px, black calc(100% - 32px), transparent 100%)',
+          WebkitMaskImage:
+            'linear-gradient(to bottom, transparent 0, black 32px, black calc(100% - 32px), transparent 100%)',
+        }}
       >
         <div style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>
           {virtualizer.getVirtualItems().map((vi) => {
@@ -209,6 +216,14 @@ export const TranscriptView = memo(function TranscriptView({
               {t('chat.transcript.empty')}
             </div>
           ))}
+        {messages.length > 0 ? (
+          <div
+            aria-hidden={true}
+            className="flex justify-center pb-6 pt-4 text-[10px] font-semibold uppercase tracking-[0.32em] text-muted-foreground/50"
+          >
+            {t('chat.transcript.brandFooter')}
+          </div>
+        ) : null}
       </div>
     </div>
   );

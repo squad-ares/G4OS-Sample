@@ -46,7 +46,7 @@ export function PaperclipButton({ existing, onAttach, onError, disabled }: Paper
         onClick={() => inputRef.current?.click()}
         disabled={disabled}
         aria-label={t('chat.composer.attachFiles')}
-        className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-foreground/10 hover:text-foreground disabled:opacity-40"
+        className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent/15 hover:text-foreground disabled:opacity-40"
       >
         <Paperclip className="h-4 w-4" />
       </button>

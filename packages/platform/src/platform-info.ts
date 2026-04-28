@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { homedir, tmpdir } from 'node:os';
 
 /**
  * PLATFORM INFO — single source of truth.
@@ -59,10 +59,20 @@ export function getPlatformInfo(): PlatformInfo {
   const family = detectOsFamily();
   const arch = detectArch();
 
-  const homeDir = process.env['HOME'] ?? process.env['USERPROFILE'] ?? '';
-  // Electron sets process.defaultApp; cast to any to avoid requiring electron types
-  // Definição se a aplicação está rodando em desenvolvimento, ou é de fato uma instalação
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // CR7-37: fallback para `os.homedir()` se env não setou. Sem isso, em
+  // ambientes minimal (Docker stripped, systemd service sem UserDirectory),
+  // homeDir vinha empty string e paths derivados ficavam relativos ao cwd.
+  // CR8-07: se TODOS os fallbacks vazios, throw em boot — paths derivados
+  // virariam relativos ao cwd e violariam isolamento (workspace fica
+  // dentro do diretório de trabalho do processo).
+  const homeDir = process.env['HOME'] ?? process.env['USERPROFILE'] ?? homedir() ?? '';
+  if (!homeDir) {
+    throw new Error(
+      'Home directory not available. Set HOME or USERPROFILE env var, or ensure os.homedir() works.',
+    );
+  }
+  // Electron sets process.defaultApp; check via runtime cast (electron types
+  // não fazem parte do platform package).
   const isPackaged =
     typeof process.versions['electron'] === 'string' &&
     !(process as unknown as Record<string, unknown>)['defaultApp'];

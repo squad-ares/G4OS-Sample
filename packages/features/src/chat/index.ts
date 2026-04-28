@@ -24,15 +24,16 @@ export {
   type VoiceButtonProps,
   Waveform,
 } from './components/composer/index.ts';
-export {
-  ConfirmDestructiveDialog,
-  type ConfirmDestructiveDialogProps,
-} from './components/confirm-destructive-dialog.tsx';
 export { ModelSelector } from './components/model-selector.tsx';
 export { SourcePicker, type SourcePickerProps } from './components/source-picker.tsx';
 export { ThinkingLevelSelector } from './components/thinking-level.tsx';
 export {
   BranchButton,
+  buildContextWarningBanner,
+  buildErrorBanner,
+  buildPermissionPendingBanner,
+  buildRuntimePendingBanner,
+  buildStatusBanner,
   CopyButton,
   MessageCard,
   type MessageCardCallbacks,
@@ -40,8 +41,18 @@ export {
   RetryButton,
   SearchBar,
   type SearchBarProps,
+  SessionActiveBadges,
+  type SessionActiveBadgesProps,
+  type SessionBanner,
+  type SessionBannerAction,
+  type SessionBannerSeverity,
+  SessionBanners,
+  type SessionBannersProps,
   SessionHeader,
   type SessionHeaderProps,
+  SessionMetadataPanel,
+  type SessionMetadataPanelProps,
+  type SessionMetadataProject,
   type SuggestedPrompt,
   TranscriptView,
   type TranscriptViewProps,

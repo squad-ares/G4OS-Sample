@@ -9,6 +9,7 @@
  * visível no UI mas `activate()` real vem com os handlers.
  */
 
+import type { CredentialVault } from '@g4os/credentials';
 import type { SourcesService } from '@g4os/ipc/server';
 import { AppError, ErrorCode } from '@g4os/kernel/errors';
 import { createLogger } from '@g4os/kernel/logger';
@@ -25,21 +26,32 @@ import type {
 import { buildCatalog, catalogEntry } from '@g4os/sources/catalog';
 import type { SourcesStore } from '@g4os/sources/store';
 import { err, ok, type Result } from 'neverthrow';
+import {
+  deleteSourceSecrets,
+  hydrateSourceSecrets,
+  migrateStoredSourceSecrets,
+  secureSourceConfigSecrets,
+} from './sources/secrets.ts';
 import { probeSource } from './sources/source-probe.ts';
 
 const log = createLogger('sources-service');
 
 export interface SourcesServiceDeps {
   readonly store: SourcesStore;
+  readonly vault?: CredentialVault | undefined;
 }
 
 export function createSourcesService(deps: SourcesServiceDeps): SourcesService {
-  const { store } = deps;
+  const { store, vault } = deps;
 
   return {
     async list(workspaceId: WorkspaceId): Promise<Result<readonly SourceConfigView[], AppError>> {
       try {
-        return ok(await store.list(workspaceId));
+        const sources = await store.list(workspaceId);
+        const migrated = await Promise.all(
+          sources.map((source) => migrateStoredSourceSecrets({ store, vault, source })),
+        );
+        return ok(migrated);
       } catch (error) {
         return err(wrap('sources.list', error, { workspaceId }));
       }
@@ -80,6 +92,15 @@ export function createSourcesService(deps: SourcesServiceDeps): SourcesService {
           }),
         );
       }
+      if (catalog.kind === 'managed' && catalog.authKind === 'oauth') {
+        return err(
+          new AppError({
+            code: ErrorCode.VALIDATION_ERROR,
+            message: `Managed source is not ready yet: ${input.slug}`,
+            context: { slug: input.slug },
+          }),
+        );
+      }
       try {
         return await enableManagedViaStore(store, input, catalog);
       } catch (error) {
@@ -101,6 +122,16 @@ export function createSourcesService(deps: SourcesServiceDeps): SourcesService {
             }),
           );
         }
+        const secured = await secureSourceConfigSecrets({
+          workspaceId: input.workspaceId,
+          slug: input.slug,
+          vault,
+          config: {
+            command: input.command,
+            args: input.args,
+            env: input.env,
+          },
+        });
         const created = await store.insert({
           workspaceId: input.workspaceId,
           slug: input.slug,
@@ -109,11 +140,7 @@ export function createSourcesService(deps: SourcesServiceDeps): SourcesService {
           category: 'other',
           authKind: 'none',
           enabled: true,
-          config: {
-            command: input.command,
-            args: input.args,
-            env: input.env,
-          },
+          config: secured.config,
           ...(input.description === undefined ? {} : { description: input.description }),
         });
         log.info({ sourceId: created.id, slug: created.slug }, 'mcp-stdio source created');
@@ -135,6 +162,15 @@ export function createSourcesService(deps: SourcesServiceDeps): SourcesService {
             }),
           );
         }
+        const secured = await secureSourceConfigSecrets({
+          workspaceId: input.workspaceId,
+          slug: input.slug,
+          vault,
+          config: {
+            url: input.url,
+            headers: input.headers,
+          },
+        });
         const created = await store.insert({
           workspaceId: input.workspaceId,
           slug: input.slug,
@@ -143,10 +179,7 @@ export function createSourcesService(deps: SourcesServiceDeps): SourcesService {
           category: 'other',
           authKind: input.authKind,
           enabled: true,
-          config: {
-            url: input.url,
-            headers: input.headers,
-          },
+          config: secured.config,
           ...(input.description === undefined ? {} : { description: input.description }),
         });
         log.info({ sourceId: created.id, slug: created.slug }, 'mcp-http source created');
@@ -173,8 +206,10 @@ export function createSourcesService(deps: SourcesServiceDeps): SourcesService {
 
     async delete(workspaceId: WorkspaceId, id: SourceId): Promise<Result<void, AppError>> {
       try {
+        const existing = await store.get(workspaceId, id);
         const deleted = await store.delete(workspaceId, id);
         if (!deleted) return err(notFound(id));
+        if (existing) await deleteSourceSecrets(existing, vault);
         log.info({ id, workspaceId }, 'source deleted');
         return ok(undefined);
       } catch (error) {
@@ -189,7 +224,17 @@ export function createSourcesService(deps: SourcesServiceDeps): SourcesService {
       try {
         const existing = await store.get(workspaceId, id);
         if (!existing) return err(notFound(id));
-        const probed = await probeSource(existing);
+        const hydrated = await hydrateSourceSecrets(existing, vault);
+        // CR5-15: outer timeout (10s) defende contra MCP stdio prober que
+        // não respeite seu próprio timeout (subprocess hung). Inner probes
+        // já têm 5s por kind; outer cobre orquestração + race com hung.
+        const probed = await Promise.race([
+          probeSource(hydrated),
+          new Promise<SourceStatus>((resolve) => {
+            const t = setTimeout(() => resolve('error'), 10_000);
+            t.unref?.();
+          }),
+        ]);
         // Persiste o status probed no JSON pra UI/planner refletirem o check.
         if (probed !== existing.status) {
           await store.update(workspaceId, id, { status: probed });

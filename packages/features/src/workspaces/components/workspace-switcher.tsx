@@ -29,7 +29,7 @@ export function WorkspaceSwitcher({
       <PopoverTrigger asChild={true}>
         <button
           type="button"
-          className="titlebar-no-drag flex w-full items-center gap-2 rounded-[10px] px-2 py-1.5 text-left text-xs font-medium text-foreground/85 transition-colors hover:bg-foreground/6 hover:text-foreground"
+          className="titlebar-no-drag flex w-full items-center gap-2 rounded-[10px] px-2 py-1.5 text-left text-xs font-medium text-foreground/85 transition-colors hover:bg-accent/12 hover:text-foreground"
           aria-label={t('workspace.switcher.ariaLabel')}
         >
           <WorkspaceBadge
@@ -97,7 +97,7 @@ export function WorkspaceSwitcherContent({
                 onClick={() => onSelect(workspace.id)}
                 aria-current={isActive ? 'true' : undefined}
                 className={`flex w-full items-center gap-2 rounded-[8px] px-2 py-1.5 text-left text-sm transition-colors ${
-                  isActive ? 'bg-foreground/8 text-foreground' : 'hover:bg-foreground/4'
+                  isActive ? 'bg-foreground/8 text-foreground' : 'hover:bg-accent/10'
                 }`}
               >
                 <WorkspaceBadge

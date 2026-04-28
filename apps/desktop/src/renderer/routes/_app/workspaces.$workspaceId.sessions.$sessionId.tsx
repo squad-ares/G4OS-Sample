@@ -2,15 +2,16 @@ import {
   type Message as ChatMessage,
   Composer,
   type ComposerSendPayload,
-  ConfirmDestructiveDialog,
   findModel,
   type MessageCardCallbacks,
   type ModelProvider,
   ModelSelector,
   modelProviderToSession,
   PermissionProvider,
-  requestPermission,
+  SessionActiveBadges,
+  SessionBanners,
   SessionHeader,
+  SessionMetadataPanel,
   SourcePicker,
   type ThinkingLevel,
   ThinkingLevelSelector,
@@ -20,19 +21,21 @@ import {
   WorkingDirPicker,
 } from '@g4os/features/chat';
 import type { SessionEvent, TurnStreamEvent } from '@g4os/kernel/types';
-import { toast, useTranslate } from '@g4os/ui';
+import { ConfirmDestructiveDialog, toast, useTranslate } from '@g4os/ui';
 import { useQuery } from '@tanstack/react-query';
-import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
+import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { formatSendError, mapPermissionDecision } from '../../chat/session-page-helpers.ts';
+import { formatSendError, handlePermissionRequired } from '../../chat/session-page-helpers.ts';
 import { useComposerAffordances } from '../../chat/use-composer-affordances.ts';
 import { useSessionHeader } from '../../chat/use-session-header.ts';
+import { useSessionMetadata } from '../../chat/use-session-metadata.ts';
 import { queryClient } from '../../ipc/query-client.ts';
 import { trpc } from '../../ipc/trpc-client.ts';
 import { kernelMessageToChat } from '../../messages/kernel-to-chat-mapper.ts';
 import { invalidateMessages, messagesListQueryOptions } from '../../messages/messages-store.ts';
+import { setLastSessionId } from '../../sessions/last-session.ts';
+import { invalidateSessions } from '../../sessions/sessions-store.ts';
 
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: (reason: route component agrega múltiplos hooks de efeito, query e callbacks de turn/permission/streaming que naturalmente compõem a página de chat. Lógica orquestral está distribuída entre useSessionHeader, useComposerAffordances e session-page-helpers; o que sobra é wiring direto que perde clareza se forçado a sub-hooks adicionais)
 function SessionPage() {
   const { t } = useTranslate();
   const navigate = useNavigate();
@@ -49,6 +52,14 @@ function SessionPage() {
   const [streamingTurnId, setStreamingTurnId] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pendingTruncateAt, setPendingTruncateAt] = useState<number | null>(null);
+  const [metadataOpen, setMetadataOpen] = useState(false);
+
+  // CR-UX: persiste a última sessão visitada por workspace pra o
+  // route `/workspaces/:id/sessions/` poder fazer redirect inteligente
+  // ao invés de mostrar dashboard que duplica a sub-sidebar.
+  useEffect(() => {
+    if (workspaceId && sessionId) setLastSessionId(workspaceId, sessionId);
+  }, [workspaceId, sessionId]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: sessionId is the intentional reset trigger
   useEffect(() => {
@@ -74,40 +85,6 @@ function SessionPage() {
     return [...persistedMessages, ghost];
   }, [persistedMessages, streamingTurnId, streamingText]);
 
-  const handlePermissionRequired = useCallback(
-    async (event: {
-      readonly requestId: string;
-      readonly toolUseId: string;
-      readonly toolName: string;
-      readonly inputJson: string;
-    }): Promise<void> => {
-      let parsedInput: Record<string, unknown> = {};
-      try {
-        const parsed = JSON.parse(event.inputJson) as unknown;
-        if (parsed !== null && typeof parsed === 'object') {
-          parsedInput = parsed as Record<string, unknown>;
-        }
-      } catch {
-        parsedInput = { raw: event.inputJson };
-      }
-      const decision = await requestPermission({
-        id: event.toolUseId,
-        toolName: event.toolName,
-        input: parsedInput,
-      });
-      const wireDecision = mapPermissionDecision(decision);
-      try {
-        await trpc.sessions.respondPermission.mutate({
-          requestId: event.requestId,
-          decision: wireDecision,
-        });
-      } catch (err) {
-        toast.error(String(err));
-      }
-    },
-    [],
-  );
-
   // Persisted session events (message.added, tool.invoked, etc.)
   useEffect(() => {
     const sub = trpc.sessions.stream.subscribe(
@@ -116,6 +93,11 @@ function SessionPage() {
         onData: (event: SessionEvent) => {
           if (event.type === 'message.added' || event.type === 'tool.completed') {
             void invalidateMessages(queryClient, sessionId);
+            // CR-UX: invalidar sessions list para que a sidebar reflita
+            // novo lastMessageAt / updatedAt / messageCount sem precisar
+            // de cmd+r. Sem isso, sidebar fica out of sync após cada
+            // mensagem e usuário precisa refresh manual.
+            void invalidateSessions(queryClient);
             setIsStreaming(false);
             // Reset do ghost assim que uma assistant message é persistida —
             // o texto agora vive no histórico; ghost deve limpar para não
@@ -165,7 +147,7 @@ function SessionPage() {
           return;
       }
     },
-    [appendStreamingText, flushStreamingText, resetStreamingText, handlePermissionRequired],
+    [appendStreamingText, flushStreamingText, resetStreamingText],
   );
 
   // Transient turn events for real-time streaming text
@@ -193,6 +175,12 @@ function SessionPage() {
     queryKey: ['sessions', 'get', sessionId],
     queryFn: () => trpc.sessions.get.query({ id: sessionId }),
     staleTime: 2_000,
+    // CR-UX: mantém os dados do session anterior visíveis durante o fetch
+    // do novo (transição suave entre chats). Sem isso, ao alternar entre
+    // chats já carregados, a tela flicka para "sem dados" antes de exibir
+    // o novo. `placeholderData: previous` é o pattern padrão do TanStack
+    // Query para evitar layout flash em navegação parametrizada.
+    placeholderData: (previous) => previous,
   });
 
   const credentialsQuery = useQuery({
@@ -356,95 +344,124 @@ function SessionPage() {
     navigate,
   });
 
+  const { linkedProject, availableProjects, handleSelectProject, sessionBanners } =
+    useSessionMetadata({
+      sessionId,
+      sessionQuery,
+      projects: projectsQuery.data,
+      agentAvailable,
+      navigate,
+    });
+
   return (
     <PermissionProvider>
-      <div className="flex h-full flex-col">
+      <div className="flex h-full">
+        <div className="flex min-w-0 flex-1 flex-col">
+          {sessionQuery.data ? (
+            <>
+              <SessionHeader
+                name={sessionQuery.data.name}
+                {...(modelLabel ? { modelLabel } : {})}
+                {...(providerLabel ? { providerLabel } : {})}
+                workingDirectory={sessionQuery.data.workingDirectory ?? null}
+                onRename={handleRename}
+                onArchive={() => void handleArchive()}
+                {...(isStreaming ? {} : { onRetryLast: () => void handleRetryLast() })}
+                onToggleMetadata={() => setMetadataOpen((v) => !v)}
+                metadataOpen={metadataOpen}
+              />
+              <SessionActiveBadges
+                {...(modelLabel ? { modelLabel } : {})}
+                {...(providerLabel ? { providerLabel } : {})}
+                workingDirectory={sessionQuery.data.workingDirectory ?? null}
+                enabledSourceCount={enabledSourceSlugs.length}
+                stickySourceCount={sessionQuery.data.stickyMountedSourceSlugs?.length ?? 0}
+              />
+              <SessionBanners banners={sessionBanners} />
+            </>
+          ) : null}
+          <div className="min-h-0 flex-1">
+            <TranscriptView
+              sessionId={sessionId}
+              messages={chatMessages}
+              isStreaming={isStreaming}
+              callbacks={callbacks}
+              search={handleSearch}
+              onSelectSuggestedPrompt={(p) => handleSend({ text: p.prompt, attachments: [] })}
+            />
+          </div>
+          <div className="p-3">
+            <Composer
+              sessionId={sessionId}
+              onSend={(payload) => void handleSend(payload)}
+              {...(agentAvailable ? {} : { disabled: true })}
+              mentionSources={sourcesQuery.data ?? []}
+              affordances={{
+                sourcePicker: (
+                  <SourcePicker
+                    sources={sourcesQuery.data ?? []}
+                    enabledSlugs={enabledSourceSlugs}
+                    rejectedSlugs={rejectedSourceSlugs}
+                    onChange={(next) => void handleSourceSelectionChange(next)}
+                    onOpenManage={handleOpenConnections}
+                  />
+                ),
+                workingDirPicker: (
+                  <WorkingDirPicker
+                    value={sessionQuery.data?.workingDirectory ?? null}
+                    options={workingDirOptions}
+                    onSelect={(path) => void handleWorkingDirChange(path)}
+                    onPickCustom={handlePickCustomDir}
+                  />
+                ),
+                modelSelector: (
+                  <ModelSelector
+                    value={currentModelId}
+                    onChange={(id) => void handleModelChange(id)}
+                    availableProviders={availableProviders}
+                  />
+                ),
+                thinkingSelector: (
+                  <ThinkingLevelSelector
+                    modelId={currentModelId}
+                    value={thinkingLevel}
+                    onChange={setThinkingLevel}
+                  />
+                ),
+                partnersLabel: t('chat.composer.chip.partners'),
+                onOpenPartners: () => toast.info(t('chat.composer.chip.partnersTodo')),
+              }}
+              {...(isStreaming ? { onStop: () => void handleStop(), isProcessing: true } : {})}
+            />
+          </div>
+        </div>
         {sessionQuery.data ? (
-          <SessionHeader
+          <SessionMetadataPanel
+            open={metadataOpen}
+            onClose={() => setMetadataOpen(false)}
             name={sessionQuery.data.name}
-            {...(modelLabel ? { modelLabel } : {})}
-            {...(providerLabel ? { providerLabel } : {})}
-            workingDirectory={sessionQuery.data.workingDirectory ?? null}
             onRename={handleRename}
-            onArchive={() => void handleArchive()}
-            {...(isStreaming ? {} : { onRetryLast: () => void handleRetryLast() })}
+            project={linkedProject}
+            availableProjects={availableProjects}
+            onSelectProject={handleSelectProject}
+            onOpenProject={(id) =>
+              void navigate({ to: '/projects/$projectId', params: { projectId: id } })
+            }
+            workingDirectory={sessionQuery.data.workingDirectory ?? null}
+            onChooseWorkingDirectory={async () => {
+              const picked = await handlePickCustomDir();
+              if (picked) await handleWorkingDirChange(picked);
+            }}
           />
         ) : null}
-        {agentAvailable ? null : (
-          <div
-            role="status"
-            className="flex shrink-0 items-center justify-between gap-3 border-b border-accent/30 bg-accent/10 px-4 py-2 text-[11px] font-medium text-accent"
-          >
-            <span>{t('chat.runtime.pendingNotice')}</span>
-            <Link
-              to="/settings"
-              hash="api-keys"
-              className="rounded-full border border-accent/40 bg-accent/20 px-2.5 py-1 text-[11px] font-semibold text-accent transition-colors hover:bg-accent/30"
-            >
-              {t('chat.runtime.configureCTA')}
-            </Link>
-          </div>
-        )}
-        <div className="min-h-0 flex-1">
-          <TranscriptView
-            sessionId={sessionId}
-            messages={chatMessages}
-            isStreaming={isStreaming}
-            callbacks={callbacks}
-            search={handleSearch}
-            onSelectSuggestedPrompt={(p) => handleSend({ text: p.prompt, attachments: [] })}
-          />
-        </div>
-        <div className="p-3">
-          <Composer
-            sessionId={sessionId}
-            onSend={(payload) => void handleSend(payload)}
-            {...(agentAvailable ? {} : { disabled: true })}
-            mentionSources={sourcesQuery.data ?? []}
-            affordances={{
-              sourcePicker: (
-                <SourcePicker
-                  sources={sourcesQuery.data ?? []}
-                  enabledSlugs={enabledSourceSlugs}
-                  rejectedSlugs={rejectedSourceSlugs}
-                  onChange={(next) => void handleSourceSelectionChange(next)}
-                  onOpenManage={handleOpenConnections}
-                />
-              ),
-              workingDirPicker: (
-                <WorkingDirPicker
-                  value={sessionQuery.data?.workingDirectory ?? null}
-                  options={workingDirOptions}
-                  onSelect={(path) => void handleWorkingDirChange(path)}
-                  onPickCustom={handlePickCustomDir}
-                />
-              ),
-              modelSelector: (
-                <ModelSelector
-                  value={currentModelId}
-                  onChange={(id) => void handleModelChange(id)}
-                  availableProviders={availableProviders}
-                />
-              ),
-              thinkingSelector: (
-                <ThinkingLevelSelector
-                  modelId={currentModelId}
-                  value={thinkingLevel}
-                  onChange={setThinkingLevel}
-                />
-              ),
-              partnersLabel: t('chat.composer.chip.partners'),
-              onOpenPartners: () => toast.info(t('chat.composer.chip.partnersTodo')),
-            }}
-            {...(isStreaming ? { onStop: () => void handleStop(), isProcessing: true } : {})}
-          />
-        </div>
       </div>
       <ConfirmDestructiveDialog
         open={confirmOpen}
         onOpenChange={setConfirmOpen}
         title={t('chat.actions.truncateTitle')}
         description={t('chat.actions.truncateDescription')}
+        confirmLabel={t('chat.actions.confirmDestructive')}
+        cancelLabel={t('chat.actions.cancel')}
         onConfirm={() => void handleConfirmTruncate()}
       />
     </PermissionProvider>

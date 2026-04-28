@@ -35,14 +35,14 @@
   },
   "dependencies": {
     "@g4os/kernel": "workspace:^",
-    "@trpc/client": "11.16.0",
+    "@trpc/client": "catalog:",
     "@trpc/server": "11.16.0",
-    "electron-trpc": "0.7.1",
-    "neverthrow": "8.2.0",
-    "superjson": "2.2.6",
-    "zod": "^4.0.0"
+    "electron-trpc": "catalog:",
+    "neverthrow": "catalog:",
+    "superjson": "catalog:",
+    "zod": "catalog:"
   },
   "devDependencies": {
-    "@types/node": "25.6.0"
+    "@types/node": "catalog:"
   }
 }

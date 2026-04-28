@@ -5,6 +5,7 @@ import type {
   ProjectTaskStatus,
   Session,
 } from '@g4os/kernel/types';
+import type { TranslationKey } from '@g4os/translate';
 
 export type { Project, ProjectFile, ProjectTask, ProjectTaskStatus };
 
@@ -28,15 +29,25 @@ export interface ProjectDetailView {
 
 export type ProjectTaskGroup = {
   readonly status: ProjectTaskStatus;
-  readonly label: string;
+  readonly labelKey: TranslationKey;
   readonly tasks: readonly ProjectTask[];
 };
 
-export const TASK_STATUS_LABELS: Record<ProjectTaskStatus, string> = {
-  todo: 'A fazer',
-  in_progress: 'Em andamento',
-  blocked: 'Bloqueado',
-  done: 'Concluído',
+export const TASK_STATUS_LABEL_KEYS: Record<ProjectTaskStatus, TranslationKey> = {
+  todo: 'project.task.status.todo',
+  in_progress: 'project.task.status.in_progress',
+  blocked: 'project.task.status.blocked',
+  done: 'project.task.status.done',
+};
+
+export const TASK_PRIORITY_LABEL_KEYS: Record<
+  NonNullable<ProjectTask['priority']>,
+  TranslationKey
+> = {
+  urgent: 'project.task.priority.urgent',
+  high: 'project.task.priority.high',
+  medium: 'project.task.priority.medium',
+  low: 'project.task.priority.low',
 };
 
 export const TASK_STATUS_ORDER: ProjectTaskStatus[] = ['todo', 'in_progress', 'blocked', 'done'];

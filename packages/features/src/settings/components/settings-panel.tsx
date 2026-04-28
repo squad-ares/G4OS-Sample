@@ -37,24 +37,42 @@ export function SettingsPanel({ categories, activeId, onSelect, footer }: Settin
         <ul className="flex flex-col gap-0.5 px-2">
           {categories.map((cat) => {
             const isActive = cat.id === activeId;
+            const Icon = cat.icon;
             return (
               <li key={cat.id}>
                 <button
                   type="button"
                   onClick={() => onSelect(cat.id)}
                   aria-current={isActive ? 'true' : undefined}
-                  className={`flex w-full items-center justify-between gap-2 rounded-[10px] px-3 py-2 text-left transition-colors ${
+                  className={`flex w-full items-start gap-3 rounded-[10px] px-3 py-2.5 text-left transition-colors ${
                     isActive
                       ? 'bg-foreground/8 text-foreground'
-                      : 'text-foreground/85 hover:bg-foreground/5'
+                      : 'text-foreground/85 hover:bg-accent/12'
                   }`}
                 >
-                  <span className="truncate text-[13px] font-medium">{t(cat.labelKey)}</span>
-                  {cat.status === 'planned' && (
-                    <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-                      {t('settings.category.plannedBadge')}
+                  <span
+                    aria-hidden={true}
+                    className={`mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-md transition-colors ${
+                      isActive
+                        ? 'bg-foreground/10 text-foreground'
+                        : 'bg-foreground/5 text-muted-foreground'
+                    }`}
+                  >
+                    <Icon className="h-3.5 w-3.5" />
+                  </span>
+                  <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                    <span className="flex items-center justify-between gap-2">
+                      <span className="truncate text-[13px] font-medium">{t(cat.labelKey)}</span>
+                      {cat.status === 'planned' && (
+                        <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                          {t('settings.category.plannedBadge')}
+                        </span>
+                      )}
                     </span>
-                  )}
+                    <span className="line-clamp-2 text-[11px] leading-snug text-muted-foreground">
+                      {t(cat.descriptionKey)}
+                    </span>
+                  </span>
                 </button>
               </li>
             );

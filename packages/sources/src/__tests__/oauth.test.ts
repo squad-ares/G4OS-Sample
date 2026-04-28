@@ -1,7 +1,7 @@
 import { ok } from 'neverthrow';
 import { describe, expect, it, vi } from 'vitest';
 import { OAuthCallbackHandler } from '../oauth/callback-handler.ts';
-import { buildAuthUrl, performOAuth } from '../oauth/flow.ts';
+import { buildAuthUrl, createFetchTokenExchanger, performOAuth } from '../oauth/flow.ts';
 import { generatePkce, generateState } from '../oauth/pkce.ts';
 import type { OAuthConfig, OAuthTokens, TokenExchanger } from '../oauth/types.ts';
 
@@ -116,5 +116,54 @@ describe('performOAuth', () => {
     expect(result.isErr()).toBe(true);
     expect(result._unsafeUnwrapErr().code).toBe('callback_timeout');
     handler.dispose();
+  });
+});
+
+describe('createFetchTokenExchanger (token payload validation)', () => {
+  function exchangeWithPayload(payload: unknown) {
+    const fetcher = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => payload,
+      text: async () => '',
+    })) as unknown as typeof fetch;
+    const exchanger = createFetchTokenExchanger(fetcher);
+    return exchanger.exchange({ code: 'c', codeVerifier: 'v', config });
+  }
+
+  it('rejects empty access_token', async () => {
+    const result = await exchangeWithPayload({ access_token: '' });
+    expect(result.isErr()).toBe(true);
+    expect(result._unsafeUnwrapErr().code).toBe('exchange_failed');
+  });
+
+  it('rejects whitespace-only access_token', async () => {
+    const result = await exchangeWithPayload({ access_token: '   ' });
+    expect(result.isErr()).toBe(true);
+  });
+
+  it('rejects empty refresh_token in present payload', async () => {
+    const result = await exchangeWithPayload({ access_token: 'good', refresh_token: '' });
+    expect(result.isErr()).toBe(true);
+  });
+
+  it('rejects expires_in <= 0', async () => {
+    const result = await exchangeWithPayload({ access_token: 'good', expires_in: 0 });
+    expect(result.isErr()).toBe(true);
+  });
+
+  it('accepts well-formed payload', async () => {
+    const result = await exchangeWithPayload({
+      access_token: 'good',
+      refresh_token: 'r',
+      expires_in: 3600,
+      token_type: 'Bearer',
+      scope: 'read write',
+    });
+    expect(result.isOk()).toBe(true);
+    const tokens = result._unsafeUnwrap();
+    expect(tokens.accessToken).toBe('good');
+    expect(tokens.refreshToken).toBe('r');
+    expect(tokens.scope).toEqual(['read', 'write']);
   });
 });

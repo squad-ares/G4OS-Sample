@@ -1,4 +1,3 @@
-import { existsSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createVault } from '@g4os/credentials';
@@ -16,6 +15,8 @@ import { loadElectron } from './electron-runtime.ts';
 import { initIpcServer } from './ipc-bootstrap.ts';
 import { readRuntimeEnv } from './runtime-env.ts';
 import { createAuthRuntime } from './services/auth-runtime.ts';
+import { createBackupScheduler } from './services/backup-bootstrap.ts';
+import { scheduleOrphanTmpCleanup } from './services/cleanup-orphan-tmp-bootstrap.ts';
 import { CpuPool } from './services/cpu-pool.ts';
 import { createCredentialsService } from './services/credentials-service.ts';
 import { initDatabase } from './services/db-service.ts';
@@ -23,18 +24,23 @@ import { createLabelsService } from './services/labels-service.ts';
 import { SqliteMessagesService } from './services/messages-service.ts';
 import { createNewsService } from './services/news-service.ts';
 import { createObservabilityRuntime } from './services/observability-runtime.ts';
+import { createPerformWipe } from './services/perform-wipe.ts';
 import { createPermissionsService } from './services/permissions-service.ts';
 import { createPlatformService } from './services/platform-service.ts';
 import { createProjectsService } from './services/projects-service.ts';
+import { resolveIconPath, resolveRendererTargets } from './services/renderer-paths.ts';
 import { SessionsCleanupScheduler } from './services/sessions-cleanup-scheduler.ts';
 import { createSessionsService } from './services/sessions-service.ts';
+import { registerShutdownHandlers } from './services/shutdown-bootstrap.ts';
 import { createMountRegistry } from './services/sources/mount-bootstrap.ts';
 import { createSourcesService } from './services/sources-service.ts';
+import { TitleGeneratorService } from './services/title-generator.ts';
 import { buildIntentUpdater, buildToolCatalog } from './services/tools-bootstrap.ts';
 import { TurnDispatcher } from './services/turn-dispatcher.ts';
 import { createWindowsService } from './services/windows-service.ts';
 import { createWorkspaceTransferService } from './services/workspace-transfer-service.ts';
 import { createWorkspacesService } from './services/workspaces-service.ts';
+import { registerStartupCrashHandlers } from './startup-crash-log.ts';
 import { StartupPreflightService } from './startup-preflight-service.ts';
 import { WindowManager } from './window-manager.ts';
 
@@ -43,24 +49,6 @@ const log = createLogger('main');
 export interface BootstrapOptions {
   readonly preloadPath?: string;
   readonly rendererUrl?: string;
-}
-
-function resolveRendererTargets(): { preloadPath: string; rendererUrl: string } {
-  const here = dirname(fileURLToPath(import.meta.url));
-  const preloadPath = resolve(here, '../preload/preload.cjs');
-  const devServer = readRuntimeEnv('ELECTRON_RENDERER_URL');
-  const rendererUrl = devServer ? devServer : `file://${resolve(here, '../renderer/index.html')}`;
-  return { preloadPath, rendererUrl };
-}
-
-function resolveIconPath(opts: {
-  readonly isPackaged: boolean;
-  readonly rootDir: string;
-}): string | undefined {
-  const base = opts.isPackaged
-    ? resolve(process.resourcesPath, 'resources/icon.png')
-    : resolve(opts.rootDir, 'apps/desktop/resources/icon.png');
-  return existsSync(base) ? base : undefined;
 }
 
 export async function bootstrapMain(options: BootstrapOptions = {}): Promise<void> {
@@ -144,8 +132,16 @@ export async function bootstrapMain(options: BootstrapOptions = {}): Promise<voi
 
   const credentialsService = createCredentialsService({
     vault: credentialVault,
+    // CR6-09: refresh() não pode propagar pra cima — se falhar (vault locked,
+    // env reread errado), o caller é o mutex de credentials e a falha
+    // corromperia o estado. Best-effort: log e segue. Próxima mutation reage.
     onMutation: async (key) => {
-      if (providerForVaultKey(key) !== null) await agentsRuntime.refresh();
+      if (providerForVaultKey(key) === null) return;
+      try {
+        await agentsRuntime.refresh();
+      } catch (err) {
+        log.warn({ err, key }, 'agentsRuntime.refresh failed after credential mutation');
+      }
     },
   });
 
@@ -154,7 +150,7 @@ export async function bootstrapMain(options: BootstrapOptions = {}): Promise<voi
   const sourcesStore = new SourcesStore({
     resolveWorkspaceRoot: (id) => appPaths.workspace(id),
   });
-  const sourcesService = createSourcesService({ store: sourcesStore });
+  const sourcesService = createSourcesService({ store: sourcesStore, vault: credentialVault });
 
   const permissionStore = new PermissionStore({
     resolveWorkspaceRoot: (id) => appPaths.workspace(id),
@@ -179,6 +175,13 @@ export async function bootstrapMain(options: BootstrapOptions = {}): Promise<voi
   const toolCatalog = buildToolCatalog({ sourcesStore, sessionsRepo });
   const mountRegistry = createMountRegistry();
 
+  // TitleGenerator checa session.name contra defaultNames antes de gerar — não sobrescreve nomes manuais.
+  const titleGenerator = new TitleGeneratorService({
+    vault: credentialVault,
+    sessionsRepo,
+    defaultNames: ['Nova sessão', 'New session'],
+  });
+
   const turnDispatcher = new TurnDispatcher({
     messages: messagesService,
     registry: agentsRuntime.registry,
@@ -186,7 +189,9 @@ export async function bootstrapMain(options: BootstrapOptions = {}): Promise<voi
     permissionBroker,
     toolCatalog,
     sourcesStore,
+    credentialVault,
     mountRegistry,
+    titleGenerator,
     getSession: async (id) => (await sessionsRepo.get(id)) ?? null,
     resolveWorkingDirectory: (session) =>
       session?.workingDirectory ?? appPaths.workspace(session?.workspaceId ?? 'default'),
@@ -216,6 +221,22 @@ export async function bootstrapMain(options: BootstrapOptions = {}): Promise<voi
   const sessionsCleanup = new SessionsCleanupScheduler({ drizzle: database.drizzle });
   sessionsCleanup.start();
 
+  // CR5-01: BackupScheduler — 24h interval, retenção 7/4/3 (ADR-0045).
+  const backupScheduler = createBackupScheduler({
+    drizzle: database.drizzle,
+    appVersion: electron.app.getVersion(),
+  });
+  backupScheduler.start();
+
+  // CR5-01: limpa `.tmp` órfãos deixados por crashes do `truncateAfter` JSONL
+  // (CR4-15). Best-effort, async em background — boot continua.
+  scheduleOrphanTmpCleanup(database.drizzle, log);
+
+  const performWipe = createPerformWipe({
+    app: electron.app,
+    workspaces: workspacesService,
+    vault: credentialVault,
+  });
   const authRuntime = createAuthRuntime({
     rootDir,
     skipDotEnv: electron.app.isPackaged,
@@ -223,24 +244,28 @@ export async function bootstrapMain(options: BootstrapOptions = {}): Promise<voi
     envSource: process.env,
     credentialVault,
     mockAuthMode: isE2E,
+    performWipe,
   });
 
   if (!authRuntime.configured) {
     log.warn({ missingEnv: authRuntime.missingEnv }, 'supabase auth not configured');
   }
 
-  lifecycle.onQuit(() => mountRegistry.dispose());
-  lifecycle.onQuit(() => turnDispatcher.dispose());
-  lifecycle.onQuit(() => sessionEventBus.dispose());
-  lifecycle.onQuit(() => cpuPool.destroy());
-  lifecycle.onQuit(() => authRuntime.dispose());
-  lifecycle.onQuit(() => sessionsCleanup.dispose());
-  lifecycle.onQuit(() => database.db.dispose());
-  lifecycle.onQuit(() => {
-    void observability.dispose();
+  registerShutdownHandlers(lifecycle, {
+    mountRegistry,
+    turnDispatcher,
+    sessionEventBus,
+    cpuPool,
+    authRuntime,
+    sessionsCleanup,
+    backupScheduler,
+    titleGenerator,
+    newsService,
+    database,
+    observability,
   });
   lifecycle.onAllWindowsClosed(() => {
-    if (process.platform !== 'darwin') electron.app.quit();
+    if (!isMacOS()) electron.app.quit();
   });
 
   const deepLinks = new DeepLinkHandler(windowManager);
@@ -271,27 +296,4 @@ export async function bootstrapMain(options: BootstrapOptions = {}): Promise<voi
   log.info({ preloadPath, rendererUrl }, 'main ready');
 }
 
-// Logger determinístico pré-pino em $TMPDIR/g4os-{label}.log
-function writeStartupCrashLog(label: string, err: unknown): void {
-  try {
-    // biome-ignore lint/style/noProcessEnv: composition root
-    const tmp = process.env['TMPDIR'] ?? '/tmp';
-    const msg =
-      err instanceof Error ? `${err.name}: ${err.message}\n${err.stack ?? ''}` : String(err);
-    writeFileSync(`${tmp}/g4os-${label}.log`, `[${new Date().toISOString()}] ${msg}\n`, {
-      flag: 'a',
-    });
-  } catch {
-    /* ignore */
-  }
-}
-
-void bootstrapMain().catch((err: unknown) => {
-  writeStartupCrashLog('startup-error', err);
-  log.fatal({ err }, 'fatal startup error');
-  process.exit(1);
-});
-process.on('uncaughtException', (err) => {
-  writeStartupCrashLog('uncaught', err);
-  process.exit(1);
-});
+registerStartupCrashHandlers(bootstrapMain());
