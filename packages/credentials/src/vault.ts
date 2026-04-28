@@ -63,7 +63,11 @@ export class CredentialVault {
     const meta = await this.readMeta(key);
     if (meta.isOk() && meta.value.expiresAt !== undefined && meta.value.expiresAt < Date.now()) {
       log.warn({ key }, 'credential expired — auto-deleting');
-      await this.deleteInternal(key);
+      // Auto-delete via mutex (CR12 B5): sem o lock, um `set()` concorrente
+      // pode ter escrito o novo valor entre o keychain.get acima e o delete
+      // aqui, e a deleção apagaria o valor recém-escrito. O mutex serializa
+      // todas as escritas no vault — auto-delete também é escrita.
+      await this.writeLock.runExclusive(() => this.deleteInternal(key));
       return err(CredentialErrorClass.expired(key));
     }
 
