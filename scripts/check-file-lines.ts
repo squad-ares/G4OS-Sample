@@ -15,6 +15,14 @@ const EXEMPTIONS: Set<string> = new Set([
 
   // Gerado automaticamente pelo TanStack Router CLI — não editar manualmente.
   'apps/desktop/src/renderer/routeTree.gen.ts',
+
+  // Composition root da rota autenticada. Concentra wiring de queries +
+  // handlers + render dos 7 panels de sub-sidebar + diálogos. Helpers
+  // puros e adapters extraídos para `_app.helpers.tsx`. Refator adicional
+  // dos render functions exigiria N props per panel ou Context API,
+  // ambos comprometendo legibilidade do composition root.
+  // ADR-0151: exceção formal com teto 600 LOC e plano de retirada.
+  'apps/desktop/src/renderer/routes/_app.tsx',
 ]);
 
 const files = globSync('**/src/**/*.{ts,tsx}', {

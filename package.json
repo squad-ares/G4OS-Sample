@@ -22,6 +22,8 @@
     "check:exports": "tsx scripts/check-exports.ts",
     "check:size": "tsx scripts/check-size.ts",
     "check:main-size": "tsx scripts/check-main-size.ts",
+    "check:platform-leaks": "tsx scripts/check-platform-leaks.ts",
+    "check:hover-pattern": "tsx scripts/check-hover-pattern.ts",
     "changeset": "changeset",
     "changeset:version": "changeset version && pnpm install --lockfile-only",
     "changeset:publish": "changeset publish",

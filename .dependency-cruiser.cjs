@@ -35,10 +35,19 @@ module.exports = {
     },
     {
       name: 'agents-interface-isolated',
-      comment: '@g4os/agents (contract package) must depend only on kernel',
+      comment:
+        '@g4os/agents/interface (contract subpath) must depend only on kernel; outras subpaths podem usar @g4os/platform para detecção de SO (ADR-0013).',
       severity: 'error',
-      from: { path: '^packages/agents' },
+      from: { path: '^packages/agents/src/interface' },
       to: { path: '^packages/(?!(kernel|agents))' },
+    },
+    {
+      name: 'agents-layered',
+      comment:
+        '@g4os/agents subpaths não-interface podem depender só de kernel/platform/agents. Sem features/ui/data/etc.',
+      severity: 'error',
+      from: { path: '^packages/agents/src/(?!interface)' },
+      to: { path: '^packages/(?!(kernel|platform|agents))' },
     },
     {
       name: 'auth-isolated',
@@ -63,6 +72,14 @@ module.exports = {
       to: {
         path: '^packages/(?!(kernel|agents|data|ipc|observability|permissions|session-runtime))',
       },
+    },
+    {
+      name: 'sources-layering',
+      comment:
+        '@g4os/sources depende de kernel/platform/agents/sources. Subpath broker pode importar @g4os/agents/tools para ToolHandler; demais subpaths não podem depender de outros packages.',
+      severity: 'error',
+      from: { path: '^packages/sources' },
+      to: { path: '^packages/(?!(kernel|platform|agents|sources))' },
     },
 
     // ========== FEATURES ==========
