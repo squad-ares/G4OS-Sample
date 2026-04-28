@@ -56,7 +56,24 @@ export function runAgentIteration(
 
   return new Promise<Result<AgentIterationResult, AppError>>((resolve) => {
     const obs = agent.run({ sessionId, turnId, messages, config });
-    const subscription = obs.subscribe({
+    // CR9: cleanup ativo via flag + unsubscribe explícito em error/complete.
+    // Antes, o subscription permanecia "subscribed" até GC mesmo após
+    // resolver — caller que retém via `onSubscription` callback podia
+    // chamar `unsubscribe()` num subscription completed (no-op) ou pior,
+    // segurar referência viva impedindo GC do agent inteiro.
+    let settled = false;
+    const settle = (result: Result<AgentIterationResult, AppError>): void => {
+      if (settled) return;
+      settled = true;
+      try {
+        subscription?.unsubscribe();
+      } catch {
+        // best-effort
+      }
+      resolve(result);
+    };
+    let subscription: UnsubscribableLike | undefined;
+    subscription = obs.subscribe({
       next: (event) => {
         switch (event.type) {
           case 'text_delta':
@@ -139,8 +156,30 @@ export function runAgentIteration(
               message: event.error.message,
             });
             break;
-          default:
+          case 'started':
+            // Notificação de início — sem side-effect. `done` final fecha o turn;
+            // start é informativo para o agent log mas não afeta o tool loop.
             break;
+          case 'tool_use_input_delta':
+            // Stream parcial do input de uma tool use. Agregamos até
+            // `tool_use_complete`, que entrega o input final acumulado.
+            // Renderer pode receber preview via tool_use_started — mas só
+            // emitimos esse evento em complete (input estável).
+            break;
+          case 'tool_result':
+            // Tool result que o agent reporta. No fluxo V2 a execução de
+            // tool é externa ao agent (TurnDispatcher → tool-loop), então
+            // este branch é defensivo: se algum provider futuro emitir
+            // resultado próprio, ignoramos para não duplicar persistência.
+            break;
+          default: {
+            // CR4-12: forçando exhaustiveness check em compile-time. Se um
+            // novo `AgentEvent` tipo for adicionado em `@g4os/agents/interface`
+            // sem atualizar este switch, TS quebra aqui no `_exhaustive: never`.
+            const _exhaustive: never = event;
+            void _exhaustive;
+            break;
+          }
         }
       },
       error: (error: unknown) => {
@@ -153,7 +192,7 @@ export function runAgentIteration(
           code: 'agent.stream_error',
           message,
         });
-        resolve(
+        settle(
           err(
             new AppError({
               code: ErrorCode.AGENT_UNAVAILABLE,
@@ -164,7 +203,7 @@ export function runAgentIteration(
         );
       },
       complete: () => {
-        resolve(
+        settle(
           ok({
             textChunks,
             thinkingChunks,
@@ -176,7 +215,7 @@ export function runAgentIteration(
       },
     });
 
-    onSubscription?.(subscription);
+    if (subscription) onSubscription?.(subscription);
   });
 }
 
