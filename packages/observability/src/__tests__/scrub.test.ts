@@ -4,18 +4,24 @@ import { SCRUB_CENSOR, scrubObject, scrubSentryEvent, scrubString } from '../sen
 describe('scrubObject', () => {
   it('redacts sensitive keys at any depth', () => {
     const input = {
-      user: { email: 'a@b.com', apiKey: 'sk-abc' },
+      user: { name: 'Alice', apiKey: 'sk-abc' },
       headers: { authorization: 'Bearer xyz', 'x-api-key': 'k1' },
       nested: { deep: { refresh_token: 'refr-123' } },
       safe: 'keep-me',
     };
     const out = scrubObject(input);
-    expect(out.user.email).toBe('a@b.com');
+    expect(out.user.name).toBe('Alice');
     expect(out.user.apiKey).toBe(SCRUB_CENSOR);
     expect(out.headers.authorization).toBe(SCRUB_CENSOR);
     expect(out.headers['x-api-key']).toBe(SCRUB_CENSOR);
     expect(out.nested.deep.refresh_token).toBe(SCRUB_CENSOR);
     expect(out.safe).toBe('keep-me');
+  });
+
+  it('redacts emails embedded in string values (PII)', () => {
+    const out = scrubObject({ note: 'message from user@example.com received' });
+    expect(out.note).not.toContain('user@example.com');
+    expect(out.note).toContain(SCRUB_CENSOR);
   });
 
   it('handles arrays', () => {
@@ -39,6 +45,31 @@ describe('scrubObject', () => {
     const out = scrubObject({ Authorization: 'Bearer x', COOKIE: 'a=b' });
     expect(out.Authorization).toBe(SCRUB_CENSOR);
     expect(out.COOKIE).toBe(SCRUB_CENSOR);
+  });
+
+  // CR6-03 — antes do fix, a segunda visita do mesmo objeto retornava o
+  // ORIGINAL não-scrubado. Sentry vazava PII quando dois ramos de um event
+  // referenciavam o mesmo payload.
+  it('redacts shared subgraphs in BOTH paths (CR6-03)', () => {
+    const shared: Record<string, unknown> = { token: 'sk-leak1234567890_ABCDEFGHIJKL' };
+    const out = scrubObject({ a: shared, b: { nested: shared } }) as {
+      a: { token: unknown };
+      b: { nested: { token: unknown } };
+    };
+    expect(out.a.token).toBe(SCRUB_CENSOR);
+    expect(out.b.nested.token).toBe(SCRUB_CENSOR);
+    // Mesma referência scrubada em ambos os caminhos (não duas cópias diferentes).
+    expect(out.a).toBe(out.b.nested);
+  });
+
+  it('preserves cycle structure with both nodes scrubbed (CR6-03)', () => {
+    const a: Record<string, unknown> = { token: 'tk-leak', name: 'a' };
+    a['self'] = a;
+    const out = scrubObject(a) as { token: unknown; self: unknown };
+    expect(out.token).toBe(SCRUB_CENSOR);
+    // Ciclo preservado mas via cópia, não o original.
+    expect(out.self).toBe(out);
+    expect(out.self).not.toBe(a);
   });
 });
 
@@ -88,5 +119,78 @@ describe('scrubSentryEvent', () => {
     const original = JSON.stringify(event);
     scrubSentryEvent(event);
     expect(JSON.stringify(event)).toBe(original);
+  });
+
+  it('scrubs exception value with email', () => {
+    const event = {
+      exception: {
+        values: [{ type: 'Error', value: 'Failed login for user user@example.com' }],
+      },
+    };
+    const out = scrubSentryEvent(event);
+    expect(out.exception?.values?.[0]?.value).not.toContain('user@example.com');
+    expect(out.exception?.values?.[0]?.value).toContain(SCRUB_CENSOR);
+  });
+
+  it('scrubs exception stack frame vars', () => {
+    const event = {
+      exception: {
+        values: [
+          {
+            type: 'Error',
+            value: 'boom',
+            stacktrace: {
+              frames: [
+                {
+                  vars: { token: 'sk-abc1234567890_ABCDEFGHIJKL', other: 'safe' },
+                  abs_path: '/Users/igor/.g4os/credentials.enc',
+                },
+              ],
+            },
+          },
+        ],
+      },
+    };
+    const out = scrubSentryEvent(event);
+    const frame = out.exception?.values?.[0]?.stacktrace?.frames?.[0];
+    expect(frame?.vars?.['token']).toBe(SCRUB_CENSOR);
+    expect(frame?.vars?.['other']).toBe('safe');
+    expect(frame?.abs_path).not.toContain('/Users/igor');
+  });
+
+  it('redacts home dir paths via scrubString', () => {
+    expect(scrubString('open /Users/igor/.g4os/file.json failed')).not.toContain('/Users/igor');
+    expect(scrubString('open /home/igor/.config/foo failed')).not.toContain('/home/igor');
+    expect(scrubString('C:\\Users\\Igor\\AppData\\Roaming')).not.toContain('Igor');
+  });
+
+  it('scrubs exception.mechanism.data (CR4-06)', () => {
+    const event = {
+      exception: {
+        values: [
+          {
+            type: 'Error',
+            value: 'failed',
+            mechanism: {
+              type: 'generic',
+              handled: false,
+              synthetic: false,
+              data: {
+                user_email: 'user@example.com',
+                api_token: 'sk-abc1234567890_ABCDEFGHIJKL',
+                safe_field: 'keep-me',
+              },
+            },
+          },
+        ],
+      },
+    };
+    const out = scrubSentryEvent(event);
+    const mech = out.exception?.values?.[0]?.mechanism;
+    expect(mech?.handled).toBe(false);
+    expect(mech?.synthetic).toBe(false);
+    expect(mech?.data?.['user_email']).not.toBe('user@example.com');
+    expect(mech?.data?.['api_token']).toBe(SCRUB_CENSOR);
+    expect(mech?.data?.['safe_field']).toBe('keep-me');
   });
 });

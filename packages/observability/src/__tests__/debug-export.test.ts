@@ -23,7 +23,7 @@ describe('exportDebugInfo', () => {
     await writeFile(join(logsDir, 'app.log'), 'hello world\n');
 
     const output = join(workDir, 'debug.zip');
-    const metrics = createMetrics();
+    const metrics = createMetrics({ includeDefaults: false });
     metrics.sessionActive.set(2);
 
     const result = await exportDebugInfo({
@@ -53,7 +53,7 @@ describe('exportDebugInfo', () => {
     );
 
     const output = join(workDir, 'debug.zip');
-    const metrics = createMetrics();
+    const metrics = createMetrics({ includeDefaults: false });
     await exportDebugInfo({
       outputPath: output,
       systemInfo: {

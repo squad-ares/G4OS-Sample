@@ -1,4 +1,18 @@
-import { Counter, Gauge, Histogram, Registry } from 'prom-client';
+import { Counter, collectDefaultMetrics, Gauge, Histogram, Registry } from 'prom-client';
+
+/**
+ * Opções pra `createMetrics()`. Útil em testes que precisam isolar registries
+ * ou desabilitar default metrics (gc, heap, event loop).
+ */
+export interface CreateMetricsOptions {
+  /**
+   * Quando `true`, registra métricas default do prom-client (`process_*`,
+   * `nodejs_*`) no mesmo Registry. Default `true` em produção (visibility
+   * de health do process), `false` em testes para evitar coletas
+   * automáticas que poluem snapshots. CR4-17.
+   */
+  readonly includeDefaults?: boolean;
+}
 
 export interface G4Metrics {
   readonly registry: Registry;
@@ -25,9 +39,14 @@ const AGENT_BUCKETS = [0.1, 0.5, 1, 5, 10, 30, 60, 120];
 const MCP_BUCKETS = [0.01, 0.05, 0.1, 0.5, 1, 5, 10, 30];
 const TURN_MS_BUCKETS = [100, 500, 1_000, 2_500, 5_000, 10_000, 30_000, 60_000, 120_000];
 
-export function createMetrics(): G4Metrics {
+export function createMetrics(options: CreateMetricsOptions = {}): G4Metrics {
   const registry = new Registry();
   registry.setDefaultLabels({ app: 'g4os' });
+  if (options.includeDefaults !== false) {
+    // CR4-17: process metrics (heap, gc, event loop) coletadas no mesmo
+    // registry; aparecem em `exportMetrics()` ao lado das custom.
+    collectDefaultMetrics({ register: registry, prefix: 'g4os_' });
+  }
 
   const ipcRequestDuration = new Histogram({
     name: 'g4os_ipc_request_duration_seconds',
@@ -163,7 +182,13 @@ export function getMetrics(): G4Metrics {
   return sharedMetrics;
 }
 
+// CR9: limpar o registry anterior antes de soltar a referência. Sem
+// `registry.clear()`, métricas registradas (Counters, Histograms, Gauges)
+// e o interval do `collectDefaultMetrics` permanecem coletando heap/gc/
+// event-loop em background — vazamento memory + pollution em snapshots
+// de teste subsequentes que chamam `getMetrics()` de novo.
 export function resetMetrics(): void {
+  sharedMetrics?.registry.clear();
   sharedMetrics = undefined;
 }
 

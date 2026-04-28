@@ -74,8 +74,14 @@ describe('MemoryMonitor', () => {
       }),
       onThresholdExceeded: (reason) => events.push(reason),
     });
+    // CR8-19: baseline agora skipa os primeiros 3 samples (boot/JIT spike).
+    // Precisamos de 4 samples na fase "warm" antes do growth disparar:
+    // 3 samples ignorados → 4º vira baseline → 5º excede ratio.
     mon.sampleOnce();
-    heap = 200;
+    mon.sampleOnce();
+    mon.sampleOnce();
+    mon.sampleOnce(); // baseline = 100
+    heap = 200; // 200 > 100 * 1.5 → growth threshold
     mon.sampleOnce();
     expect(events.some((e) => e.startsWith('heap'))).toBe(true);
     mon.dispose();
