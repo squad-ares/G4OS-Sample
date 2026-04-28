@@ -6,7 +6,6 @@ import envPaths from 'env-paths';
 // Whitelist explícita: só os flavors conhecidos são aceitos. Default
 // fallback `public` se valor inválido (com console.warn — sem logger
 // disponível neste módulo de boot).
-// biome-ignore lint/style/noProcessEnv: bootstrap puro; ler env aqui é o intencional para flavor
 const RAW_FLAVOR = process.env['G4OS_DISTRIBUTION_FLAVOR'] ?? 'public';
 const FLAVOR = /^[a-z0-9-]+$/.test(RAW_FLAVOR) ? RAW_FLAVOR : 'public';
 const APP_NAME = FLAVOR === 'g4' ? 'g4os-internal' : 'g4os';
