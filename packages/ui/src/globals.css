@@ -152,6 +152,14 @@
   --font-mono: var(--font-mono);
 
   --radius: var(--radius);
+
+  /* Stacking layers — usadas pelos componentes Radix-wrapped (dialog,
+     popover, drawer, dropdown-menu, select, context-menu). Sem estes
+     tokens, as utilities `z-modal`/`z-dropdown`/`z-floating-menu` em
+     Tailwind v4 resolvem para nada e os overlays ficam sem z-index. */
+  --z-floating-menu: 35;
+  --z-dropdown: 40;
+  --z-modal: 50;
 }
 
 /* =============================================================================

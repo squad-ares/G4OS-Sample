@@ -13,6 +13,10 @@ export {
   CommandShortcut,
 } from './components/command.tsx';
 export {
+  ConfirmDestructiveDialog,
+  type ConfirmDestructiveDialogProps,
+} from './components/confirm-destructive-dialog.tsx';
+export {
   ContextMenu,
   ContextMenuCheckboxItem,
   ContextMenuContent,
