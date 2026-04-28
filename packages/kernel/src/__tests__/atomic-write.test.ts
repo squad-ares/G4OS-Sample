@@ -48,7 +48,10 @@ describe('writeAtomic', () => {
     expect(await readFile(path, 'utf-8')).toBe('v2');
   });
 
-  it('respects mode option', async () => {
+  // POSIX `mode` é honrado em macOS/Linux mas o Node em Windows ignora bits
+  // group/others (sempre `0o666`). Skip no Win32 — vault prod nunca roda
+  // como Electron app no Windows com permission bits estritos via NTFS ACL.
+  it.skipIf(process.platform === 'win32')('respects mode option', async () => {
     const path = join(dir, 'mode.json');
     await writeAtomic(path, 'restricted', { mode: 0o600 });
     const stats = await stat(path);
