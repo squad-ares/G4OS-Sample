@@ -55,6 +55,12 @@ export class CompatProvider implements ClaudeProvider {
         context.signal,
       )
       .catch((cause: unknown) => {
+        // CR8-22: distinguir abort de erro real. Direct provider já faz isso;
+        // compat caía sempre em `network` genérico, mascarando turn cancel
+        // como "network failure" ao usuário e a observabilidade.
+        if (context.signal.aborted) {
+          throw AgentError.network('claude-compat', { reason: 'aborted' });
+        }
         throw AgentError.network('claude-compat', cause);
       });
   }

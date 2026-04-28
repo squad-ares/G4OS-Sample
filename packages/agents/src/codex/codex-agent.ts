@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { SessionId } from '@g4os/kernel';
-import { DisposableBase } from '@g4os/kernel/disposable';
+import { DisposableBase, toDisposable } from '@g4os/kernel/disposable';
 import { AgentError } from '@g4os/kernel/errors';
 import { createLogger, type Logger } from '@g4os/kernel/logger';
 import { ok, type Result } from 'neverthrow';
@@ -51,6 +51,16 @@ export class CodexAgent extends DisposableBase implements IAgent {
     this.log = deps.logger ?? createLogger('codex-agent');
     this.requestIdFactory = deps.requestIdFactory ?? (() => randomUUID());
     void _config;
+    // Ordem determinística de teardown: bridge detacha PRIMEIRO (corta
+    // canal MCP), depois subprocess é morto (NDJSON inflight é descartado
+    // de forma segura porque não tem mais consumers), por fim limpa
+    // estado in-memory. `_register` garante LIFO em super.dispose().
+    this._register(toDisposable(() => this.activeRequests.clear()));
+    this._register(toDisposable(() => this.deps.appServer.dispose()));
+    if (this.deps.bridgeMcp) {
+      const bridge = this.deps.bridgeMcp;
+      this._register(toDisposable(() => bridge.detach()));
+    }
   }
 
   run(input: AgentTurnInput): Observable<AgentEvent> {
@@ -114,10 +124,6 @@ export class CodexAgent extends DisposableBase implements IAgent {
       });
   }
 
-  override dispose(): void {
-    this.deps.bridgeMcp?.detach();
-    this.deps.appServer.dispose();
-    this.activeRequests.clear();
-    super.dispose();
-  }
+  // dispose() é herdado de DisposableBase — executa em LIFO os disposables
+  // registrados no constructor (clear → appServer.dispose → bridge.detach).
 }

@@ -1,5 +1,5 @@
 import type { SessionId } from '@g4os/kernel';
-import { DisposableBase } from '@g4os/kernel/disposable';
+import { DisposableBase, toDisposable } from '@g4os/kernel/disposable';
 import type { AgentError } from '@g4os/kernel/errors';
 import { createLogger, type Logger } from '@g4os/kernel/logger';
 import { ok, type Result } from 'neverthrow';
@@ -41,6 +41,17 @@ export class ClaudeAgent extends DisposableBase implements IAgent {
     this.enablePromptCache1h =
       options.enablePromptCache1h ??
       (this.provider.kind === 'direct' && this.capabilities.promptCaching);
+    // CR5-06: cleanup centralizado via _register. DisposableStore itera em
+    // ordem de inserção (FIFO via Set), então registramos abort PRIMEIRO e
+    // clear DEPOIS — clear antes de abort esvaziaria o map sem cancelar.
+    this._register(
+      toDisposable(() => {
+        for (const controller of this.activeControllers.values()) {
+          if (!controller.signal.aborted) controller.abort();
+        }
+      }),
+    );
+    this._register(toDisposable(() => this.activeControllers.clear()));
   }
 
   run(input: AgentTurnInput): Observable<AgentEvent> {
@@ -81,13 +92,8 @@ export class ClaudeAgent extends DisposableBase implements IAgent {
     return Promise.resolve(ok(undefined));
   }
 
-  override dispose(): void {
-    for (const controller of this.activeControllers.values()) {
-      if (!controller.signal.aborted) controller.abort();
-    }
-    this.activeControllers.clear();
-    super.dispose();
-  }
+  // dispose() herdado de DisposableBase — executa LIFO os disposables
+  // registrados no constructor: abort controllers → clear map → super.
 
   private buildRunnerDeps(): StreamRunnerDeps {
     return {

@@ -40,8 +40,10 @@ export class BedrockProvider implements ClaudeProvider {
   }
 
   private loadRuntime(): Promise<BedrockRuntimeLike> {
+    // CR6-05: limpar cache em rejeição — caso contrário um SigV4 runtime
+    // que falhou na inicialização permanece quebrado para sempre.
     if (!this.runtimePromise) {
-      this.runtimePromise = this.options.sdkFactory
+      const promise = this.options.sdkFactory
         ? this.options.sdkFactory()
         : Promise.reject(
             AgentError.unavailable('claude-bedrock', {
@@ -49,6 +51,10 @@ export class BedrockProvider implements ClaudeProvider {
                 '@aws-sdk/client-bedrock-runtime factory not provided; Bedrock requires host-provided SigV4 runtime',
             }),
           );
+      this.runtimePromise = promise;
+      promise.catch(() => {
+        if (this.runtimePromise === promise) this.runtimePromise = undefined;
+      });
     }
     return this.runtimePromise;
   }

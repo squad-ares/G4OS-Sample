@@ -93,13 +93,16 @@ describe('google/runner/stream-runner', () => {
     expect(events[events.length - 1]).toEqual({ type: 'done', reason: 'error' });
   });
 
-  it('returns aborted error if signal terminates early', async () => {
+  it('emits interrupted done if signal already aborted before openStream (CR9)', async () => {
+    // CR9: pre-await signal check no consumeStream — abort antes do
+    // openStream NÃO emite error, retorna done(reason: 'interrupted')
+    // direto. Alinha com OpenAI/Claude stream-runners.
     const provider: GeminiProvider = {
       openStream: () =>
         Promise.resolve(
           (async function* () {
             await new Promise((r) => setTimeout(r, 10));
-            throw new Error('aborted manually');
+            throw new Error('should not reach here');
           })(),
         ),
       classifyTurn: async () => 'custom_tools',
@@ -113,8 +116,8 @@ describe('google/runner/stream-runner', () => {
       events.push(event);
     }
 
-    const errEvent = events.find((e) => e.type === 'error');
-    expect(errEvent).toBeDefined();
-    expect(events[events.length - 1]).toEqual({ type: 'done', reason: 'error' });
+    // Não há error event — abort pré-stream é interrupted, não erro.
+    expect(events.find((e) => e.type === 'error')).toBeUndefined();
+    expect(events[events.length - 1]).toEqual({ type: 'done', reason: 'interrupted' });
   });
 });

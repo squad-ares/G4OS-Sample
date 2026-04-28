@@ -78,7 +78,19 @@ export class StreamRunner {
     mapper: GeminiEventMapper,
     signal: AbortSignal,
   ): AsyncGenerator<AgentEvent, boolean, void> {
+    // CR9: mesmo pattern do OpenAI/Claude stream-runner (CR8-20). Verifica
+    // signal antes e depois do await — janela entre setup e for-await é
+    // longa o suficiente para abort acontecer e o consumer ler 1 chunk
+    // antes do check periódico.
+    if (signal.aborted) {
+      yield { type: 'done', reason: 'interrupted' as AgentDoneReason };
+      return true;
+    }
     const stream = await this.provider.openStream(params, { signal });
+    if (signal.aborted) {
+      yield { type: 'done', reason: 'interrupted' as AgentDoneReason };
+      return true;
+    }
     let sawDone = false;
     for await (const chunk of stream) {
       if (signal.aborted) {

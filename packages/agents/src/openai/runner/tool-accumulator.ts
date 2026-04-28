@@ -4,21 +4,42 @@ export interface AccumulatedToolCall {
   readonly argumentsText: string;
 }
 
-export class OpenAIToolAccumulator {
-  private readonly byIndex = new Map<number, { id: string; name: string; args: string }>();
+interface AccumulatorEntry {
+  id: string;
+  idSet: boolean;
+  name: string;
+  nameSet: boolean;
+  args: string;
+}
 
+export class OpenAIToolAccumulator {
+  private readonly byIndex = new Map<number, AccumulatorEntry>();
+
+  // CR8-23: usar flags `idSet`/`nameSet` em vez de checar `length === 0`. O
+  // OpenAI streaming pode mandar `id: ''` em delta inicial e o id verdadeiro
+  // num delta seguinte — o check antigo (`existing.id.length === 0`) ainda
+  // tratava `''` como "não setado" mas era frágil: qualquer caller que
+  // intencionalmente quisesse setar `id: ''` ficava bloqueado.
   pushDelta(index: number, id?: string, name?: string, argumentsChunk?: string): void {
     const existing = this.byIndex.get(index);
     if (existing === undefined) {
       this.byIndex.set(index, {
         id: id ?? '',
+        idSet: id !== undefined,
         name: name ?? '',
+        nameSet: name !== undefined,
         args: argumentsChunk ?? '',
       });
       return;
     }
-    if (id !== undefined && existing.id.length === 0) existing.id = id;
-    if (name !== undefined && existing.name.length === 0) existing.name = name;
+    if (id !== undefined && !existing.idSet) {
+      existing.id = id;
+      existing.idSet = true;
+    }
+    if (name !== undefined && !existing.nameSet) {
+      existing.name = name;
+      existing.nameSet = true;
+    }
     if (argumentsChunk !== undefined) existing.args += argumentsChunk;
   }
 
