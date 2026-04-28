@@ -6,6 +6,7 @@ export * from './credential-error.ts';
 export * from './error-codes.ts';
 export * from './fs-error.ts';
 export * from './ipc-error.ts';
+export * from './project-error.ts';
 export * from './session-error.ts';
 export * from './source-error.ts';
 export * from './to-result.ts';

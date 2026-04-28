@@ -9,6 +9,8 @@ export const ErrorCode = {
   CREDENTIAL_LOCKED: 'credential.locked',
   CREDENTIAL_DECRYPT_FAILED: 'credential.decrypt_failed',
   CREDENTIAL_EXPIRED: 'credential.expired',
+  CREDENTIAL_INVALID_KEY: 'credential.invalid_key',
+  CREDENTIAL_INVALID_VALUE: 'credential.invalid_value',
 
   // Autenticação
   AUTH_NOT_AUTHENTICATED: 'auth.not_authenticated',
@@ -32,6 +34,9 @@ export const ErrorCode = {
   WORKSPACE_CORRUPTED: 'workspace.corrupted',
   WORKSPACE_BOOTSTRAP_FAILED: 'workspace.bootstrap_failed',
   WORKSPACE_SLUG_CONFLICT: 'workspace.slug_conflict',
+
+  // Project
+  PROJECT_NOT_FOUND: 'project.not_found',
 
   // Agent
   AGENT_UNAVAILABLE: 'agent.unavailable',

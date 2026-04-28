@@ -1,4 +1,5 @@
 export * from './attachment.schema.ts';
+export * from './credential.schema.ts';
 export * from './event.schema.ts';
 export * from './label.schema.ts';
 export * from './message.schema.ts';

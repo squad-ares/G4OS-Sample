@@ -66,6 +66,7 @@ export const SourceCatalogItemSchema = z.object({
   kind: SourceKindSchema,
   displayName: z.string().min(1).max(200),
   description: z.string().max(500),
+  descriptionKey: z.string().max(200).optional(),
   category: SourceCategorySchema,
   authKind: SourceAuthKindSchema,
   iconUrl: z.string().url().optional(),
@@ -93,9 +94,11 @@ export const CreateMcpStdioSourceInputSchema = z.object({
     .max(100)
     .regex(/^[a-z0-9][a-z0-9-]*$/),
   displayName: z.string().min(1).max(200),
-  command: z.string().min(1),
-  args: z.array(z.string()).default([]),
-  env: z.record(z.string(), z.string()).default({}),
+  // CR7-33: caps em strings para prevenir DoS. Paths típicos: 100-300
+  // chars. 8000 cobre paths exóticos sem ser ridículo.
+  command: z.string().min(1).max(8000),
+  args: z.array(z.string().max(8000)).max(100).default([]),
+  env: z.record(z.string().max(200), z.string().max(8000)).default({}),
   description: z.string().max(500).optional(),
 });
 export type CreateMcpStdioSourceInput = z.infer<typeof CreateMcpStdioSourceInputSchema>;

@@ -1,5 +1,11 @@
 import { z } from 'zod';
 
+/**
+ * Schema canônico para IDs de label. Routers devem importar daqui em vez
+ * de redeclarar `z.uuid()` inline (CR4-04).
+ */
+export const LabelIdSchema = z.uuid();
+
 export const LabelSchema = z.object({
   id: z.uuid(),
   workspaceId: z.uuid(),
