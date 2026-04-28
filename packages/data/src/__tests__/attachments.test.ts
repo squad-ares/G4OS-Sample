@@ -8,6 +8,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { AttachmentGateway, AttachmentStorage } from '../attachments/index.ts';
 import { type AppDb, createDrizzle, Db, runMigrations } from '../index.ts';
 import { attachmentRefs, attachments } from '../schema/attachments.ts';
+import { sessions } from '../schema/sessions.ts';
+import { workspaces } from '../schema/workspaces.ts';
 
 const MIGRATIONS_FOLDER = fileURLToPath(new URL('../../drizzle', import.meta.url));
 
@@ -82,6 +84,37 @@ describe('AttachmentGateway', () => {
     runMigrations(drizzle, { migrationsFolder: MIGRATIONS_FOLDER });
     storage = new AttachmentStorage({ baseDir: join(tmpDir, 'blobs') });
     gateway = new AttachmentGateway(drizzle, storage);
+    // CR6-02: attachment_refs.session_id agora é FK pra sessions.id, então
+    // precisamos seedar workspace + sessão antes do gateway.attach.
+    const wsId = 'ws-attach-test';
+    const now = Date.now();
+    drizzle
+      .insert(workspaces)
+      .values({
+        id: wsId,
+        name: 'attach-test',
+        slug: 'attach-test',
+        rootPath: join(tmpDir, 'ws'),
+        createdAt: now,
+        updatedAt: now,
+      })
+      .run();
+    drizzle
+      .insert(sessions)
+      .values({
+        id: sessionId,
+        workspaceId: wsId,
+        name: 'attach-test-session',
+        status: 'active',
+        messageCount: 0,
+        lastEventSequence: 0,
+        createdAt: now,
+        updatedAt: now,
+        enabledSourceSlugsJson: '[]',
+        stickyMountedSourceSlugsJson: '[]',
+        rejectedSourceSlugsJson: '[]',
+      })
+      .run();
   });
 
   afterEach(async () => {

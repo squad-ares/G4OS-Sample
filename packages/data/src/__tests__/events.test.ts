@@ -76,16 +76,22 @@ describe('SessionEventStore', () => {
     await expect(store.append(sessionId, bad)).rejects.toThrow();
   });
 
-  it('throws on corrupted JSON line during read', async () => {
+  it('skips corrupted JSON line during read but yields valid lines (CR7-21)', async () => {
     const store = new SessionEventStore('ws-1', { workspaceRoot: tmpDir });
     const sessionId = randomUUID();
     await store.append(sessionId, makeSessionCreated(sessionId, 0));
-    // Corrompe manualmente
+    // Corrompe manualmente: linha inválida no meio
     await writeFile(store.path(sessionId), 'not-json\n', { flag: 'a' });
+    await store.append(sessionId, makeMessageAdded(sessionId, 1, 'after-corruption'));
 
-    await expect(async () => {
-      for await (const _ of store.read(sessionId));
-    }).rejects.toThrow();
+    // CR7-21: linhas corrompidas devem ser puladas com log warn, não
+    // throw. Sem isso, sessão inteira ficava inacessível por uma linha
+    // ruim. Verifica que linhas válidas continuam sendo yielded.
+    const events = [];
+    for await (const event of store.read(sessionId)) events.push(event);
+    expect(events).toHaveLength(2);
+    expect(events[0]?.type).toBe('session.created');
+    expect(events[1]?.type).toBe('message.added');
   });
 
   it('truncateAfter removes events beyond the given sequence', async () => {

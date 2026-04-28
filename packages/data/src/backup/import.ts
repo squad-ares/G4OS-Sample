@@ -96,6 +96,20 @@ interface ZipEntries {
   readonly [fileName: string]: Buffer;
 }
 
+// CR9: defesa zip-slip. Mesmo que o lookup posterior só use sids/hashes
+// validados por schema, entradas com `..` ou paths absolutos no ZIP são
+// indício de ZIP malicioso e devem ser rejeitadas explicitamente. Também
+// rejeita caminhos com NULL bytes (Node trata erroneamente em alguns FS).
+function isUnsafeZipPath(name: string): boolean {
+  if (name.includes('\0')) return true;
+  if (name.startsWith('/') || name.startsWith('\\')) return true;
+  // Windows drive letter (`C:...`) ou UNC (`\\server\...`).
+  if (/^[a-zA-Z]:/.test(name) || name.startsWith('\\\\')) return true;
+  // Traversal: qualquer segmento `..` no caminho POSIX ou Windows.
+  const segments = name.split(/[/\\]/);
+  return segments.some((s) => s === '..');
+}
+
 function readZipEntries(path: string): Promise<ZipEntries> {
   return new Promise<ZipEntries>((resolve, reject) => {
     yauzl.open(path, { lazyEntries: true }, (openErr, zip) => {
@@ -108,6 +122,9 @@ function readZipEntries(path: string): Promise<ZipEntries> {
         if (/\/$/.test(entry.fileName)) {
           zip.readEntry();
           return;
+        }
+        if (isUnsafeZipPath(entry.fileName)) {
+          return reject(new Error(`unsafe zip entry path rejected: ${entry.fileName}`));
         }
         zip.openReadStream(entry, (streamErr, stream) => {
           if (streamErr || !stream) return reject(streamErr ?? new Error('no stream'));

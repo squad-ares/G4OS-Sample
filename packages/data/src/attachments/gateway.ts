@@ -114,20 +114,41 @@ export class AttachmentGateway {
   /**
    * Coleta blobs órfãos: `refCount <= 0` e `lastAccessedAt < now - ttlMs`.
    * Retorna o número de arquivos removidos.
+   *
+   * Cada orphan é finalizado dentro de transação que re-checa `refCount`
+   * antes de deletar do DB — evita race com `attach()` concorrente que
+   * upserta a mesma `hash` entre o SELECT inicial e o DELETE final.
+   * Físico (`storage.delete`) só roda depois do delete SQL bem-sucedido.
    */
   async gc(ttlMs: number = DEFAULT_GC_TTL_MS): Promise<number> {
     const cutoff = Date.now() - ttlMs;
-    const orphans = this.db
+    const candidates = this.db
       .select({ hash: attachments.hash })
       .from(attachments)
       .where(sql`${attachments.refCount} <= 0 AND ${attachments.lastAccessedAt} < ${cutoff}`)
       .all();
 
-    for (const { hash } of orphans) {
+    let removed = 0;
+    for (const { hash } of candidates) {
+      const claimed = this.db.transaction((tx): boolean => {
+        // Re-check dentro da tx: caso `attach()` concorrente tenha
+        // upsertado refCount=1+ entre o SELECT e este DELETE, abortamos.
+        const current = tx
+          .select({ refCount: attachments.refCount, lastAccessedAt: attachments.lastAccessedAt })
+          .from(attachments)
+          .where(eq(attachments.hash, hash))
+          .get();
+        if (!current) return false;
+        if (current.refCount > 0) return false;
+        if (current.lastAccessedAt >= cutoff) return false;
+        tx.delete(attachments).where(eq(attachments.hash, hash)).run();
+        return true;
+      });
+      if (!claimed) continue;
       await this.storage.delete(hash);
-      this.db.delete(attachments).where(eq(attachments.hash, hash)).run();
+      removed += 1;
     }
-    return orphans.length;
+    return removed;
   }
 
   /**

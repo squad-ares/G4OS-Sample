@@ -21,6 +21,7 @@ import {
   sessions,
   workspaces,
 } from '../index.ts';
+import { attachmentRefs, attachments } from '../schema/attachments.ts';
 import { labels, sessionLabels } from '../schema/labels.ts';
 import { projectTasks } from '../schema/project-tasks.ts';
 import { projects } from '../schema/projects.ts';
@@ -213,5 +214,78 @@ describe('workspace delete cascade', () => {
     drizzle.delete(workspaces).where(eq(workspaces.id, wsId)).run();
     const rows = drizzle.select().from(sessions).where(eq(sessions.id, otherSessionId)).all();
     expect(rows).toHaveLength(1);
+  });
+
+  // CR6-02 — sessions → attachment_refs cascade.
+  // Antes do fix, refs ficavam órfãs e o GC nunca derrubava blobs.
+  it('cascade: attachment_refs da session são removidas (CR6-02)', () => {
+    const hash = 'sha256-test-cr6-02';
+    drizzle
+      .insert(attachments)
+      .values({
+        hash,
+        size: 100,
+        mimeType: 'text/plain',
+        refCount: 1,
+        createdAt: NOW,
+        lastAccessedAt: NOW,
+      })
+      .run();
+    drizzle
+      .insert(attachmentRefs)
+      .values({
+        id: 'ref-cr6-02',
+        hash,
+        sessionId,
+        originalName: 'test.txt',
+        createdAt: NOW,
+      })
+      .run();
+
+    drizzle.delete(sessions).where(eq(sessions.id, sessionId)).run();
+
+    const refsAfter = drizzle
+      .select()
+      .from(attachmentRefs)
+      .where(eq(attachmentRefs.sessionId, sessionId))
+      .all();
+    expect(refsAfter).toHaveLength(0);
+    // O blob continua (refcount lógico ≠ FK) — gateway é quem decrementa e GC.
+    const blobAfter = drizzle.select().from(attachments).where(eq(attachments.hash, hash)).all();
+    expect(blobAfter).toHaveLength(1);
+  });
+
+  it('cascade indireto: workspace → session → attachment_refs (CR6-02)', () => {
+    const hash = 'sha256-test-cr6-02-indirect';
+    drizzle
+      .insert(attachments)
+      .values({
+        hash,
+        size: 100,
+        mimeType: 'text/plain',
+        refCount: 1,
+        createdAt: NOW,
+        lastAccessedAt: NOW,
+      })
+      .run();
+    drizzle
+      .insert(attachmentRefs)
+      .values({
+        id: 'ref-cr6-02-indirect',
+        hash,
+        sessionId,
+        originalName: 'test.txt',
+        createdAt: NOW,
+      })
+      .run();
+
+    drizzle.delete(workspaces).where(eq(workspaces.id, wsId)).run();
+
+    const refsAfter = drizzle
+      .select()
+      .from(attachmentRefs)
+      .where(eq(attachmentRefs.sessionId, sessionId))
+      .all();
+    expect(refsAfter).toHaveLength(0);
   });
 });
