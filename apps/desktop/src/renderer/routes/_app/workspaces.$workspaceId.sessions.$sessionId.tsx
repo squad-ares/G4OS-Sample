@@ -2,14 +2,12 @@ import {
   type Message as ChatMessage,
   Composer,
   type ComposerSendPayload,
-  ConfirmDestructiveDialog,
   findModel,
   type MessageCardCallbacks,
   type ModelProvider,
   ModelSelector,
   modelProviderToSession,
   PermissionProvider,
-  requestPermission,
   SessionActiveBadges,
   SessionBanners,
   SessionHeader,
@@ -23,11 +21,11 @@ import {
   WorkingDirPicker,
 } from '@g4os/features/chat';
 import type { SessionEvent, TurnStreamEvent } from '@g4os/kernel/types';
-import { toast, useTranslate } from '@g4os/ui';
+import { ConfirmDestructiveDialog, toast, useTranslate } from '@g4os/ui';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { formatSendError, mapPermissionDecision } from '../../chat/session-page-helpers.ts';
+import { formatSendError, handlePermissionRequired } from '../../chat/session-page-helpers.ts';
 import { useComposerAffordances } from '../../chat/use-composer-affordances.ts';
 import { useSessionHeader } from '../../chat/use-session-header.ts';
 import { useSessionMetadata } from '../../chat/use-session-metadata.ts';
@@ -38,7 +36,6 @@ import { invalidateMessages, messagesListQueryOptions } from '../../messages/mes
 import { setLastSessionId } from '../../sessions/last-session.ts';
 import { invalidateSessions } from '../../sessions/sessions-store.ts';
 
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: (reason: route component agrega múltiplos hooks de efeito, query e callbacks de turn/permission/streaming que naturalmente compõem a página de chat. Lógica orquestral está distribuída entre useSessionHeader, useComposerAffordances e session-page-helpers; o que sobra é wiring direto que perde clareza se forçado a sub-hooks adicionais)
 function SessionPage() {
   const { t } = useTranslate();
   const navigate = useNavigate();
@@ -87,40 +84,6 @@ function SessionPage() {
     };
     return [...persistedMessages, ghost];
   }, [persistedMessages, streamingTurnId, streamingText]);
-
-  const handlePermissionRequired = useCallback(
-    async (event: {
-      readonly requestId: string;
-      readonly toolUseId: string;
-      readonly toolName: string;
-      readonly inputJson: string;
-    }): Promise<void> => {
-      let parsedInput: Record<string, unknown> = {};
-      try {
-        const parsed = JSON.parse(event.inputJson) as unknown;
-        if (parsed !== null && typeof parsed === 'object') {
-          parsedInput = parsed as Record<string, unknown>;
-        }
-      } catch {
-        parsedInput = { raw: event.inputJson };
-      }
-      const decision = await requestPermission({
-        id: event.toolUseId,
-        toolName: event.toolName,
-        input: parsedInput,
-      });
-      const wireDecision = mapPermissionDecision(decision);
-      try {
-        await trpc.sessions.respondPermission.mutate({
-          requestId: event.requestId,
-          decision: wireDecision,
-        });
-      } catch (err) {
-        toast.error(String(err));
-      }
-    },
-    [],
-  );
 
   // Persisted session events (message.added, tool.invoked, etc.)
   useEffect(() => {
@@ -184,7 +147,7 @@ function SessionPage() {
           return;
       }
     },
-    [appendStreamingText, flushStreamingText, resetStreamingText, handlePermissionRequired],
+    [appendStreamingText, flushStreamingText, resetStreamingText],
   );
 
   // Transient turn events for real-time streaming text
@@ -497,6 +460,8 @@ function SessionPage() {
         onOpenChange={setConfirmOpen}
         title={t('chat.actions.truncateTitle')}
         description={t('chat.actions.truncateDescription')}
+        confirmLabel={t('chat.actions.confirmDestructive')}
+        cancelLabel={t('chat.actions.cancel')}
         onConfirm={() => void handleConfirmTruncate()}
       />
     </PermissionProvider>
