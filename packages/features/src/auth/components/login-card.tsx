@@ -114,7 +114,6 @@ export function LoginCard({
           <InputField
             control={emailForm.control}
             name="email"
-            type="email"
             autoComplete="email"
             label={t('auth.email.label')}
             placeholder={t('auth.email.placeholder')}

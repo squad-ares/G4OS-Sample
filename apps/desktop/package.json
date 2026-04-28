@@ -1,6 +1,6 @@
 {
   "name": "@g4os/desktop",
-  "version": "0.0.8-beta",
+  "version": "0.0.9-beta",
   "description": "G4 OS - Aplicativo desktop (Electron)",
   "private": true,
   "homepage": "https://g4educacao.com",
