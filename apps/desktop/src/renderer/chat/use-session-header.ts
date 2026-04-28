@@ -4,7 +4,9 @@ import { toast, useTranslate } from '@g4os/ui';
 import type { UseQueryResult } from '@tanstack/react-query';
 import type { useNavigate } from '@tanstack/react-router';
 import { useCallback, useMemo } from 'react';
+import { queryClient } from '../ipc/query-client.ts';
 import { trpc } from '../ipc/trpc-client.ts';
+import { invalidateSessions } from '../sessions/sessions-store.ts';
 
 interface UseSessionHeaderArgs {
   readonly sessionId: string;
@@ -39,7 +41,10 @@ export function useSessionHeader({
     async (next: string): Promise<void> => {
       try {
         await trpc.sessions.update.mutate({ id: sessionId, patch: { name: next } });
-        await sessionQuery.refetch();
+        // CR-UX: invalidar a list cache pra subsidebar refletir o novo nome
+        // sem precisar de cmd+r. Sem isso, sidebar mostra nome antigo até
+        // staleTime expirar (15s) ou refresh manual.
+        await Promise.all([sessionQuery.refetch(), invalidateSessions(queryClient)]);
       } catch (err) {
         toast.error(String(err));
       }
@@ -50,6 +55,9 @@ export function useSessionHeader({
   const handleArchive = useCallback(async (): Promise<void> => {
     try {
       await trpc.sessions.archive.mutate({ id: sessionId });
+      // CR-UX: invalidar list pra que a sessão arquivada saia da aba
+      // "active" antes da navegação resolver.
+      await invalidateSessions(queryClient);
       await navigate({ to: '/workspaces/$workspaceId/sessions', params: { workspaceId } });
     } catch (err) {
       toast.error(String(err));

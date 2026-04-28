@@ -1,5 +1,11 @@
 import { NewsPanel } from '@g4os/features/news';
 import {
+  SessionContextMenu,
+  SessionLifecycleDialog,
+  type SessionLifecycleDialogKind,
+  type SessionListItem,
+} from '@g4os/features/sessions';
+import {
   findSettingsCategory,
   isSettingsCategoryId,
   SETTINGS_CATEGORIES,
@@ -30,7 +36,7 @@ import {
   WorkspaceSwitcherContent,
 } from '@g4os/features/workspaces';
 import type { SessionFilter } from '@g4os/kernel/types';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, useTranslate } from '@g4os/ui';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, toast, useTranslate } from '@g4os/ui';
 import { useQuery } from '@tanstack/react-query';
 import {
   createFileRoute,
@@ -49,6 +55,13 @@ import { useFirstLoginSetup } from '../onboarding/use-first-login-setup.ts';
 import { projectsListQueryOptions } from '../projects/projects-store.ts';
 import { invalidateSessions, sessionsListQueryOptions } from '../sessions/sessions-store.ts';
 import { workspacesListQueryOptions } from '../workspaces/workspaces-store.ts';
+import {
+  matchActiveSessionId,
+  matchPathSegment,
+  renderSessionTagsContent,
+  toMarketplacePanelItem,
+  toSessionListItem,
+} from './_app.helpers.tsx';
 
 export const Route = createFileRoute('/_app')({
   beforeLoad: async ({ context }) => {
@@ -68,23 +81,41 @@ function AuthenticatedLayout() {
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [switcherOpen, setSwitcherOpen] = useState(false);
   const [sessionsTab, setSessionsTab] = useState<SessionsSubTab>('recent');
+  const [activeLabelFilter, setActiveLabelFilter] = useState<{
+    readonly workspaceId: string;
+    readonly labelId: string | null;
+  }>({ workspaceId: '', labelId: null });
+  const [sessionContextMenu, setSessionContextMenu] = useState<{
+    readonly session: SessionListItem;
+    readonly x: number;
+    readonly y: number;
+  } | null>(null);
+  const [sessionLifecycleDialog, setSessionLifecycleDialog] = useState<{
+    readonly kind: SessionLifecycleDialogKind;
+    readonly session: SessionListItem;
+  } | null>(null);
   const { data: workspaces = [] } = useQuery(workspacesListQueryOptions());
   const activeWorkspaceId = useActiveWorkspaceId();
   const setActiveWorkspaceId = useSetActiveWorkspaceId();
   const activeWorkspace =
     workspaces.find((w) => w.id === activeWorkspaceId) ?? workspaces[0] ?? null;
   const activeWorkspaceSlug = activeWorkspace?.id ?? '';
+  const activeLabelId =
+    activeLabelFilter.workspaceId === activeWorkspaceSlug ? activeLabelFilter.labelId : null;
 
   const sessionFilter = useMemo<SessionFilter>(
     () => ({
       workspaceId: activeWorkspaceSlug,
       lifecycle: sessionsTab === 'archived' ? 'archived' : 'active',
+      pinned: sessionsTab === 'pinned' ? true : undefined,
       starred: sessionsTab === 'starred' ? true : undefined,
+      unread: sessionsTab === 'unread' ? true : undefined,
+      labelIds: activeLabelId ? [activeLabelId] : undefined,
       includeBranches: false,
       limit: 40,
       offset: 0,
     }),
-    [activeWorkspaceSlug, sessionsTab],
+    [activeLabelId, activeWorkspaceSlug, sessionsTab],
   );
 
   const sessionsListQuery = useQuery({
@@ -120,6 +151,18 @@ function AuthenticatedLayout() {
     enabled: activeWorkspaceSlug.length > 0,
   });
 
+  const labelsQuery = useQuery({
+    queryKey: ['labels', 'list', activeWorkspaceSlug],
+    queryFn: () => trpc.labels.list.query({ workspaceId: activeWorkspaceSlug }),
+    staleTime: 30_000,
+    enabled: activeWorkspaceSlug.length > 0,
+  });
+
+  const labelNameById = useMemo(() => {
+    const labels = labelsQuery.data ?? [];
+    return new Map(labels.map((label) => [label.id, label.name]));
+  }, [labelsQuery.data]);
+
   const marketplaceQuery = useQuery({
     queryKey: ['marketplace', 'list'],
     queryFn: () => trpc.marketplace.list.query(),
@@ -149,6 +192,13 @@ function AuthenticatedLayout() {
 
   const handleNavigate = (to: string) => {
     startTransition(() => {
+      if (to === '/workspaces' && activeWorkspaceSlug) {
+        void navigate({
+          to: '/workspaces/$workspaceId/sessions',
+          params: { workspaceId: activeWorkspaceSlug },
+        });
+        return;
+      }
       void navigate({ to: to as never });
     });
   };
@@ -199,6 +249,23 @@ function AuthenticatedLayout() {
         workspaceId: activeWorkspaceSlug,
         name: t('session.new.defaultName'),
       });
+      // CR-UX: aplica filtros ativos (star/pin/unread/label) à sessão recém
+      // criada pra ela aparecer na aba que está aberta. Sem isso, criar
+      // sessão na aba "starred" cai na aba "recent" e o usuário pensa que
+      // o create falhou. Cada mutation é best-effort — falha não invalida
+      // a navegação para a sessão nova.
+      const followups: Promise<unknown>[] = [];
+      if (sessionsTab === 'starred') {
+        followups.push(trpc.sessions.star.mutate({ id: session.id, starred: true }));
+      }
+      if (sessionsTab === 'pinned') {
+        followups.push(trpc.sessions.pin.mutate({ id: session.id, pinned: true }));
+      }
+      // unread: criação padrão já não fica unread; aba "unread" mostra
+      // sessões com novas mensagens não lidas — não faz sentido pré-marcar.
+      if (followups.length > 0) {
+        await Promise.allSettled(followups);
+      }
       await invalidateSessions(queryClient);
       await navigate({
         to: '/workspaces/$workspaceId/sessions/$sessionId',
@@ -209,8 +276,96 @@ function AuthenticatedLayout() {
     }
   };
 
+  const refreshSessionData = useCallback(async (sessionId?: string) => {
+    await invalidateSessions(queryClient);
+    if (sessionId) {
+      await queryClient.invalidateQueries({ queryKey: ['sessions', 'get', sessionId] });
+    }
+  }, []);
+
+  const findPanelSession = useCallback(
+    (id: string): SessionListItem | null => {
+      const session = sessionsListQuery.data?.items.find((item) => item.id === id);
+      return session ? toSessionListItem(session) : null;
+    },
+    [sessionsListQuery.data?.items],
+  );
+
+  const handleRenameSession = useCallback(
+    async (id: string): Promise<void> => {
+      const currentName = findPanelSession(id)?.name ?? sessionContextMenu?.session.name ?? '';
+      const nextName = window.prompt(t('session.rename.prompt'), currentName);
+      const trimmed = nextName?.trim();
+      if (!trimmed || trimmed === currentName) return;
+      try {
+        await trpc.sessions.update.mutate({ id, patch: { name: trimmed } });
+        await refreshSessionData(id);
+      } catch (err) {
+        toast.error(String(err));
+      }
+    },
+    [findPanelSession, refreshSessionData, sessionContextMenu?.session.name, t],
+  );
+
+  const handlePinSession = useCallback(
+    async (id: string, pinned: boolean): Promise<void> => {
+      try {
+        await trpc.sessions.pin.mutate({ id, pinned });
+        await refreshSessionData(id);
+      } catch (err) {
+        toast.error(String(err));
+      }
+    },
+    [refreshSessionData],
+  );
+
+  const handleStarSession = useCallback(
+    async (id: string, starred: boolean): Promise<void> => {
+      try {
+        await trpc.sessions.star.mutate({ id, starred });
+        await refreshSessionData(id);
+      } catch (err) {
+        toast.error(String(err));
+      }
+    },
+    [refreshSessionData],
+  );
+
+  const handleMarkSessionRead = useCallback(
+    async (id: string, unread: boolean): Promise<void> => {
+      try {
+        await trpc.sessions.markRead.mutate({ id, unread });
+        await refreshSessionData(id);
+      } catch (err) {
+        toast.error(String(err));
+      }
+    },
+    [refreshSessionData],
+  );
+
+  const handleSessionLifecycleConfirm = useCallback(async (): Promise<void> => {
+    if (!sessionLifecycleDialog) return;
+    const { kind, session } = sessionLifecycleDialog;
+    try {
+      if (kind === 'archive') await trpc.sessions.archive.mutate({ id: session.id });
+      else if (kind === 'restore') await trpc.sessions.restore.mutate({ id: session.id });
+      else await trpc.sessions.delete.mutate({ id: session.id, confirm: true });
+      setSessionLifecycleDialog(null);
+      await refreshSessionData(session.id);
+    } catch (err) {
+      toast.error(String(err));
+    }
+  }, [refreshSessionData, sessionLifecycleDialog]);
+
   const renderSessionsPanel = (footer: React.ReactNode) => {
-    const items = (sessionsListQuery.data?.items ?? []).map((s) => mapSessionToPanelItem(s));
+    const activeSessionId = matchActiveSessionId(location.pathname);
+    const items = (sessionsListQuery.data?.items ?? []).map((s) => {
+      const item = mapSessionToPanelItem(s, activeSessionId);
+      return {
+        ...item,
+        labels: s.labels.map((id) => labelNameById.get(id) ?? id),
+      };
+    });
     return (
       <SessionsPanel
         sessions={items}
@@ -224,7 +379,24 @@ function AuthenticatedLayout() {
           });
         }}
         onNewSession={() => void handleNewSession()}
+        onSessionContextMenu={(event, item) => {
+          event.preventDefault();
+          const session = findPanelSession(item.id);
+          if (!session) return;
+          setSessionContextMenu({ session, x: event.clientX, y: event.clientY });
+        }}
         loading={sessionsListQuery.isLoading}
+        tagsContent={renderSessionTagsContent({
+          activeLabelId,
+          labels: labelsQuery.data ?? [],
+          loading: labelsQuery.isLoading,
+          t,
+          onSelect: (labelId) => {
+            setSessionsTab('recent');
+            setActiveLabelFilter({ workspaceId: activeWorkspaceSlug, labelId });
+          },
+          onClear: () => setActiveLabelFilter({ workspaceId: activeWorkspaceSlug, labelId: null }),
+        })}
         footer={footer}
       />
     );
@@ -351,6 +523,12 @@ function AuthenticatedLayout() {
           });
         }}
         onSignOut={() => void handleSignOut()}
+        // CR-UX: só passa onNewSession quando há workspace ativo. Sem isso o
+        // botão fica visível (na sidebar e no panel) mas o handler `return`
+        // silenciosamente — clique não faz nada, confunde o usuário. AppShell
+        // / WorkspaceSidebar / SessionsPanel checam pelo prop ser opcional e
+        // escondem a UI de criar nova sessão quando não recebem o callback.
+        {...(activeWorkspaceSlug ? { onNewSession: () => void handleNewSession() } : {})}
         renderSubSidebarPanel={renderSubSidebarPanel}
       >
         <Outlet />
@@ -367,6 +545,39 @@ function AuthenticatedLayout() {
         onSignOut={() => void handleSignOut()}
       />
       <ShellShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
+      {sessionContextMenu ? (
+        <SessionContextMenu
+          open={true}
+          position={{ x: sessionContextMenu.x, y: sessionContextMenu.y }}
+          session={sessionContextMenu.session}
+          onClose={() => setSessionContextMenu(null)}
+          onPin={(id, pinned) => void handlePinSession(id, pinned)}
+          onStar={(id, starred) => void handleStarSession(id, starred)}
+          onMarkRead={(id, unread) => void handleMarkSessionRead(id, unread)}
+          onRename={(id) => void handleRenameSession(id)}
+          onArchive={(id) => {
+            const session = findPanelSession(id) ?? sessionContextMenu.session;
+            setSessionLifecycleDialog({ kind: 'archive', session });
+          }}
+          onRestore={(id) => {
+            const session = findPanelSession(id) ?? sessionContextMenu.session;
+            setSessionLifecycleDialog({ kind: 'restore', session });
+          }}
+          onDelete={(id) => {
+            const session = findPanelSession(id) ?? sessionContextMenu.session;
+            setSessionLifecycleDialog({ kind: 'delete', session });
+          }}
+        />
+      ) : null}
+      {sessionLifecycleDialog ? (
+        <SessionLifecycleDialog
+          open={true}
+          kind={sessionLifecycleDialog.kind}
+          sessionName={sessionLifecycleDialog.session.name}
+          onConfirm={() => void handleSessionLifecycleConfirm()}
+          onCancel={() => setSessionLifecycleDialog(null)}
+        />
+      ) : null}
       <Dialog open={switcherOpen} onOpenChange={setSwitcherOpen}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
@@ -385,47 +596,11 @@ function AuthenticatedLayout() {
             }}
             onManage={() => {
               setSwitcherOpen(false);
-              handleNavigate('/workspaces');
+              void navigate({ to: '/workspaces' });
             }}
           />
         </DialogContent>
       </Dialog>
     </>
   );
-}
-
-function matchPathSegment(pathname: string, root: string): string | undefined {
-  const re = new RegExp(`^/${root}/([^/]+)`);
-  const match = pathname.match(re);
-  return match?.[1];
-}
-
-/**
- * Adapter best-effort: marketplace router atual retorna `z.array(z.unknown())`,
- * sem schema firme. Tentamos extrair os campos quando o item for um objeto;
- * se não casar, devolve um placeholder não-clicável que o panel renderiza
- * só com o nome.
- */
-function toMarketplacePanelItem(raw: unknown): MarketplacePanelItem {
-  if (raw && typeof raw === 'object') {
-    const r = raw as Record<string, unknown>;
-    const id = pickString(r['id']) ?? pickString(r['slug']) ?? 'unknown';
-    const name = pickString(r['name']) ?? pickString(r['displayName']) ?? id;
-    const item: MarketplacePanelItem = { id, name };
-    const category = pickString(r['category']);
-    if (category) (item as { category?: string }).category = category;
-    const description = pickString(r['description']);
-    if (description) (item as { description?: string }).description = description;
-    const creatorDisplayName = pickString(r['creatorDisplayName']);
-    if (creatorDisplayName)
-      (item as { creatorDisplayName?: string }).creatorDisplayName = creatorDisplayName;
-    if (typeof r['installed'] === 'boolean')
-      (item as { installed?: boolean }).installed = r['installed'];
-    return item;
-  }
-  return { id: 'unknown', name: '—' };
-}
-
-function pickString(value: unknown): string | undefined {
-  return typeof value === 'string' ? value : undefined;
 }

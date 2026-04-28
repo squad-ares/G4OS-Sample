@@ -70,14 +70,26 @@ export async function invalidateAuth(queryClient: QueryClient): Promise<void> {
 }
 
 async function fetchAuthState(): Promise<AuthState> {
+  // biome-ignore lint/suspicious/noConsole: diagnostic log for boot
+  console.info('[auth] fetchAuthState: calling auth.getMe');
   try {
     const session = await trpc.auth.getMe.query();
+    // biome-ignore lint/suspicious/noConsole: diagnostic log for boot
+    console.info('[auth] fetchAuthState: authenticated', session.email);
     return { status: 'authenticated', session };
   } catch (error: unknown) {
     if (isUnauthorizedError(error)) {
+      // biome-ignore lint/suspicious/noConsole: diagnostic log for boot
+      console.info('[auth] fetchAuthState: unauthenticated (expected)');
       return { status: 'unauthenticated' };
     }
-    throw error;
+    // Qualquer outro erro NÃO deve quebrar boot do app — degrade para
+    // unauthenticated (usuário vai pra /login). Logamos para investigação
+    // mas não propagamos: ensureQueryData rejeitar aqui = router pendura
+    // em "Loading environment…" sem caminho de recovery.
+    // biome-ignore lint/suspicious/noConsole: defensive log on auth boot path
+    console.warn('[auth] getMe failed with unexpected error; treating as unauthenticated', error);
+    return { status: 'unauthenticated' };
   }
 }
 
@@ -85,12 +97,17 @@ function isUnauthorizedError(error: unknown): boolean {
   // Duck-type + walk the cause chain: electron-trpc bundles its own
   // TRPCClientError class, so @trpc/client's `TRPCClientError.from` fails its
   // internal instanceof check and wraps the bundled error as a plain cause,
-  // stripping `.data`/`.shape` from the outer error. The UNAUTHORIZED code
-  // lives on the bundled inner error.
+  // stripping `.data`/`.shape` from the outer error. O code UNAUTHORIZED pode
+  // aparecer em qualquer nível do error/cause/shape, então testamos todos.
   if (!error || typeof error !== 'object') return false;
-  if ((error as { name?: unknown }).name !== 'TRPCClientError') return false;
   if (hasUnauthorizedCode(error)) return true;
-  return hasUnauthorizedCode((error as { cause?: unknown }).cause);
+  if (hasUnauthorizedCode((error as { cause?: unknown }).cause)) return true;
+  // tRPC v11 às vezes joga o code direto no objeto
+  if ((error as { code?: unknown }).code === 'UNAUTHORIZED') return true;
+  // Mensagem como último fallback (frágil mas defensivo)
+  const message = (error as { message?: unknown }).message;
+  if (typeof message === 'string' && message.toLowerCase().includes('unauthorized')) return true;
+  return false;
 }
 
 function hasUnauthorizedCode(error: unknown): boolean {

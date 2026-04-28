@@ -35,6 +35,8 @@ import { queryClient } from '../../ipc/query-client.ts';
 import { trpc } from '../../ipc/trpc-client.ts';
 import { kernelMessageToChat } from '../../messages/kernel-to-chat-mapper.ts';
 import { invalidateMessages, messagesListQueryOptions } from '../../messages/messages-store.ts';
+import { setLastSessionId } from '../../sessions/last-session.ts';
+import { invalidateSessions } from '../../sessions/sessions-store.ts';
 
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: (reason: route component agrega múltiplos hooks de efeito, query e callbacks de turn/permission/streaming que naturalmente compõem a página de chat. Lógica orquestral está distribuída entre useSessionHeader, useComposerAffordances e session-page-helpers; o que sobra é wiring direto que perde clareza se forçado a sub-hooks adicionais)
 function SessionPage() {
@@ -54,6 +56,13 @@ function SessionPage() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pendingTruncateAt, setPendingTruncateAt] = useState<number | null>(null);
   const [metadataOpen, setMetadataOpen] = useState(false);
+
+  // CR-UX: persiste a última sessão visitada por workspace pra o
+  // route `/workspaces/:id/sessions/` poder fazer redirect inteligente
+  // ao invés de mostrar dashboard que duplica a sub-sidebar.
+  useEffect(() => {
+    if (workspaceId && sessionId) setLastSessionId(workspaceId, sessionId);
+  }, [workspaceId, sessionId]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: sessionId is the intentional reset trigger
   useEffect(() => {
@@ -121,6 +130,11 @@ function SessionPage() {
         onData: (event: SessionEvent) => {
           if (event.type === 'message.added' || event.type === 'tool.completed') {
             void invalidateMessages(queryClient, sessionId);
+            // CR-UX: invalidar sessions list para que a sidebar reflita
+            // novo lastMessageAt / updatedAt / messageCount sem precisar
+            // de cmd+r. Sem isso, sidebar fica out of sync após cada
+            // mensagem e usuário precisa refresh manual.
+            void invalidateSessions(queryClient);
             setIsStreaming(false);
             // Reset do ghost assim que uma assistant message é persistida —
             // o texto agora vive no histórico; ghost deve limpar para não
@@ -198,6 +212,12 @@ function SessionPage() {
     queryKey: ['sessions', 'get', sessionId],
     queryFn: () => trpc.sessions.get.query({ id: sessionId }),
     staleTime: 2_000,
+    // CR-UX: mantém os dados do session anterior visíveis durante o fetch
+    // do novo (transição suave entre chats). Sem isso, ao alternar entre
+    // chats já carregados, a tela flicka para "sem dados" antes de exibir
+    // o novo. `placeholderData: previous` é o pattern padrão do TanStack
+    // Query para evitar layout flash em navegação parametrizada.
+    placeholderData: (previous) => previous,
   });
 
   const credentialsQuery = useQuery({
