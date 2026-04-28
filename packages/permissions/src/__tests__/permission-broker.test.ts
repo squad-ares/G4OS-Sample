@@ -161,8 +161,10 @@ describe('PermissionBroker', () => {
     const p2 = broker.request(makeInput({ input: { path: '/b' } }));
     expect(emitted).toHaveLength(2);
 
-    broker.respond(emitted[0]!.requestId, 'allow_once');
-    broker.respond(emitted[1]!.requestId, 'deny');
+    const [req0, req1] = emitted;
+    if (!req0 || !req1) throw new Error('expected 2 pending permission requests');
+    broker.respond(req0.requestId, 'allow_once');
+    broker.respond(req1.requestId, 'deny');
     await expect(p1).resolves.toBe('allow_once');
     await expect(p2).resolves.toBe('deny');
   });
