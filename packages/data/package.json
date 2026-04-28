@@ -76,15 +76,15 @@
   "dependencies": {
     "@g4os/kernel": "workspace:^",
     "@g4os/platform": "workspace:^",
-    "archiver": "7.0.1",
-    "drizzle-orm": "1.0.0-beta.17-8a36f93",
-    "yauzl": "3.3.0",
-    "zod": "^4.3.6"
+    "archiver": "catalog:",
+    "drizzle-orm": "catalog:",
+    "yauzl": "catalog:",
+    "zod": "catalog:"
   },
   "devDependencies": {
-    "@types/archiver": "7.0.0",
-    "@types/node": "25.6.0",
-    "@types/yauzl": "2.10.3",
+    "@types/archiver": "catalog:",
+    "@types/node": "catalog:",
+    "@types/yauzl": "catalog:",
     "drizzle-kit": "1.0.0-beta.17-8a36f93"
   }
 }

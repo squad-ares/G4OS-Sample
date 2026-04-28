@@ -4,6 +4,90 @@ settings:
   autoInstallPeers: false
   excludeLinksFromLockfile: false
 
+catalogs:
+  default:
+    '@tanstack/react-router':
+      specifier: 1.168.23
+      version: 1.168.23
+    '@trpc/client':
+      specifier: 11.16.0
+      version: 11.16.0
+    '@trpc/react-query':
+      specifier: 11.16.0
+      version: 11.16.0
+    '@types/archiver':
+      specifier: 7.0.0
+      version: 7.0.0
+    '@types/node':
+      specifier: 25.6.0
+      version: 25.6.0
+    '@types/react':
+      specifier: ^19.2.14
+      version: 19.2.14
+    '@types/react-dom':
+      specifier: ^19.2.3
+      version: 19.2.3
+    '@types/yauzl':
+      specifier: 2.10.3
+      version: 2.10.3
+    archiver:
+      specifier: 7.0.1
+      version: 7.0.1
+    drizzle-orm:
+      specifier: 1.0.0-beta.17-8a36f93
+      version: 1.0.0-beta.17-8a36f93
+    electron-trpc:
+      specifier: 0.7.1
+      version: 0.7.1
+    lucide-react:
+      specifier: ^0.511.0
+      version: 0.511.0
+    neverthrow:
+      specifier: 8.2.0
+      version: 8.2.0
+    pino:
+      specifier: 10.3.1
+      version: 10.3.1
+    pino-pretty:
+      specifier: 13.1.3
+      version: 13.1.3
+    pino-roll:
+      specifier: 4.0.0
+      version: 4.0.0
+    react:
+      specifier: ^19.2.5
+      version: 19.2.5
+    react-dom:
+      specifier: ^19.2.5
+      version: 19.2.5
+    react-markdown:
+      specifier: 10.1.0
+      version: 10.1.0
+    rehype-raw:
+      specifier: 7.0.0
+      version: 7.0.0
+    remark-gfm:
+      specifier: 4.0.1
+      version: 4.0.1
+    rxjs:
+      specifier: 7.8.2
+      version: 7.8.2
+    shiki:
+      specifier: 4.0.2
+      version: 4.0.2
+    superjson:
+      specifier: 2.2.6
+      version: 2.2.6
+    vitest:
+      specifier: 4.1.4
+      version: 4.1.4
+    yauzl:
+      specifier: 3.3.0
+      version: 3.3.0
+    zod:
+      specifier: ^4.3.6
+      version: 4.3.6
+
 importers:
 
   .:
@@ -162,16 +246,16 @@ importers:
         specifier: 5.99.2
         version: 5.99.2(react@19.2.5)
       '@tanstack/react-router':
-        specifier: 1.168.23
+        specifier: 'catalog:'
         version: 1.168.23(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
       '@trpc/client':
-        specifier: 11.16.0
+        specifier: 'catalog:'
         version: 11.16.0(@trpc/server@11.16.0(typescript@6.0.3))(typescript@6.0.3)
       '@trpc/react-query':
-        specifier: 11.16.0
+        specifier: 'catalog:'
         version: 11.16.0(@tanstack/react-query@5.99.2(react@19.2.5))(@trpc/client@11.16.0(@trpc/server@11.16.0(typescript@6.0.3))(typescript@6.0.3))(@trpc/server@11.16.0(typescript@6.0.3))(react@19.2.5)(typescript@6.0.3)
       archiver:
-        specifier: 7.0.1
+        specifier: 'catalog:'
         version: 7.0.1
       atomic-sleep:
         specifier: 1.0.0
@@ -180,10 +264,10 @@ importers:
         specifier: 4.1.0
         version: 4.1.0
       drizzle-orm:
-        specifier: 1.0.0-beta.17-8a36f93
+        specifier: 'catalog:'
         version: 1.0.0-beta.17-8a36f93(@opentelemetry/api@1.9.0)(zod@4.3.6)
       electron-trpc:
-        specifier: 0.7.1
+        specifier: 'catalog:'
         version: 0.7.1(@trpc/client@11.16.0(@trpc/server@11.16.0(typescript@6.0.3))(typescript@6.0.3))(@trpc/server@11.16.0(typescript@6.0.3))(electron@41.3.0)
       electron-updater:
         specifier: 6.8.3
@@ -192,22 +276,22 @@ importers:
         specifier: 1.0.7
         version: 1.0.7(ws@8.20.0)
       neverthrow:
-        specifier: 8.2.0
+        specifier: 'catalog:'
         version: 8.2.0
       on-exit-leak-free:
         specifier: 2.1.2
         version: 2.1.2
       pino:
-        specifier: 10.3.1
+        specifier: 'catalog:'
         version: 10.3.1
       pino-abstract-transport:
         specifier: 3.0.0
         version: 3.0.0
       pino-pretty:
-        specifier: 13.1.3
+        specifier: 'catalog:'
         version: 13.1.3
       pino-roll:
-        specifier: 4.0.0
+        specifier: 'catalog:'
         version: 4.0.0
       pino-std-serializers:
         specifier: 7.1.0
@@ -222,16 +306,16 @@ importers:
         specifier: 4.0.4
         version: 4.0.4
       react:
-        specifier: ^19.2.5
+        specifier: 'catalog:'
         version: 19.2.5
       react-dom:
-        specifier: ^19.2.5
+        specifier: 'catalog:'
         version: 19.2.5(react@19.2.5)
       real-require:
         specifier: 1.0.0
         version: 1.0.0
       rxjs:
-        specifier: 7.8.2
+        specifier: 'catalog:'
         version: 7.8.2
       safe-stable-stringify:
         specifier: 2.5.0
@@ -240,7 +324,7 @@ importers:
         specifier: 5.0.0
         version: 5.0.0
       superjson:
-        specifier: 2.2.6
+        specifier: 'catalog:'
         version: 2.2.6
       thread-stream:
         specifier: 4.0.0
@@ -258,26 +342,26 @@ importers:
         specifier: 8.20.0
         version: 8.20.0
       yauzl:
-        specifier: 3.3.0
+        specifier: 'catalog:'
         version: 3.3.0
     devDependencies:
       '@tanstack/router-vite-plugin':
         specifier: 1.166.37
         version: 1.166.37(@tanstack/react-router@1.168.23(react-dom@19.2.5(react@19.2.5))(react@19.2.5))(vite@8.0.9(@types/node@25.6.0)(esbuild@0.28.0)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.3))
       '@types/archiver':
-        specifier: 7.0.0
+        specifier: 'catalog:'
         version: 7.0.0
       '@types/node':
-        specifier: 25.6.0
+        specifier: 'catalog:'
         version: 25.6.0
       '@types/react':
-        specifier: ^19.2.14
+        specifier: 'catalog:'
         version: 19.2.14
       '@types/react-dom':
-        specifier: ^19.2.3
+        specifier: 'catalog:'
         version: 19.2.3(@types/react@19.2.14)
       '@types/yauzl':
-        specifier: 2.10.3
+        specifier: 'catalog:'
         version: 2.10.3
       '@vitejs/plugin-react':
         specifier: ^6.0.1
@@ -311,7 +395,7 @@ importers:
         version: 1.59.1
     devDependencies:
       '@types/node':
-        specifier: 25.6.0
+        specifier: 'catalog:'
         version: 25.6.0
 
   apps/viewer: {}
@@ -321,21 +405,24 @@ importers:
       '@g4os/kernel':
         specifier: workspace:*
         version: link:../kernel
+      '@g4os/platform':
+        specifier: workspace:*
+        version: link:../platform
       neverthrow:
-        specifier: 8.2.0
+        specifier: 'catalog:'
         version: 8.2.0
       rxjs:
-        specifier: 7.8.2
+        specifier: 'catalog:'
         version: 7.8.2
       zod:
-        specifier: ^4.3.6
+        specifier: 'catalog:'
         version: 4.3.6
     devDependencies:
       '@types/node':
-        specifier: 25.6.0
+        specifier: 'catalog:'
         version: 25.6.0
       vitest:
-        specifier: 4.1.4
+        specifier: 'catalog:'
         version: 4.1.4(@opentelemetry/api@1.9.0)(@types/node@25.6.0)(esbuild@0.28.0)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.3)
 
   packages/auth:
@@ -344,17 +431,17 @@ importers:
         specifier: workspace:*
         version: link:../kernel
       neverthrow:
-        specifier: 8.2.0
+        specifier: 'catalog:'
         version: 8.2.0
       rxjs:
-        specifier: 7.8.2
+        specifier: 'catalog:'
         version: 7.8.2
     devDependencies:
       '@types/node':
-        specifier: 25.6.0
+        specifier: 'catalog:'
         version: 25.6.0
       vitest:
-        specifier: 4.1.4
+        specifier: 'catalog:'
         version: 4.1.4(@opentelemetry/api@1.9.0)(@types/node@25.6.0)(esbuild@0.28.0)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.3)
 
   packages/credentials:
@@ -369,14 +456,17 @@ importers:
         specifier: 0.5.0
         version: 0.5.0
       neverthrow:
-        specifier: 8.2.0
+        specifier: 'catalog:'
         version: 8.2.0
+      zod:
+        specifier: 'catalog:'
+        version: 4.3.6
     devDependencies:
       '@types/node':
-        specifier: 25.6.0
+        specifier: 'catalog:'
         version: 25.6.0
       vitest:
-        specifier: 4.1.4
+        specifier: 'catalog:'
         version: 4.1.4(@opentelemetry/api@1.9.0)(@types/node@25.6.0)(esbuild@0.28.0)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.3)
 
   packages/data:
@@ -388,26 +478,26 @@ importers:
         specifier: workspace:^
         version: link:../platform
       archiver:
-        specifier: 7.0.1
+        specifier: 'catalog:'
         version: 7.0.1
       drizzle-orm:
-        specifier: 1.0.0-beta.17-8a36f93
+        specifier: 'catalog:'
         version: 1.0.0-beta.17-8a36f93(@opentelemetry/api@1.9.0)(zod@4.3.6)
       yauzl:
-        specifier: 3.3.0
+        specifier: 'catalog:'
         version: 3.3.0
       zod:
-        specifier: ^4.3.6
+        specifier: 'catalog:'
         version: 4.3.6
     devDependencies:
       '@types/archiver':
-        specifier: 7.0.0
+        specifier: 'catalog:'
         version: 7.0.0
       '@types/node':
-        specifier: 25.6.0
+        specifier: 'catalog:'
         version: 25.6.0
       '@types/yauzl':
-        specifier: 2.10.3
+        specifier: 'catalog:'
         version: 2.10.3
       drizzle-kit:
         specifier: 1.0.0-beta.17-8a36f93
@@ -431,47 +521,47 @@ importers:
         specifier: ^5.2.2
         version: 5.2.2(react-hook-form@7.72.1(react@19.2.5))
       '@tanstack/react-router':
-        specifier: 1.168.23
+        specifier: 'catalog:'
         version: 1.168.23(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
       '@tanstack/react-virtual':
         specifier: 3.13.24
         version: 3.13.24(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
       '@trpc/client':
-        specifier: 11.16.0
+        specifier: 'catalog:'
         version: 11.16.0(@trpc/server@11.16.0(typescript@6.0.3))(typescript@6.0.3)
       lucide-react:
-        specifier: ^0.511.0
+        specifier: 'catalog:'
         version: 0.511.0(react@19.2.5)
       react:
-        specifier: ^19.2.5
+        specifier: 'catalog:'
         version: 19.2.5
       react-dom:
-        specifier: ^19.2.5
+        specifier: 'catalog:'
         version: 19.2.5(react@19.2.5)
       react-hook-form:
         specifier: ^7.56.0
         version: 7.72.1(react@19.2.5)
       react-markdown:
-        specifier: 10.1.0
+        specifier: 'catalog:'
         version: 10.1.0(@types/react@19.2.14)(react@19.2.5)
       rehype-raw:
-        specifier: 7.0.0
+        specifier: 'catalog:'
         version: 7.0.0
       remark-gfm:
-        specifier: 4.0.1
+        specifier: 'catalog:'
         version: 4.0.1
       shiki:
-        specifier: 4.0.2
+        specifier: 'catalog:'
         version: 4.0.2
       zod:
-        specifier: ^4.3.6
+        specifier: 'catalog:'
         version: 4.3.6
     devDependencies:
       '@types/react':
-        specifier: ^19.2.14
+        specifier: 'catalog:'
         version: 19.2.14
       '@types/react-dom':
-        specifier: ^19.2.3
+        specifier: 'catalog:'
         version: 19.2.3(@types/react@19.2.14)
 
   packages/ipc:
@@ -480,48 +570,48 @@ importers:
         specifier: workspace:^
         version: link:../kernel
       '@trpc/client':
-        specifier: 11.16.0
+        specifier: 'catalog:'
         version: 11.16.0(@trpc/server@11.16.0(typescript@6.0.3))(typescript@6.0.3)
       '@trpc/server':
         specifier: 11.16.0
         version: 11.16.0(typescript@6.0.3)
       electron-trpc:
-        specifier: 0.7.1
+        specifier: 'catalog:'
         version: 0.7.1(@trpc/client@11.16.0(@trpc/server@11.16.0(typescript@6.0.3))(typescript@6.0.3))(@trpc/server@11.16.0(typescript@6.0.3))(electron@41.3.0)
       neverthrow:
-        specifier: 8.2.0
+        specifier: 'catalog:'
         version: 8.2.0
       superjson:
-        specifier: 2.2.6
+        specifier: 'catalog:'
         version: 2.2.6
       zod:
-        specifier: ^4.0.0
+        specifier: 'catalog:'
         version: 4.3.6
     devDependencies:
       '@types/node':
-        specifier: 25.6.0
+        specifier: 'catalog:'
         version: 25.6.0
 
   packages/kernel:
     dependencies:
       neverthrow:
-        specifier: 8.2.0
+        specifier: 'catalog:'
         version: 8.2.0
       pino:
-        specifier: 10.3.1
+        specifier: 'catalog:'
         version: 10.3.1
       pino-pretty:
-        specifier: 13.1.3
+        specifier: 'catalog:'
         version: 13.1.3
       pino-roll:
-        specifier: 4.0.0
+        specifier: 'catalog:'
         version: 4.0.0
       zod:
-        specifier: ^4.0.0
+        specifier: 'catalog:'
         version: 4.3.6
     devDependencies:
       '@types/node':
-        specifier: 25.6.0
+        specifier: 'catalog:'
         version: 25.6.0
 
   packages/observability:
@@ -533,7 +623,7 @@ importers:
         specifier: 1.9.0
         version: 1.9.0
       archiver:
-        specifier: 7.0.1
+        specifier: 'catalog:'
         version: 7.0.1
       prom-client:
         specifier: 15.1.3
@@ -558,13 +648,13 @@ importers:
         specifier: 2.7.0
         version: 2.7.0(@opentelemetry/api@1.9.0)
       '@types/archiver':
-        specifier: 6.0.3
-        version: 6.0.3
+        specifier: 'catalog:'
+        version: 7.0.0
       '@types/node':
-        specifier: 25.6.0
+        specifier: 'catalog:'
         version: 25.6.0
       vitest:
-        specifier: 4.1.4
+        specifier: 'catalog:'
         version: 4.1.4(@opentelemetry/api@1.9.0)(@types/node@25.6.0)(esbuild@0.28.0)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.3)
 
   packages/permissions:
@@ -574,10 +664,10 @@ importers:
         version: link:../kernel
     devDependencies:
       '@types/node':
-        specifier: 25.6.0
+        specifier: 'catalog:'
         version: 25.6.0
       vitest:
-        specifier: 4.1.4
+        specifier: 'catalog:'
         version: 4.1.4(@opentelemetry/api@1.9.0)(@types/node@25.6.0)(esbuild@0.28.0)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.3)
 
   packages/platform:
@@ -590,7 +680,7 @@ importers:
         version: 4.0.0
     devDependencies:
       '@types/node':
-        specifier: 25.6.0
+        specifier: 'catalog:'
         version: 25.6.0
 
   packages/session-runtime:
@@ -614,14 +704,14 @@ importers:
         specifier: workspace:*
         version: link:../permissions
       neverthrow:
-        specifier: 8.2.0
+        specifier: 'catalog:'
         version: 8.2.0
     devDependencies:
       '@types/node':
-        specifier: 25.6.0
+        specifier: 'catalog:'
         version: 25.6.0
       vitest:
-        specifier: 4.1.4
+        specifier: 'catalog:'
         version: 4.1.4(@opentelemetry/api@1.9.0)(@types/node@25.6.0)(esbuild@0.28.0)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.3)
 
   packages/sources:
@@ -632,18 +722,21 @@ importers:
       '@g4os/kernel':
         specifier: workspace:*
         version: link:../kernel
+      '@g4os/platform':
+        specifier: workspace:*
+        version: link:../platform
       neverthrow:
-        specifier: 8.2.0
+        specifier: 'catalog:'
         version: 8.2.0
       rxjs:
-        specifier: 7.8.2
+        specifier: 'catalog:'
         version: 7.8.2
     devDependencies:
       '@types/node':
-        specifier: 25.6.0
+        specifier: 'catalog:'
         version: 25.6.0
       vitest:
-        specifier: 4.1.4
+        specifier: 'catalog:'
         version: 4.1.4(@opentelemetry/api@1.9.0)(@types/node@25.6.0)(esbuild@0.28.0)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.3)
 
   packages/translate: {}
@@ -702,7 +795,7 @@ importers:
         specifier: 5.99.0
         version: 5.99.0(react@19.2.5)
       '@trpc/react-query':
-        specifier: 11.16.0
+        specifier: 'catalog:'
         version: 11.16.0(@tanstack/react-query@5.99.0(react@19.2.5))(@trpc/client@11.16.0(@trpc/server@11.16.0(typescript@6.0.3))(typescript@6.0.3))(@trpc/server@11.16.0(typescript@6.0.3))(react@19.2.5)(typescript@6.0.3)
       class-variance-authority:
         specifier: ^0.7.1
@@ -714,34 +807,34 @@ importers:
         specifier: ^1.1.1
         version: 1.1.1(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
       lucide-react:
-        specifier: ^0.511.0
+        specifier: 'catalog:'
         version: 0.511.0(react@19.2.5)
       motion:
         specifier: ^12.12.1
         version: 12.38.0(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
       react:
-        specifier: ^19.2.5
+        specifier: 'catalog:'
         version: 19.2.5
       react-dom:
-        specifier: ^19.2.5
+        specifier: 'catalog:'
         version: 19.2.5(react@19.2.5)
       react-hook-form:
         specifier: ^7.56.0
         version: 7.72.1(react@19.2.5)
       react-markdown:
-        specifier: 10.1.0
+        specifier: 'catalog:'
         version: 10.1.0(@types/react@19.2.14)(react@19.2.5)
       rehype-raw:
-        specifier: 7.0.0
+        specifier: 'catalog:'
         version: 7.0.0
       rehype-sanitize:
         specifier: 6.0.0
         version: 6.0.0
       remark-gfm:
-        specifier: 4.0.1
+        specifier: 'catalog:'
         version: 4.0.1
       shiki:
-        specifier: 4.0.2
+        specifier: 'catalog:'
         version: 4.0.2
       sonner:
         specifier: ^2.0.3
@@ -754,10 +847,10 @@ importers:
         version: 1.1.2(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
     devDependencies:
       '@types/react':
-        specifier: ^19.2.14
+        specifier: 'catalog:'
         version: 19.2.14
       '@types/react-dom':
-        specifier: ^19.2.3
+        specifier: 'catalog:'
         version: 19.2.3(@types/react@19.2.14)
 
 packages:
@@ -3377,9 +3470,6 @@ packages:
 
   '@tybys/wasm-util@0.10.1':
     resolution: {integrity: sha512-9tTaPJLSiejZKx+Bmog4uSubteqTvFrVrURwkmHixBo0G4seD0zUxp98E1DzUBJxLQ3NPwXrGKDiVjwx/DpPsg==}
-
-  '@types/archiver@6.0.3':
-    resolution: {integrity: sha512-a6wUll6k3zX6qs5KlxIggs1P1JcYJaTCx2gnlr+f0S1yd2DoaEwoIK10HmBaLnZwWneBz+JBm0dwcZu0zECBcQ==}
 
   '@types/archiver@7.0.0':
     resolution: {integrity: sha512-/3vwGwx9n+mCQdYZ2IKGGHEFL30I96UgBlk8EtRDDFQ9uxM1l4O5Ci6r00EMAkiDaTqD9DQ6nVrWRICnBPtzzg==}
@@ -9609,10 +9699,6 @@ snapshots:
     dependencies:
       tslib: 2.8.1
     optional: true
-
-  '@types/archiver@6.0.3':
-    dependencies:
-      '@types/readdir-glob': 1.1.5
 
   '@types/archiver@7.0.0':
     dependencies:

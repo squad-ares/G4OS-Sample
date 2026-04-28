@@ -71,21 +71,21 @@
     "@g4os/translate": "workspace:^",
     "@g4os/ui": "workspace:^",
     "@hookform/resolvers": "^5.2.2",
-    "@tanstack/react-router": "1.168.23",
+    "@tanstack/react-router": "catalog:",
     "@tanstack/react-virtual": "3.13.24",
-    "@trpc/client": "11.16.0",
-    "lucide-react": "^0.511.0",
-    "react": "^19.2.5",
-    "react-dom": "^19.2.5",
+    "@trpc/client": "catalog:",
+    "lucide-react": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
     "react-hook-form": "^7.56.0",
-    "react-markdown": "10.1.0",
-    "rehype-raw": "7.0.0",
-    "remark-gfm": "4.0.1",
-    "shiki": "4.0.2",
-    "zod": "^4.3.6"
+    "react-markdown": "catalog:",
+    "rehype-raw": "catalog:",
+    "remark-gfm": "catalog:",
+    "shiki": "catalog:",
+    "zod": "catalog:"
   },
   "devDependencies": {
-    "@types/react": "^19.2.14",
-    "@types/react-dom": "^19.2.3"
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:"
   }
 }

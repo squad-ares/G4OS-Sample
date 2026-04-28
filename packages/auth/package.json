@@ -51,11 +51,11 @@
   },
   "dependencies": {
     "@g4os/kernel": "workspace:*",
-    "neverthrow": "8.2.0",
-    "rxjs": "7.8.2"
+    "neverthrow": "catalog:",
+    "rxjs": "catalog:"
   },
   "devDependencies": {
-    "@types/node": "25.6.0",
-    "vitest": "4.1.4"
+    "@types/node": "catalog:",
+    "vitest": "catalog:"
   }
 }
