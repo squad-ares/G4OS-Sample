@@ -1,6 +1,10 @@
 import type { TranslationKey } from './en-us.ts';
 
-export const ptBR: Readonly<Record<TranslationKey, string>> = {
+// CR6-28: `satisfies` mantém os tipos literais das strings (útil pra
+// inferência futura de chaves dinâmicas) ao mesmo tempo que valida que
+// todas as `TranslationKey` estão presentes. `Readonly<Record<...>>`
+// força ambos os lados a `string`, perdendo literais.
+export const ptBR = {
   'app.name': 'G4 OS',
   'app.mark': 'G4',
 
@@ -14,8 +18,8 @@ export const ptBR: Readonly<Record<TranslationKey, string>> = {
   'chat.composer.dropZone.ariaLabel': 'Área de soltar arquivos',
   'chat.composer.dropZone.dropHint': 'Solte os arquivos aqui',
   'chat.composer.removeAttachment': 'Remover anexo',
-  'chat.composer.chip.source': 'Sources',
-  'chat.composer.chip.mode': 'Balanced',
+  'chat.composer.chip.source': 'Fontes',
+  'chat.composer.chip.mode': 'Balanceado',
   'chat.composer.chip.partners': 'Parceiros',
   'chat.composer.chip.sourceTodo': 'Seleção de Sources chega junto com o runtime de agente.',
   'chat.composer.chip.workingDirTodo':
@@ -42,9 +46,9 @@ export const ptBR: Readonly<Record<TranslationKey, string>> = {
   'chat.welcome.prompts.plan.subtitle': 'Quebrar em passos acionáveis',
   'chat.welcome.prompts.plan.prompt': 'Quebre esta tarefa em passos concretos:\n\n',
 
-  'chat.activeBadges.sources.singular': '{{count}} source',
-  'chat.activeBadges.sources.plural': '{{count}} sources',
-  'chat.activeBadges.sources.withSticky': '{{count}} sources · {{sticky}} ativa(s)',
+  'chat.activeBadges.sources.singular': '{{count}} fonte',
+  'chat.activeBadges.sources.plural': '{{count}} fontes',
+  'chat.activeBadges.sources.withSticky': '{{count}} fontes · {{sticky}} ativa(s)',
 
   'chat.header.sessionNameLabel': 'Nome da sessão',
   'chat.header.clickToRename': 'Clique para renomear',
@@ -103,8 +107,8 @@ export const ptBR: Readonly<Record<TranslationKey, string>> = {
   'chat.composer.voice.transcribing': 'Transcrevendo…',
   'chat.composer.voice.maxDuration': 'Duração máxima de gravação atingida',
 
-  'routing.notFound.title': 'Pagina nao encontrada',
-  'routing.notFound.description': 'A tela solicitada ainda nao esta disponível nesta build.',
+  'routing.notFound.title': 'Página não encontrada',
+  'routing.notFound.description': 'A tela solicitada ainda não está disponível nesta build.',
 
   'auth.login.title': 'Entrar no G4 OS',
   'auth.login.subtitle.email': 'Enviaremos um código de verificação para seu e-mail.',
@@ -178,19 +182,19 @@ export const ptBR: Readonly<Record<TranslationKey, string>> = {
     'Paleta, densidade e composição estão sendo trazidas da V1 para a V2.',
   'auth.note.features.title': 'Pronto para a TASK-11',
   'auth.note.features.description':
-    'A base agora esta preparada para novas features sem reintroduzir strings soltas nem deriva visual.',
+    'A base agora está preparada para novas features sem reintroduzir strings soltas nem deriva visual.',
 
   'onboarding.progress.ariaLabel': 'Progresso',
-  'onboarding.workspace.title': 'Como voce quer chamar seu workspace?',
+  'onboarding.workspace.title': 'Como você quer chamar seu workspace?',
   'onboarding.workspace.description':
     'Um workspace organiza seus chats e projetos dentro de um mesmo contexto.',
   'onboarding.workspace.placeholder': 'ex: Trabalho',
   'onboarding.workspace.errorRequired': 'Informe um nome para o workspace',
-  'onboarding.workspace.next': 'Proximo',
+  'onboarding.workspace.next': 'Próximo',
   'onboarding.workspace.creating': 'Criando...',
-  'onboarding.agent.title': 'Com qual agente voce quer começar?',
+  'onboarding.agent.title': 'Com qual agente você quer começar?',
   'onboarding.agent.description':
-    'Voce pode mudar isso depois nas configurações do workspace sem perder nada.',
+    'Você pode mudar isso depois nas configurações do workspace sem perder nada.',
   'onboarding.agent.skip': 'Pular por agora',
   'onboarding.agent.claude.provider': 'Anthropic',
   'onboarding.agent.codex.provider': 'OpenAI',
@@ -206,12 +210,12 @@ export const ptBR: Readonly<Record<TranslationKey, string>> = {
     'Paleta, densidade e hierarquia estão sendo reaproveitadas na V2.',
   'onboarding.intro.card.i18n.label': 'i18n',
   'onboarding.intro.card.i18n.text': 'Estrutura tipada para pt-BR e en-US desde o shell base.',
-  'onboarding.intro.card.auth.label': 'Auth',
+  'onboarding.intro.card.auth.label': 'Autenticação',
   'onboarding.intro.card.auth.text': 'OTP com contrato de ambiente claro e wiring real no desktop.',
 
   'shell.header.productBadge': 'Hub de workspaces',
   'shell.header.signOut': 'Sair',
-  'shell.header.commandPalette': 'Acoes',
+  'shell.header.commandPalette': 'Ações',
   'shell.header.shortcuts': 'Atalhos',
   'shell.language.switcherLabel': 'Idioma',
   'shell.language.switcherHint': 'Trocar o idioma da aplicação',
@@ -226,8 +230,8 @@ export const ptBR: Readonly<Record<TranslationKey, string>> = {
   'shell.nav.ariaLabel': 'Navegação global do shell',
   'shell.nav.matrixBadge': 'Matriz de navegação',
   'shell.nav.matrixDescription':
-    'O shell agora expõe a lista canônica de navegadores, placeholders e contratos de pagina antes da chegada dos próximos épicos.',
-  'shell.nav.section.workspace': 'Workspace',
+    'O shell agora expõe a lista canônica de navegadores, placeholders e contratos de página antes da chegada dos próximos épicos.',
+  'shell.nav.section.workspace': 'Workspaces',
   'shell.nav.section.automation': 'Automação',
   'shell.nav.section.system': 'Sistema',
   'shell.nav.status.ready': 'Pronto',
@@ -244,6 +248,8 @@ export const ptBR: Readonly<Record<TranslationKey, string>> = {
   'shell.subsidebar.title.marketplace': 'Marketplace',
   'shell.subsidebar.title.news': 'Novidades',
   'shell.subsidebar.title.settings': 'Configurações',
+  'shell.subsidebar.collapse': 'Recolher sidebar',
+  'shell.subsidebar.expand': 'Expandir sidebar',
   'shell.nav.connections.label': 'Conexões',
   'shell.nav.connections.description':
     'Conexões gerenciadas, servidores MCP, APIs HTTP, pastas locais e agentes.',
@@ -256,14 +262,19 @@ export const ptBR: Readonly<Record<TranslationKey, string>> = {
   'shell.subsidebar.sessions.newSession': 'Nova sessão',
   'shell.subsidebar.sessions.section': 'Sessões',
   'shell.subsidebar.sessions.tab.recent': 'Recentes',
+  'shell.subsidebar.sessions.tab.pinned': 'Fixadas',
   'shell.subsidebar.sessions.tab.starred': 'Favoritas',
+  'shell.subsidebar.sessions.tab.unread': 'Não lidas',
   'shell.subsidebar.sessions.tab.archived': 'Arquivadas',
-  'shell.subsidebar.sessions.tags': 'Tags',
+  'shell.subsidebar.sessions.tags': 'Etiquetas',
   'shell.subsidebar.sessions.history': 'Histórico de sessões',
   'shell.subsidebar.sessions.empty': 'Nenhuma sessão ainda',
   'shell.subsidebar.sessions.empty.title': 'Nenhuma sessão ainda',
   'shell.subsidebar.sessions.empty.description':
     'Comece um novo chat — suas sessões vão aparecer aqui.',
+  'shell.subsidebar.sessions.empty.noWorkspaceTitle': 'Nenhum workspace selecionado',
+  'shell.subsidebar.sessions.empty.noWorkspaceDescription':
+    'Crie ou selecione um workspace para começar a conversar.',
   'shell.subsidebar.sessions.selectWorkspace': 'Selecione um workspace para ver sessões',
   'shell.subsidebar.sessions.searchPlaceholder': 'Buscar sessões...',
   'shell.subsidebar.sessions.searchAriaLabel': 'Buscar sessões neste workspace',
@@ -276,7 +287,7 @@ export const ptBR: Readonly<Record<TranslationKey, string>> = {
   'shell.subsidebar.projects.archived': 'Arquivado',
   'shell.subsidebar.projects.noDescription': 'Sem descrição',
   'shell.subsidebar.sources.manage': 'Gerenciar sources',
-  'shell.subsidebar.sources.section': 'Sources',
+  'shell.subsidebar.sources.section': 'Fontes',
   'shell.subsidebar.sources.enabled': 'Habilitadas',
   'shell.subsidebar.sources.disabled': 'Desabilitadas',
   'shell.subsidebar.sources.empty': 'Nenhuma source configurada ainda.',
@@ -292,24 +303,24 @@ export const ptBR: Readonly<Record<TranslationKey, string>> = {
   'shell.subsidebar.automations.emptyTitle': 'Nenhuma automação ainda',
   'shell.subsidebar.automations.emptyDescription':
     'Configure agendamentos, watchers e workflows para rodar tarefas em background.',
-  'shell.nav.sources.label': 'Sources',
+  'shell.nav.sources.label': 'Fontes',
   'shell.nav.sources.description':
-    'Catalogo de conectores, saúde das fontes e contratos de ativação moram aqui.',
+    'Catálogo de conectores, saúde das fontes e contratos de ativação moram aqui.',
   'shell.nav.projects.label': 'Projetos',
   'shell.nav.projects.description': 'Organize trabalho com arquivos, tarefas e sessões vinculadas.',
   'shell.nav.marketplace.label': 'Marketplace',
   'shell.nav.marketplace.description':
-    'Catalogo, estado de instalação e fluxos de publicação ficam neste navegador.',
-  'shell.nav.companyContext.label': 'Company Context',
+    'Catálogo, estado de instalação e fluxos de publicação ficam neste navegador.',
+  'shell.nav.companyContext.label': 'Contexto da empresa',
   'shell.nav.companyContext.description':
-    'Documentos internos, hierarquia e fluxos de PR da empresa pertencem a esta area.',
-  'shell.nav.skills.label': 'Skills',
+    'Documentos internos, hierarquia e fluxos de PR da empresa pertencem a esta área.',
+  'shell.nav.skills.label': 'Habilidades',
   'shell.nav.skills.description':
     'Skills reutilizáveis e capacidades curadas por workspace vao aparecer aqui.',
-  'shell.nav.workflows.label': 'Workflows',
+  'shell.nav.workflows.label': 'Fluxos',
   'shell.nav.workflows.description':
     'Superfícies de workflow automatizáveis e com checkpoints humanos entram aqui.',
-  'shell.nav.scheduler.label': 'Scheduler',
+  'shell.nav.scheduler.label': 'Agendador',
   'shell.nav.scheduler.description':
     'Execuções recorrentes, histórico de runs e estados de recuperação vivem aqui.',
   'shell.nav.vigia.label': 'Vigia',
@@ -317,38 +328,38 @@ export const ptBR: Readonly<Record<TranslationKey, string>> = {
     'Watchers, saúde do sistema e contratos de notificação ficam agrupados aqui.',
   'shell.nav.news.label': 'Novidades',
   'shell.nav.news.description':
-    'Release notes e atualizações de produto ficam disponíveis nesta pagina.',
+    'Release notes e atualizações de produto ficam disponíveis nesta página.',
   'shell.nav.settings.label': 'Configurações',
   'shell.nav.settings.description':
-    'Locale, preferencias e guardrails globais do shell sao geridos aqui.',
+    'Locale, preferências e guardrails globais do shell são geridos aqui.',
   'shell.nav.support.label': 'Suporte',
   'shell.nav.support.description':
     'Atalhos de teclado, baseline de acessibilidade e orientações de suporte ficam aqui.',
   'shell.a11y.skipToContent': 'Ir para o conteúdo principal',
   'shell.placeholder.badge': 'Contrato de feature',
-  'shell.placeholder.title': 'Esta superfície ja possui um contrato de shell',
+  'shell.placeholder.title': 'Esta superfície já possui um contrato de shell',
   'shell.placeholder.description':
-    'O corpo da feature ainda esta pendente, mas rota, entrada de navegação, empty state e baseline de acessibilidade ja estão estáveis para os próximos épicos.',
+    'O corpo da feature ainda está pendente, mas rota, entrada de navegação, empty state e baseline de acessibilidade já estão estáveis para os próximos épicos.',
   'shell.placeholder.contractBadge': 'Placeholder compartilhado',
-  'shell.placeholder.shortcutTitle': 'As acoes globais ja estão ativas',
+  'shell.placeholder.shortcutTitle': 'As ações globais já estão ativas',
   'shell.placeholder.shortcutDescription':
     'Use a command palette e a lista de atalhos para navegar pelo shell antes mesmo de cada feature ficar completa.',
   'shell.shortcuts.title': 'Atalhos de teclado',
   'shell.shortcuts.description':
     'A lista abaixo e gerada a partir do action registry do shell e permanece como fonte única de verdade para atalhos globais.',
   'shell.shortcuts.listAriaLabel': 'Lista de atalhos de teclado',
-  'shell.command.inputPlaceholder': 'Buscar acoes e paginas...',
+  'shell.command.inputPlaceholder': 'Buscar ações e páginas...',
   'shell.command.empty': 'Nenhuma ação encontrada.',
   'shell.command.section.navigation': 'Navegação',
   'shell.command.section.system': 'Sistema',
   'shell.action.commandPalette.label': 'Abrir command palette',
   'shell.action.commandPalette.description':
-    'Busque paginas globais e ações do shell a partir de um único dialogo.',
+    'Busque páginas globais e ações do shell a partir de um único diálogo.',
   'shell.action.shortcuts.label': 'Abrir atalhos de teclado',
   'shell.action.shortcuts.description':
     'Abra a lista gerada de atalhos e o baseline de acessibilidade.',
   'shell.action.workspaces.label': 'Ir para workspaces',
-  'shell.action.workspaces.description': 'Abrir a pagina inicial de workspaces.',
+  'shell.action.workspaces.description': 'Abrir a página inicial de workspaces.',
   'shell.action.sources.label': 'Ir para sources',
   'shell.action.sources.description': 'Abrir o placeholder de sources e seus contratos.',
   'shell.action.projects.label': 'Ir para projetos',
@@ -356,7 +367,7 @@ export const ptBR: Readonly<Record<TranslationKey, string>> = {
   'shell.action.marketplace.label': 'Ir para marketplace',
   'shell.action.marketplace.description': 'Abrir o placeholder de marketplace e seus contratos.',
   'shell.action.settings.label': 'Ir para configurações',
-  'shell.action.settings.description': 'Abrir configurações e preferencias globais.',
+  'shell.action.settings.description': 'Abrir configurações e preferências globais.',
   'shell.action.signOut.label': 'Sair',
   'shell.action.signOut.description': 'Encerrar a sessão autenticada atual.',
   'shell.action.newSession.label': 'Nova sessão',
@@ -364,29 +375,32 @@ export const ptBR: Readonly<Record<TranslationKey, string>> = {
   'shell.state.loading.badge': 'Carregando',
   'shell.state.loading.title': 'Preparando o shell',
   'shell.state.loading.description':
-    'O roteador esta aguardando a resposta do runtime desktop antes de mostrar a proxima tela.',
+    'O roteador está aguardando a resposta do runtime desktop antes de mostrar a próxima tela.',
   'shell.state.loading.progress': 'Carregando ambiente…',
+  'shell.state.loading.stuck': 'Demorando demais? Clique para recarregar',
   'shell.state.error.badge': 'Atenção',
-  'shell.state.error.title': 'O shell nao conseguiu ser preparado',
+  'shell.state.error.title': 'O shell não conseguiu ser preparado',
   'shell.state.error.description':
     'Revise o relatório de preflight de startup antes de continuar o trabalho nas features.',
+  'shell.state.error.retry': 'Tentar novamente',
+  'shell.state.error.backToLogin': 'Voltar para login',
 
   'page.workspaces.badge': 'Superfície de workspace',
   'page.workspaces.title': 'Workspaces',
   'page.workspaces.description':
     'Escolha um workspace existente ou abra o onboarding para criar o primeiro contexto gerenciado.',
-  'page.workspaces.emptyTitle': 'A fundação do shell esta pronta',
+  'page.workspaces.emptyTitle': 'A fundação do shell está pronta',
   'page.workspaces.emptyDescription':
-    'A listagem real de workspaces ainda depende da integração da TASK-11, mas login, shell e locale ja estão ativos.',
+    'A listagem real de workspaces ainda depende da integração da TASK-11, mas login, shell e locale já estão ativos.',
   'page.workspaces.contractBadge': 'Empty state atual',
-  'page.workspaces.nextTitle': 'Proximo passo do shell',
+  'page.workspaces.nextTitle': 'Próximo passo do shell',
   'page.workspaces.nextDescription':
-    'Esta pagina agora responde apenas por renderizar workspaces e restaurar contexto, sem inventar novas regras de layout.',
+    'Esta página agora responde apenas por renderizar workspaces e restaurar contexto, sem inventar novas regras de layout.',
 
   'page.settings.badge': 'Preferencias globais',
   'page.settings.title': 'Configurações',
   'page.settings.description':
-    'Tema, idioma e preferencias globais agora compartilham um contrato de shell estável.',
+    'Tema, idioma e preferências globais agora compartilham um contrato de shell estável.',
   'page.settings.localeBadge': 'Locale',
   'page.settings.localeTitle': 'Idioma e locale',
   'page.settings.localeDescription':
@@ -425,14 +439,14 @@ export const ptBR: Readonly<Record<TranslationKey, string>> = {
   'page.session.badge': 'Contrato de detalhe da sessão',
   'page.session.title': 'Detalhe da sessão',
   'page.session.meta': 'Workspace: {{workspaceId}}  Sessão: {{sessionId}}',
-  'page.session.pendingTitle': 'O corpo do chat ainda esta pendente',
+  'page.session.pendingTitle': 'O corpo do chat ainda está pendente',
   'page.session.pending': 'A implementação do chat continua na TASK-11.',
   'page.session.contractBadge': 'Superfície da sessão',
 
   'page.support.badge': 'Superfície de suporte',
   'page.support.title': 'Suporte e acessibilidade',
   'page.support.description':
-    'Esta pagina concentra a lista gerada de atalhos e a orientação base para navegação keyboard-first.',
+    'Esta página concentra a lista gerada de atalhos e a orientação base para navegação keyboard-first.',
   'page.support.shortcutsBadge': 'Action registry',
   'page.support.shortcutsTitle': 'Lista gerada de atalhos',
   'page.support.shortcutsDescription':
@@ -442,11 +456,12 @@ export const ptBR: Readonly<Record<TranslationKey, string>> = {
     'Skip links, estados focus-visible, restauração de foco em dialogs e painéis amigáveis para screen reader agora fazem parte do baseline do shell.',
 
   'locale.pt-BR': 'Português (Brasil)',
-  'locale.en-US': 'Ingles (Estados Unidos)',
+  'locale.en-US': 'Inglês (Estados Unidos)',
 
   'ui.password.show': 'Mostrar senha',
   'ui.password.hide': 'Ocultar senha',
-  'ui.dialog.close': 'Fechar dialogo',
+  'ui.otp.slotLabel': '{{label}} dígito {{index}} de {{total}}',
+  'ui.dialog.close': 'Fechar diálogo',
   'ui.spinner.loading': 'Carregando',
 
   'workspace.wizard.eyebrow': 'Novo workspace',
@@ -467,7 +482,7 @@ export const ptBR: Readonly<Record<TranslationKey, string>> = {
   'workspace.wizard.step.workingDir.description':
     'Deixe em branco para usar o caminho gerenciado. Informe um caminho absoluto para reusar uma pasta existente.',
   'workspace.wizard.step.workingDir.label': 'Caminho absoluto (opcional)',
-  'workspace.wizard.step.workingDir.placeholder': '/Users/voce/projetos/workspace',
+  'workspace.wizard.step.workingDir.placeholder': '~/projetos/workspace',
   'workspace.wizard.step.workingDir.hint':
     'Deve ser um caminho absoluto. O assistente cria as subpastas context/, people/, goals/, projects/.',
   'workspace.wizard.step.defaults.title': 'Comportamento padrão',
@@ -528,11 +543,11 @@ export const ptBR: Readonly<Record<TranslationKey, string>> = {
   'workspace.settings.general.name': 'Nome',
   'workspace.settings.general.color': 'Cor',
   'workspace.settings.paths.workingDir': 'Diretório de trabalho',
-  'workspace.settings.paths.workingDirPlaceholder': '/Users/voce/projetos/workspace',
+  'workspace.settings.paths.workingDirPlaceholder': '~/projetos/workspace',
   'workspace.settings.paths.workingDirHint':
     'Deixe em branco para manter o padrão gerenciado. Apenas caminhos absolutos.',
   'workspace.settings.paths.projectsRoot': 'Raiz de projetos (opcional)',
-  'workspace.settings.paths.projectsRootPlaceholder': '/Users/voce/projetos/workspace/projects',
+  'workspace.settings.paths.projectsRootPlaceholder': '~/projetos/workspace/projects',
   'workspace.settings.permissions.preset': 'Preset de permissões',
   'workspace.settings.advanced.dangerTitle': 'Zona de perigo',
   'workspace.settings.advanced.dangerDescription':
@@ -628,7 +643,7 @@ export const ptBR: Readonly<Record<TranslationKey, string>> = {
   'session.list.filter.unread': 'Não lidas',
   'session.list.filter.archived': 'Arquivadas',
   'session.list.filter.trash': 'Lixeira',
-  'session.list.filter.labels': 'Labels',
+  'session.list.filter.labels': 'Rótulos',
   'session.list.filter.clear': 'Limpar filtros',
   'session.list.search.placeholder': 'Filtrar sessões…',
   'session.list.pinned': 'Fixada',
@@ -660,7 +675,8 @@ export const ptBR: Readonly<Record<TranslationKey, string>> = {
   'session.action.deleteForever': 'Apagar definitivamente',
   'session.action.branch': 'Criar branch a partir daqui',
   'session.action.rename': 'Renomear',
-  'session.action.labels': 'Labels',
+  'session.action.labels': 'Rótulos',
+  'session.rename.prompt': 'Renomear sessão',
 
   'session.dialog.archive.title': 'Arquivar esta sessão?',
   'session.dialog.archive.description':
@@ -680,7 +696,7 @@ export const ptBR: Readonly<Record<TranslationKey, string>> = {
   'session.branch.emptyDescription': 'Esta sessão ainda não tem branches.',
   'session.branch.parentLink': 'Sessão pai',
 
-  'session.labels.title': 'Labels',
+  'session.labels.title': 'Rótulos',
   'session.labels.description': 'Organize sessões com labels hierárquicas.',
   'session.labels.create': 'Nova label',
   'session.labels.placeholder': 'Nome da label',
@@ -699,13 +715,15 @@ export const ptBR: Readonly<Record<TranslationKey, string>> = {
   'session.search.shortcut': 'Cmd/Ctrl + K',
 
   'project.list.title': 'Projetos',
-  'project.list.createNew': '+ Novo projeto',
+  'project.list.createNew': 'Novo projeto',
   'project.list.empty': 'Nenhum projeto ainda.',
   'project.list.emptyTitle': 'Sem projetos por aqui',
   'project.list.emptyDescription':
     'Crie um projeto para organizar arquivos, tarefas e sessões em um contexto único.',
   'project.list.createFirst': 'Criar primeiro projeto',
   'project.list.importLegacy': 'Importar pasta existente',
+  'project.list.searchPlaceholder': 'Buscar projetos',
+  'project.list.emptySearch': 'Nenhum projeto corresponde a esta busca.',
   'project.card.options': 'Opções',
   'project.card.action.open': 'Abrir',
   'project.card.action.archive': 'Arquivar',
@@ -774,6 +792,7 @@ export const ptBR: Readonly<Record<TranslationKey, string>> = {
   'workspace.landing.active.recent': 'Última: {{name}}',
   'workspace.landing.active.empty': 'Sem sessões recentes neste workspace.',
   'session.new.defaultName': 'Nova sessão',
+  'session.create.failed': 'Não foi possível criar nova sessão',
 
   'news.page.title': 'Novidades',
   'news.list.title': 'Posts',
@@ -805,7 +824,7 @@ export const ptBR: Readonly<Record<TranslationKey, string>> = {
   'settings.category.permissions.description': 'Revisar e revogar permissões de ferramentas.',
   'settings.category.tags.label': 'Tags',
   'settings.category.tags.description': 'Gerenciar árvore de labels para sessões e projetos.',
-  'settings.category.cloudSync.label': 'Cloud Sync',
+  'settings.category.cloudSync.label': 'Sincronização na nuvem',
   'settings.category.cloudSync.description': 'Backup e restore deste workspace.',
   'settings.category.repair.label': 'Modo de reparo',
   'settings.category.repair.description': 'Diagnósticos e ferramentas de reset de cache.',
@@ -855,7 +874,7 @@ export const ptBR: Readonly<Record<TranslationKey, string>> = {
   'settings.workspace.identity.description': 'Nome exibido e caminhos de montagem.',
   'settings.workspace.identity.name': 'Nome',
   'settings.workspace.identity.rootPath': 'Caminho raiz',
-  'settings.workspace.identity.slug': 'Slug',
+  'settings.workspace.identity.slug': 'Identificador',
   'settings.workspace.defaults.title': 'Padrões',
   'settings.workspace.defaults.description':
     'Aplicados a novas sessões e projetos criados neste workspace.',
@@ -941,6 +960,7 @@ export const ptBR: Readonly<Record<TranslationKey, string>> = {
   'sources.enable': 'Habilitar',
   'sources.disable': 'Desabilitar',
   'sources.delete': 'Excluir',
+  'sources.delete.confirm': 'Excluir esta fonte do workspace?',
   'sources.test': 'Testar conexão',
   'sources.testing': 'Testando…',
   'sources.test.success': 'Conexão OK',
@@ -954,13 +974,37 @@ export const ptBR: Readonly<Record<TranslationKey, string>> = {
   'sources.catalog.description': 'Conectores gerenciados disponíveis com um clique.',
   'sources.catalog.enable': 'Habilitar',
   'sources.catalog.installed': 'Instalada',
+  'sources.catalog.comingSoon': 'Em breve',
+  'sources.catalog.emptySearch': 'Nenhuma fonte corresponde a este filtro.',
+  'sources.search.placeholder': 'Buscar Gmail, GitHub, MCPs…',
+  'sources.tab.all': 'Todos',
+  'sources.tab.installed': 'Instaladas',
+  'sources.tab.catalog': 'Catálogo',
+  'sources.tab.custom': 'MCP custom',
+  'sources.catalog.seed.gmail.description':
+    'Gerencie mensagens do Gmail diretamente pelas sessões.',
+  'sources.catalog.seed.googleCalendar.description': 'Consulte e crie eventos no Google Calendar.',
+  'sources.catalog.seed.googleDrive.description': 'Leia e escreva arquivos no Google Drive.',
+  'sources.catalog.seed.googleDocs.description': 'Leia e edite documentos Google Docs.',
+  'sources.catalog.seed.googleSheets.description': 'Consulte e atualize planilhas Google Sheets.',
+  'sources.catalog.seed.outlook.description': 'Gerencie e-mails do Outlook e Microsoft 365.',
+  'sources.catalog.seed.outlookCalendar.description':
+    'Consulte e crie eventos no Outlook Calendar.',
+  'sources.catalog.seed.microsoftTeams.description': 'Interaja com canais e mensagens do Teams.',
+  'sources.catalog.seed.slack.description': 'Envie e leia mensagens em canais Slack.',
+  'sources.catalog.seed.github.description': 'Consulte issues, PRs, reviews e repositórios.',
+  'sources.catalog.seed.linear.description': 'Gerencie issues e projetos no Linear.',
+  'sources.catalog.seed.jira.description': 'Trabalhe com issues, sprints e backlog no Jira.',
+  'sources.catalog.seed.asana.description': 'Gerencie tarefas e projetos no Asana.',
+  'sources.catalog.seed.pipedrive.description': 'Acesse leads, deals e contatos no Pipedrive.',
+  'sources.catalog.seed.trello.description': 'Trabalhe com boards, listas e cards no Trello.',
   'sources.category.google': 'Google',
   'sources.category.microsoft': 'Microsoft',
   'sources.category.slack': 'Slack',
   'sources.category.dev': 'Desenvolvimento',
   'sources.category.storage': 'Armazenamento',
   'sources.category.crm': 'CRM',
-  'sources.category.pm': 'Gestão de projetos',
+  'sources.category.pm': 'Projetos',
   'sources.category.other': 'Outros',
   'sources.status.connected': 'Conectada',
   'sources.status.disconnected': 'Desconectada',
@@ -1054,4 +1098,4 @@ export const ptBR: Readonly<Record<TranslationKey, string>> = {
 
   'chat.mention.title': 'Mencionar uma fonte',
   'chat.mention.empty': 'Nenhuma fonte corresponde a "{{query}}"',
-};
+} satisfies Record<TranslationKey, string>;
