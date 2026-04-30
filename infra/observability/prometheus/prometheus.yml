@@ -1,0 +1,19 @@
+# Prometheus — scrape do OTel collector + alerts.
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: g4os-dev
+
+rule_files:
+  - /etc/prometheus/alerts/*.yml
+
+scrape_configs:
+  - job_name: otel-collector
+    static_configs:
+      - targets: ['otel-collector:8889']
+
+  - job_name: prometheus
+    static_configs:
+      - targets: ['localhost:9090']

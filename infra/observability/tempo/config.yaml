@@ -1,0 +1,21 @@
+# Tempo — local backend, OTLP gRPC. Para prod use S3.
+
+server:
+  http_listen_port: 3200
+  log_level: info
+
+distributor:
+  receivers:
+    otlp:
+      protocols:
+        grpc: { endpoint: 0.0.0.0:4317 }
+
+storage:
+  trace:
+    backend: local
+    local: { path: /var/tempo/blocks }
+    wal: { path: /var/tempo/wal }
+
+compactor:
+  compaction:
+    block_retention: 168h   # 7 dias dev

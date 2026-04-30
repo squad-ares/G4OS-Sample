@@ -1,0 +1,81 @@
+# OpenTelemetry Collector — Epic 16 / TASK-16-01.
+#
+# Recebe OTLP (gRPC 4317 + HTTP 4318), aplica scrubbing de PII via
+# `attributes/redact`, exporta para Loki (logs), Tempo (traces) e
+# Prometheus (metrics).
+#
+# Custo zero quando o app não emite (collector idle).
+
+receivers:
+  otlp:
+    protocols:
+      grpc: { endpoint: 0.0.0.0:4317 }
+      http: { endpoint: 0.0.0.0:4318 }
+
+processors:
+  # Drop / redact de campos sensíveis. Espelha REDACT_PATHS do kernel
+  # para defesa em profundidade — caso algo escape do scrub local.
+  attributes/redact:
+    actions:
+      - key: http.request.body
+        action: delete
+      - pattern: ^.*[Tt]oken.*$
+        action: delete
+      - pattern: ^.*[Pp]assword.*$
+        action: delete
+      - pattern: ^.*[Aa]uthorization.*$
+        action: delete
+      - pattern: ^.*[Cc]ookie.*$
+        action: delete
+
+  batch:
+    timeout: 5s
+    send_batch_size: 512
+    send_batch_max_size: 1024
+
+  memory_limiter:
+    check_interval: 5s
+    limit_mib: 256
+    spike_limit_mib: 64
+
+  resource:
+    attributes:
+      - key: deployment.environment
+        from_attribute: env
+        action: insert
+
+exporters:
+  loki:
+    endpoint: http://loki:3100/loki/api/v1/push
+    default_labels_enabled:
+      exporter: false
+      job: true
+
+  otlp/tempo:
+    endpoint: tempo:4317
+    tls: { insecure: true }
+
+  prometheus:
+    endpoint: 0.0.0.0:8889
+    namespace: g4os
+    send_timestamps: true
+    metric_expiration: 5m
+
+extensions:
+  health_check: { endpoint: 0.0.0.0:13133 }
+
+service:
+  extensions: [health_check]
+  pipelines:
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, attributes/redact, batch]
+      exporters: [loki]
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [otlp/tempo]
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, batch]
+      exporters: [prometheus]
