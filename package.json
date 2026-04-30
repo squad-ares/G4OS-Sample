@@ -33,7 +33,8 @@
     "changeset:publish": "changeset publish",
     "changeset:status": "changeset status --since=origin/main",
     "adr:new": "tsx scripts/new-adr.ts",
-    "db:migrate:status": "tsx scripts/db-migrate-status.mts"
+    "db:migrate:status": "tsx scripts/db-migrate-status.mts",
+    "migrate:v1": "tsx scripts/migrate-v1.ts"
   },
   "keywords": [],
   "author": "",
@@ -63,6 +64,7 @@
     "@commitlint/cli": "20.5.0",
     "@commitlint/config-conventional": "20.5.0",
     "@g4os/data": "workspace:*",
+    "@g4os/migration": "workspace:*",
     "@g4os/platform": "workspace:*",
     "@tailwindcss/vite": "4.2.4",
     "@types/node": "25.6.0",
