@@ -58,7 +58,7 @@ export function FieldWrapper({
 
       {children}
 
-      {/* CR5-13: spacer phantom removido. `gap-1.5` no container parent
+      {/* Spacer phantom removido — `gap-1.5` no container parent
           já cobre espaçamento; renderizar `<p aria-hidden>` em todos
           os campos era anti-idiomático e poluía o DOM em forms grandes
           (50 campos = 50 elementos extras). Layout shift inexistente

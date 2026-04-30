@@ -75,6 +75,7 @@ export {
 export { Input } from './components/input.tsx';
 export { Label } from './components/label.tsx';
 export { LanguageSwitcher, type LanguageSwitcherProps } from './components/language-switcher.tsx';
+export { PageScaffold, type PageScaffoldProps } from './components/page-scaffold.tsx';
 export { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from './components/popover.tsx';
 export { ScrollArea, ScrollBar } from './components/scroll-area.tsx';
 export {

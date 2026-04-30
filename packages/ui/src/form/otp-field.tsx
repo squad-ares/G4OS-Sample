@@ -29,7 +29,7 @@ export interface OtpFieldProps<TForm extends FieldValues> extends UseControllerP
  * - Suporta paste, arrows, backspace, delete, home/end.
  * - `onComplete` dispara quando todos os dígitos estão preenchidos — útil para auto-submit.
  *
- * **Browser support (CR4-23):** usa `inputMode="numeric"` + `pattern="[0-9]*"`
+ * **Browser support:** usa `inputMode="numeric"` + `pattern="[0-9]*"`
  * para auto-enable de teclado numérico em mobile. Suportado em
  * Chrome/Edge ≥ 66, Safari ≥ 12.2, Firefox ≥ 95. Browsers antigos caem
  * para teclado padrão sem regressão funcional (validação JS continua).

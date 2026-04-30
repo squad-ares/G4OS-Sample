@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
  * Status panel genérico — card com tom (default/warning/danger), badge,
  * título, descrição e children opcionais. Movido de `@g4os/features/shell`
  * para `@g4os/ui` para permitir uso cross-feature sem violar boundary
- * `no-cross-feature-imports` (CR5-04).
+ * `no-cross-feature-imports`.
  */
 export interface StatusPanelProps {
   readonly title: string;
