@@ -83,4 +83,26 @@ describe('CredentialVault', () => {
     const exists = await vault.exists('gone');
     expect(exists).toBe(false);
   });
+
+  // CR12-C3: meta corrompida não deve ser mascarada como entry válido com
+  // createdAt=0. `stale: true` sinaliza ao caller que precisa repair.
+  it('flags entries with missing meta as stale', async () => {
+    const keychain = new InMemoryKeychain();
+    const vault = new CredentialVault(keychain);
+    await vault.set('healthy', 'v1');
+    await vault.set('orphan', 'v2');
+    // Apaga só a meta — simula corrupção/write parcial.
+    await keychain.delete('orphan.meta');
+
+    const list = await vault.list();
+    expect(list.isOk()).toBe(true);
+    if (!list.isOk()) return;
+
+    const healthy = list.value.find((m) => m.key === 'healthy');
+    const orphan = list.value.find((m) => m.key === 'orphan');
+    expect(healthy?.stale).toBeUndefined();
+    expect(healthy?.createdAt).toBeGreaterThan(0);
+    expect(orphan?.stale).toBe(true);
+    expect(orphan?.createdAt).toBe(0);
+  });
 });

@@ -11,7 +11,7 @@
 import { z } from 'zod';
 import type { RotatedCredential, RotationHandler } from './handler.ts';
 
-// CR9: alguns providers retornam HTTP 200 com payload de erro (ex.: Google
+// Alguns providers retornam HTTP 200 com payload de erro (ex.: Google
 // `{"error":"invalid_grant"}` retornava 400, mas há casos de 200 mal
 // configurados em proxies). Sem validação de shape, `as OAuthTokenResponse`
 // permitia `expires_in` virar `undefined` → `NaN` no expiresAt → vault
@@ -24,7 +24,7 @@ const OAuthTokenResponseSchema = z.object({
 /**
  * Erro estruturado de rotação OAuth com discriminator. Permite caller
  * (orchestrator, telemetria, dashboard) agrupar falhas por kind sem
- * parsear strings (CR5-18).
+ * parsear strings.
  */
 export type OAuthRotationFailure =
   | { readonly kind: 'timeout'; readonly timeoutMs: number }
@@ -65,7 +65,7 @@ const OAUTH_KEY_PREFIX = 'oauth.';
 const MILLIS_PER_SECOND = 1000;
 /**
  * Default timeout para chamada do `tokenUrl`. Provider lento ou offline
- * trava o ciclo de rotação se não houver deadline (CR4-21).
+ * trava o ciclo de rotação se não houver deadline.
  */
 const DEFAULT_ROTATION_TIMEOUT_MS = 30_000;
 
@@ -105,7 +105,7 @@ export class OAuthRotationHandler implements RotationHandler {
     if (this.clientId !== undefined) body.set('client_id', this.clientId);
     if (this.clientSecret !== undefined) body.set('client_secret', this.clientSecret);
 
-    // CR4-21: timeout previne hang quando provider está lento/offline.
+    // Timeout previne hang quando provider está lento/offline.
     // Orchestrator isola erros por chave; timeout é tratado como falha
     // de rotação normal (ciclo será re-tentado no próximo scan).
     const controller = new AbortController();
@@ -137,7 +137,7 @@ export class OAuthRotationHandler implements RotationHandler {
       });
     }
 
-    // CR9: validação Zod de shape — protege contra providers que mandam
+    // Validação Zod de shape — protege contra providers que mandam
     // 200 com payload de erro / proxies mal configurados / mock servers
     // em testes que esquecem de retornar `expires_in`.
     const raw = (await response.json()) as unknown;
@@ -150,7 +150,7 @@ export class OAuthRotationHandler implements RotationHandler {
       });
     }
     const data = parsed.data;
-    // CR7-50: subtrair buffer 60s do expiry. Sem isso, clock skew entre
+    // Subtrair buffer 60s do expiry. Sem isso, clock skew entre
     // server (que conta `expires_in` desde sua perspectiva) e client
     // pode causar token "ainda válido" na perspective do client mas
     // já expirado no servidor. O orchestrator também tem buffer interno

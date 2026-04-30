@@ -54,7 +54,7 @@ export class FileKeychain implements IKeychain {
   }
 
   async get(key: string): Promise<Result<string, CredentialError>> {
-    // CR7-06: bloquear leitura quando codec não está disponível.
+    // Bloquear leitura quando codec não está disponível.
     // Sem isso, em Linux sem libsecret ou Windows sem DPAPI, decrypt
     // tentaria operar em buffer vazio/inválido e retornaria erro genérico.
     const ready = await this.ensureReady();

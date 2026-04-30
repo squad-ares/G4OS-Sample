@@ -36,11 +36,20 @@ export class RotationOrchestrator extends DisposableBase {
   private readonly intervalMs: number;
   private readonly bufferMs: number;
   private telemetry: RotationTelemetry | null = null;
-  // CR9: guard contra scan paralelo. Sem isso, se OAuth refresh leva mais
+  // Guard contra scan paralelo. Sem isso, se OAuth refresh leva mais
   // que `intervalMs` (timeout, network), o próximo tick lança outro scan
   // em paralelo — duas iterações concorrentes podem rotar a mesma key
   // duas vezes (gera token duplo, pode invalidar o anterior remotamente).
   private scanInflight: Promise<void> | null = null;
+  /**
+   * Coalesce per-key. Caller externo (ex: SessionRefresher,
+   * manual retry) chamando `rotateIfExpiring(key)` em paralelo NÃO passa
+   * pelo guard `scanInflight` — duas chamadas concorrentes para mesma key
+   * faziam dois OAuth refresh simultâneos, queimando refresh tokens
+   * single-use em sequência: o segundo tinha sucesso mas o primeiro
+   * gravava por cima com token já revogado.
+   */
+  private rotationsInflight = new Map<string, Promise<boolean>>();
 
   constructor(options: RotationOrchestratorOptions) {
     super();
@@ -56,6 +65,22 @@ export class RotationOrchestrator extends DisposableBase {
 
   /** Rotaciona uma credencial específica se estiver na janela de buffer. */
   async rotateIfExpiring(key: string): Promise<boolean> {
+    // Coalesce — se já há rotação em vôo para essa key,
+    // compartilha a promise. Evita queimar refresh-tokens single-use por
+    // chamadas concorrentes externas.
+    const inflight = this.rotationsInflight.get(key);
+    if (inflight) return inflight;
+
+    const promise = this.runRotation(key);
+    this.rotationsInflight.set(key, promise);
+    try {
+      return await promise;
+    } finally {
+      this.rotationsInflight.delete(key);
+    }
+  }
+
+  private async runRotation(key: string): Promise<boolean> {
     const list = await this.vault.list();
     if (list.isErr()) return false;
 
@@ -82,7 +107,7 @@ export class RotationOrchestrator extends DisposableBase {
         expiresAt: rotated.expiresAt,
       });
       if (write.isErr()) {
-        // CR5-08: ADR-0011 Result pattern — rotação falhada é caminho
+        // ADR-0011 Result pattern — rotação falhada é caminho
         // esperado, retorna false em vez de lançar. Telemetria preserva
         // contexto via log estruturado.
         log.warn({ key, err: write.error }, 'rotation write failed');
@@ -104,7 +129,7 @@ export class RotationOrchestrator extends DisposableBase {
    */
   start(): IDisposable {
     const timer = setInterval(() => {
-      // CR9: skip se scan anterior ainda em flight. Caller que chama
+      // Skip se scan anterior ainda em flight. Caller que chama
       // rotateIfExpiring direto não passa por aqui — guard cobre só o
       // loop automático.
       if (this.scanInflight) return;
@@ -116,7 +141,7 @@ export class RotationOrchestrator extends DisposableBase {
           this.scanInflight = null;
         });
     }, this.intervalMs);
-    // CR4-10: timer não pode segurar o process vivo após shutdown handler
+    // Timer não pode segurar o process vivo após shutdown handler
     // ser instalado mais tarde no boot. ADR-0032 exige graceful exit em 5s.
     timer.unref?.();
 

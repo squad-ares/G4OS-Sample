@@ -29,7 +29,7 @@ export interface V1Credential {
 
 export type V1Credentials = Readonly<Record<string, V1Credential>>;
 
-// CR9: validação Zod do payload v1 após decrypt. Antes era cast `as
+// Validação Zod do payload v1 após decrypt. Antes era cast `as
 // V1Credentials` cego — se o ciphertext decryptasse mas com shape
 // inesperado (formato corrompido, versão futura, downgrade attack),
 // o migrator iterava entries com `value: undefined` e crashava

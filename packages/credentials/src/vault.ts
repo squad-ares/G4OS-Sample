@@ -27,7 +27,7 @@ const log = createLogger('credential-vault');
 const META_SUFFIX = '.meta';
 const BACKUP_SEPARATOR = '.backup-';
 const BACKUP_RETENTION = 3;
-// CR7-18: flag `i` removida — Unicode case folding permitia homoglyph
+// Flag `i` removida — Unicode case folding permitia homoglyph
 // attacks (ß ↔ "ss", Cyrillic/Greek lookalikes que casam Latin via folding).
 // Sem `i`, o regex força bytes ASCII lowercase explícitos. Caller deve
 // normalizar para lowercase ANTES de passar para `set()`/`get()`.
@@ -41,6 +41,14 @@ export interface CredentialMeta {
   readonly updatedAt: number;
   readonly expiresAt?: number;
   readonly tags: readonly string[];
+  /**
+   * `true` quando o entry existe no keychain mas a metadata está
+   * ausente/corrompida. Antes, `list()` mascarava esse caso com placeholder
+   * zerado — caller não tinha como distinguir entry novo (createdAt=0) de
+   * entry com meta perdida. Consumers que precisam agir só sobre dados
+   * confiáveis devem filtrar `stale === true`.
+   */
+  readonly stale?: boolean;
 }
 
 export interface SetOptions {
@@ -63,7 +71,7 @@ export class CredentialVault {
     const meta = await this.readMeta(key);
     if (meta.isOk() && meta.value.expiresAt !== undefined && meta.value.expiresAt < Date.now()) {
       log.warn({ key }, 'credential expired — auto-deleting');
-      // Auto-delete via mutex (CR12 B5): sem o lock, um `set()` concorrente
+      // Auto-delete via mutex: sem o lock, um `set()` concorrente
       // pode ter escrito o novo valor entre o keychain.get acima e o delete
       // aqui, e a deleção apagaria o valor recém-escrito. O mutex serializa
       // todas as escritas no vault — auto-delete também é escrita.
@@ -102,7 +110,7 @@ export class CredentialVault {
         ...(options.expiresAt === undefined ? {} : { expiresAt: options.expiresAt }),
         tags: Object.freeze([...(options.tags ?? [])]),
       };
-      // CR8-10: propagar erro de writeMeta. Se falhar, credencial já foi
+      // Propagar erro de writeMeta. Se falhar, credencial já foi
       // escrita — log warn explícito + retorna o err para caller decidir
       // se quer retry ou rollback.
       const metaWrite = await this.writeMeta(key, meta);
@@ -165,7 +173,7 @@ export class CredentialVault {
         ...(options.expiresAt === undefined ? {} : { expiresAt: options.expiresAt }),
         tags: Object.freeze([...tags]),
       };
-      // CR8-10: idem set() — propaga erro de writeMeta.
+      // Idem set() — propaga erro de writeMeta.
       const metaWrite = await this.writeMeta(key, meta);
       if (metaWrite.isErr()) {
         log.warn(
@@ -188,14 +196,24 @@ export class CredentialVault {
     const metas: CredentialMeta[] = [];
     for (const k of visible) {
       const meta = await this.readMeta(k);
-      if (meta.isOk()) metas.push(meta.value);
-      else
+      if (meta.isOk()) {
+        metas.push(meta.value);
+      } else {
+        // Meta ausente/corrompida — marcar `stale` em vez de
+        // mascarar com placeholder zerado. Operador vê via debug-export
+        // ou Settings → Repair que entry tem meta inconsistente.
+        log.warn(
+          { key: k, err: meta.error.message },
+          'credential entry has missing/corrupted metadata; marking stale',
+        );
         metas.push({
           key: k,
           createdAt: 0,
           updatedAt: 0,
           tags: [],
+          stale: true,
         });
+      }
     }
     return ok(metas);
   }
@@ -203,7 +221,7 @@ export class CredentialVault {
   /**
    * **Informational only** — não usar como gate antes de `set()`.
    *
-   * CR7-17: TOCTOU window. Pattern `if (await exists(k)) skip; else set(k)` é
+   * TOCTOU window. Pattern `if (await exists(k)) skip; else set(k)` é
    * inerentemente racy entre processos. Caller que precisa de "set se não
    * existe" deve fazer `set()` direto e tratar o erro de chave duplicada,
    * OU envolver `exists + set` num lock externo (ex.: mutex per-workspace).
@@ -224,7 +242,7 @@ export class CredentialVault {
     const removed = await this.keychain.delete(key);
     if (removed.isErr()) return err(removed.error);
 
-    // CR8-11: se delete da meta falha (disk full, IO error), credencial
+    // Se delete da meta falha (disk full, IO error), credencial
     // ficaria órfã com meta apontando pra valor inexistente — `list()`
     // retornaria entries fantasmas. Best-effort: log warn explícito, sem
     // tentar rollback do delete da credencial (que já sucedeu).
@@ -243,7 +261,7 @@ export class CredentialVault {
     if (current.isErr()) return;
 
     const backupName = `${key}${BACKUP_SEPARATOR}${Date.now()}`;
-    // CR7-19: logar erro de backup. Em disk-full / safeStorage indisponível
+    // Logar erro de backup. Em disk-full / safeStorage indisponível
     // o set silenciosamente falhava — próximo `delete()` ou `set()` chama
     // backupCurrent que falha de novo, e usuário fica sem nenhum backup
     // sem visibilidade. Log warn pra operador inspecionar via debug-export.
@@ -281,7 +299,7 @@ export class CredentialVault {
       // que já tratam essa branch.
       return err(CredentialErrorClass.decryptFailed(metaKey(key), cause));
     }
-    // CR8-09: validação Zod separa shape mismatch (versão legacy, schema
+    // Validação Zod separa shape mismatch (versão legacy, schema
     // drift) de corrupção criptográfica. Mesmo error code mas com cause
     // discriminada (`ZodError`) para diagnóstico.
     const result = CredentialMetaSchema.safeParse(parsed);
@@ -297,7 +315,7 @@ export class CredentialVault {
     key: string,
     meta: CredentialMeta,
   ): Promise<Result<void, CredentialError>> {
-    // CR8-10: era `async void` — falha em `keychain.set` (disk full,
+    // Era `async void` — falha em `keychain.set` (disk full,
     // safeStorage indisponível) era silenciada. Caller (`set`/`rotate`)
     // não sabia que credencial OK + meta falhou → vault inconsistente
     // até próximo write.
