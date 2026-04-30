@@ -641,12 +641,18 @@ importers:
 
   packages/migration:
     dependencies:
+      '@g4os/credentials':
+        specifier: workspace:*
+        version: link:../credentials
       '@g4os/kernel':
         specifier: workspace:*
         version: link:../kernel
       neverthrow:
         specifier: 'catalog:'
         version: 8.2.0
+      zod:
+        specifier: 'catalog:'
+        version: 4.3.6
     devDependencies:
       '@types/node':
         specifier: 'catalog:'

@@ -1,13 +1,10 @@
 /**
- * Stubs dos steps ainda não implementados — `credentials`, `workspaces`,
- * `sessions`, `sources`, `skills`. Cada um retorna `Result.err` com mensagem
- * explícita do que precisa pra implementar (formato V1, fixture, decoder).
+ * Stubs dos steps ainda não implementados — `sessions`, `sources`, `skills`.
+ * Cada um retorna `Result.err` com mensagem explícita do que precisa pra
+ * implementar (formato V1, fixture, decoder).
  *
  * Quando um stub for promovido a impl real, mover pra arquivo próprio
- * (`migrate-credentials.ts`, etc.) e remover daqui. Mantém o gate de teste
- * passando em CI sem que o executor crashe na primeira run real.
- *
- * Cada stub está marcado com `TODO` pra rastrear via grep.
+ * (`migrate-sessions.ts`, etc.) e remover daqui.
  */
 
 import { AppError, ErrorCode } from '@g4os/kernel/errors';
@@ -21,25 +18,6 @@ function stub(reason: string): Result<StepResult, AppError> {
       message: `migration step stub: ${reason}`,
     }),
   );
-}
-
-// TODO — delegar a `@g4os/credentials/migration`
-// (já existe `v1-reader.ts` + `migrator.ts` lendo `credentials.enc` AES-GCM).
-// Aqui só precisa: 1) ler masterKey do user (env ou prompt CLI), 2) chamar
-// migrator com vault V2, 3) reportar contagem.
-export function migrateCredentials(ctx: StepContext): Promise<Result<StepResult, AppError>> {
-  void ctx;
-  return Promise.resolve(stub('credentials — wire @g4os/credentials/migration'));
-}
-
-// TODO — V1 workspaces vivem em `<v1>/workspaces/<uuid>/`
-// com `workspace.json` na raiz. Migrar = ler metadata + criar workspace V2
-// via `WorkspacesService.create({...})` preservando o UUID original (caso
-// `lastWorkspaceId` referencie). Sources e sessions são steps separados;
-// este aqui é só o registro do workspace + nome/cor/categoria.
-export function migrateWorkspaces(ctx: StepContext): Promise<Result<StepResult, AppError>> {
-  void ctx;
-  return Promise.resolve(stub('workspaces — V1 workspace.json reader pendente'));
 }
 
 // TODO — formato V1 sessão:

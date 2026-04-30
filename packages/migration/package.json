@@ -13,8 +13,10 @@
     }
   },
   "dependencies": {
+    "@g4os/credentials": "workspace:*",
     "@g4os/kernel": "workspace:*",
-    "neverthrow": "catalog:"
+    "neverthrow": "catalog:",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@types/node": "catalog:",
