@@ -244,6 +244,12 @@ export class TurnDispatcher extends DisposableBase {
         },
       },
     );
+    this.#deps.eventBus.emit(sessionId, {
+      type: 'turn.done',
+      sessionId,
+      turnId,
+      reason: loopResult.isOk() ? 'stop' : 'error',
+    });
     resolveCompletion(loopResult);
     this.cleanup(sessionId, { disposeAgent: true });
 
