@@ -40,7 +40,7 @@ export class BedrockProvider implements ClaudeProvider {
   }
 
   private loadRuntime(): Promise<BedrockRuntimeLike> {
-    // CR6-05: limpar cache em rejeição — caso contrário um SigV4 runtime
+    // Limpar cache em rejeição — caso contrário um SigV4 runtime
     // que falhou na inicialização permanece quebrado para sempre.
     if (!this.runtimePromise) {
       const promise = this.options.sdkFactory

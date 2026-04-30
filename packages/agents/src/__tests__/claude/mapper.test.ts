@@ -22,11 +22,15 @@ describe('mapThinking', () => {
   it('prefers explicit budget override over level', () => {
     expect(mapThinking('think', 9_999)).toEqual({ type: 'enabled', budget_tokens: 9_999 });
   });
-  it('maps each ThinkingLevel to the expected budget', () => {
-    expect(mapThinking('low', undefined)).toMatchObject({ budget_tokens: 2_000 });
-    expect(mapThinking('think', undefined)).toMatchObject({ budget_tokens: 5_000 });
-    expect(mapThinking('high', undefined)).toMatchObject({ budget_tokens: 12_000 });
-    expect(mapThinking('ultra', undefined)).toMatchObject({ budget_tokens: 32_000 });
+  // Budgets vêm do shared `resolveThinkingConfig` em vez de tabela local.
+  // Antes: low=2000/think=5000/high=12000/ultra=32000;
+  // agora: low=1024/think=4096/high=16384/ultra=32768 (alinhado com
+  // OpenAI/Google maps no level-resolver).
+  it('maps each ThinkingLevel to the expected budget (shared resolver)', () => {
+    expect(mapThinking('low', undefined)).toMatchObject({ budget_tokens: 1024 });
+    expect(mapThinking('think', undefined)).toMatchObject({ budget_tokens: 4096 });
+    expect(mapThinking('high', undefined)).toMatchObject({ budget_tokens: 16384 });
+    expect(mapThinking('ultra', undefined)).toMatchObject({ budget_tokens: 32768 });
   });
   it('returns undefined when level is absent', () => {
     expect(mapThinking(undefined, undefined)).toBeUndefined();
@@ -119,7 +123,7 @@ describe('mapConfig', () => {
     expect(params.stream).toBe(true);
     expect(params.system?.[0]?.text).toBe('you are G4');
     expect(params.tools?.[0]?.name).toBe('echo');
-    expect(params.thinking).toEqual({ type: 'enabled', budget_tokens: 12_000 });
+    expect(params.thinking).toEqual({ type: 'enabled', budget_tokens: 16384 });
     expect(params.temperature).toBe(0.5);
   });
 

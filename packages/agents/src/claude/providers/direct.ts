@@ -25,7 +25,7 @@ export interface DirectSdkLike {
 export class DirectApiProvider implements ClaudeProvider {
   readonly kind = 'direct' as const;
   private sdkPromise: Promise<DirectSdkLike> | undefined;
-  // CR7-24: contador de geração para dirimir race quando múltiplas
+  // Contador de geração para dirimir race quando múltiplas
   // tentativas de loadSdk coexistem. Reference equality em
   // `if (this.sdkPromise === promise)` falha quando o callback de
   // limpeza fire DEPOIS de uma reset+nova-tentativa: um terceiro
@@ -48,7 +48,7 @@ export class DirectApiProvider implements ClaudeProvider {
   }
 
   private loadSdk(): Promise<DirectSdkLike> {
-    // CR6-05 + CR7-24: limpa sdkPromise em rejeição, com generation counter
+    // Limpa sdkPromise em rejeição, com generation counter
     // pra evitar race em concurrent loaders.
     if (!this.sdkPromise) {
       const myGeneration = ++this.generation;

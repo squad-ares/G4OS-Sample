@@ -11,6 +11,7 @@ import type {
   AgentTurnInput,
   IAgent,
 } from '../interface/agent.ts';
+import { wrapAgentError } from '../shared/errors/wrap-agent-error.ts';
 import { buildPromptCacheKey } from './cache/prompt-cache-keys.ts';
 import { detectCapabilities } from './capabilities.ts';
 import { mapConfig } from './config/mapper.ts';
@@ -39,7 +40,7 @@ export class OpenAIAgent extends DisposableBase implements IAgent {
     this.kind = provider.kind === 'responses' ? 'openai-responses' : 'openai';
     this.capabilities = detectCapabilities(config.modelId);
     this.log = options.logger ?? createLogger('openai-agent');
-    // CR5-06: cleanup centralizado via _register (FIFO no DisposableStore):
+    // Cleanup centralizado via _register (FIFO no DisposableStore):
     // abort PRIMEIRO, clear DEPOIS — caso contrário map vazio antes do abort.
     this._register(
       toDisposable(() => {
@@ -62,7 +63,13 @@ export class OpenAIAgent extends DisposableBase implements IAgent {
           }
           subscriber.complete();
         } catch (err) {
-          subscriber.error(err);
+          // Alinhar com Google/Codex — emite `error` event + `done`
+          // antes de complete, em vez de `subscriber.error()`. RxJS error
+          // teardown cancela o observable cleanly mas quebra contract do
+          // `AgentEvent` (caller espera done + complete em todo turn).
+          subscriber.next({ type: 'error', error: wrapAgentError(err, 'openai') });
+          subscriber.next({ type: 'done', reason: 'error' });
+          subscriber.complete();
         } finally {
           this.releaseController(input.sessionId, controller);
         }
@@ -85,7 +92,7 @@ export class OpenAIAgent extends DisposableBase implements IAgent {
   }
 
   // dispose() herdado de DisposableBase — executa LIFO os disposables
-  // registrados no constructor (CR5-06).
+  // registrados no constructor.
 
   private buildRunnerDeps(): StreamRunnerDeps {
     return {

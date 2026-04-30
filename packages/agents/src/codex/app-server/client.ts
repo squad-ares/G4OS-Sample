@@ -21,7 +21,7 @@ export class AppServerClient extends DisposableBase {
   private readonly exitListeners = new Set<AppServerExitListener>();
   private subprocess: Subprocess | undefined;
   private started = false;
-  // CR8-21: rastreia o iterator do stdout para fechar explicitamente em
+  // Rastreia o iterator do stdout para fechar explicitamente em
   // dispose. Sem `return()`, se Codex está travado em write, o async
   // generator do stdout fica pendurado e o subprocess vira zumbi.
   private stdoutIterator: AsyncIterator<string> | undefined;
@@ -41,9 +41,9 @@ export class AppServerClient extends DisposableBase {
     this.started = true;
     this._register(
       toDisposable(() => {
-        // CR8-21: fechar iterator antes de kill — `return()` sinaliza ao
+        // Fechar iterator antes de kill — `return()` sinaliza ao
         // source pra liberar recursos (mesmo pattern do Claude
-        // stream-runner CR7-25). Try/catch porque iterator pode já estar
+        // stream-runner). Try/catch porque iterator pode já estar
         // fechado naturalmente pelo exit do subprocess.
         try {
           void this.stdoutIterator?.return?.();
@@ -80,7 +80,7 @@ export class AppServerClient extends DisposableBase {
 
   private async pumpStdout(child: Subprocess): Promise<void> {
     const buffer = new LineBuffer();
-    // CR8-21: usar iterator manual em vez de `for await ... of`, e armazenar
+    // Usar iterator manual em vez de `for await ... of`, e armazenar
     // o iterator pra dispose() chamar `return()` explicitamente. `for await`
     // não expõe o iterator subjacente; sem ele, dispose não consegue fechar
     // o stream em flight.
@@ -96,7 +96,7 @@ export class AppServerClient extends DisposableBase {
           if (result.ok) {
             this.emitMessage(result.event);
           } else if (result.kind !== 'empty') {
-            // CR3-18: WARN com `kind` para o consumer (observability)
+            // WARN com `kind` para o consumer (observability)
             // contar parse_error vs schema_error via filtro de log.
             // Linha truncada em 200 chars para evitar log gigante.
             this.log.warn(
