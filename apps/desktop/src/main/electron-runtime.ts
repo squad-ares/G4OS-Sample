@@ -114,11 +114,27 @@ export interface BrowserWindowOptions {
   readonly webPreferences?: BrowserWindowWebPreferences;
 }
 
+export interface KeyboardInputEvent {
+  readonly type: string;
+  readonly key: string;
+  readonly meta: boolean;
+  readonly control: boolean;
+}
+
+export interface WebContents {
+  readonly id: number;
+  openDevTools(options?: { mode?: 'detach' }): void;
+  on(
+    event: 'before-input-event',
+    handler: (e: ElectronEvent, input: KeyboardInputEvent) => void,
+  ): void;
+}
+
 export interface BrowserWindowInstance {
   loadURL(url: string): Promise<void>;
   close(): void;
   focus(): void;
-  readonly webContents: { readonly id: number; openDevTools(options?: { mode?: 'detach' }): void };
+  readonly webContents: WebContents;
   isDestroyed(): boolean;
 }
 

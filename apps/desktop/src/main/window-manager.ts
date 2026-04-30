@@ -190,6 +190,16 @@ export class WindowManager extends DisposableBase {
       w.show?.();
     });
 
+    // Em production: bloqueia Cmd+R / Ctrl+R / F5 (reload destrói estado
+    // in-flight). Mantém ativo em dev pra HMR.
+    if (this.runtime.app.isPackaged) {
+      win.webContents.on('before-input-event', (e, input) => {
+        if (input.type !== 'keyDown') return;
+        const mod = input.meta || input.control;
+        if ((mod && input.key.toLowerCase() === 'r') || input.key === 'F5') e.preventDefault();
+      });
+    }
+
     this.windows.add(win);
     this._register(
       toDisposable(() => {
