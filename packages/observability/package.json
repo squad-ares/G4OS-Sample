@@ -45,16 +45,15 @@
   "devDependencies": {
     "@opentelemetry/context-async-hooks": "2.7.0",
     "@opentelemetry/core": "2.7.0",
-    "@opentelemetry/exporter-trace-otlp-http": "0.215.0",
-    "@opentelemetry/resources": "2.7.0",
-    "@opentelemetry/sdk-trace-base": "2.7.0",
     "@types/archiver": "catalog:",
     "@types/node": "catalog:",
     "vitest": "catalog:"
   },
   "optionalDependencies": {
-    "_comment": "CR12-O1: @opentelemetry/sdk-node carregado via dynamic import com NOOP fallback. Build prod bundle quando presente; CI sem OTel endpoint passa sem instalar.",
-    "@opentelemetry/sdk-node": "0.215.0"
+    "@opentelemetry/exporter-trace-otlp-http": "0.215.0",
+    "@opentelemetry/resources": "2.7.0",
+    "@opentelemetry/sdk-node": "0.215.0",
+    "@opentelemetry/sdk-trace-base": "2.7.0"
   },
   "scripts": {
     "build": "tsup",

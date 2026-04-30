@@ -1,6 +1,6 @@
 {
   "name": "@g4os/desktop",
-  "version": "0.0.9-beta",
+  "version": "0.0.10-beta",
   "description": "G4 OS - Aplicativo desktop (Electron)",
   "private": true,
   "homepage": "https://g4educacao.com",
@@ -103,7 +103,10 @@
     "vite": "^8.0.9"
   },
   "optionalDependencies": {
-    "_comment": "CR12-O1: deps de runtime carregadas via dynamic import com fallback NOOP. Marcadas optional para que builds prod (electron-builder) bundlem quando presentes, sem quebrar `pnpm install` em CI sem DSN. Fallback é silencioso (init-sentry.ts faz try/catch).",
+    "@opentelemetry/exporter-trace-otlp-http": "0.215.0",
+    "@opentelemetry/resources": "2.7.0",
+    "@opentelemetry/sdk-node": "0.215.0",
+    "@opentelemetry/sdk-trace-base": "2.7.0",
     "@sentry/electron": "5.10.0"
   },
   "engines": {
