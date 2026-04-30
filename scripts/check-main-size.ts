@@ -109,7 +109,21 @@ import { globSync } from 'glob';
 // - turn-dispatcher-types.ts (~75 LOC) + turn-dispatcher-guards.ts (~55 LOC):
 //   extrações para manter turn-dispatcher.ts ≤ 300 LOC.
 // Crescimento líquido: +1550 LOC de features e extrações legitimamente em main.
-const MAIN_LIMIT = 8800;
+//
+// 2026-04-30 (UX/observability fixes): teto sobe de 8800 → 8900 por conta de:
+// - metrics-scrape-server.ts (~24 LOC): expõe /metrics Prometheus para scrape local.
+// - observability bootstrap em index.ts: .env loading antes de app.whenReady()
+//   (Sentry exige init pré-ready) + wire do scrape server.
+// - window-manager.ts: bloqueio de Cmd+R/F5 em production builds (reload destrói
+//   estado in-flight: streams, drafts, modais pendentes).
+// - electron-runtime.ts: tipos para WebContents.on('before-input-event') usado
+//   pelo bloqueio acima.
+// - debug-hud/window.ts: `frame: true` + `alwaysOnTop: false` (UX bug — HUD
+//   roubava foco da janela principal e não tinha botão de close).
+// - turn-dispatcher.ts: emite `turn.done` após runToolLoop pra renderer limpar
+//   `streamingTurnId` de forma confiável (antes era leak; ghost message ficava
+//   pendurado em algumas paths de erro).
+const MAIN_LIMIT = 8900;
 const FILE_LIMIT = 300;
 
 // Composition roots e agregadores de diagnóstico com teto próprio.
