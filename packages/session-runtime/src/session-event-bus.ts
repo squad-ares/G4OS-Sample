@@ -2,8 +2,8 @@
  * SessionEventBus — pub/sub por `sessionId` para eventos de sessão.
  *
  * Independente do worker. `SessionsService.subscribe` + tRPC `sessions.stream`
- * leem daqui, e `TurnDispatcher` publica aqui. No futuro (Fase 4 de
- * TASK-OUTLIER-05), o session worker também publica via bridge.
+ * leem daqui, e `TurnDispatcher` publica aqui. No futuro, o session worker
+ * também publica via bridge.
  *
  * Além de eventos persistidos (`SessionEvent` discriminated union), o bus
  * transporta eventos transientes de turn streaming (`TurnTextChunk`, etc.)

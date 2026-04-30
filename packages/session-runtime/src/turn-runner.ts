@@ -56,7 +56,7 @@ export function runAgentIteration(
 
   return new Promise<Result<AgentIterationResult, AppError>>((resolve) => {
     const obs = agent.run({ sessionId, turnId, messages, config });
-    // CR9: cleanup ativo via flag + unsubscribe explícito em error/complete.
+    // Cleanup ativo via flag + unsubscribe explícito em error/complete.
     // Antes, o subscription permanecia "subscribed" até GC mesmo após
     // resolver — caller que retém via `onSubscription` callback podia
     // chamar `unsubscribe()` num subscription completed (no-op) ou pior,
@@ -173,7 +173,7 @@ export function runAgentIteration(
             // resultado próprio, ignoramos para não duplicar persistência.
             break;
           default: {
-            // CR4-12: forçando exhaustiveness check em compile-time. Se um
+            // Forçando exhaustiveness check em compile-time. Se um
             // novo `AgentEvent` tipo for adicionado em `@g4os/agents/interface`
             // sem atualizar este switch, TS quebra aqui no `_exhaustive: never`.
             const _exhaustive: never = event;

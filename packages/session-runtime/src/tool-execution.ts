@@ -17,7 +17,7 @@ const log = createLogger('tool-execution');
 /**
  * Timeout default para execução individual de tool. Tool handler hung trava
  * o turn — `MAX_ITERATIONS` no tool-loop protege contra loop infinito mas
- * não contra hang. CR4-19.
+ * não contra hang.
  */
 const DEFAULT_TOOL_TIMEOUT_MS = 60_000;
 
@@ -43,7 +43,7 @@ export interface ExecuteToolUsesCtx {
   readonly workspaceId?: string;
   /**
    * Timeout máximo por tool em ms. Default 60s. Em timeout, signal local
-   * é abortado e tool retorna erro com `isError: true` para o agent (CR4-19).
+   * é abortado e tool retorna erro com `isError: true` para o agent.
    */
   readonly toolTimeoutMs?: number;
 }
@@ -114,11 +114,11 @@ async function executeSingleToolInternal(
   },
 ): Promise<ToolOutcome> {
   const { use } = ctx;
-  // CR7-10: AbortSignal precisa interromper a espera por permission. Sem
+  // AbortSignal precisa interromper a espera por permission. Sem
   // isso, turn cancelado durante modal pendurava `runToolLoop` até o
   // user clicar (ou timeout do broker). Race entre `signal.aborted` e
   // `broker.request` resolution: o que vier primeiro vence.
-  // CR9: cleanup do listener registrado em ctx.signal quando requestPromise
+  // Cleanup do listener registrado em ctx.signal quando requestPromise
   // ganha a race. Sem isso, o listener (`onAbort`) permanecia anexado ao
   // signal mesmo após decisão tomada — leak por tool execution acumula em
   // turns longos com múltiplas tool uses.
@@ -190,7 +190,7 @@ async function executeSingleToolInternal(
     };
   }
 
-  // CR4-19: timeout per-handler. Cria signal composto que aborta no
+  // Timeout per-handler. Cria signal composto que aborta no
   // primeiro de: parent abort (turn cancel) ou timeout. Em timeout
   // retornamos tool result com isError para o agent reportar ao usuário
   // de forma estruturada em vez de hang.
