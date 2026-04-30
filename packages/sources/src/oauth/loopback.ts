@@ -75,7 +75,7 @@ export async function startLoopbackServer(
     }
   });
 
-  // CR8-24: tenta listen com retry quando porta já está em uso (TCP race
+  // Tenta listen com retry quando porta já está em uso (TCP race
   // entre teardown anterior em FIN_WAIT2 e novo bind). Se `port: 0` (default),
   // fallback escolhe portas aleatórias no range ephemeral; se port fixo,
   // só uma tentativa é feita (caller pediu porta específica).

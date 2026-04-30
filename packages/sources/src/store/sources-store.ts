@@ -29,6 +29,53 @@ const log = createLogger('sources-store');
 
 const FILE_NAME = 'sources.json';
 
+/**
+ * Lista de chaves sensíveis que NUNCA devem persistir em
+ * `sources.json` em plaintext — devem viver no `CredentialVault`,
+ * referenciadas via `credentialKey` na source. Insert/update detectam e
+ * removem essas chaves do `config` persistido + emitem warn explícito.
+ *
+ * Match case-insensitive contra os nomes top-level + suffix-based para
+ * pegar variantes. Não recursive (config 1 nível) para manter previsibilidade.
+ */
+const SENSITIVE_CONFIG_KEYS: readonly string[] = [
+  'authToken',
+  'apiKey',
+  'apiToken',
+  'secret',
+  'password',
+  'clientSecret',
+  'privateKey',
+  'bearerToken',
+  'accessToken',
+  'refreshToken',
+];
+
+function stripSensitiveConfig(
+  workspaceId: string,
+  slug: string,
+  source: 'insert' | 'update',
+  config: Readonly<Record<string, unknown>>,
+): Readonly<Record<string, unknown>> {
+  const stripped: Record<string, unknown> = {};
+  const removed: string[] = [];
+  for (const [key, value] of Object.entries(config)) {
+    const isSensitive = SENSITIVE_CONFIG_KEYS.some((k) => k.toLowerCase() === key.toLowerCase());
+    if (isSensitive && typeof value === 'string' && value.length > 0) {
+      removed.push(key);
+      continue;
+    }
+    stripped[key] = value;
+  }
+  if (removed.length > 0) {
+    log.warn(
+      { workspaceId, slug, source, removed },
+      'sensitive config keys stripped before persist; caller deve usar credentialKey',
+    );
+  }
+  return stripped;
+}
+
 export interface SourcesStoreOptions {
   readonly resolveWorkspaceRoot: (workspaceId: string) => string;
 }
@@ -97,6 +144,12 @@ export class SourcesStore {
         throw new Error(`source slug already exists: ${input.slug}`);
       }
       const now = Date.now();
+      const safeConfig = stripSensitiveConfig(
+        input.workspaceId,
+        input.slug,
+        'insert',
+        input.config,
+      );
       const source: SourceConfigView = {
         id: randomUUID(),
         workspaceId: input.workspaceId,
@@ -107,7 +160,7 @@ export class SourcesStore {
         authKind: input.authKind,
         enabled: input.enabled,
         status: 'disconnected' as SourceStatus,
-        config: { ...input.config },
+        config: { ...safeConfig },
         ...(input.credentialKey === undefined ? {} : { credentialKey: input.credentialKey }),
         ...(input.iconUrl === undefined ? {} : { iconUrl: input.iconUrl }),
         ...(input.description === undefined ? {} : { description: input.description }),
@@ -134,12 +187,16 @@ export class SourcesStore {
       if (idx < 0) return null;
       const current = file.sources[idx];
       if (!current) return null;
+      const safeConfig =
+        patch.config === undefined
+          ? undefined
+          : stripSensitiveConfig(workspaceId, current.slug, 'update', patch.config);
       const updated: SourceConfigView = {
         ...current,
         ...(patch.enabled === undefined ? {} : { enabled: patch.enabled }),
         ...(patch.status === undefined ? {} : { status: patch.status }),
         ...(patch.lastError === undefined ? {} : { lastError: patch.lastError }),
-        ...(patch.config === undefined ? {} : { config: { ...patch.config } }),
+        ...(safeConfig === undefined ? {} : { config: { ...safeConfig } }),
         updatedAt: Date.now(),
       };
       const next: SourcesFile = {
@@ -181,10 +238,10 @@ export class SourcesStore {
     try {
       return SourcesFileSchema.parse(JSON.parse(raw));
     } catch (parseErr) {
-      // CR9: sources.json corrompido (JSON inválido OU schema mismatch após
+      // Sources.json corrompido (JSON inválido OU schema mismatch após
       // versão antiga/upgrade) era propagado como exceção em qualquer leitura
       // — derrubava `list()`, `get()`, `update()` permanentemente. Mesmo
-      // pattern do PermissionStore (CR7-27): preserva o arquivo como
+      // pattern do PermissionStore: preserva o arquivo como
       // `.corrupt.<ts>`, retorna empty, segue. Operador inspeciona e
       // restaura manualmente se necessário.
       const corruptPath = `${path}.corrupt.${Date.now()}`;

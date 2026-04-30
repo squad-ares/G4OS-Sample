@@ -69,7 +69,7 @@ export class McpHttpSource extends DisposableBase implements ISource {
   }
 
   async listTools(): Promise<Result<readonly ToolDefinition[], SourceError>> {
-    // CR9: distinguir `needs_auth` de outros estados não-ativados. Antes,
+    // Distinguir `needs_auth` de outros estados não-ativados. Antes,
     // qualquer estado sem client virava `incompatible`, e o broker (ou UI)
     // perdia o sinal de "user precisa fazer OAuth pra continuar". Agora,
     // `needs_auth` propaga como `authRequired` para o caller decidir
