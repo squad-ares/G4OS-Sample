@@ -1,8 +1,7 @@
 /**
  * Typeahead de menções disparadas por `@` no composer.
  *
- * Scope OUTLIER-20 MVP: não migra pra editor rich (contenteditable/Lexical).
- * Em vez disso:
+ * Não migra pra editor rich (contenteditable/Lexical). Em vez disso:
  *   1. Detecta quando o usuário digita `@` (em start ou após whitespace)
  *   2. Lê o `query` depois do `@` até o próximo whitespace/quebra
  *   3. Expõe state + helpers (`replaceWith`, `cancel`)
@@ -10,7 +9,7 @@
  *
  * A inserção ao selecionar substitui `@query` pelo marker plain-text
  * `[source:slug] ` — o backend já parseia esses markers via
- * `SourceIntentDetector` (OUTLIER-10). Quando um editor rich for
+ * `SourceIntentDetector`. Quando um editor rich for
  * adotado, o marker vira content block estruturado (chip).
  */
 

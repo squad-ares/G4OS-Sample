@@ -3,8 +3,8 @@
  *
  * Tenta FTS5 primeiro (unicode61 + `snippet()` com `<mark>` delimiters). Se
  * o virtual table não está disponível ou a query é inválida em MATCH
- * syntax, cai para `LIKE` com wildcard simples. O critério de aceite da
- * TASK-11-00-10 exige fallback gracioso; aqui ele é por catch local em vez
+ * syntax, cai para `LIKE` com wildcard simples. O critério de aceite
+ * exige fallback gracioso; aqui ele é por catch local em vez
  * de feature-detection global.
  *
  * A query de entrada do usuário é sempre embrulhada como uma *phrase*

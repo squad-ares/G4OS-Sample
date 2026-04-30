@@ -29,7 +29,12 @@ function toMcpHttpConfig(config: SourceConfig): McpHttpConfig {
     slug: config.slug,
     metadata: raw.metadata,
     url: raw.url,
+    // AuthToken plaintext continua aceito em deserialization
+    // pra suportar configs legacy em memória, mas o sources-store
+    // já o remove na escrita — então em prática, configs persistidos não
+    // chegam aqui com authToken. Preferir authCredentialKey.
     ...(raw.authToken === undefined ? {} : { authToken: raw.authToken }),
+    ...(raw.authCredentialKey === undefined ? {} : { authCredentialKey: raw.authCredentialKey }),
     ...(raw.headers ? { headers: raw.headers } : {}),
   };
 }

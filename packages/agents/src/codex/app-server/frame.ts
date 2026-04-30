@@ -41,7 +41,7 @@ export const jsonLineDecoder: CodexFrameDecoder = {
  * Variante estruturada do decoder: distingue `parse_error` (linha não é
  * JSON válido) de `schema_error` (JSON ok mas type/requestId fora do
  * contrato). Permite ao caller logar/medir cada tipo separadamente —
- * ADR-0072 + CR3-18 (observabilidade de protocol failure).
+ * ADR-0072 (observabilidade de protocol failure).
  */
 export function decodeFrame(line: string): DecodeResult {
   const trimmed = line.trim();
@@ -69,7 +69,7 @@ function isEventShape(value: unknown): value is CodexResponseEvent {
  * encontrar `\n` e devolve linhas completas. Resíduo (chunk sem newline
  * final) fica em `buffer` até o próximo `push`.
  *
- * **Performance (CR5-27):** `push` chama `buffer.slice(0, idx)` +
+ * **Performance:** `push` chama `buffer.slice(0, idx)` +
  * `buffer.slice(idx + 1)` por linha — O(n²) no pior caso de stream com
  * muitas linhas grandes. Codex stdout é limitado por modelo (raramente
  * > 100KB por turno), então O(n²) cabe no orçamento. Refator para acúmulo

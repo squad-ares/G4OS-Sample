@@ -102,7 +102,7 @@ export class SourceIntentDetector {
       if (match) hits.add(match.slug);
     }
 
-    // CR9: word-boundary check em vez de `includes()`. Sem isso, displayName
+    // Word-boundary check em vez de `includes()`. Sem isso, displayName
     // `"AI"` matcha em qualquer mensagem com "main", "rain", "trail". O
     // bound-test usa `\b` que respeita lookbehind/ahead em chars não-letra.
     // Escapamos o display name pra evitar interpretação de regex chars.

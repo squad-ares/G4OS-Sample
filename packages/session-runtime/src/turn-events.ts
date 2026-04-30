@@ -62,7 +62,7 @@ export function forwardAgentEvent(event: AgentEvent, ctx: TurnEventCtx): void {
       break;
     }
     default:
-      // tool_use_* handled by the TurnDispatcher tool loop (OUTLIER-09)
+      // tool_use_* handled by the TurnDispatcher tool loop
       break;
   }
 }

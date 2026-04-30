@@ -40,6 +40,16 @@ const buildTimeDefines = {
   __G4OS_SUPABASE_ANON_KEY__: JSON.stringify(
     mergedEnv['SUPABASE_ANON_KEY'] ?? mergedEnv['SUPABASE_PUBLISHABLE_KEY'] ?? '',
   ),
+  // TASK-10B-13: Sentry DSN/env/release injetados em build time. Em dev
+  // sem env vars o `initSentry` retorna NOOP (sem download do SDK, sem
+  // overhead). Mesma convenção das vars Supabase acima.
+  __G4OS_SENTRY_DSN__: JSON.stringify(mergedEnv['G4OS_SENTRY_DSN'] ?? ''),
+  __G4OS_SENTRY_ENVIRONMENT__: JSON.stringify(
+    mergedEnv['G4OS_SENTRY_ENVIRONMENT'] ?? (isBuildMode ? 'production' : 'development'),
+  ),
+  __G4OS_SENTRY_RELEASE__: JSON.stringify(
+    mergedEnv['G4OS_SENTRY_RELEASE'] ?? mergedEnv['npm_package_version'] ?? '',
+  ),
 };
 
 export default defineConfig({
@@ -71,14 +81,18 @@ export default defineConfig({
   preload: {
     plugins: [externalizeDepsPlugin({ exclude: [] })],
     build: {
-      lib: {
-        entry: 'src/preload.ts',
-        formats: ['cjs'],
-        fileName: () => 'preload.cjs',
-      },
+      // Multiple entries (preload main + preload-debug-hud) — `lib` aceita
+      // só um. Usar `rollupOptions.input` direto resolve.
       rollupOptions: {
+        input: {
+          preload: path.resolve(__dirname, 'src/preload.ts'),
+          'preload-debug-hud': path.resolve(__dirname, 'src/preload-debug-hud.ts'),
+        },
         external: ['electron'],
-        output: { format: 'cjs', entryFileNames: 'preload.cjs' },
+        output: {
+          format: 'cjs',
+          entryFileNames: '[name].cjs',
+        },
       },
     },
   },
@@ -97,9 +111,13 @@ export default defineConfig({
         '@': path.resolve(__dirname, 'src/renderer'),
       },
     },
+    define: buildTimeDefines,
     build: {
       rollupOptions: {
-        input: { main: path.resolve(__dirname, 'src/renderer/index.html') },
+        input: {
+          main: path.resolve(__dirname, 'src/renderer/index.html'),
+          'debug-hud': path.resolve(__dirname, 'src/renderer/debug-hud/index.html'),
+        },
       },
     },
     server: {

@@ -3,7 +3,7 @@ import { middleware } from '../trpc-base.ts';
 
 const buckets = new Map<string, { count: number; resetAt: number }>();
 
-// CR9: lazy GC. Sem cleanup, cada novo `(userId, path)` adiciona uma
+// Lazy GC. Sem cleanup, cada novo `(userId, path)` adiciona uma
 // entrada permanente; buckets cresce indefinidamente em sessões longas
 // (cada procedure invocada gera uma key). A cada N hits, varre buckets
 // e remove os com `resetAt` no passado. Trade-off: O(n) ocasional vs

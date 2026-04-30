@@ -1,0 +1,50 @@
+# Alertas de memória — espelham as Dores do cliente em V1.
+# Targets de exemplo; ajustar com baseline real após primeiras runs.
+
+groups:
+  - name: g4os-memory
+    interval: 30s
+    rules:
+      - alert: HeapGrowingLinearly
+        expr: deriv(g4os_process_heap_used_bytes[10m]) > 5000000
+        for: 10m
+        labels:
+          severity: warning
+          dor: '2'
+        annotations:
+          summary: 'Heap crescendo >5MB/min em {{ $labels.service }}'
+          description: |
+            Heap em {{ $labels.service }} cresceu acima de 5MB/min
+            sustained por 10min — sinal de leak. Verifique listeners
+            sem dispose, timers órfãos ou caches sem GC.
+
+      - alert: RSSAbove1GB
+        expr: g4os_process_rss_bytes > 1073741824
+        for: 5m
+        labels:
+          severity: critical
+          dor: '2'
+        annotations:
+          summary: 'RSS acima de 1GB em {{ $labels.service }}'
+          description: 'RSS sustained acima de 1GB — main process pode estar para travar (Dor 2 V1).'
+
+      - alert: ListenerCountExploding
+        expr: g4os_event_listener_count > 100
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'Listeners > 100 em {{ $labels.service }}'
+          description: 'Provável disposable não registrado. Inspecione Debug HUD > Listeners.'
+
+  - name: g4os-vault
+    rules:
+      - alert: VaultErrorSpike
+        expr: rate(g4os_vault_get_total{outcome="failure"}[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+          dor: '3'
+        annotations:
+          summary: 'Erro do vault > 5% em 5min'
+          description: 'Possível corrupção / safeStorage indisponível (Dor 3 V1).'

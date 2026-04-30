@@ -9,10 +9,12 @@
  *   G4OS_BUNDLE_ARCH=x64|arm64               (default: process.arch)
  *   G4OS_BUNDLE_OUTPUT=<dir>                 (default: apps/desktop/dist)
  *   G4OS_BUNDLE_CHECKSUM_MODE=verify|capture (default: verify)
+ *   G4OS_RELEASE_CHANNEL=stable|beta|canary  (default: stable, TASK-12-07)
  *
  * Layout de saída:
  *   <output>/vendor/<runtime>/...
  *   <output>/runtime/<bridge artifacts>  (populado por outros scripts)
+ *   <output>/install-meta.json           (TASK-12-07: identidade do build)
  */
 import { readFile, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
@@ -26,8 +28,9 @@ import {
   checksumKey,
   type Platform,
   PROFILE_RUNTIMES,
+  type Runtime,
 } from './types.ts';
-import { verifyBinary } from './verify.ts';
+import { type VerifyResult, verifyBinary } from './verify.ts';
 import { RUNTIME_VERSIONS } from './versions.ts';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -58,6 +61,10 @@ async function main(): Promise<void> {
 
   const runtimes = PROFILE_RUNTIMES[profile];
   const summary: Array<{ runtime: string; version: string; ok: boolean; reason?: string }> = [];
+  // TASK-12-07: agregator de runtime verifications para gerar
+  // install-meta.json ao final. Apenas runtimes verificados com sucesso
+  // entram no manifest.
+  const verifiedRuntimes = new Map<Runtime, VerifyResult>();
 
   for (const runtime of runtimes) {
     const version = resolveVersion(runtime);
@@ -88,6 +95,7 @@ async function main(): Promise<void> {
       }
       console.log(`    ✓ ${verify.version}  (${(download.sizeBytes / 1024 / 1024).toFixed(1)} MB)`);
       summary.push({ runtime, version: verify.version, ok: true });
+      verifiedRuntimes.set(runtime, verify);
     } catch (err) {
       const reason = err instanceof Error ? err.message : String(err);
       console.error(`    ✗ ${reason}`);
@@ -104,6 +112,18 @@ async function main(): Promise<void> {
   // populou bridge-mcp-server/session-mcp-server/etc ainda.
   await writeFile(join(runtimeDir, '.gitkeep'), '', 'utf-8').catch(() => {});
 
+  // TASK-12-07: agrega install-meta.json com hash de cada runtime
+  // extraído. Lido pelo `loadInstallMeta` no boot e por
+  // `verifyRuntimeHashes` on-demand.
+  await writeInstallMeta({
+    outputDir,
+    vendorDir,
+    platform,
+    arch,
+    desktopRoot,
+    verifiedRuntimes,
+  });
+
   const failed = summary.filter((s) => !s.ok);
   if (failed.length > 0) {
     console.error(`\n[bundle-runtimes] ${failed.length} runtime(s) failed:`);
@@ -112,6 +132,59 @@ async function main(): Promise<void> {
   }
 
   console.log(`\n[bundle-runtimes] ${summary.length} runtime(s) OK`);
+}
+
+interface WriteInstallMetaOptions {
+  readonly outputDir: string;
+  readonly vendorDir: string;
+  readonly platform: Platform;
+  readonly arch: Arch;
+  readonly desktopRoot: string;
+  readonly verifiedRuntimes: ReadonlyMap<Runtime, VerifyResult>;
+}
+
+async function writeInstallMeta(options: WriteInstallMetaOptions): Promise<void> {
+  const pkgRaw = await readFile(join(options.desktopRoot, 'package.json'), 'utf-8');
+  const pkg = JSON.parse(pkgRaw) as { version?: string };
+  const appVersion = pkg.version ?? '0.0.0';
+
+  // CR12-T: flavor é stable salvo override via env (CI release pode definir
+  // canary/beta). Mesma convenção do electron-updater.
+  const rawFlavor = process.env['G4OS_RELEASE_CHANNEL'] ?? 'stable';
+  const flavor: 'stable' | 'beta' | 'canary' =
+    rawFlavor === 'beta' || rawFlavor === 'canary' ? rawFlavor : 'stable';
+
+  const runtimes: Record<string, { version: string; sha256: string; binaryRelativePath: string }> =
+    {};
+  for (const [runtime, verify] of options.verifiedRuntimes) {
+    if (!verify.ok || !verify.binarySha256) continue;
+    // Path relativo a `<vendorDir>/<runtime>/` — mesmo formato que
+    // `verifyRuntimeHashes` em `@g4os/platform` reconstroi para checar.
+    const perRuntimeDir = join(options.vendorDir, runtime);
+    const prefix = `${perRuntimeDir}/`;
+    const relative = verify.binaryPath.startsWith(prefix)
+      ? verify.binaryPath.slice(prefix.length)
+      : verify.binaryPath;
+    // Normaliza para POSIX (Windows usa `\`).
+    const posixRelative = relative.replace(/\\/g, '/');
+    runtimes[runtime] = {
+      version: resolveVersion(runtime),
+      sha256: verify.binarySha256,
+      binaryRelativePath: posixRelative,
+    };
+  }
+
+  const meta = {
+    schemaVersion: 1 as const,
+    flavor,
+    appVersion,
+    builtAt: new Date().toISOString(),
+    target: `${options.platform}-${options.arch}`,
+    runtimes,
+  };
+  const metaPath = join(options.outputDir, 'install-meta.json');
+  await writeFile(metaPath, `${JSON.stringify(meta, null, 2)}\n`, 'utf-8');
+  console.log(`[bundle-runtimes] install-meta.json written → ${metaPath}`);
 }
 
 function resolveVersion(runtime: string): string {

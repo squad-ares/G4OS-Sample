@@ -29,7 +29,7 @@ export interface MemoryMonitorOptions {
 const DEFAULT_INTERVAL_MS = 30_000;
 const DEFAULT_HISTORY = 20;
 const DEFAULT_HEAP_GROWTH_RATIO = 1.5;
-// CR8-19: o primeiro sample logo após boot pega o spike de inicialização do
+// O primeiro sample logo após boot pega o spike de inicialização do
 // V8 (parsing, JIT warmup, framework load). Se virasse baseline, growth
 // threshold nunca dispararia. Skipa os primeiros N samples e usa o N+1
 // como baseline (heap já se estabilizou).
@@ -63,7 +63,7 @@ export class MemoryMonitor extends DisposableBase {
 
   start(): void {
     if (this.timer) return;
-    // CR7-43: `.unref()` é chained mas se timer não for `Timeout` (runtime
+    // `.unref()` é chained mas se timer não for `Timeout` (runtime
     // exótico, edge worker), `.unref()` retorna undefined → erro silencioso.
     // Detectar e logar pra operador investigar.
     const handle = setInterval(() => this.sampleOnce(), this.intervalMs);
@@ -114,7 +114,7 @@ export class MemoryMonitor extends DisposableBase {
       this.history.shift();
     }
     if (this.baselineHeap === undefined) {
-      // CR8-19: skip primeiros samples (boot/JIT spike). Quando contador
+      // Skip primeiros samples (boot/JIT spike). Quando contador
       // zera, próximo sample vira baseline.
       if (this.samplesUntilBaseline > 0) {
         this.samplesUntilBaseline -= 1;

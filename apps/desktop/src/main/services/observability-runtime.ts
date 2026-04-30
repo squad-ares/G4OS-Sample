@@ -17,11 +17,13 @@
  * ADRs relacionadas: 0060 (pino), 0061 (OTel), 0062 (Sentry), 0063 (memory).
  */
 
+import type { Server } from 'node:http';
 import { createLogger } from '@g4os/kernel/logger';
-import { MemoryMonitor } from '@g4os/observability/memory';
+import { ListenerLeakDetector, MemoryMonitor } from '@g4os/observability/memory';
 import { initTelemetry, type TelemetryHandle } from '@g4os/observability/sdk';
 import { initSentry, type SentryHandle } from '@g4os/observability/sentry';
 import { readRuntimeEnv } from '../runtime-env.ts';
+import { startMetricsScrapeServer } from './metrics-scrape-server.ts';
 
 const log = createLogger('observability-runtime');
 
@@ -35,6 +37,14 @@ export interface ObservabilityRuntime {
   readonly telemetry: TelemetryHandle;
   readonly sentry: SentryHandle;
   readonly memory: MemoryMonitor;
+  /**
+   * Detector global de listener leaks. Subsistemas que se
+   * importam (DisposableBase, EventEmitter wrappers) chamam
+   * `listenerDetector.track(target, event, handler)` em paralelo ao
+   * `addListener`, e `untrack` no `removeListener`. O Debug HUD consome
+   * `snapshot()` para visualizar.
+   */
+  readonly listenerDetector: ListenerLeakDetector;
   dispose(): Promise<void>;
 }
 
@@ -77,8 +87,20 @@ export async function createObservabilityRuntime(
   const memory = new MemoryMonitor(memoryOptions);
   memory.start();
 
+  // Detector global de listeners para o Debug HUD.
+  // Inocuo até subsistemas chamarem `track()/untrack()` — sem isso,
+  // `snapshot()` retorna vazio e o card mostra placeholder.
+  const listenerDetector = new ListenerLeakDetector();
+
+  // Expõe /metrics no formato Prometheus para scrape local quando OTel está ativo.
+  const metricsServer: Server | null = otlpEndpoint ? startMetricsScrapeServer() : null;
+
   log.info(
-    { otel: Boolean(otlpEndpoint), sentry: Boolean(sentryDsn) },
+    {
+      otel: Boolean(otlpEndpoint),
+      sentry: Boolean(sentryDsn),
+      metricsPort: metricsServer ? 9464 : null,
+    },
     'observability runtime inicializado',
   );
 
@@ -86,7 +108,9 @@ export async function createObservabilityRuntime(
     telemetry,
     sentry,
     memory,
+    listenerDetector,
     dispose: async () => {
+      metricsServer?.close();
       memory.dispose();
       await Promise.all([telemetry.shutdown(), sentry.close()]);
     },

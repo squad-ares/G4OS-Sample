@@ -1,7 +1,7 @@
 /**
  * PermissionBroker — mediador entre tool calls do agent e decisão do usuário.
  *
- * Fluxo com persistência (OUTLIER-09 Phase 2):
+ * Fluxo com persistência:
  *   1. Tool loop chama `request({sessionId, turnId, toolName, input, workspaceId?})`
  *      ao receber `tool_use_complete` do agent.
  *   2. Broker consulta `PermissionStore.find(workspaceId, toolName, input)`:
@@ -56,13 +56,13 @@ interface Pending {
   readonly request: PermissionRequest;
   readonly argsHash: string;
   readonly coalesceKey: string;
-  /** CR7-26: handle do timeout para cancelar quando responde/cancela. */
+  /** Handle do timeout para cancelar quando responde/cancela. */
   readonly timeoutHandle: ReturnType<typeof setTimeout>;
   readonly workspaceId?: string;
   readonly input: Readonly<Record<string, unknown>>;
 }
 
-// CR7-26: timeout default de 5min em request pendente. Usuário precisa de
+// Timeout default de 5min em request pendente. Usuário precisa de
 // tempo razoável para ler permission modal, mas não infinito — sem isso o
 // broker acumulava promises em `#pending` por turnos abandonados, vazando
 // memória até dispose. Auto-deny em timeout.
@@ -87,7 +87,7 @@ export class PermissionBroker extends DisposableBase {
     onRequest: (req: PermissionRequest) => void,
     options: {
       readonly store?: PermissionStore;
-      /** CR7-26: override timeout em testes. Default 5min. */
+      /** Override timeout em testes. Default 5min. */
       readonly requestTimeoutMs?: number;
     } = {},
   ) {
@@ -122,8 +122,8 @@ export class PermissionBroker extends DisposableBase {
     }
 
     // Coalesce: se já existe pendência idêntica nessa sessão+workspace, reaproveita.
-    // CR4-08: workspaceId entra na chave para garantir isolamento entre tenants.
-    // CR6-10: prefixos `ws:` / `no-ws:` evitam colisão teórica com workspaceId
+    // WorkspaceId entra na chave para garantir isolamento entre tenants.
+    // Prefixos `ws:` / `no-ws:` evitam colisão teórica com workspaceId
     // que valha a string sentinel (improvável com nanoids mas anti-pattern).
     const wsKey = input.workspaceId ? `ws:${input.workspaceId}` : 'no-ws';
     const coalesceKey = `${wsKey}:${input.sessionId}:${input.toolName}:${argsHash}`;
@@ -144,7 +144,7 @@ export class PermissionBroker extends DisposableBase {
       inputJson: safeJson(input.input),
     };
 
-    // CR7-09: emitir callback ANTES de configurar pending. Se onRequest
+    // Emitir callback ANTES de configurar pending. Se onRequest
     // throw (renderer crashed, IPC down), retornamos 'deny' fail-safe
     // direto — nunca deixamos pendência órfã esperando resposta que não vai
     // chegar. Antes: pendência era inserida primeiro, callback ficava
@@ -165,7 +165,7 @@ export class PermissionBroker extends DisposableBase {
     }
 
     const promise = new Promise<PermissionDecision>((resolve, reject) => {
-      // CR7-26: timeout interno — auto-deny + cleanup se pendência não
+      // Timeout interno — auto-deny + cleanup se pendência não
       // resolver dentro de #requestTimeoutMs. Sem isso, request abandonado
       // (turn cancelado sem ack do user) acumula em #pending para sempre.
       const timeoutHandle = setTimeout(() => {
@@ -179,7 +179,7 @@ export class PermissionBroker extends DisposableBase {
           resolve('deny');
         }
       }, this.#requestTimeoutMs);
-      // CR8-26: `unref()` pode não existir em runtimes exóticos (worker_threads
+      // `unref()` pode não existir em runtimes exóticos (worker_threads
       // edge cases, alguns shims). Fallback log para operador investigar; o
       // dispose() já limpa o timer explicitamente, então o pior caso é
       // process aguardando timer no quit.
@@ -211,7 +211,7 @@ export class PermissionBroker extends DisposableBase {
     return promise;
   }
 
-  respond(requestId: string, decision: PermissionDecision): boolean {
+  async respond(requestId: string, decision: PermissionDecision): Promise<boolean> {
     const pending = this.#pending.get(requestId);
     if (!pending) {
       log.warn({ requestId }, 'respond called for unknown permission request');
@@ -231,15 +231,23 @@ export class PermissionBroker extends DisposableBase {
         pending.argsHash,
       );
     } else if (decision === 'allow_always' && this.#store && pending.workspaceId) {
-      const workspaceId = pending.workspaceId;
-      void this.#store
-        .persist(workspaceId, {
+      // Await persist + fsync ANTES de resolver. Antes era
+      // fire-and-forget — se app crashasse entre `persist()` retornar e
+      // `writeAtomic` flushar, decisão `allow_always` se perdia. Latência
+      // adicional é aceita: usuário acabou de clicar "Always", está
+      // esperando o tool rodar; janela de poucos ms para fsync é
+      // imperceptível e garante que próximo turn não pergunta de novo.
+      try {
+        await this.#store.persist(pending.workspaceId, {
           toolName: pending.request.toolName,
           args: pending.input,
-        })
-        .catch((err: unknown) => {
-          log.warn({ err, toolName: pending.request.toolName }, 'failed to persist allow_always');
         });
+      } catch (err) {
+        log.warn(
+          { err, toolName: pending.request.toolName },
+          'failed to persist allow_always — proceeding with allow_once for current turn',
+        );
+      }
     }
 
     pending.resolve(decision);

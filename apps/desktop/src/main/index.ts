@@ -1,8 +1,11 @@
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { loadSupabaseEnvFiles } from '@g4os/auth/supabase';
 import { createVault } from '@g4os/credentials';
 import { SessionsRepository } from '@g4os/data/sessions';
+import { setIpcMetricsRecorder } from '@g4os/ipc/server';
 import { createLogger } from '@g4os/kernel/logger';
+import { ipcMetrics } from '@g4os/observability/ipc';
 import { PermissionBroker, PermissionStore } from '@g4os/permissions';
 import { getAppPaths, isMacOS } from '@g4os/platform';
 import { SessionEventBus } from '@g4os/session-runtime';
@@ -10,6 +13,7 @@ import { SourcesStore } from '@g4os/sources/store';
 import { createStubAgentFactory } from './agents/stub-agent-factory.ts';
 import { providerForVaultKey, registerAgents } from './agents-bootstrap.ts';
 import { AppLifecycle } from './app-lifecycle.ts';
+import { createDebugHudRuntime, type DebugHudRuntime } from './debug-hud/index.ts';
 import { DeepLinkHandler } from './deep-link-handler.ts';
 import { loadElectron } from './electron-runtime.ts';
 import { initIpcServer } from './ipc-bootstrap.ts';
@@ -27,6 +31,8 @@ import { createObservabilityRuntime } from './services/observability-runtime.ts'
 import { createPerformWipe } from './services/perform-wipe.ts';
 import { createPermissionsService } from './services/permissions-service.ts';
 import { createPlatformService } from './services/platform-service.ts';
+import { createPreferencesService } from './services/preferences-service.ts';
+import { PreferencesStore } from './services/preferences-store.ts';
 import { createProjectsService } from './services/projects-service.ts';
 import { resolveIconPath, resolveRendererTargets } from './services/renderer-paths.ts';
 import { SessionsCleanupScheduler } from './services/sessions-cleanup-scheduler.ts';
@@ -36,7 +42,9 @@ import { createMountRegistry } from './services/sources/mount-bootstrap.ts';
 import { createSourcesService } from './services/sources-service.ts';
 import { TitleGeneratorService } from './services/title-generator.ts';
 import { buildIntentUpdater, buildToolCatalog } from './services/tools-bootstrap.ts';
+import { TranscriptionService } from './services/transcription.ts';
 import { TurnDispatcher } from './services/turn-dispatcher.ts';
+import { createUpdatesRuntime } from './services/updates-bootstrap.ts';
 import { createWindowsService } from './services/windows-service.ts';
 import { createWorkspaceTransferService } from './services/workspace-transfer-service.ts';
 import { createWorkspacesService } from './services/workspaces-service.ts';
@@ -57,7 +65,16 @@ export async function bootstrapMain(options: BootstrapOptions = {}): Promise<voi
     log.warn('electron runtime unavailable; main boot skipped');
     return;
   }
-  await electron.app.whenReady();
+
+  // .env loading ANTES de app.whenReady(): Sentry exige init pré-ready.
+  const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), '../../../..');
+  if (!electron.app.isPackaged) {
+    const { env: dotEnv } = loadSupabaseEnvFiles(rootDir);
+    for (const [k, v] of Object.entries(dotEnv)) {
+      // biome-ignore lint/style/noProcessEnv: composition root; seed único do .env
+      if (process.env[k] === undefined) process.env[k] = v;
+    }
+  }
 
   const observability = await createObservabilityRuntime({
     serviceName: '@g4os/desktop',
@@ -65,10 +82,13 @@ export async function bootstrapMain(options: BootstrapOptions = {}): Promise<voi
     environment: electron.app.isPackaged ? 'production' : 'development',
   });
 
+  await electron.app.whenReady();
+
   const preflight = new StartupPreflightService();
   const preflightReport = await preflight.run({
     isPackaged: electron.app.isPackaged,
-    rootDir: resolve(dirname(fileURLToPath(import.meta.url)), '../../../..'),
+    rootDir,
+    appVersion: electron.app.getVersion(),
   });
   if (preflightReport.status === 'fatal') {
     electron.dialog?.showErrorBox(
@@ -82,10 +102,11 @@ export async function bootstrapMain(options: BootstrapOptions = {}): Promise<voi
   const defaults = resolveRendererTargets();
   const preloadPath = options.preloadPath ?? defaults.preloadPath;
   const rendererUrl = options.rendererUrl ?? defaults.rendererUrl;
+  const hudPreloadPath = defaults.hudPreloadPath;
+  const hudRendererUrl = defaults.hudRendererUrl;
 
   const lifecycle = new AppLifecycle(electron.app);
   const cpuPool = new CpuPool();
-  const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), '../../../..');
   const iconPath = resolveIconPath({ isPackaged: electron.app.isPackaged, rootDir });
   if (iconPath && isMacOS() && !electron.app.isPackaged && electron.app.dock) {
     electron.app.dock.setIcon(iconPath);
@@ -107,10 +128,31 @@ export async function bootstrapMain(options: BootstrapOptions = {}): Promise<voi
   const migrationsFolder = electron.app.isPackaged
     ? resolve(process.resourcesPath, 'drizzle')
     : resolve(rootDir, 'packages/data/drizzle');
-  const database = await initDatabase({
-    filename: join(appPaths.data, 'app.db'),
-    migrationsFolder,
-  });
+  let database: Awaited<ReturnType<typeof initDatabase>>;
+  try {
+    database = await initDatabase({
+      filename: join(appPaths.data, 'app.db'),
+      migrationsFolder,
+    });
+  } catch (error) {
+    // Migration fail antes era thrown silencioso — user
+    // ficava em loading screen sem feedback. Agora mostra dialog nativo
+    // com path do backup pré-migration (preservado pelo `db-service`)
+    // e instrução para support, então quit explicitly. UI rica via
+    // RepairScreen requer renderer ativo, que não temos aqui.
+    log.error({ err: error, dbPath: join(appPaths.data, 'app.db') }, 'database init failed');
+    const message =
+      error instanceof Error ? error.message : 'unexpected error during database initialization';
+    const backupHint = `Backup pré-migration preservado em: ${join(appPaths.data, 'backups/')}`;
+    if (electron.dialog) {
+      electron.dialog.showErrorBox(
+        'G4 OS — Falha na inicialização do banco de dados',
+        `${message}\n\n${backupHint}\n\nReinstalar não vai resolver — contate o suporte com o ZIP de debug (Settings → Repair antes de reinstalar).`,
+      );
+    }
+    electron.app.exit(1);
+    return;
+  }
   const workspacesService = createWorkspacesService({
     drizzle: database.drizzle,
     resolveRootPath: (id: string) => appPaths.workspace(id),
@@ -132,7 +174,7 @@ export async function bootstrapMain(options: BootstrapOptions = {}): Promise<voi
 
   const credentialsService = createCredentialsService({
     vault: credentialVault,
-    // CR6-09: refresh() não pode propagar pra cima — se falhar (vault locked,
+    // refresh() não pode propagar pra cima — se falhar (vault locked,
     // env reread errado), o caller é o mutex de credentials e a falha
     // corromperia o estado. Best-effort: log e segue. Próxima mutation reage.
     onMutation: async (key) => {
@@ -221,16 +263,63 @@ export async function bootstrapMain(options: BootstrapOptions = {}): Promise<voi
   const sessionsCleanup = new SessionsCleanupScheduler({ drizzle: database.drizzle });
   sessionsCleanup.start();
 
-  // CR5-01: BackupScheduler — 24h interval, retenção 7/4/3 (ADR-0045).
+  // BackupScheduler — 24h interval, retenção 7/4/3 (ADR-0045).
   const backupScheduler = createBackupScheduler({
     drizzle: database.drizzle,
     appVersion: electron.app.getVersion(),
   });
   backupScheduler.start();
 
-  // CR5-01: limpa `.tmp` órfãos deixados por crashes do `truncateAfter` JSONL
-  // (CR4-15). Best-effort, async em background — boot continua.
+  // Limpa `.tmp` órfãos deixados por crashes do `truncateAfter` JSONL.
+  // Best-effort, async em background — boot continua.
   scheduleOrphanTmpCleanup(database.drizzle, log);
+
+  // PreferencesStore + Debug HUD reativo.
+  // Default: dev=true (HUD aparece direto), prod=false (user habilita em
+  // Settings > Modo de Reparo). Persiste em <appPaths.config>/preferences.json.
+  const preferencesStore = new PreferencesStore({
+    defaultDebugHudEnabled: !electron.app.isPackaged,
+  });
+  const initialHudEnabled = await preferencesStore.getDebugHudEnabled();
+  let debugHud: DebugHudRuntime | null = null;
+  try {
+    debugHud = await createDebugHudRuntime({
+      preloadPath: hudPreloadPath,
+      rendererUrl: hudRendererUrl,
+      initialEnabled: initialHudEnabled,
+      listenerDetector: observability.listenerDetector,
+      activeTurnsProvider: turnDispatcher,
+    });
+    log.info({ initialHudEnabled }, 'debug HUD runtime ready');
+  } catch (cause) {
+    log.warn({ err: cause }, 'failed to start debug HUD runtime');
+  }
+
+  // Liga o middleware tRPC `withMetrics` ao registry
+  // singleton em `@g4os/observability/ipc`. Aggregator do HUD lê 1Hz.
+  // Sem subscriber, registry só acumula sem custo extra.
+  setIpcMetricsRecorder((sample) => ipcMetrics.record(sample));
+
+  // Wire UpdateService. Em packaged usa electron-updater real;
+  // em dev/E2E vira no-op (sem listener leak, sem crash).
+  const updatesRuntime = await createUpdatesRuntime({
+    disabled: !electron.app.isPackaged,
+  });
+
+  // Wire TranscriptionService. OpenAI primary, managed fallback.
+  // managedEndpoint vazio em dev → fallback degrade to "no provider"
+  // (erro tipado), exatamente o desejado quando user não tem nenhuma key.
+  const transcriptionService = new TranscriptionService({
+    getOpenAIKey: async () => {
+      const r = await credentialVault.get('openai_api_key');
+      return r.isOk() ? r.value : null;
+    },
+    getManagedToken: async () => {
+      const r = await credentialVault.get('auth.access-token');
+      return r.isOk() ? r.value : null;
+    },
+    managedEndpoint: readRuntimeEnv('G4OS_MANAGED_API_BASE') ?? '',
+  });
 
   const performWipe = createPerformWipe({
     app: electron.app,
@@ -263,7 +352,9 @@ export async function bootstrapMain(options: BootstrapOptions = {}): Promise<voi
     newsService,
     database,
     observability,
+    updates: updatesRuntime,
   });
+  if (debugHud) lifecycle.onQuit(() => debugHud?.dispose());
   lifecycle.onAllWindowsClosed(() => {
     if (!isMacOS()) electron.app.quit();
   });
@@ -290,9 +381,18 @@ export async function bootstrapMain(options: BootstrapOptions = {}): Promise<voi
       workspaceTransfer: workspaceTransferService,
       platform: platformService,
       sources: sourcesService,
+      updates: updatesRuntime.service,
+      voice: transcriptionService,
+      preferences: createPreferencesService({
+        store: preferencesStore,
+        debugHud,
+        isPackaged: electron.app.isPackaged,
+        appVersion: electron.app.getVersion(),
+      }),
     },
   });
   await windowManager.load(mainWindow, { url: rendererUrl, openDevTools: isDev });
+
   log.info({ preloadPath, rendererUrl }, 'main ready');
 }
 

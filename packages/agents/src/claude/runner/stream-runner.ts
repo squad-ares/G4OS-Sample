@@ -31,7 +31,7 @@ export class StreamRunner {
     let iterator: AsyncIterator<ClaudeStreamEvent> | undefined;
     try {
       const stream = await this.openStream(params, signal);
-      // CR7-25: usar iterator manual para poder chamar `return()` em abort.
+      // Usar iterator manual para poder chamar `return()` em abort.
       // `for await` automaticamente fecha o iterator no `break`, mas `yield`
       // dentro de `for await` + `return` não garante cleanup imediato no
       // upstream (ex.: SSE socket continua open). `iterator.return()`
@@ -65,7 +65,7 @@ export class StreamRunner {
       yield { type: 'error', error };
       yield { type: 'done', reason: 'error' };
       sawDone = true;
-      // CR7-25: também fechar iterator no erro path
+      // Também fechar iterator no erro path
       try {
         await iterator?.return?.();
       } catch {

@@ -30,6 +30,10 @@
     "./debug": {
       "types": "./src/debug/index.ts",
       "import": "./src/debug/index.ts"
+    },
+    "./ipc": {
+      "types": "./src/ipc/index.ts",
+      "import": "./src/ipc/index.ts"
     }
   },
   "dependencies": {
@@ -41,13 +45,15 @@
   "devDependencies": {
     "@opentelemetry/context-async-hooks": "2.7.0",
     "@opentelemetry/core": "2.7.0",
-    "@opentelemetry/exporter-trace-otlp-http": "0.215.0",
-    "@opentelemetry/resources": "2.7.0",
-    "@opentelemetry/sdk-node": "0.215.0",
-    "@opentelemetry/sdk-trace-base": "2.7.0",
     "@types/archiver": "catalog:",
     "@types/node": "catalog:",
     "vitest": "catalog:"
+  },
+  "optionalDependencies": {
+    "@opentelemetry/exporter-trace-otlp-http": "0.215.0",
+    "@opentelemetry/resources": "2.7.0",
+    "@opentelemetry/sdk-node": "0.215.0",
+    "@opentelemetry/sdk-trace-base": "2.7.0"
   },
   "scripts": {
     "build": "tsup",

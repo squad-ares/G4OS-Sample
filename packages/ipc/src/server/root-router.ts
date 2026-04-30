@@ -8,6 +8,7 @@ import { messagesRouter } from './routers/messages-router.ts';
 import { newsRouter } from './routers/news-router.ts';
 import { permissionsRouter } from './routers/permissions-router.ts';
 import { platformRouter } from './routers/platform-router.ts';
+import { preferencesRouter } from './routers/preferences-router.ts';
 import { projectsRouter } from './routers/projects-router.ts';
 import { schedulerRouter } from './routers/scheduler-router.ts';
 import { sessionsRouter } from './routers/sessions-router.ts';
@@ -33,6 +34,7 @@ export const appRouter = router({
   marketplace: marketplaceRouter,
   news: newsRouter,
   platform: platformRouter,
+  preferences: preferencesRouter,
   scheduler: schedulerRouter,
   updates: updatesRouter,
   voice: voiceRouter,

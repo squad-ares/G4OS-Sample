@@ -2,7 +2,7 @@
  * PermissionsService real (main) sobre `PermissionStore`. Expõe list/
  * revoke/clearAll via IPC. Phase 2 MVP: só decisões `allow_always` de
  * tool use. Sources sticky/rejected por sessão continuam em
- * `sessions.update` (OUTLIER-10).
+ * `sessions.update`.
  */
 
 import type { PermissionsService } from '@g4os/ipc/server';

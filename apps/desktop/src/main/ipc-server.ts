@@ -1,4 +1,5 @@
 import {
+  cleanupSubscriptionsForSender,
   ELECTRON_TRPC_CHANNEL,
   type ETRPCRequest,
   handleIpcRequest,
@@ -11,7 +12,10 @@ import { createContext, type IpcServiceOverrides } from './ipc-context.ts';
 const log = createLogger('ipc-server');
 
 export interface IpcServerWindow {
-  readonly webContents: { readonly id: number };
+  readonly webContents: {
+    readonly id: number;
+    on?(event: string, listener: (...args: unknown[]) => void): void;
+  };
 }
 
 export interface CreateIpcServerOptions {
@@ -33,6 +37,20 @@ export async function createIpcServer(options: CreateIpcServerOptions): Promise<
       log.error({ err }, 'unhandled IPC request error');
     });
   });
+
+  // Cleanup de subscriptions órfãs em reload do renderer.
+  // electron-trpc client recria todas as subscriptions após did-finish-load,
+  // mas as antigas continuavam no Map global (`activeSubscriptions`)
+  // tentando emitir para um sender que já dropou os listeners. Hook no
+  // `did-start-navigation` pega o caso comum (Cmd+R, electron-vite HMR,
+  // navigation programática); fallback em `destroyed` cobre window close.
+  for (const window of options.windows) {
+    const wc = window.webContents;
+    if (typeof wc.on !== 'function') continue;
+    const senderId = wc.id;
+    wc.on('did-start-navigation', () => cleanupSubscriptionsForSender(senderId));
+    wc.on('destroyed', () => cleanupSubscriptionsForSender(senderId));
+  }
 }
 
 interface ElectronIpcMain {

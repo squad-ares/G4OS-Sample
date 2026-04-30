@@ -8,10 +8,10 @@
  */
 
 import type { AgentConfig, AgentDoneReason, IAgent } from '@g4os/agents/interface';
-import { AppError, ErrorCode } from '@g4os/kernel/errors';
+import type { AppError } from '@g4os/kernel/errors';
 import type { Message, SessionId } from '@g4os/kernel/types';
 import type { TurnTelemetry } from '@g4os/observability/metrics';
-import { err, ok, type Result } from 'neverthrow';
+import { ok, type Result } from 'neverthrow';
 import type { SessionEventBus } from './session-event-bus.ts';
 
 interface UnsubscribableLike {
@@ -56,7 +56,7 @@ export function runAgentIteration(
 
   return new Promise<Result<AgentIterationResult, AppError>>((resolve) => {
     const obs = agent.run({ sessionId, turnId, messages, config });
-    // CR9: cleanup ativo via flag + unsubscribe explícito em error/complete.
+    // Cleanup ativo via flag + unsubscribe explícito em error/complete.
     // Antes, o subscription permanecia "subscribed" até GC mesmo após
     // resolver — caller que retém via `onSubscription` callback podia
     // chamar `unsubscribe()` num subscription completed (no-op) ou pior,
@@ -173,7 +173,7 @@ export function runAgentIteration(
             // resultado próprio, ignoramos para não duplicar persistência.
             break;
           default: {
-            // CR4-12: forçando exhaustiveness check em compile-time. Se um
+            // Forçando exhaustiveness check em compile-time. Se um
             // novo `AgentEvent` tipo for adicionado em `@g4os/agents/interface`
             // sem atualizar este switch, TS quebra aqui no `_exhaustive: never`.
             const _exhaustive: never = event;
@@ -192,14 +192,17 @@ export function runAgentIteration(
           code: 'agent.stream_error',
           message,
         });
+        // Retorna ok com doneReason='error' para que tool-loop possa
+        // persistir o texto parcial acumulado via finalizeAssistantMessage,
+        // evitando perda de dados quando o stream falha após chunks visíveis.
         settle(
-          err(
-            new AppError({
-              code: ErrorCode.AGENT_UNAVAILABLE,
-              message,
-              context: { sessionId, turnId },
-            }),
-          ),
+          ok({
+            textChunks,
+            thinkingChunks,
+            usage: { input: usageInput, output: usageOutput },
+            toolUses,
+            doneReason: 'error' as AgentDoneReason,
+          }),
         );
       },
       complete: () => {

@@ -190,6 +190,16 @@ export class WindowManager extends DisposableBase {
       w.show?.();
     });
 
+    // Em production: bloqueia Cmd+R / Ctrl+R / F5 (reload destrói estado
+    // in-flight). Mantém ativo em dev pra HMR.
+    if (this.runtime.app.isPackaged) {
+      win.webContents.on('before-input-event', (e, input) => {
+        if (input.type !== 'keyDown') return;
+        const mod = input.meta || input.control;
+        if ((mod && input.key.toLowerCase() === 'r') || input.key === 'F5') e.preventDefault();
+      });
+    }
+
     this.windows.add(win);
     this._register(
       toDisposable(() => {
@@ -257,7 +267,7 @@ export class WindowManager extends DisposableBase {
         y: bounds.y,
       };
       const path = this.statePath(workspaceId);
-      // CR9: substitui `writeFile` direto por `writeAtomic` (tmp+fsync+rename).
+      // Substitui `writeFile` direto por `writeAtomic` (tmp+fsync+rename).
       // Antes, crash mid-write deixava arquivo parcial; próximo `loadBounds`
       // recuperava via catch ENOENT-like, mas o JSON corrompido permanecia
       // no disco até saveBounds próximo. Atomic rename é gratuito (já é

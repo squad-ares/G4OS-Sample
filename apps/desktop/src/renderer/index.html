@@ -3,6 +3,18 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!--
+      CSP — Electron security best practice. Reduz surface de injeção de
+      script via deep links / IPC. `unsafe-inline` em script habilita o
+      bootstrap inline de tema abaixo (sem hash dinâmico); style mantém
+      `unsafe-inline` por exigência do Tailwind. `connect-src` cobre
+      Vite HMR (ws), Supabase auth e Sentry. Outros providers (Claude,
+      OpenAI, Gemini) não chamam direto do renderer — vão via tRPC ↔ main.
+    -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' http://localhost:* ws://localhost:* https://*.supabase.co https://*.supabase.in https://*.sentry.io https://*.ingest.sentry.io;"
+    />
     <title>G4 OS</title>
     <script>
       (() => {

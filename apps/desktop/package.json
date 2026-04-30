@@ -1,6 +1,6 @@
 {
   "name": "@g4os/desktop",
-  "version": "0.0.9-beta",
+  "version": "0.0.10-beta",
   "description": "G4 OS - Aplicativo desktop (Electron)",
   "private": true,
   "homepage": "https://g4educacao.com",
@@ -58,6 +58,7 @@
     "atomic-sleep": "1.0.0",
     "date-fns": "4.1.0",
     "drizzle-orm": "catalog:",
+    "zod": "catalog:",
     "electron-trpc": "catalog:",
     "electron-updater": "6.8.3",
     "isows": "1.0.7",
@@ -100,6 +101,13 @@
     "execa": "9.6.1",
     "tsx": "4.21.0",
     "vite": "^8.0.9"
+  },
+  "optionalDependencies": {
+    "@opentelemetry/exporter-trace-otlp-http": "0.215.0",
+    "@opentelemetry/resources": "2.7.0",
+    "@opentelemetry/sdk-node": "0.215.0",
+    "@opentelemetry/sdk-trace-base": "2.7.0",
+    "@sentry/electron": "5.10.0"
   },
   "engines": {
     "node": ">=24.0.0"

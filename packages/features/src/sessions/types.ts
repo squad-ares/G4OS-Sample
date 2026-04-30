@@ -7,6 +7,7 @@
  */
 
 import type { Label, Session } from '@g4os/kernel/types';
+import type { TranslationKey } from '@g4os/translate';
 
 export interface SessionListItem {
   readonly id: Session['id'];
@@ -50,6 +51,6 @@ export interface LabelWithChildren extends Label {
 
 export interface SessionDateGroup {
   readonly key: 'today' | 'yesterday' | 'lastWeek' | 'older' | 'pinned';
-  readonly labelKey: string;
+  readonly labelKey: TranslationKey;
   readonly items: readonly SessionListItem[];
 }

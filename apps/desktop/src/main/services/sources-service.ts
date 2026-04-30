@@ -2,10 +2,10 @@
  * SourcesService real (main process) — composa `SourcesStore` (JSON
  * persistence) + `managed-catalog` (seed dos connectors conhecidos).
  *
- * Phase 1 (OUTLIER-04 unpark): list/enable/disable/delete/create custom
+ * Phase 1: list/enable/disable/delete/create custom
  * MCP stdio e HTTP. `testConnection` devolve apenas o status persistido
  * por enquanto (runtime lifecycle via `SourceRegistry` vira em Phase 3 /
- * OUTLIER-10). Managed connectors ainda são stubs — o catálogo está
+ * Managed connectors ainda são stubs — o catálogo está
  * visível no UI mas `activate()` real vem com os handlers.
  */
 
@@ -225,7 +225,7 @@ export function createSourcesService(deps: SourcesServiceDeps): SourcesService {
         const existing = await store.get(workspaceId, id);
         if (!existing) return err(notFound(id));
         const hydrated = await hydrateSourceSecrets(existing, vault);
-        // CR5-15: outer timeout (10s) defende contra MCP stdio prober que
+        // Outer timeout (10s) defende contra MCP stdio prober que
         // não respeite seu próprio timeout (subprocess hung). Inner probes
         // já têm 5s por kind; outer cobre orquestração + race com hung.
         const probed = await Promise.race([

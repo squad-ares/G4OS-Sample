@@ -20,7 +20,7 @@ import type { ISource, SourceConfig, SourceFactory, ToolDefinition } from '../in
 
 const log = createLogger('mcp-mount-registry');
 
-// CR6-04: ensureMounted no caminho hot do turn não pode ficar bloqueado se um
+// EnsureMounted no caminho hot do turn não pode ficar bloqueado se um
 // MCP stdio subprocess hang ou um server HTTP estagnar. ADR-0143 já usa 5s no
 // probe; aqui damos uma folga porque activate pode envolver handshake real.
 const DEFAULT_ACTIVATE_TIMEOUT_MS = 10_000;
@@ -41,6 +41,13 @@ export interface MountRegistryDeps {
 export class McpMountRegistry extends DisposableBase {
   readonly #factories: readonly SourceFactory[];
   readonly #mounted = new Map<string, MountedSource>();
+  /**
+   * Coalesce de mounts in-flight. Sem este Map, 2 turns concorrentes
+   * pedindo o mesmo slug iniciam 2 `tryMount` em paralelo — duas instâncias
+   * do mesmo source/subprocess. Caller que chega quando já há mount em vôo
+   * compartilha a mesma promise; resultado é cachado uma vez só.
+   */
+  readonly #mounting = new Map<string, Promise<MountedSource | null>>();
   readonly #activateTimeoutMs: number;
   readonly #listToolsTimeoutMs: number;
 
@@ -55,6 +62,9 @@ export class McpMountRegistry extends DisposableBase {
    * Garante que todos os `configs` estão ativados. Sources já no cache são
    * reaproveitadas. Sources com ativação falha são logadas e puladas —
    * retornamos só o subconjunto que subiu OK.
+   *
+   * Callers concorrentes para o mesmo slug compartilham mount
+   * in-flight em vez de iniciar paralelo.
    */
   async ensureMounted(configs: readonly SourceConfig[]): Promise<readonly MountedSource[]> {
     const results: MountedSource[] = [];
@@ -64,7 +74,17 @@ export class McpMountRegistry extends DisposableBase {
         results.push(cached);
         continue;
       }
-      const mounted = await this.#tryMount(config);
+      const inflight = this.#mounting.get(config.slug);
+      if (inflight) {
+        const shared = await inflight;
+        if (shared) results.push(shared);
+        continue;
+      }
+      const promise = this.#tryMount(config).finally(() => {
+        this.#mounting.delete(config.slug);
+      });
+      this.#mounting.set(config.slug, promise);
+      const mounted = await promise;
       if (mounted) results.push(mounted);
     }
     return results;
@@ -129,7 +149,7 @@ export class McpMountRegistry extends DisposableBase {
         { slug: config.slug, timeoutMs: this.#activateTimeoutMs },
         'source activate timeout',
       );
-      // CR7: simétrico com o caminho de listTools — best-effort deactivate
+      // Simétrico com o caminho de listTools — best-effort deactivate
       // pra encerrar subprocess/transport iniciado no `source.activate()`
       // mesmo que o handshake não tenha completado. Sem isso, MCP stdio
       // subprocesses ficam pendurados quando activate trava.

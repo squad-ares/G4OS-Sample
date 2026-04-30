@@ -1,5 +1,5 @@
 /**
- * CR6-08 — helpers para drain de turnos ativos no shutdown.
+ * Helpers para drain de turnos ativos no shutdown.
  *
  * Extraído do `TurnDispatcher` pra manter o composition root ≤ 300 LOC
  * (gate `check:main-size`). A lógica é simples mas tem tradeoffs sutis:

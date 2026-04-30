@@ -88,7 +88,7 @@ export function createActivateSourcesHandler(deps: ActivateSourcesDeps): ToolHan
       }
 
       const enabled = await deps.catalog.list(session.workspaceId);
-      // CR7-46: dedup input slugs. Caller pode passar `["gmail", "gmail"]`
+      // Dedup input slugs. Caller pode passar `["gmail", "gmail"]`
       // (LLM gerou repetido), e classifySlugs duplicava o slug em activated[].
       // Resposta UI mostrava "gmail (2)" confuso.
       const requested = Array.from(new Set(parsed.value));
@@ -159,7 +159,7 @@ function skipReason(
   return null;
 }
 
-// CR9: caps defensivos na entrada. LLM pode gerar `slugs` patológicos
+// Caps defensivos na entrada. LLM pode gerar `slugs` patológicos
 // (string gigante, lista de 10000 entries) — sem limites, isso atinge
 // o backend (busca em sourcesStore, update SQLite) com payload absurdo.
 const MAX_SLUGS_PER_CALL = 32;

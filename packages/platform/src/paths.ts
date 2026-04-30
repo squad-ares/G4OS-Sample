@@ -1,11 +1,9 @@
 import { join } from 'node:path';
 import envPaths from 'env-paths';
 
-// CR7-15: validação do FLAVOR pra evitar path traversal via env. Sem isso,
-// `G4OS_DISTRIBUTION_FLAVOR='../../../etc'` se propagava para envPaths().
-// Whitelist explícita: só os flavors conhecidos são aceitos. Default
-// fallback `public` se valor inválido (com console.warn — sem logger
-// disponível neste módulo de boot).
+// Valida FLAVOR para evitar path traversal via env —
+// `G4OS_DISTRIBUTION_FLAVOR='../../../etc'` propagaria para envPaths().
+// Whitelist implícita: regex `/^[a-z0-9-]+$/` aceita só flavors válidos.
 const RAW_FLAVOR = process.env['G4OS_DISTRIBUTION_FLAVOR'] ?? 'public';
 const FLAVOR = /^[a-z0-9-]+$/.test(RAW_FLAVOR) ? RAW_FLAVOR : 'public';
 const APP_NAME = FLAVOR === 'g4' ? 'g4os-internal' : 'g4os';
@@ -32,11 +30,9 @@ export interface AppPaths {
   logs: string;
 }
 
-// CR9: defesa em profundidade contra path traversal em IDs. Os routers
-// tRPC já validam workspaceId/sessionId como UUID v4, mas helpers de
-// path são chamados de muitos lugares (services internas, scripts,
-// migrations) — guard explícito impede regressão futura. UUID v4 sem
-// hífens, com hífens ou base 36 cobre todos os geradores em uso.
+// Defesa em profundidade contra path traversal em IDs — os routers tRPC
+// já validam UUIDs, mas helpers de path são chamados de muitos lugares;
+// guard explícito impede regressão futura.
 const ID_SAFE_RE = /^[a-zA-Z0-9_-]+$/;
 
 function assertSafeId(id: string, kind: 'workspace' | 'session'): string {

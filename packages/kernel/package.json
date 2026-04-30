@@ -27,6 +27,14 @@
       "types": "./src/logger/index.ts",
       "import": "./src/logger/index.ts"
     },
+    "./log-stream": {
+      "types": "./src/logger/log-stream.ts",
+      "import": "./src/logger/log-stream.ts"
+    },
+    "./logger-transport": {
+      "types": "./src/logger/transport.ts",
+      "import": "./src/logger/transport.ts"
+    },
     "./validation": {
       "types": "./src/validation/index.ts",
       "import": "./src/validation/index.ts"

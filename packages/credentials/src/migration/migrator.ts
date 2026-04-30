@@ -31,7 +31,7 @@ export interface MigrateOptions {
   readonly dryRun?: boolean;
   /**
    * Quando informado, persiste o `MigrationReport` final como JSON neste path
-   * para auditoria pós-execução (CR5-20). Útil quando usuário reporta key
+   * para auditoria pós-execução. Útil quando usuário reporta key
    * faltando — operador consulta arquivo persistido em vez de log volátil.
    * Default: não persiste.
    */
@@ -75,11 +75,11 @@ export async function migrateV1ToV2(options: MigrateOptions): Promise<MigrationR
   let failed = 0;
   const errors: string[] = [];
 
-  // CR6-13: detecta colisão de chave sanitizada antes de gravar. Sem isso,
+  // Detecta colisão de chave sanitizada antes de gravar. Sem isso,
   // se duas chaves v1 (`openai-api-key` e `openai_api_key`) convergem para
   // o mesmo target (`openai_api_key`), a segunda escrita sobrescreve a
   // primeira silenciosamente (data loss em momento crítico — migração).
-  // CR7-07: também rastreia chave secundária `<key>.refresh_token` —
+  // Também rastreia chave secundária `<key>.refresh_token` —
   // duas chaves v1 que colidem no primário também colidem no `.refresh_token`,
   // causando perda de OAuth tokens.
   const targetMap = new Map<string, string>(); // target → first rawKey que claimed
@@ -101,7 +101,7 @@ export async function migrateV1ToV2(options: MigrateOptions): Promise<MigrationR
       continue;
     }
     if (refreshClaimedBy && refreshClaimedBy !== rawKey) {
-      const msg = `${rawKey}: refresh-token target "${refreshTarget}" already claimed by "${refreshClaimedBy}" (CR7-07 collision)`;
+      const msg = `${rawKey}: refresh-token target "${refreshTarget}" already claimed by "${refreshClaimedBy}" (collision after sanitization)`;
       log.error(
         { rawKey, target: refreshTarget, claimedBy: refreshClaimedBy },
         'sanitized refresh-token key collision',
@@ -125,7 +125,7 @@ export async function migrateV1ToV2(options: MigrateOptions): Promise<MigrationR
   log.info({ found: entries.length, migrated, skipped, failed }, 'migration complete');
   const report: MigrationReport = { found: entries.length, migrated, skipped, failed, errors };
 
-  // CR5-20: persiste relatório como JSON quando reportPath foi informado.
+  // Persiste relatório como JSON quando reportPath foi informado.
   // Operador consulta arquivo em "user reportou key X faltando" sem
   // depender de log volátil.
   if (options.reportPath) {
@@ -185,6 +185,14 @@ async function migrateRefreshToken(
 ): Promise<string | null> {
   if (typeof v1.refreshToken !== 'string' || v1.refreshToken.length === 0) return null;
   const refreshKey = sanitizeKey(`${rawKey}.refresh_token`);
+  // Refresh-token check exists ANTES do set. Sem isso, re-run da
+  // migração (ex: usuário roda dry-run depois roda real, ou crash no meio
+  // forçou retry) sobrescrevia refresh-tokens já rotacionados pelo provider —
+  // e como esses tokens são single-use em Supabase/Google, valor antigo
+  // virava lixo invalidado, forçando reauth manual.
+  if (await options.vault.exists(refreshKey)) {
+    return null;
+  }
   const write = await options.vault.set(refreshKey, v1.refreshToken, {
     tags: ['migrated-from-v1', 'refresh-token'],
   });

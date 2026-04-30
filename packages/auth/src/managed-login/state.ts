@@ -6,7 +6,7 @@ import type { AuthSession } from '../types.ts';
  * plano para que o renderer consiga mostrá-lo na tela de OTP e fazer
  * "reenviar código" sem nova entrada.
  *
- * **PII contract (CR4-20):** o stream `state$` é destinado SOMENTE ao
+ * **PII contract:** o stream `state$` é destinado SOMENTE ao
  * renderer da janela de login ativa. **Não** persistir, **não** logar
  * (pino), **não** enviar para Sentry. Para telemetria use
  * `redactManagedLoginState(state)` que devolve uma versão sem email.

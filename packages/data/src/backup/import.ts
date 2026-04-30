@@ -96,7 +96,7 @@ interface ZipEntries {
   readonly [fileName: string]: Buffer;
 }
 
-// CR9: defesa zip-slip. Mesmo que o lookup posterior só use sids/hashes
+// Defesa zip-slip. Mesmo que o lookup posterior só use sids/hashes
 // validados por schema, entradas com `..` ou paths absolutos no ZIP são
 // indício de ZIP malicioso e devem ser rejeitadas explicitamente. Também
 // rejeita caminhos com NULL bytes (Node trata erroneamente em alguns FS).

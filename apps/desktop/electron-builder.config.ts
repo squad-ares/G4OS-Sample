@@ -57,6 +57,11 @@ const config: Configuration = {
     // drizzle migrations — main/index.ts resolve process.resourcesPath/drizzle
     // em packaged. Sem isto, initDatabase crasha com ENOENT no readdirSync.
     { from: '../../packages/data/drizzle', to: 'drizzle', filter: ['**/*'] },
+    // TASK-12-07: identidade do build. `loadInstallMeta` em `@g4os/platform`
+    // procura este arquivo em `process.resourcesPath/install-meta.json`.
+    // Sem ele, `StartupPreflightService` reporta `meta_missing` e roteia
+    // para repair mode.
+    { from: 'dist/install-meta.json', to: 'install-meta.json' },
   ],
 
   asar: true,
@@ -128,6 +133,11 @@ const config: Configuration = {
     perMachine: false,
     allowToChangeInstallationDirectory: true,
     deleteAppDataOnUninstall: false,
+    // TASK-12-07a: macros customizadas detectam install legado
+    // `@g4oselectron`, migram config/credentials/sessions para o path
+    // branded e limpam registry. Sem isso, atalhos antigos no menu
+    // Iniciar continuavam apontando pro path órfão pós-update.
+    include: 'build/installer.nsh',
   },
 
   linux: {

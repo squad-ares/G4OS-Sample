@@ -14,8 +14,8 @@
  * electron-trpc faz dispatch broadcast: TODOS os listeners ativos recebem a
  * resposta IPC e cada client filtra por requestId no nível dele.
  *
- * CR6-12 (revertido em CR7-FIX-04): tentamos remover o listener anterior
- * antes de registrar novo para evitar leak em hot-reload. Resultado: o
+ * Não remover o listener anterior antes de registrar novo — tentativa
+ * anterior (revertida) causava o seguinte: o segundo `onMessage` "rouba" o
  * segundo `onMessage` "rouba" o canal do primeiro, e o client que ficou
  * sem listener nunca mais recebe respostas. Sintoma: requests pendurados
  * para sempre, app preso em "Carregando ambiente…". O leak teórico de

@@ -12,6 +12,7 @@ import type {
   MessagesService,
   NewsService,
   PermissionsService,
+  PreferencesService,
   ProjectsService,
   SchedulerService,
   SessionsService,
@@ -222,6 +223,24 @@ function createUpdatesMock(): UpdatesService {
   return { check: async () => ok({ hasUpdate: false }) };
 }
 
+function createPreferencesMock(): PreferencesService {
+  let enabled = false;
+  return {
+    getDebugHudEnabled: async () => ok(enabled),
+    setDebugHudEnabled: (next: boolean) => {
+      enabled = next;
+      return Promise.resolve(ok(undefined));
+    },
+    verifyRuntimeIntegrity: async () =>
+      ok({
+        ok: true,
+        metaPresent: false,
+        failures: [],
+        checkedRuntimes: 0,
+      }),
+  };
+}
+
 export function createTestCaller(
   overrides: Partial<IpcContext> = {},
 ): ReturnType<typeof appRouter.createCaller> {
@@ -245,6 +264,7 @@ export function createTestCaller(
     windows: createWindowsMock(),
     workspaceTransfer: createWorkspaceTransferMock(),
     labels: createLabelsMock(),
+    preferences: createPreferencesMock(),
     ...overrides,
   };
   return appRouter.createCaller(ctx);

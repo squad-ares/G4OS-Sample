@@ -9,7 +9,7 @@ import { redactSecretsInText, sanitizeConfig } from './redact.ts';
 /**
  * Garante que `child` (após resolver symlinks) está dentro de `root`. Previne
  * inclusão acidental de arquivos externos via symlink dentro do logsDir/crashesDir
- * (CR4-07: information disclosure em debug export compartilhado com support).
+ * (Information disclosure em debug export compartilhado com support).
  */
 async function isInsideRealRoot(child: string, root: string): Promise<boolean> {
   try {
@@ -66,14 +66,18 @@ export async function exportDebugInfo(options: DebugExportOptions): Promise<Debu
   });
   archive.pipe(output);
 
-  // CR7-23: cleanup do ZIP parcial em qualquer falha de write/append.
+  // Cleanup do ZIP parcial em qualquer falha de write/append.
   // Sem isso, disk-full mid-write deixava arquivo corrompido com extensão
   // .zip em uso pelo support team — diagnóstico ficava ainda mais difícil
   // que sem export. Wrap completo em try/finally que rm() o output se
   // não chegamos ao final OK.
   let succeeded = false;
   try {
-    appendJson(archive, 'system.json', options.systemInfo);
+    // System.json também passa por sanitizeConfig. systemInfo
+    // pode embutir paths absolutos do user (home, userData, sessions),
+    // hostname, ou identificadores de máquina — tudo PII se compartilhado
+    // em ticket. Antes ia raw, vazando paths em qualquer debug bundle.
+    appendJson(archive, 'system.json', sanitizeConfig(options.systemInfo));
     entries.push('system.json');
 
     appendJson(archive, 'config.json', sanitizeConfig(options.config));
@@ -114,7 +118,7 @@ async function appendLogs(
   for (const file of await readdir(options.logsDir)) {
     if (!file.endsWith('.log') && !file.endsWith('.log.jsonl')) continue;
     const filePath = join(options.logsDir, file);
-    // CR4-07: rejeita symlinks que escapam de logsDir.
+    // Rejeita symlinks que escapam de logsDir.
     if (!(await isInsideRealRoot(filePath, options.logsDir))) continue;
     const info = await stat(filePath);
     if (info.mtimeMs < cutoff || info.size > MAX_LOG_BYTES) continue;
@@ -141,7 +145,7 @@ async function appendCrashes(
   entries: string[],
 ): Promise<void> {
   if (!options.crashesDir || !existsSync(options.crashesDir)) return;
-  // CR5-03: itera per-arquivo com `isInsideRealRoot` para rejeitar symlinks
+  // Itera per-arquivo com `isInsideRealRoot` para rejeitar symlinks
   // que escapam de `crashesDir`. `archive.directory()` não permite filtro
   // per-entry seguro contra path traversal — refator obrigatório.
   const baseDir = options.crashesDir;
@@ -153,7 +157,23 @@ async function appendCrashes(
       if (!(await isInsideRealRoot(filePath, baseDir))) continue;
       const info = await stat(filePath);
       if (!info.isFile()) continue;
-      archive.file(filePath, { name: `crashes/${name}` });
+      // Stack traces de crashes podem conter args com secret
+      // (URL com token, headers de auth em fetch frames, env vars
+      // capturadas em closure). `archive.file()` empacota raw — passamos
+      // pelo redactSecretsInText em vez disso. Crash dumps `.json`/`.dmp`
+      // entram raw porque conteúdo é estruturado/binário (Crashpad
+      // minidumps); só `.txt`/`.log`/`.stack` passam por scrub.
+      const isTextual =
+        name.endsWith('.txt') ||
+        name.endsWith('.log') ||
+        name.endsWith('.stack') ||
+        name.endsWith('.crashlog');
+      if (isTextual) {
+        const raw = await readFile(filePath, 'utf-8');
+        archive.append(redactSecretsInText(raw), { name: `crashes/${name}` });
+      } else {
+        archive.file(filePath, { name: `crashes/${name}` });
+      }
       added = true;
     }
   } catch {
@@ -168,7 +188,7 @@ function appendProcessSnapshot(
   entries: string[],
 ): void {
   if (options.processSnapshot === undefined) return;
-  // CR9: processSnapshot pode embutir command lines (com tokens em argv),
+  // ProcessSnapshot pode embutir command lines (com tokens em argv),
   // env vars, paths absolutos com username — passa por sanitize igual aos
   // outros payloads. Antes era apendado raw e vazava PII no debug ZIP.
   appendJson(archive, 'processes.json', sanitizeConfig(options.processSnapshot));

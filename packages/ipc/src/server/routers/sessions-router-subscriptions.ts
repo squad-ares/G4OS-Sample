@@ -9,7 +9,7 @@ import { z } from 'zod';
 import { authed } from '../middleware/authed.ts';
 import { router } from '../trpc.ts';
 
-// CR7-35: limite de queue por subscription pra evitar OOM em backpressure
+// Limite de queue por subscription pra evitar OOM em backpressure
 // (renderer lento, hung, ou processando). Quando excede, drop oldest.
 const MAX_SUBSCRIPTION_QUEUE = 100;
 
@@ -28,7 +28,7 @@ export const sessionsSubscriptionsRouter = router({
     let notify: (() => void) | null = null;
 
     const disposable = ctx.sessions.subscribe(input.sessionId, (event) => {
-      // CR7-35: cap em queue pra evitar OOM se renderer está lento.
+      // Cap em queue pra evitar OOM se renderer está lento.
       // Drop oldest se exceder — eventos perdidos são preferível a memória
       // sem limite. Cap conservador (100 eventos cobre 5-10s de tool loop).
       if (queue.length >= MAX_SUBSCRIPTION_QUEUE) {
@@ -71,7 +71,7 @@ export const sessionsSubscriptionsRouter = router({
     let notify: (() => void) | null = null;
 
     const disposable = ctx.sessions.subscribeStream(input.sessionId, (event) => {
-      // CR7-35: idem stream — drop oldest em backpressure.
+      // Idem stream — drop oldest em backpressure.
       if (queue.length >= MAX_SUBSCRIPTION_QUEUE) {
         queue.shift();
       }

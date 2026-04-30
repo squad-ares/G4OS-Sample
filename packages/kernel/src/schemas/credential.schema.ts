@@ -1,11 +1,8 @@
 import { z } from 'zod';
 
 /**
- * CR8-09: schema Zod para metadata de credencial. Antes, `vault.readMeta`
- * fazia `JSON.parse(...) as CredentialMeta` sem validação — meta corrompida
- * (versão antiga, write parcial, tampering) caía em `decryptFailed` genérico
- * em vez de detectar mismatch de schema. O schema explícito permite ao caller
- * distinguir "meta inválida/legacy" de "criptografia corrompida".
+ * Schema Zod para metadata de credencial — permite ao caller distinguir
+ * "meta inválida/legacy" de "criptografia corrompida" em vez de `decryptFailed` genérico.
  */
 export const CredentialMetaSchema = z.object({
   key: z.string().min(1).max(200),

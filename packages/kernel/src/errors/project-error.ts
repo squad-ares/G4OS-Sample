@@ -5,9 +5,7 @@ import { ErrorCode } from './error-codes.ts';
  * Erros tipados do domínio Projects. Mirrors `SessionError`/`CredentialError`
  * pattern: factories estáticas com código discriminado em `ErrorCode`.
  *
- * Adicionado em CR5-17 — antes, `apps/desktop/src/main/services/projects-service.ts`
- * construía `new AppError({ code: PROJECT_NOT_FOUND, ... })` direto, perdendo
- * type safety / consistência com outras error classes.
+ * Erros tipados do domínio Projects — consistência com `SessionError`/`CredentialError`.
  */
 export class ProjectError extends AppError {
   constructor(
@@ -22,6 +20,18 @@ export class ProjectError extends AppError {
       code: ErrorCode.PROJECT_NOT_FOUND,
       message: `project not found: ${projectId}`,
       context: { projectId },
+    });
+  }
+
+  /**
+   * UNIQUE index `idx_projects_workspace_slug` no DB — este error code permite
+   * UI mostrar mensagem específica em vez de "unknown_error" do raw SQLite.
+   */
+  static slugConflict(workspaceId: string, slug: string): ProjectError {
+    return new ProjectError({
+      code: ErrorCode.PROJECT_SLUG_CONFLICT,
+      message: `project slug already exists in workspace: ${slug}`,
+      context: { workspaceId, slug },
     });
   }
 }

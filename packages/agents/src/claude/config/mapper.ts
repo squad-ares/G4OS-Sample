@@ -1,5 +1,6 @@
 import type { ContentBlock, Message } from '@g4os/kernel';
 import type { AgentConfig, ThinkingLevel } from '../../interface/agent.ts';
+import { resolveThinkingConfig } from '../../shared/thinking/level-resolver.ts';
 import type {
   ClaudeContentBlockInput,
   ClaudeCreateMessageParams,
@@ -12,22 +13,29 @@ import type {
 
 const DEFAULT_MAX_TOKENS = 4096;
 
-const THINKING_BUDGET_BY_LEVEL: Record<ThinkingLevel, number> = {
-  low: 2_000,
-  think: 5_000,
-  high: 12_000,
-  ultra: 32_000,
-};
-
+/**
+ * Budget tokens vêm do shared `resolveThinkingConfig` em vez de
+ * uma tabela local divergente. Antes, Claude usava {low:2000, think:5000,
+ * high:12000, ultra:32000} enquanto shared dizia {low:1024, think:4096,
+ * high:16384, ultra:32768} — comportamentos inconsistentes entre testes
+ * e prod. Override explícito (`thinkingBudget` em options) ainda
+ * prevalece, para callers que precisam afinar.
+ */
 export function mapThinking(
   level: ThinkingLevel | undefined,
   override: number | undefined,
+  modelId?: string,
 ): ClaudeThinkingConfig | undefined {
   if (override !== undefined) {
     return { type: 'enabled', budget_tokens: override };
   }
   if (!level) return undefined;
-  return { type: 'enabled', budget_tokens: THINKING_BUDGET_BY_LEVEL[level] };
+  // Sem modelId, fall back para um resolveThinkingConfig usando um id
+  // canônico que sabemos suportar thinking. Caller real (mapConfig)
+  // passa modelId para que o resolver detecte capability corretamente.
+  const resolved = resolveThinkingConfig(level, 'anthropic', modelId ?? 'claude-opus-4');
+  if (resolved.provider !== 'anthropic') return undefined;
+  return { type: 'enabled', budget_tokens: resolved.budgetTokens };
 }
 
 export function mapContentBlock(block: ContentBlock): ClaudeContentBlockInput | undefined {
@@ -101,7 +109,7 @@ export function mapConfig(
   messages: readonly Message[],
   options: ClaudeRequestOptions = { maxTokens: DEFAULT_MAX_TOKENS },
 ): ClaudeCreateMessageParams {
-  const thinking = mapThinking(config.thinkingLevel, options.thinkingBudget);
+  const thinking = mapThinking(config.thinkingLevel, options.thinkingBudget, config.modelId);
   const system = mapSystemPrompt(config.systemPrompt);
   const tools = mapTools(config);
   const params: ClaudeCreateMessageParams = {

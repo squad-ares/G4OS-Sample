@@ -10,7 +10,7 @@ export interface ToolPermissionDecisionView {
 }
 
 export interface PermissionsCategoryProps {
-  /** Decisões `allow_always` de tool use persistidas (OUTLIER-09 Phase 2). */
+  /** Decisões `allow_always` de tool use persistidas. */
   readonly toolDecisions?: readonly ToolPermissionDecisionView[];
   readonly onRevokeTool?: (toolName: string, argsHash: string) => void;
   /** Sessões com sticky mounts (fonte aprovada sem expirar). */
@@ -29,9 +29,8 @@ export interface PermissionsCategoryProps {
 }
 
 /**
- * PermissionsCategory — lista decisões de sources mountadas (sticky) e
- * vetadas (rejected) por sessão. Em OUTLIER-09 Phase 2 vai ganhar lista de
- * tool-level permissions (allow_session / allow_always persistidas).
+ * Lista decisões de sources mountadas (sticky/rejected) por sessão
+ * e permissões de tool use (allow_always) persistidas.
  */
 export function PermissionsCategory(props: PermissionsCategoryProps): ReactNode {
   const { t } = useTranslate();

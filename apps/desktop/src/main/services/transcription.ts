@@ -5,7 +5,7 @@ const log = createLogger('transcription');
 
 const OPENAI_TRANSCRIBE_URL = 'https://api.openai.com/v1/audio/transcriptions';
 const WHISPER_MODEL = 'whisper-1';
-// CR9: timeout default de 60s. Whisper típico responde em <10s; se passar de
+// Timeout default de 60s. Whisper típico responde em <10s; se passar de
 // 60s indica server lento ou conexão hung — abortar é melhor UX que travar
 // VoiceService indefinidamente. Voice notes têm cap 60s então payload é
 // pequeno; timeout 60s é folgado.

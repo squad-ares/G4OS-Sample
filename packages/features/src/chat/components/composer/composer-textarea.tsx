@@ -19,7 +19,7 @@ export interface ComposerTextareaRef {
   focus(): void;
   blur(): void;
   /**
-   * OUTLIER-20: acesso ao `<textarea>` nativo para ler `selectionStart` em
+   * Acesso ao `<textarea>` nativo para ler `selectionStart` em
    * typeahead detection (MentionPicker). Retorna null antes de montar.
    */
   getElement(): HTMLTextAreaElement | null;
@@ -109,7 +109,7 @@ export const ComposerTextarea = forwardRef<ComposerTextareaRef, ComposerTextarea
       el.style.overflowY = el.scrollHeight > maxHeight ? 'auto' : 'hidden';
     }, [value, minRows, maxRows]);
 
-    // CR7-31: IME composition (CJK, Pinyin, Japanese, Korean) — Enter
+    // IME composition (CJK, Pinyin, Japanese, Korean) — Enter
     // durante composição confirma o glyph, NÃO submete. Sem este flag,
     // user CJK perdia caracteres mid-composição ou submetia inputs
     // incompletos. `event.nativeEvent.isComposing` também é checado pra

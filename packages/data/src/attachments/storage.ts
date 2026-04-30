@@ -15,7 +15,7 @@ import { dirname, join } from 'node:path';
 import { getAppPaths } from '@g4os/platform';
 
 const DIR_PREFIX_LENGTH = 2;
-// CR9: hash deve ser exatamente SHA-256 hex (64 chars). Sem isso, callers
+// Hash deve ser exatamente SHA-256 hex (64 chars). Sem isso, callers
 // (backup import, manifest) poderiam passar `'../../etc/passwd'` e o
 // `path()` joinaria fora do baseDir — escape de diretório. Mesmo que os
 // callers atuais validem via Zod, defesa em profundidade na fronteira

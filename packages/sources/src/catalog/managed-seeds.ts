@@ -5,7 +5,7 @@
  *
  * Cada entrada descreve metadata pro UI — a implementação concreta do
  * conector (class extends ManagedConnectorBase) vem em tasks seguintes
- * (TASK-OUTLIER-10). Por enquanto as managed sources aparecem no catálogo
+ * Por enquanto as managed sources aparecem no catálogo
  * mas não respondem a `activate()` — ficam em status `disconnected`.
  */
 

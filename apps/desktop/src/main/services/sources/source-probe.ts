@@ -1,7 +1,7 @@
 /**
  * Probe leve por kind — usado por `SourcesService.testConnection`.
  * NÃO faz handshake MCP completo; validação profunda vira em
- * TASK-OUTLIER-12 Phase 3 com os connectors reais.
+ * Phase 3 com os connectors reais.
  *
  *   - `mcp-http`/`api`: HEAD request com 5s timeout.
  *   - `filesystem`: `access()` no path.

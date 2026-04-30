@@ -250,4 +250,32 @@ describe('buildMountedToolHandlers', () => {
     );
     expect(result?.isErr()).toBe(true);
   });
+
+  // CR12-S4: dois ensureMounted concorrentes não criam dois subprocessos.
+  it('coalesce mounts in-flight para o mesmo slug', async () => {
+    let resolveActivate: (() => void) | null = null;
+    const source = makeSource({
+      activate: vi.fn(
+        () =>
+          new Promise((resolve) => {
+            resolveActivate = () => resolve(ok(undefined));
+          }),
+      ),
+    });
+    const factory = makeFactory(source);
+    const registry = new McpMountRegistry({ factories: [factory] });
+
+    const a = registry.ensureMounted([CONFIG]);
+    const b = registry.ensureMounted([CONFIG]);
+    resolveActivate?.();
+    const [resA, resB] = await Promise.all([a, b]);
+
+    expect(factory.create).toHaveBeenCalledTimes(1);
+    expect(source.activate).toHaveBeenCalledTimes(1);
+    expect(resA[0]?.slug).toBe('fake');
+    expect(resB[0]?.slug).toBe('fake');
+    // Mesma instância retornada para ambos.
+    expect(resA[0]).toBe(resB[0]);
+    registry.dispose();
+  });
 });

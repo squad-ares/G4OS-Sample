@@ -7,10 +7,8 @@ export interface AppErrorOptions {
   context?: Record<string, unknown>;
 }
 
-// CR7-12: cap na profundidade do `cause` chain. Sem isso, código que faça
-// `JSON.stringify(err)` sobre AppError com causa circular ou cadeia
-// muito profunda (ex.: agente A erra → agente B re-wrappa → agent C...)
-// pode hang ou exhaust memory. 10 níveis cobrem casos reais com folga.
+// Cap na profundidade do `cause` chain — `JSON.stringify` em cadeias
+// muito profundas ou circulares pode hang ou exhaust memory. 10 níveis são folga suficiente.
 const CAUSE_CHAIN_MAX_DEPTH = 10;
 
 function truncateCauseChain(
@@ -29,9 +27,8 @@ function truncateCauseChain(
   seen.add(cause);
   const inner = (cause as { cause?: unknown }).cause;
   if (inner !== undefined) {
-    // CR8-01: a recursão precisa atribuir o resultado de volta. Antes só
-    // mutava o WeakSet `seen`, então cadeias profundas ou circulares no
-    // nível interno passavam intactas pelo cap.
+    // A recursão deve atribuir o resultado de volta — sem isso cadeias profundas
+    // no nível interno passavam intactas pelo cap.
     (cause as { cause?: unknown }).cause = truncateCauseChain(inner, seen, depth + 1);
   }
   return cause;
@@ -46,7 +43,7 @@ export class AppError extends Error {
     super(options.message);
     this.name = 'AppError';
     this.code = options.code;
-    // CR7-12: trunca/detecta ciclos no cause chain antes de armazenar.
+    // Trunca/detecta ciclos no cause chain antes de armazenar.
     this.cause = truncateCauseChain(options.cause);
     this.context = Object.freeze({ ...(options.context ?? {}) });
 

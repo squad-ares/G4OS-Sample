@@ -78,7 +78,7 @@ export class StreamRunner {
     mapper: GeminiEventMapper,
     signal: AbortSignal,
   ): AsyncGenerator<AgentEvent, boolean, void> {
-    // CR9: mesmo pattern do OpenAI/Claude stream-runner (CR8-20). Verifica
+    // Mesmo pattern do OpenAI/Claude stream-runner. Verifica
     // signal antes e depois do await — janela entre setup e for-await é
     // longa o suficiente para abort acontecer e o consumer ler 1 chunk
     // antes do check periódico.

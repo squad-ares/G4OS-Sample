@@ -42,7 +42,7 @@ export interface ExportBackupResult {
 export async function exportWorkspaceBackup(
   params: ExportBackupParams,
 ): Promise<ExportBackupResult> {
-  // CR4-16: garante que o diretório de destino existe antes de abrir o
+  // Garante que o diretório de destino existe antes de abrir o
   // stream. Sem isso, `createWriteStream` em path inexistente emite erro
   // assíncrono ao invés de falhar fast no caller.
   await mkdir(dirname(params.outputPath), { recursive: true });

@@ -87,7 +87,7 @@ function parseTokenPayload(payload: TokenPayload): Result<OAuthTokens, OAuthErro
   if (typeof payload.expires_in === 'number' && payload.expires_in <= 0) {
     return err(OAuthError.exchangeFailed(`invalid expires_in: ${payload.expires_in}`));
   }
-  // CR5-16: IdPs inconsistentes podem omitir `expires_in`. Sem default,
+  // IdPs inconsistentes podem omitir `expires_in`. Sem default,
   // `expiresAt` ficaria undefined e o token nunca expiraria — escapa do
   // RotationOrchestrator. 1h é conservador: força refresh logo, em caso
   // dúvida (inferior ao default ~1h da maioria dos providers).
@@ -106,7 +106,7 @@ function parseTokenPayload(payload: TokenPayload): Result<OAuthTokens, OAuthErro
   });
 }
 
-// CR9: timeout default para troca de tokens. Sem isso, IdP lento/offline
+// Timeout default para troca de tokens. Sem isso, IdP lento/offline
 // trava o fluxo OAuth indefinidamente — UI fica em "Conectando..." sem
 // recovery automático até o usuário matar/reabrir o app.
 const DEFAULT_TOKEN_EXCHANGE_TIMEOUT_MS = 30_000;

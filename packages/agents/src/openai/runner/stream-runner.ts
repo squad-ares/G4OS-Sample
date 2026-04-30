@@ -42,7 +42,7 @@ export class StreamRunner {
   ): AsyncGenerator<AgentEvent, boolean, void> {
     const params = this.deps.buildParams(input);
     const mapper = new OpenAIEventMapper();
-    // CR8-20: checar signal antes do await openStream e logo após. Se abort
+    // Checar signal antes do await openStream e logo após. Se abort
     // dispara entre buildParams e openStream, ou durante setup, queremos
     // sair imediato com `interrupted` em vez de processar primeiro chunk
     // antes do check do for-await.

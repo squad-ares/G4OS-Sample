@@ -5,6 +5,7 @@ import { createRoot } from 'react-dom/client';
 import '@g4os/ui/globals.css';
 import { ACTIVE_WORKSPACE_STORAGE_KEY } from '@g4os/features/workspaces';
 import { TRPCProvider } from './ipc/trpc-provider.tsx';
+import { initRendererSentry, startWebVitalsReporting } from './observability/init-sentry.ts';
 import { electronPlatform } from './platform/electron-platform.ts';
 import { router } from './router.ts';
 
@@ -19,6 +20,18 @@ if (urlWorkspaceId) {
 
 const root = document.getElementById('root');
 if (!root) throw new Error('#root element not found');
+
+// Init Sentry no renderer antes do render. Sem DSN é NOOP;
+// erros que ocorrem durante providers já passam pelo handler global do
+// SDK uma vez que init resolveu.
+void initRendererSentry().catch(() => {
+  // Init failure nao deve bloquear UI. `init-sentry.ts` ja loga.
+});
+
+// PerformanceObservers para LCP/CLS/INP. Disconnect ficam
+// no closure (vida do renderer) — sem nada pra desfazer porque não há
+// hot-restart sem refresh full.
+startWebVitalsReporting();
 
 createRoot(root).render(
   <StrictMode>

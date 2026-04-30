@@ -150,22 +150,35 @@ async function runOneIteration(
   );
 
   if (doneReason !== 'tool_use' || toolUses.length === 0) {
-    input.telemetry.onDone(doneReason);
-    return {
-      kind: 'done',
-      result: await finalizeAssistantMessage(
-        { messages: deps.messages, eventBus: deps.eventBus },
-        {
-          sessionId: input.sessionId,
-          turnId: input.turnId,
-          textChunks: state.allText,
-          thinkingChunks: state.allThinking,
-          usageInput: state.totalUsageInput,
-          usageOutput: state.totalUsageOutput,
-          modelId: input.config.modelId,
-        },
-      ),
-    };
+    if (doneReason !== 'error') {
+      input.telemetry.onDone(doneReason);
+    }
+    const finalResult = await finalizeAssistantMessage(
+      { messages: deps.messages, eventBus: deps.eventBus },
+      {
+        sessionId: input.sessionId,
+        turnId: input.turnId,
+        textChunks: state.allText,
+        thinkingChunks: state.allThinking,
+        usageInput: state.totalUsageInput,
+        usageOutput: state.totalUsageOutput,
+        modelId: input.config.modelId,
+      },
+    );
+    if (doneReason === 'error') {
+      // Texto parcial persistido; propaga erro para o dispatcher.
+      return {
+        kind: 'error',
+        error: finalResult.isErr()
+          ? finalResult.error
+          : new AppError({
+              code: ErrorCode.AGENT_UNAVAILABLE,
+              message: 'agent stream error; partial response saved',
+              context: { sessionId: input.sessionId, turnId: input.turnId },
+            }),
+      };
+    }
+    return { kind: 'done', result: finalResult };
   }
 
   const toolOutcomes = await executeToolUses(

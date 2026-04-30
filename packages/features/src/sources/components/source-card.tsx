@@ -4,7 +4,6 @@ import { Button, ConfirmDestructiveDialog, useTranslate } from '@g4os/ui';
 import {
   AlertCircle,
   CheckCircle2,
-  Circle,
   CircleDashed,
   KeyRound,
   Loader2,
@@ -39,66 +38,73 @@ export function SourceCard({
     source.kind === 'mcp-http' ||
     source.kind === 'api' ||
     source.kind === 'filesystem';
+
   return (
-    <li className="flex items-center gap-3 rounded-lg border border-foreground/10 bg-foreground/[0.02] px-4 py-3">
-      <div className="relative">
-        <SourceGlyph source={source} />
-        <span className="absolute -bottom-1 -right-1 rounded-full bg-background">
-          <StatusIcon status={source.status} />
-        </span>
-      </div>
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <span className="truncate text-sm font-medium">{source.displayName}</span>
+    <li className="flex min-h-[124px] flex-col gap-3 rounded-lg border border-foreground/10 bg-background px-4 py-3 transition-colors hover:border-foreground/20">
+      <div className="flex min-w-0 flex-1 flex-col gap-2">
+        <div className="flex items-start gap-3">
+          <div className="relative shrink-0">
+            <SourceGlyph source={source} />
+            <span className="absolute -bottom-1 -right-1 rounded-full bg-background shadow-sm">
+              <StatusIcon status={source.status} />
+            </span>
+          </div>
+          <div className="min-w-0 flex-1 pt-0.5">
+            <div className="flex items-center gap-2">
+              <span className="truncate text-sm font-semibold">{source.displayName}</span>
+              <StatusBadge status={source.status} enabled={source.enabled} t={t} />
+            </div>
+            <p className="mt-0.5 truncate font-mono text-[10px] text-muted-foreground">
+              {source.slug}
+            </p>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
           <KindBadge kind={source.kind} />
           <CategoryBadge category={source.category} />
         </div>
-        <div className="mt-0.5 flex items-center gap-2">
-          <span className="truncate font-mono text-[10px] text-muted-foreground">
-            {source.slug}
-          </span>
-          <StatusText status={source.status} />
-        </div>
       </div>
-      {testable && onTest ? (
+      <div className="flex items-center justify-end gap-1 border-t border-foreground/5 pt-2">
+        {testable && onTest ? (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onTest}
+            disabled={disabled || testing === true}
+            aria-label={t('sources.test')}
+            className="h-7 px-2 text-muted-foreground hover:bg-accent/15 hover:text-foreground"
+          >
+            {testing ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin text-sky-500" aria-hidden={true} />
+            ) : (
+              <Plug className="h-3.5 w-3.5" aria-hidden={true} />
+            )}
+          </Button>
+        ) : null}
         <Button
           variant="ghost"
           size="sm"
-          onClick={onTest}
-          disabled={disabled || testing === true}
-          aria-label={t('sources.test')}
-          className="h-8 px-2"
+          onClick={() => onToggle(!source.enabled)}
+          disabled={disabled}
+          aria-label={source.enabled ? t('sources.disable') : t('sources.enable')}
+          className="h-7 px-2 text-muted-foreground hover:bg-accent/15 hover:text-foreground"
         >
-          {testing ? (
-            <Loader2 className="h-4 w-4 animate-spin text-sky-500" aria-hidden={true} />
-          ) : (
-            <Plug className="h-4 w-4 text-muted-foreground" aria-hidden={true} />
-          )}
+          <Power
+            className={`h-3.5 w-3.5 ${source.enabled ? 'text-emerald-500' : ''}`}
+            aria-hidden={true}
+          />
         </Button>
-      ) : null}
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => onToggle(!source.enabled)}
-        disabled={disabled}
-        aria-label={source.enabled ? t('sources.disable') : t('sources.enable')}
-        className="h-8 px-2"
-      >
-        <Power
-          className={`h-4 w-4 ${source.enabled ? 'text-emerald-500' : 'text-muted-foreground'}`}
-          aria-hidden={true}
-        />
-      </Button>
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => setConfirmOpen(true)}
-        disabled={disabled}
-        aria-label={t('sources.delete')}
-        className="h-8 px-2"
-      >
-        <Trash2 className="h-4 w-4 text-muted-foreground transition hover:text-destructive" />
-      </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setConfirmOpen(true)}
+          disabled={disabled}
+          aria-label={t('sources.delete')}
+          className="h-7 px-2 text-muted-foreground hover:bg-accent/15 hover:text-destructive"
+        >
+          <Trash2 className="h-3.5 w-3.5" aria-hidden={true} />
+        </Button>
+      </div>
       <ConfirmDestructiveDialog
         open={confirmOpen}
         onOpenChange={setConfirmOpen}
@@ -115,22 +121,47 @@ export function SourceCard({
 function StatusIcon({ status }: { readonly status: SourceConfigView['status'] }): ReactNode {
   switch (status) {
     case 'connected':
-      return <CheckCircle2 className="size-4 shrink-0 text-emerald-500" aria-hidden={true} />;
+      return <CheckCircle2 className="size-3.5 shrink-0 text-emerald-500" aria-hidden={true} />;
     case 'connecting':
-      return <Loader2 className="size-4 shrink-0 animate-spin text-sky-500" aria-hidden={true} />;
+      return <Loader2 className="size-3.5 shrink-0 animate-spin text-sky-500" aria-hidden={true} />;
     case 'needs_auth':
-      return <KeyRound className="size-4 shrink-0 text-amber-500" aria-hidden={true} />;
+      return <KeyRound className="size-3.5 shrink-0 text-amber-500" aria-hidden={true} />;
     case 'error':
-      return <AlertCircle className="size-4 shrink-0 text-destructive" aria-hidden={true} />;
+      return <AlertCircle className="size-3.5 shrink-0 text-destructive" aria-hidden={true} />;
     default:
-      return <CircleDashed className="size-4 shrink-0 text-muted-foreground" aria-hidden={true} />;
+      return (
+        <CircleDashed className="size-3.5 shrink-0 text-muted-foreground" aria-hidden={true} />
+      );
   }
 }
 
-function StatusText({ status }: { readonly status: SourceConfigView['status'] }): ReactNode {
-  const { t } = useTranslate();
+function StatusBadge({
+  status,
+  enabled,
+  t,
+}: {
+  readonly status: SourceConfigView['status'];
+  readonly enabled: boolean;
+  readonly t: (key: TranslationKey) => string;
+}): ReactNode {
+  if (!enabled) {
+    return (
+      <span className="rounded-full bg-foreground/5 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+        {t('sources.status.disconnected')}
+      </span>
+    );
+  }
+  const colorMap: Record<SourceConfigView['status'], string> = {
+    connected: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
+    connecting: 'bg-sky-500/10 text-sky-600 dark:text-sky-300',
+    needs_auth: 'bg-amber-500/10 text-amber-700 dark:text-amber-300',
+    error: 'bg-destructive/10 text-destructive',
+    disconnected: 'bg-foreground/5 text-muted-foreground',
+  };
   return (
-    <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+    <span
+      className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${colorMap[status] ?? colorMap.disconnected}`}
+    >
       {t(`sources.status.${status}` as TranslationKey)}
     </span>
   );
@@ -150,8 +181,7 @@ function CategoryBadge({
   readonly category: SourceConfigView['category'];
 }): ReactNode {
   return (
-    <span className="flex items-center gap-1 rounded-full bg-foreground/5 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-      <Circle className="size-2 fill-current" aria-hidden={true} />
+    <span className="rounded-full bg-foreground/5 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
       {category}
     </span>
   );

@@ -1,0 +1,110 @@
+# Epic 16 — LGTM stack self-hosted para dev/staging.
+#
+# Stack: OpenTelemetry Collector + Loki + Tempo + Prometheus + Grafana.
+# Sentry e PostHog seguem SaaS (free tier resolve), motivo: self-host
+# deles exige ~12 containers (Postgres + Kafka + ClickHouse + ZooKeeper).
+#
+# Uso:
+#   make obs-up         # sobe stack
+#   make obs-down       # para stack (mantém volumes)
+#   make obs-clean      # para + limpa volumes
+#
+# App:
+#   G4OS_OTEL_ENDPOINT=http://localhost:4318 pnpm dev
+#
+# Acesso:
+#   Grafana:    http://localhost:3000  (admin / ${GRAFANA_ADMIN_PASSWORD:-admin})
+#   Prometheus: http://localhost:9090
+#   Loki:       http://localhost:3100
+#   Tempo:      http://localhost:3200
+#   Collector:  http://localhost:8889/metrics  (Prometheus exposure)
+#
+# Para cloud deploy: o mesmo compose adapta-se a ECS via
+# `docker-compose-to-ecs` ou para k8s via Grafana Helm Charts. Ver
+# `docs/cloud-deploy.md`.
+
+name: g4os-observability
+
+services:
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.114.0
+    container_name: g4os-otel-collector
+    restart: unless-stopped
+    command: ['--config=/etc/otel-collector/config.yaml']
+    volumes:
+      - ./otel-collector/config.yaml:/etc/otel-collector/config.yaml:ro
+    ports:
+      - '4317:4317'   # OTLP gRPC
+      - '4318:4318'   # OTLP HTTP
+      - '8889:8889'   # Prometheus exporter
+      - '13133:13133' # health_check
+    depends_on:
+      loki:
+        condition: service_started
+      tempo:
+        condition: service_started
+      prometheus:
+        condition: service_started
+
+  loki:
+    image: grafana/loki:3.2.1
+    container_name: g4os-loki
+    restart: unless-stopped
+    command: -config.file=/etc/loki/config.yaml
+    volumes:
+      - ./loki/config.yaml:/etc/loki/config.yaml:ro
+      - loki-data:/loki
+    ports:
+      - '3100:3100'
+
+  tempo:
+    image: grafana/tempo:2.6.1
+    container_name: g4os-tempo
+    restart: unless-stopped
+    command: -config.file=/etc/tempo/config.yaml
+    volumes:
+      - ./tempo/config.yaml:/etc/tempo/config.yaml:ro
+      - tempo-data:/var/tempo
+    ports:
+      - '3200:3200'
+
+  prometheus:
+    image: prom/prometheus:v3.0.0
+    container_name: g4os-prometheus
+    restart: unless-stopped
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=30d'
+      - '--web.enable-lifecycle'
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/alerts:/etc/prometheus/alerts:ro
+      - prometheus-data:/prometheus
+    ports:
+      - '9090:9090'
+
+  grafana:
+    image: grafana/grafana:11.4.0
+    container_name: g4os-grafana
+    restart: unless-stopped
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: 'false'
+      GF_FEATURE_TOGGLES_ENABLE: traceqlEditor
+    ports:
+      - '3000:3000'
+    depends_on:
+      - loki
+      - tempo
+      - prometheus
+
+volumes:
+  loki-data:
+  tempo-data:
+  prometheus-data:
+  grafana-data:

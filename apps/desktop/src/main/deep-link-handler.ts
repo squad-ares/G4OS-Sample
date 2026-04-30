@@ -9,7 +9,7 @@ import type { WindowManager } from './window-manager.ts';
 
 const log = createLogger('deep-link');
 
-// CR6-15: scheme + path whitelist. URLs `g4os://` que não casem com um
+// Scheme + path whitelist. URLs `g4os://` que não casem com um
 // destino conhecido são rejeitadas — evita trafficking de path arbitrário
 // pra `windowManager.open` (que viraria URL do renderer).
 const ACCEPTED_SCHEMES: readonly string[] = ['g4os:', 'g4os-internal:'];

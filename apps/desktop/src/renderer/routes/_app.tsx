@@ -36,7 +36,16 @@ import {
   WorkspaceSwitcherContent,
 } from '@g4os/features/workspaces';
 import type { SessionFilter } from '@g4os/kernel/types';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, toast, useTranslate } from '@g4os/ui';
+import {
+  Button,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  Input,
+  toast,
+  useTranslate,
+} from '@g4os/ui';
 import { useQuery } from '@tanstack/react-query';
 import {
   createFileRoute,
@@ -94,6 +103,11 @@ function AuthenticatedLayout() {
     readonly kind: SessionLifecycleDialogKind;
     readonly session: SessionListItem;
   } | null>(null);
+  const [renameDialog, setRenameDialog] = useState<{
+    readonly id: string;
+    readonly currentName: string;
+  } | null>(null);
+  const [renameInput, setRenameInput] = useState('');
   const { data: workspaces = [] } = useQuery(workspacesListQueryOptions());
   const activeWorkspaceId = useActiveWorkspaceId();
   const setActiveWorkspaceId = useSetActiveWorkspaceId();
@@ -125,7 +139,7 @@ function AuthenticatedLayout() {
 
   // Auto-onboarding: workspace recém-criado (setupCompleted=false + 0 sessions)
   // dispara session "Workspace Setup" com prompt guiado. Equivalente a V1
-  // App.tsx:1431-1450. Sem skill bundled ainda (TASK-CR1-18 fará).
+  // Equivalente ao auto-trigger V1 — sem skill bundled ainda.
   useFirstLoginSetup({
     activeWorkspaceId: activeWorkspaceSlug.length > 0 ? activeWorkspaceSlug : null,
     hasSessions: (sessionsListQuery.data?.items.length ?? 0) > 0,
@@ -292,20 +306,30 @@ function AuthenticatedLayout() {
   );
 
   const handleRenameSession = useCallback(
-    async (id: string): Promise<void> => {
+    (id: string): void => {
       const currentName = findPanelSession(id)?.name ?? sessionContextMenu?.session.name ?? '';
-      const nextName = window.prompt(t('session.rename.prompt'), currentName);
-      const trimmed = nextName?.trim();
-      if (!trimmed || trimmed === currentName) return;
-      try {
-        await trpc.sessions.update.mutate({ id, patch: { name: trimmed } });
-        await refreshSessionData(id);
-      } catch (err) {
-        toast.error(String(err));
-      }
+      setRenameInput(currentName);
+      setRenameDialog({ id, currentName });
     },
-    [findPanelSession, refreshSessionData, sessionContextMenu?.session.name, t],
+    [findPanelSession, sessionContextMenu?.session.name],
   );
+
+  const handleRenameConfirm = useCallback(async (): Promise<void> => {
+    if (!renameDialog) return;
+    const trimmed = renameInput.trim();
+    if (!trimmed || trimmed === renameDialog.currentName) {
+      setRenameDialog(null);
+      return;
+    }
+    try {
+      await trpc.sessions.update.mutate({ id: renameDialog.id, patch: { name: trimmed } });
+      await refreshSessionData(renameDialog.id);
+    } catch (err) {
+      toast.error(String(err));
+    } finally {
+      setRenameDialog(null);
+    }
+  }, [refreshSessionData, renameDialog, renameInput]);
 
   const handlePinSession = useCallback(
     async (id: string, pinned: boolean): Promise<void> => {
@@ -554,7 +578,7 @@ function AuthenticatedLayout() {
           onPin={(id, pinned) => void handlePinSession(id, pinned)}
           onStar={(id, starred) => void handleStarSession(id, starred)}
           onMarkRead={(id, unread) => void handleMarkSessionRead(id, unread)}
-          onRename={(id) => void handleRenameSession(id)}
+          onRename={(id) => handleRenameSession(id)}
           onArchive={(id) => {
             const session = findPanelSession(id) ?? sessionContextMenu.session;
             setSessionLifecycleDialog({ kind: 'archive', session });
@@ -578,6 +602,40 @@ function AuthenticatedLayout() {
           onCancel={() => setSessionLifecycleDialog(null)}
         />
       ) : null}
+      <Dialog
+        open={renameDialog !== null}
+        onOpenChange={(open) => {
+          if (!open) setRenameDialog(null);
+        }}
+      >
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{t('session.rename.prompt')}</DialogTitle>
+          </DialogHeader>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              void handleRenameConfirm();
+            }}
+            className="flex flex-col gap-4"
+          >
+            <Input
+              value={renameInput}
+              onChange={(e) => setRenameInput(e.target.value)}
+              placeholder={t('session.rename.placeholder')}
+              autoFocus={true}
+            />
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => setRenameDialog(null)}>
+                {t('session.dialog.cancel')}
+              </Button>
+              <Button type="submit" disabled={!renameInput.trim()}>
+                {t('session.action.rename')}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
       <Dialog open={switcherOpen} onOpenChange={setSwitcherOpen}>
         <DialogContent className="max-w-sm">
           <DialogHeader>

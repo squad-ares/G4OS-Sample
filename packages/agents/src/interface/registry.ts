@@ -2,7 +2,7 @@ import { AgentError } from '@g4os/kernel/errors';
 import { err, ok, type Result } from 'neverthrow';
 import type { AgentConfig, AgentFactory, IAgent } from './agent.ts';
 
-// CR7-47: normalizar `kind` pra lowercase ANTES de armazenar/lookup.
+// Normalizar `kind` pra lowercase ANTES de armazenar/lookup.
 // Sem isso, registrar `'Claude'` e fazer `resolve({kind:'claude'})` falham
 // silenciosamente — registry parecia vazio. Pattern de defensive code:
 // força contrato bem definido sem trocar a API.

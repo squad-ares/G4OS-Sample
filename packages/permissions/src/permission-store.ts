@@ -37,7 +37,7 @@ export interface PermissionStoreOptions {
  * Timeout default para `withLock`. Operações de I/O (readFile + writeAtomic)
  * em workspace local devem completar bem antes disso. Timeout existe para
  * defender contra disk hung / FS corrompido — sem ele, leituras subsequentes
- * ficam bloqueadas indefinidamente (CR4-09).
+ * ficam bloqueadas indefinidamente.
  */
 const DEFAULT_LOCK_TIMEOUT_MS = 5000;
 
@@ -55,7 +55,7 @@ export class PermissionStore {
   private withLock<T>(workspaceId: string, fn: () => Promise<T>): Promise<T> {
     const previous = this.#locks.get(workspaceId) ?? Promise.resolve();
     const timeoutMs = this.#lockTimeoutMs;
-    // CR5-10: race entre `setTimeout` firing e `clearTimeout` no error
+    // Race entre `setTimeout` firing e `clearTimeout` no error
     // path. Sem `timedOut` flag, fn que rejeita mais ou menos no mesmo
     // tick que o timeout dispara podia liberar lock incorretamente.
     // Sentinel local distingue: se timedOut, a Promise já foi rejeitada
@@ -139,7 +139,7 @@ export class PermissionStore {
       };
       const legacyHash = decision.argsHash.slice(0, 32);
       const file = await this.readFile(workspaceId);
-      // CR4-18: substitui existente com hash full (64-char) E também
+      // Substitui existente com hash full (64-char) E também
       // remove entry legacy (32-char) com mesmo prefixo. Sem isso o
       // arquivo acumulava bloat de decisões antigas duplicadas.
       const filtered = file.decisions.filter(
@@ -199,7 +199,7 @@ export class PermissionStore {
       return ToolPermissionsFileSchema.parse(JSON.parse(raw));
     } catch (err) {
       if (isNotFound(err)) return { version: 1, decisions: [] };
-      // CR7-27: distinguir parse failure (corruption) de IO error e
+      // Distinguir parse failure (corruption) de IO error e
       // PRESERVAR o arquivo corrompido como `.corrupt.<ts>` antes de tratar
       // como vazio. Sem isso, o próximo `persist()` sobrescrevia silentemente
       // — operador perdia dados sem rastreabilidade. Operação é best-effort:
@@ -241,12 +241,12 @@ export function hashArgs(input: Readonly<Record<string, unknown>>): string {
 }
 
 function stableStringify(value: unknown, visited: WeakSet<object> = new WeakSet()): string {
-  // CR6-17: BigInt não tem `JSON.stringify` builtin (lança `TypeError`).
+  // BigInt não tem `JSON.stringify` builtin (lança `TypeError`).
   // Tools analíticas legítimas podem passar BigInt — converter para string
   // mantém o hash determinístico sem crashar o broker.
   if (typeof value === 'bigint') return JSON.stringify(`${value}n`);
   if (value === null || typeof value !== 'object') return JSON.stringify(value);
-  // CR5-11: rejeita ciclos antes de recursar — sem este guard, args com
+  // Rejeita ciclos antes de recursar — sem este guard, args com
   // referência circular (`args.self = args`) faz stack overflow e crash
   // o broker. DoS vector em single tool call malformado.
   if (visited.has(value as object)) {
@@ -256,14 +256,14 @@ function stableStringify(value: unknown, visited: WeakSet<object> = new WeakSet(
   if (Array.isArray(value)) {
     return `[${value.map((item) => stableStringify(item, visited)).join(',')}]`;
   }
-  // CR6-17: `Reflect.ownKeys` cobre Symbol keys também — `Object.keys` os
+  // `Reflect.ownKeys` cobre Symbol keys também — `Object.keys` os
   // ignora silenciosamente, então duas chamadas com Symbol keys diferentes
   // produziriam o mesmo hash (colisão). Filtramos Symbols porque tornar
   // chave-Symbol estável JSON é ambíguo (sem identidade serializável).
   const allKeys = Reflect.ownKeys(value as object).filter(
     (k): k is string => typeof k === 'string',
   );
-  // CR9: ordem ordinal (UTF-16 code units) em vez de `localeCompare`. O
+  // Ordem ordinal (UTF-16 code units) em vez de `localeCompare`. O
   // hash de args precisa ser determinístico ENTRE máquinas — `localeCompare`
   // varia com collation do locale (pt-BR, en-US, etc.), então usuários em
   // locales diferentes geravam hashes ligeiramente distintos para o mesmo

@@ -5,8 +5,7 @@
  * `[source:slug]` no texto via callback `onSelect`.
  *
  * UX: ancorado ao topo do textarea wrapper (absolute positioned), não
- * ao caret — medir caret exato em textarea custaria refactor que a MVP
- * OUTLIER-20 está explicitamente evitando (editor rich fica pra depois).
+ * ao caret — medir caret exato custaria refactor de editor rich (deferred).
  */
 
 import type { SourceConfigView } from '@g4os/kernel/types';
@@ -22,7 +21,7 @@ export interface MentionPickerProps {
   readonly onCancel: () => void;
   readonly registerKeyHandler?: (handler: (event: KeyboardEvent) => boolean) => () => void;
   /**
-   * CR7: listbox id injetado pelo Composer pai para que `aria-controls` no
+   * Listbox id injetado pelo Composer pai para que `aria-controls` no
    * textarea bata com o id real do `<div role="listbox">`. Caso ausente,
    * gera id local via `useId()` como fallback (componente standalone).
    */
@@ -41,8 +40,8 @@ export function MentionPicker({
 }: MentionPickerProps): ReactNode {
   const { t } = useTranslate();
   const [activeIndex, setActiveIndex] = useState(0);
-  // CR6-07 + CR7 fix: id deve ser o MESMO usado pelo `aria-controls` do
-  // textarea pai. Composer injeta via prop; fallback usa `useId()` para
+  // Id deve ser o MESMO usado pelo `aria-controls` do textarea pai.
+  // Composer injeta via prop; fallback usa `useId()` para
   // suportar uso standalone. Multi-window (ADR-0107) safe.
   const reactId = useId();
   const listboxId = listboxIdProp ?? `mention-picker-listbox-${reactId}`;
@@ -132,9 +131,7 @@ interface MentionRowProps {
 
 function MentionRow({ id, source, active, onHover, onSelect }: MentionRowProps): ReactNode {
   const { t } = useTranslate();
-  // CR5-22: role="option" aplicado direto no <button> em vez de wrapper
-  // <div>. SR antes via duas semânticas (option estática + button
-  // clicável) sobrepostas — agora cleaner. tabIndex=-1 mantém foco
+  // role="option" aplicado direto no <button> — tabIndex=-1 mantém foco
   // gerenciado pelo textarea via aria-activedescendant.
   return (
     <button

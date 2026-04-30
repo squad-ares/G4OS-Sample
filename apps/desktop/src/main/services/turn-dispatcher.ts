@@ -1,93 +1,58 @@
 /**
  * TurnDispatcher — orquestra um turno (user msg → agent → runToolLoop →
- * title gen). Reentrância bloqueada por session. ADR-0135 + OUTLIER-09.
+ * title gen). Reentrância bloqueada por session. ADR-0135.
  */
 
 import { randomUUID } from 'node:crypto';
-import type { AgentConfig, AgentRegistry, IAgent } from '@g4os/agents/interface';
-import {
-  composeCatalogs,
-  createToolRegistry,
-  type ToolCatalog,
-  type ToolHandler,
-} from '@g4os/agents/tools';
-import type { CredentialVault } from '@g4os/credentials';
-import type { MessagesService } from '@g4os/ipc/server';
+import type { AgentConfig } from '@g4os/agents/interface';
+import type { ToolCatalog, ToolHandler } from '@g4os/agents/tools';
+import { composeCatalogs, createToolRegistry } from '@g4os/agents/tools';
 import { DisposableBase, toDisposable } from '@g4os/kernel/disposable';
 import { AppError, ErrorCode } from '@g4os/kernel/errors';
 import { createLogger } from '@g4os/kernel/logger';
 import {
   type ContentBlock,
   connectionSlugForProvider,
-  type Message,
-  type Session,
   type SessionId,
   type ToolDefinition,
 } from '@g4os/kernel/types';
 import { withSpan } from '@g4os/observability';
 import { createTurnTelemetry } from '@g4os/observability/metrics';
-import type { PermissionBroker } from '@g4os/permissions';
-import { buildMessageAddedEvent, runToolLoop, type SessionEventBus } from '@g4os/session-runtime';
-import type { McpMountRegistry } from '@g4os/sources/broker';
+import { buildMessageAddedEvent, runToolLoop } from '@g4os/session-runtime';
 import { SourceIntentDetector } from '@g4os/sources/lifecycle';
-import type { SourcesStore } from '@g4os/sources/store';
 import { err, ok, type Result } from 'neverthrow';
-import { applyTurnIntent, type SessionIntentUpdater } from './sessions/apply-intent.ts';
+import { applyTurnIntent } from './sessions/apply-intent.ts';
 import { buildMountedHandlers } from './sessions/mount-plan.ts';
 import { buildSourcePlan, composeSystemPrompt } from './sessions/plan-build.ts';
 import { drainActiveTurns } from './sessions/turn-drain.ts';
+import { resolveOwnerSession } from './turn-dispatcher-guards.ts';
+import type {
+  ActiveTurn,
+  TurnDispatchDefaults,
+  TurnDispatcherDeps,
+  TurnDispatchInput,
+} from './turn-dispatcher-types.ts';
+import {
+  DEFAULT_CONNECTION_SLUG,
+  DEFAULT_MAX_TOKENS,
+  DEFAULT_MODEL_ID,
+} from './turn-dispatcher-types.ts';
 
-export type { SessionIntentUpdater };
+export type {
+  SessionIntentUpdater,
+  TitleHook,
+  TurnDispatchDefaults,
+  TurnDispatcherDeps,
+  TurnDispatchInput,
+} from './turn-dispatcher-types.ts';
 
-interface UnsubscribableLike {
-  unsubscribe(): void;
-}
+export {
+  DEFAULT_CONNECTION_SLUG,
+  DEFAULT_MAX_TOKENS,
+  DEFAULT_MODEL_ID,
+} from './turn-dispatcher-types.ts';
 
 const log = createLogger('turn-dispatcher');
-
-const DEFAULT_MODEL_ID = 'claude-sonnet-4-6';
-const DEFAULT_CONNECTION_SLUG = 'anthropic-direct';
-const DEFAULT_MAX_TOKENS = 4096;
-
-export interface TitleHook {
-  scheduleGeneration(sessionId: SessionId, messages: readonly Message[]): void;
-}
-
-export interface TurnDispatcherDeps {
-  readonly messages: MessagesService;
-  readonly registry: AgentRegistry;
-  readonly eventBus: SessionEventBus;
-  readonly permissionBroker: PermissionBroker;
-  readonly toolCatalog: ToolCatalog;
-  readonly sourcesStore: SourcesStore;
-  readonly credentialVault?: CredentialVault | undefined;
-  readonly mountRegistry?: McpMountRegistry;
-  readonly titleGenerator?: TitleHook;
-  readonly getSession: (id: SessionId) => Promise<Session | null>;
-  readonly resolveWorkingDirectory: (session: Session | null) => string;
-  readonly sessionIntentUpdater?: SessionIntentUpdater;
-  readonly defaults?: Partial<TurnDispatchDefaults>;
-}
-
-export interface TurnDispatchDefaults {
-  readonly modelId: string;
-  readonly connectionSlug: string;
-  readonly maxTokens: number;
-  readonly systemPrompt?: string;
-}
-
-export interface TurnDispatchInput {
-  readonly sessionId: SessionId;
-  readonly text: string;
-}
-
-interface ActiveTurn {
-  readonly turnId: string;
-  readonly agent: IAgent;
-  readonly abortController: AbortController;
-  subscription: UnsubscribableLike | null;
-  readonly completion: Promise<unknown>;
-}
 
 export class TurnDispatcher extends DisposableBase {
   readonly #deps: TurnDispatcherDeps;
@@ -106,12 +71,24 @@ export class TurnDispatcher extends DisposableBase {
         ? {}
         : { systemPrompt: deps.defaults.systemPrompt }),
     };
-    // CR6-08: teardown sync final (shutdown deve chamar drain antes).
+    // Teardown sync final (shutdown deve chamar drain antes).
     this._register(toDisposable(() => this.cleanupAll()));
   }
 
-  /** CR6-08: drain aguarda turnos quiescerem; dispose é sync fallback. */
+  /** drain aguarda turnos quiescerem; dispose é sync fallback. */
   drain = (deadlineMs?: number): Promise<void> => drainActiveTurns(this.#active, deadlineMs);
+
+  /**
+   * Snapshot read-only para o Debug HUD. Não expõe agent /
+   * abortController — só o que o card precisa renderizar.
+   */
+  snapshotActive(): readonly { sessionId: string; turnId: string; startedAt: number }[] {
+    const out: { sessionId: string; turnId: string; startedAt: number }[] = [];
+    for (const [sessionId, turn] of this.#active) {
+      out.push({ sessionId, turnId: turn.turnId, startedAt: turn.startedAt });
+    }
+    return out;
+  }
 
   private cleanupAll(): void {
     for (const [, active] of this.#active) {
@@ -141,6 +118,10 @@ export class TurnDispatcher extends DisposableBase {
       );
     }
 
+    const ownerSessionResult = await resolveOwnerSession(this.#deps.getSession, input);
+    if (ownerSessionResult.isErr()) return err(ownerSessionResult.error);
+    const ownerSession = ownerSessionResult.value;
+
     const userContent: ContentBlock[] = [{ type: 'text', text }];
     const userAppend = await this.#deps.messages.append({
       sessionId,
@@ -157,7 +138,9 @@ export class TurnDispatcher extends DisposableBase {
     if (historyResult.isErr()) return err(historyResult.error);
     const messages = historyResult.value;
 
-    const session = await this.#deps.getSession(sessionId);
+    // Reaproveita o `ownerSession` lido no guard de workspace ownership — evita 2 queries
+    // pra mesma sessão no caminho hot.
+    const session = ownerSession;
     await applyTurnIntent(
       {
         detector: this.#intent,
@@ -226,7 +209,7 @@ export class TurnDispatcher extends DisposableBase {
 
     const abortController = new AbortController();
     const workingDirectory = this.#deps.resolveWorkingDirectory(session);
-    // CR6-08: `completion` deixa `drain()` aguardar quiescência no shutdown.
+    // `completion` deixa `drain()` aguardar quiescência no shutdown.
     let resolveCompletion!: (value: unknown) => void;
     const completion = new Promise<unknown>((r) => (resolveCompletion = r));
     const activeTurn: ActiveTurn = {
@@ -235,6 +218,7 @@ export class TurnDispatcher extends DisposableBase {
       abortController,
       subscription: null,
       completion,
+      startedAt: Date.now(),
     };
     this.#active.set(sessionId, activeTurn);
 
@@ -260,12 +244,24 @@ export class TurnDispatcher extends DisposableBase {
         },
       },
     );
+    this.#deps.eventBus.emit(sessionId, {
+      type: 'turn.done',
+      sessionId,
+      turnId,
+      reason: loopResult.isOk() ? 'stop' : 'error',
+    });
     resolveCompletion(loopResult);
     this.cleanup(sessionId, { disposeAgent: true });
 
+    // Dispara geração de título somente após a 3ª mensagem do
+    // usuário, para ter contexto suficiente. Turns 1-2 costumam ser
+    // saudação / refinamento — título gerado cedo vira "Olá" ou "Como
+    // posso ajudar". Após o 3° turn o assunto está estabelecido.
     if (loopResult.isOk() && this.#deps.titleGenerator) {
       void this.#deps.messages.list(sessionId).then((r) => {
-        if (r.isOk()) this.#deps.titleGenerator?.scheduleGeneration(sessionId, r.value);
+        if (!r.isOk()) return;
+        const userCount = r.value.filter((m) => m.role === 'user').length;
+        if (userCount >= 3) this.#deps.titleGenerator?.scheduleGeneration(sessionId, r.value);
       });
     }
     return loopResult;

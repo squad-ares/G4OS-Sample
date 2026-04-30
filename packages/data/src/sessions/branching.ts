@@ -2,14 +2,26 @@
  * Helper de branching. Copia eventos do JSONL da sessão-mãe até
  * `branchedAtSeq` para a nova branch, depois persiste o índice no SQLite.
  *
- * Estratégia copy-prefix (TASK-11-01-04 opção A): eventos são pequenos
+ * Estratégia copy-prefix (opção A): eventos são pequenos
  * e SQLite comprime; a complexidade de shared-prefix pointer não
  * compensa para o volume típico de uma sessão.
  *
  * Orquestrado pela camada de serviço (apps/desktop), que já tem acesso
  * ao EventStore (`@g4os/data/events`) + SessionsRepository.
+ *
+ * Writer agora é o `SessionEventStore` real — antes era um
+ * placeholder que retornava `{ sequence: 0 }` e não validava payload.
+ * Cada evento copiado é re-emitido com:
+ *   - novo `sessionId` (a branch)
+ *   - novo `sequenceNumber` (1..copied — preserva ordem mas reseta para
+ *     a branch, já que a sessão-mãe pode continuar avançando)
+ *   - novo `eventId` (UUID — permite distinguir o evento da branch do
+ *     mesmo evento na mãe em projeções globais)
+ *   - resto do payload preservado (timestamp original, kind, etc.)
  */
 
+import { randomUUID } from 'node:crypto';
+import { type SessionEvent, SessionEventSchema } from '@g4os/kernel/schemas';
 import type { Session, SessionId } from '@g4os/kernel/types';
 import type { SessionsRepository } from './repository.ts';
 
@@ -21,10 +33,12 @@ export interface EventStoreReader {
 }
 
 export interface EventStoreWriter {
-  append(
-    sessionId: string,
-    event: { readonly type: string; readonly payload?: unknown },
-  ): Promise<{ readonly sequence: number }>;
+  /**
+   * Escreve evento já formatado (com sessionId/sequenceNumber/eventId
+   * corretos) no JSONL. Implementação canônica é
+   * `SessionEventStore.append` — wrapper validates via Zod schema.
+   */
+  append(sessionId: string, event: SessionEvent): Promise<void>;
 }
 
 export interface BranchSessionInput {
@@ -57,10 +71,9 @@ export async function branchSession(
   let copied = 0;
   for await (const event of deps.reader.readReplay(input.sourceId)) {
     if (event.sequence > input.atSequence) break;
-    await deps.writer.append(created.id, {
-      type: (event.payload as { type?: string } | null)?.type ?? 'legacy.event',
-      payload: event.payload,
-    });
+    const reEmitted = reEmitEventForBranch(event.payload, created.id, copied + 1);
+    if (!reEmitted) continue;
+    await deps.writer.append(created.id, reEmitted);
     copied++;
   }
 
@@ -69,4 +82,26 @@ export async function branchSession(
   });
 
   return created;
+}
+
+/**
+ * Reescreve um evento da sessão-mãe para a branch: substitui
+ * `sessionId`/`sequenceNumber`/`eventId`, preserva o resto. Valida via
+ * Zod — payloads corrompidos da mãe são skipped (warn no chamador).
+ */
+function reEmitEventForBranch(
+  rawPayload: unknown,
+  newSessionId: SessionId,
+  newSequence: number,
+): SessionEvent | null {
+  if (rawPayload === null || typeof rawPayload !== 'object') return null;
+  const candidate = {
+    ...(rawPayload as Record<string, unknown>),
+    sessionId: newSessionId,
+    sequenceNumber: newSequence,
+    eventId: randomUUID(),
+  };
+  const parsed = SessionEventSchema.safeParse(candidate);
+  if (!parsed.success) return null;
+  return parsed.data;
 }

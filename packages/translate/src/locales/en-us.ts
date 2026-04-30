@@ -670,6 +670,7 @@ export const enUS = {
   'session.action.rename': 'Rename',
   'session.action.labels': 'Labels',
   'session.rename.prompt': 'Rename session',
+  'session.rename.placeholder': 'Session name',
 
   'session.dialog.archive.title': 'Archive this session?',
   'session.dialog.archive.description':
@@ -938,6 +939,38 @@ export const enUS = {
     'Reset workspace database, purge attachments, reinstall bundled runtime.',
   'settings.repair.destructive.planned':
     'Destructive reset lands together with cloud sync restore so users never lose data.',
+  'settings.repair.debugHud.title': 'Inspection mode (Debug HUD)',
+  'settings.repair.debugHud.description':
+    'Floating window with live runtime metrics (memory, listeners, IPC, sessions). Useful for diagnosing freezes and sharing evidence with support.',
+  'settings.repair.debugHud.toggle.label': 'Enable Debug HUD',
+  'settings.repair.debugHud.toggle.hint':
+    'When on, Cmd/Ctrl+Shift+D opens/closes the window. In development it is enabled by default.',
+  'settings.repair.debugHud.toggle.enabled': 'Debug HUD enabled',
+  'settings.repair.debugHud.toggle.disabled': 'Debug HUD disabled',
+  'settings.repair.debugHud.toggle.error': 'Failed to save preference',
+  'settings.repair.integrity.title': 'Runtime integrity',
+  'settings.repair.integrity.description':
+    'Verifies SHA-256 of bundled binaries (Node, pnpm, uv, Python, Git) against the signed manifest. Useful when a customer reports a broken runtime after update or after antivirus quarantined binaries.',
+  'settings.repair.integrity.verify': 'Verify integrity',
+  'settings.repair.integrity.checking': 'Checking…',
+  'settings.repair.integrity.ok': 'All good — runtime is intact',
+  'settings.repair.integrity.failed': 'Integrity compromised',
+  'settings.repair.integrity.metaMissing':
+    'Manifest missing — likely a dev build. In prod, indicates a corrupted install.',
+  'settings.repair.integrity.appVersion': 'Version',
+  'settings.repair.integrity.flavor': 'Channel',
+  'settings.repair.integrity.target': 'Platform',
+  'settings.repair.integrity.runtimes': 'Runtimes checked',
+  'settings.repair.integrity.failureSingular': 'failure',
+  'settings.repair.integrity.failurePlural': 'failures',
+  'settings.repair.integrity.toastOk': 'Runtime intact',
+  'settings.repair.integrity.toastFailed': 'Integrity issues detected',
+  'settings.repair.integrity.toastMetaMissing': 'Manifest not found',
+  'settings.repair.integrity.toastError': 'Failed to verify integrity',
+  'settings.repair.integrity.failureRuntime': 'runtime',
+  'settings.repair.integrity.failurePath': 'path',
+  'settings.repair.integrity.failureExpected': 'expected',
+  'settings.repair.integrity.failureActual': 'actual',
 
   'chat.workingDir.ariaLabel': 'Working directory',
   'chat.workingDir.empty': 'No paths configured.',

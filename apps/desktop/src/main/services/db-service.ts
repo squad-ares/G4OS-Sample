@@ -10,9 +10,10 @@
  *      Em falha: rethrow (main process decide se mostra repair screen);
  *      backup preservado permite recovery manual.
  *
- * Esta camada ainda não é invocada por `main/index.ts` — será ligada em
- * TASK-04-04 (event-sourced sessions) quando o DB entrar no caminho
- * crítico. Mantém-se como uma função pura para teste isolado.
+ * Wired em `main/index.ts`: a `database` retornada é
+ * passada diretamente para todos os services que precisam de SQLite
+ * (workspaces/sessions/messages/labels/projects/backup/cleanup) e
+ * para `registerShutdownHandlers` para flush ordenado no quit.
  */
 
 import { existsSync } from 'node:fs';

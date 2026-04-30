@@ -97,8 +97,44 @@ import { globSync } from 'glob';
 // - sources-service.ts +69 LOC para wire de credentialRefs no create
 //   stdio/http/delete/testConnection. Crescimento líquido em main: +23 LOC
 //   após reaproveitamento dos helpers de secrets em vez de inline.
-const MAIN_LIMIT = 7250;
+//
+// 2026-04-30 (code-review batch): teto sobe de 7250 → 8800 por conta de:
+// - debug-hud/ (~634 LOC): aggregator, window, index — HUD interno de
+//   diagnóstico; wiring legítimo no composition root.
+// - preferences-store.ts + preferences-service.ts (~266 LOC): settings
+//   persistidos por workspace; extraídos de workspaces-service.
+// - update-service.ts (~111 LOC): Electron autoUpdater wired no boot.
+// - startup-preflight-helpers.ts (~100 LOC): extração de helpers do
+//   preflight para manter startup-preflight-service.ts ≤ 300 LOC.
+// - turn-dispatcher-types.ts (~75 LOC) + turn-dispatcher-guards.ts (~55 LOC):
+//   extrações para manter turn-dispatcher.ts ≤ 300 LOC.
+// Crescimento líquido: +1550 LOC de features e extrações legitimamente em main.
+//
+// 2026-04-30 (UX/observability fixes): teto sobe de 8800 → 8900 por conta de:
+// - metrics-scrape-server.ts (~24 LOC): expõe /metrics Prometheus para scrape local.
+// - observability bootstrap em index.ts: .env loading antes de app.whenReady()
+//   (Sentry exige init pré-ready) + wire do scrape server.
+// - window-manager.ts: bloqueio de Cmd+R/F5 em production builds (reload destrói
+//   estado in-flight: streams, drafts, modais pendentes).
+// - electron-runtime.ts: tipos para WebContents.on('before-input-event') usado
+//   pelo bloqueio acima.
+// - debug-hud/window.ts: `frame: true` + `alwaysOnTop: false` (UX bug — HUD
+//   roubava foco da janela principal e não tinha botão de close).
+// - turn-dispatcher.ts: emite `turn.done` após runToolLoop pra renderer limpar
+//   `streamingTurnId` de forma confiável (antes era leak; ghost message ficava
+//   pendurado em algumas paths de erro).
+const MAIN_LIMIT = 8900;
 const FILE_LIMIT = 300;
+
+// Composition roots e agregadores de diagnóstico com teto próprio.
+// Cada entrada justifica por que o FILE_LIMIT padrão não se aplica.
+const FILE_EXEMPTIONS: Map<string, number> = new Map([
+  // Composition root do processo principal: instancia todos os serviços,
+  // registra shutdown handlers, bootstrapa IPC e janela. Concentração
+  // intencional — extrair implicaria prop drilling ou Context API sem
+  // ganho real de legibilidade. Teto: 450 LOC.
+  ['apps/desktop/src/main/index.ts', 450],
+]);
 
 const files = globSync('apps/desktop/src/main/**/*.ts', {
   ignore: ['**/__tests__/**', '**/*.test.ts', '**/workers/**'],
@@ -111,7 +147,8 @@ for (const file of files) {
   const content = readFileSync(file, 'utf-8');
   const lines = content.split('\n').length;
   total += lines;
-  if (lines > FILE_LIMIT) oversized.push({ file, lines });
+  const limit = FILE_EXEMPTIONS.get(file) ?? FILE_LIMIT;
+  if (lines > limit) oversized.push({ file, lines });
 }
 
 let failed = false;

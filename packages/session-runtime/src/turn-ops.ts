@@ -14,12 +14,14 @@ export interface TurnDispatcherLike {
   interrupt(sessionId: SessionId): Result<void, AppError>;
 }
 
-export function respondPermission(
+export async function respondPermission(
   broker: PermissionBroker,
   requestId: string,
   decision: PermissionDecision,
-): Result<void, AppError> {
-  const accepted = broker.respond(requestId, decision);
+): Promise<Result<void, AppError>> {
+  // Respond agora é async (await persist allow_always). Helper
+  // propaga o await para o caller do tRPC procedure.
+  const accepted = await broker.respond(requestId, decision);
   if (!accepted) {
     return err(
       new AppError({

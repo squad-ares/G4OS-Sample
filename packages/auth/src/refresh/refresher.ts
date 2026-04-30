@@ -1,4 +1,5 @@
 import { DisposableBase } from '@g4os/kernel/disposable';
+import { createLogger } from '@g4os/kernel/logger';
 import { BehaviorSubject, type Observable } from 'rxjs';
 import {
   AUTH_ACCESS_TOKEN_KEY,
@@ -6,6 +7,8 @@ import {
   type AuthTokenStore,
   type SupabaseAuthPort,
 } from '../types.ts';
+
+const log = createLogger('auth:session-refresher');
 
 export type RefresherState =
   | { readonly kind: 'idle' }
@@ -36,6 +39,15 @@ export class SessionRefresher extends DisposableBase {
   private readonly minDelayMs: number;
   private pending: { cancel: () => void } | null = null;
   private started = false;
+  /**
+   * Coalesce concorrentes. `refreshNow()` + tick agendado
+   * podiam executar `refresh()` em paralelo, ambos escrevendo ao
+   * tokenStore — o segundo ganhador sobrescrevia o primeiro com token
+   * já invalidado pelo provider (refresh tokens são single-use em
+   * Supabase/Google). Caller que chega quando já há refresh em vôo
+   * compartilha a mesma promise.
+   */
+  private inflight: Promise<void> | null = null;
 
   constructor(options: SessionRefresherOptions) {
     super();
@@ -68,6 +80,12 @@ export class SessionRefresher extends DisposableBase {
 
   async refreshNow(): Promise<void> {
     this.cancelPending();
+    if (this.inflight) {
+      // Já há refresh em vôo (do tick agendado ou outro refreshNow).
+      // Não dispara um segundo — espera o atual e retorna.
+      await this.inflight;
+      return;
+    }
     await this.refresh();
   }
 
@@ -79,12 +97,26 @@ export class SessionRefresher extends DisposableBase {
       return;
     }
     const meta = list.value.find((m) => m.key === AUTH_ACCESS_TOKEN_KEY);
-    if (!meta?.expiresAt) {
+    if (!meta) {
+      // Sem token persistido — idle correto (ainda não autenticou).
+      this.subject.next({ kind: 'idle' });
+      return;
+    }
+    if (!meta.expiresAt) {
+      // Token persistido mas sem `expiresAt` é estado degradado —
+      // não dá pra rotacionar, então fica idle, mas log warn explicit para
+      // operador detectar via debug-export. Causa típica: provider que não
+      // retorna `expires_at` (Supabase legacy, custom OAuth) ou meta
+      // corrompida em disco.
+      log.warn(
+        { key: AUTH_ACCESS_TOKEN_KEY },
+        'access token present but missing expiresAt — refresh disabled until next login',
+      );
       this.subject.next({ kind: 'idle' });
       return;
     }
     const expiresAt = meta.expiresAt;
-    // CR8-29: meta.expiresAt corrompido (NaN, Infinity, negativo absurdo)
+    // meta.expiresAt corrompido (NaN, Infinity, negativo absurdo)
     // chegava em `Math.max(min, expiresAt - now - buffer)` → NaN/Infinity →
     // `setTimeout(fn, NaN)` dispara IMEDIATO em loop, ou pendura sem
     // executar. Validar finitude antes do cálculo.
@@ -106,6 +138,25 @@ export class SessionRefresher extends DisposableBase {
   }
 
   private async refresh(): Promise<void> {
+    // Coalesce — se já há refresh em vôo, compartilha a promise.
+    // Caller via timer ou refreshNow chega aqui após cancelPending, então
+    // o único caminho concorrente é tick disparando enquanto outro
+    // tick/refreshNow ainda nao concluiu (race em janela curtíssima entre
+    // setTimerFn callback e await scheduleNext).
+    if (this.inflight) {
+      await this.inflight;
+      return;
+    }
+    const promise = this.runRefresh();
+    this.inflight = promise;
+    try {
+      await promise;
+    } finally {
+      this.inflight = null;
+    }
+  }
+
+  private async runRefresh(): Promise<void> {
     this.subject.next({ kind: 'refreshing' });
     const refreshToken = await this.tokenStore.get(AUTH_REFRESH_TOKEN_KEY);
     if (refreshToken.isErr() || !refreshToken.value) {

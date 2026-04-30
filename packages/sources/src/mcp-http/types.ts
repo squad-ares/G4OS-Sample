@@ -6,7 +6,10 @@ export interface McpHttpConfig {
   readonly slug: string;
   readonly metadata: SourceMetadata;
   readonly url: string;
+  /** @deprecated Token plaintext em config contradiz vault gateway único. Usar `authCredentialKey`. */
   readonly authToken?: string;
+  /** Chave no `CredentialVault` cujo valor é usado como Bearer token. Resolvido em runtime por `authResolver`. */
+  readonly authCredentialKey?: string;
   readonly headers?: Readonly<Record<string, string>>;
 }
 

@@ -38,7 +38,7 @@ export class GoogleAgent extends DisposableBase implements IAgent {
     this.capabilities = detectGeminiCapabilities(config.modelId);
     this.log = options.logger ?? createLogger('google-agent');
     this.runner = new StreamRunner(provider);
-    // CR5-06: cleanup centralizado via _register (FIFO no DisposableStore):
+    // Cleanup centralizado via _register (FIFO no DisposableStore):
     // abort PRIMEIRO, clear DEPOIS — caso contrário map vazio antes do abort.
     this._register(
       toDisposable(() => {
@@ -99,7 +99,7 @@ export class GoogleAgent extends DisposableBase implements IAgent {
   }
 
   // dispose() herdado de DisposableBase — executa LIFO os disposables
-  // registrados no constructor (CR5-06).
+  // registrados no constructor.
 
   private async resolveStrategy(
     input: AgentTurnInput,

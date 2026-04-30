@@ -1,3 +1,4 @@
+export * from './install-meta.ts';
 export * from './keychain/interface.ts';
 export * from './paths.ts';
 export * from './platform-info.ts';

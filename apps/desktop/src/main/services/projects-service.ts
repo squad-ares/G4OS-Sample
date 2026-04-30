@@ -1,7 +1,7 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { AppDb } from '@g4os/data';
-import { ProjectsRepository, ProjectTasksRepository } from '@g4os/data/projects';
+import { ProjectsRepository, ProjectTasksRepository, toProjectSlug } from '@g4os/data/projects';
 import { SessionsRepository } from '@g4os/data/sessions';
 import type { ProjectsService as ProjectsServiceContract } from '@g4os/ipc/server';
 import { AppError, ErrorCode, ProjectError } from '@g4os/kernel/errors';
@@ -24,6 +24,7 @@ import type {
 import { err, ok, type Result } from 'neverthrow';
 import * as fileOps from './projects/file-ops.ts';
 import * as legacyImport from './projects/legacy-import.ts';
+import { isUniqueConstraintError } from './projects/sqlite-errors.ts';
 
 const log = createLogger('projects-service');
 
@@ -66,19 +67,34 @@ class SqliteProjectsService implements ProjectsServiceContract {
 
   create(input: ProjectCreateInput): Promise<Result<Project, AppError>> {
     return this.#try('projects.create', async () => {
-      const rootPath = join(
-        this.#workspacesRootPath,
-        input.workspaceId,
-        'projects',
-        toSlug(input.name),
-      );
+      const slug = toProjectSlug(input.name);
+      // Pré-check evita falha tardia + UI tipada via PROJECT_SLUG_CONFLICT.
+      // Race condition residual (dois callers simultâneos) é capturada no
+      // catch via `isUniqueConstraintError` em `#try`.
+      const conflict = await this.#repo.findBySlug(input.workspaceId, slug);
+      if (conflict) throw ProjectError.slugConflict(input.workspaceId, slug);
+      const rootPath = join(this.#workspacesRootPath, input.workspaceId, 'projects', slug);
       await bootstrapProjectDir(rootPath);
       return this.#repo.create({ ...input, rootPath });
     });
   }
 
   update(id: ProjectId, patch: ProjectPatch): Promise<Result<void, AppError>> {
-    return this.#try('projects.update', () => this.#repo.update(id, patch));
+    return this.#try('projects.update', async () => {
+      // Rename muda slug — pré-check no novo slug.
+      if (patch.name !== undefined) {
+        const current = await this.#repo.get(id);
+        if (!current) throw notFound(id);
+        const newSlug = toProjectSlug(patch.name);
+        if (newSlug !== current.slug) {
+          const conflict = await this.#repo.findBySlug(current.workspaceId, newSlug);
+          if (conflict && conflict !== id) {
+            throw ProjectError.slugConflict(current.workspaceId, newSlug);
+          }
+        }
+      }
+      await this.#repo.update(id, patch);
+    });
   }
 
   archive(id: ProjectId): Promise<Result<void, AppError>> {
@@ -229,12 +245,26 @@ class SqliteProjectsService implements ProjectsServiceContract {
     try {
       return ok(await fn());
     } catch (error) {
-      // CR4-13: se o caller já lançou um `AppError` tipado (ex.: `notFound`,
+      // Se o caller já lançou um `AppError` tipado (ex.: `notFound`,
       // ou erros propagados de helpers via `Result`), preserva o código
       // original em vez de mascarar como `UNKNOWN_ERROR`.
       if (error instanceof AppError) {
         log.error({ err: error, code: error.code }, `${scope} failed`);
         return err(error);
+      }
+      // Race entre pré-check e insert — UNIQUE constraint do
+      // SQLite vira erro raw. Mapeia para PROJECT_SLUG_CONFLICT quando a
+      // coluna afetada é `slug` (ou índice composto incluindo slug).
+      const unique = isUniqueConstraintError(error);
+      if (unique?.columns.some((c) => c.endsWith('.slug') || c === 'slug')) {
+        log.warn({ err: error, columns: unique.columns }, `${scope} slug conflict (race)`);
+        return err(
+          new AppError({
+            code: ErrorCode.PROJECT_SLUG_CONFLICT,
+            message: 'project slug already exists in workspace',
+            cause: error,
+          }),
+        );
       }
       log.error({ err: error }, `${scope} failed`);
       return err(
@@ -259,17 +289,7 @@ async function bootstrapProjectDir(rootPath: string): Promise<void> {
 }
 
 function notFound(id: string): AppError {
-  // CR5-17: usa factory tipada de ProjectError. Antes construía AppError
+  // Usa factory tipada de ProjectError. Antes construía AppError
   // direto, perdendo consistência com SessionError/CredentialError pattern.
   return ProjectError.notFound(id);
-}
-
-function toSlug(name: string): string {
-  return name
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 80);
 }

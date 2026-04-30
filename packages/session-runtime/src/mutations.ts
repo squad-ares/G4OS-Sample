@@ -10,7 +10,7 @@ export interface LifecycleMutationOptions {
   /**
    * Callback opcional que aplica o evento no reducer SQLite
    * (`@g4os/data/events/applyEvent`). Quando fornecido, `lifecycleMutation`
-   * mantém `sessions.lastEventSequence` em sync com o JSONL — ver FOLLOWUP-04.
+   * mantém `sessions.lastEventSequence` em sync com o JSONL.
    */
   readonly applyReducer?: (event: SessionEvent) => void;
   readonly meta?: Partial<SessionEvent>;

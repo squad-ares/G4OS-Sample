@@ -4,7 +4,7 @@
  *
  * Subscriptions e operações de turn ficam em arquivos vizinhos:
  *   `sessions-router-runtime.ts`, `sessions-router-subscriptions.ts`.
- * Composição via spread em `sessions-router.ts` (CR4-04).
+ * Composição via spread em `sessions-router.ts`.
  */
 
 import {

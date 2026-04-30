@@ -77,6 +77,7 @@
     "@g4os/kernel": "workspace:^",
     "@g4os/platform": "workspace:^",
     "archiver": "catalog:",
+    "async-mutex": "0.5.0",
     "drizzle-orm": "catalog:",
     "yauzl": "catalog:",
     "zod": "catalog:"

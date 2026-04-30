@@ -10,7 +10,7 @@ export const attachments = sqliteTable('attachments', {
   lastAccessedAt: integer('last_accessed_at').notNull(),
 });
 
-// CR6-02: `sessionId` precisa de FK + ON DELETE CASCADE — sem isso, ao deletar
+// `sessionId` precisa de FK + ON DELETE CASCADE — sem isso, ao deletar
 // uma sessão, os refs ficam órfãos apontando para `sessions.id` que não existe
 // mais. O refcount em `attachments` continua > 0 (refs órfãs ainda contam) →
 // o GC nunca remove os blobs reais → disco vaza monotônico.

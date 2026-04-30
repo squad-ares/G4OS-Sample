@@ -364,9 +364,47 @@ export interface WorkspaceTransferService {
 }
 
 /**
+ * Preferences globais do app (não ligadas a workspace ou login).
+ *
+ * Atualmente cobre só `debug.hud.enabled` e
+ * `verifyRuntimeIntegrity`. Cresce conforme novas
+ * preferences globais aparecem.
+ */
+export interface RuntimeIntegrityFailure {
+  readonly code: string;
+  readonly runtime?: string;
+  readonly path?: string;
+  readonly expected?: string;
+  readonly actual?: string;
+}
+
+export interface RuntimeIntegrityReport {
+  readonly ok: boolean;
+  readonly metaPresent: boolean;
+  readonly metaPath?: string;
+  readonly appVersion?: string;
+  readonly flavor?: string;
+  readonly target?: string;
+  readonly builtAt?: string;
+  readonly failures: readonly RuntimeIntegrityFailure[];
+  readonly checkedRuntimes: number;
+}
+
+export interface PreferencesService {
+  getDebugHudEnabled(): Promise<Result<boolean, AppError>>;
+  setDebugHudEnabled(enabled: boolean): Promise<Result<void, AppError>>;
+  /**
+   * Roda `verifyRuntimeHashes` on-demand. Caro (10MB+
+   * SHA-256 por runtime), portanto fica fora do boot. Útil em Repair
+   * Mode quando suspeita-se de tamper / antivírus / disk corruption.
+   */
+  verifyRuntimeIntegrity(): Promise<Result<RuntimeIntegrityReport, AppError>>;
+}
+
+/**
  * Contexto compartilhado por todas as procedures tRPC.
  *
- * **Optionality (CR4-22):**
+ * **Optionality:**
  * - `event?` é null em contextos headless/web (caller direto, não via
  *   `electron-trpc`). Procedures que precisam de `BrowserWindow` devem
  *   verificar e falhar com `TRPCError({ code: 'PRECONDITION_FAILED' })`.
@@ -406,4 +444,5 @@ export interface IpcContext {
   readonly windows: WindowsService;
   readonly workspaceTransfer: WorkspaceTransferService;
   readonly labels: LabelsService;
+  readonly preferences: PreferencesService;
 }

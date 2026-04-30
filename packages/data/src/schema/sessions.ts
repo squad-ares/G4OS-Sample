@@ -6,15 +6,15 @@
  * eventos com sequence > lastEventSequence e recompõe o estado. `status`
  * reflete soft-delete/arquivamento; sessão deletada permanece em JSONL.
  *
- * Campos de lifecycle (TASK-11-01-06): `archivedAt`/`deletedAt` complementam
+ * Campos de lifecycle: `archivedAt`/`deletedAt` complementam
  * `status` para janela de restore (30d). `deletedAt IS NOT NULL AND now -
  * deletedAt > 30d` → candidato a hard-delete.
  *
- * Campos de branching (TASK-11-01-04): `parentId` aponta para a sessão-mãe
+ * Campos de branching: `parentId` aponta para a sessão-mãe
  * e `branchedAtSeq` marca o ponto de divergência. Branches são listadas na
  * view dedicada, filtradas (`parentId IS NULL`) da lista principal.
  *
- * Flags (TASK-11-01-07/08): `pinnedAt`/`starredAt` usam timestamp nullable
+ * Flags: `pinnedAt`/`starredAt` usam timestamp nullable
  * em vez de boolean para permitir sort estável por pin order. `unread` é
  * boolean simples porque não precisa de ordenação.
  */
@@ -55,19 +55,19 @@ export const sessions = sqliteTable(
 
     projectId: text('project_id'),
 
-    // TASK-OUTLIER-07: provider + modelo escolhidos pelo usuário nesta sessão.
+    // Provider + modelo escolhidos pelo usuário nesta sessão.
     // Nullable — sessões antigas e novas iniciam sem escolha explícita e
     // TurnDispatcher aplica default (claude-sonnet-4-6 + anthropic-direct).
     provider: text('provider'),
     modelId: text('model_id'),
 
-    // TASK-OUTLIER-19: diretório de trabalho escolhido pelo usuário. Tool
+    // Diretório de trabalho escolhido pelo usuário. Tool
     // handlers usam este path como `ctx.workingDir`. Nullable — sessões
     // usam default do workspace (`workspace.defaults.workingDirectory`)
     // quando não definido.
     workingDirectory: text('working_directory'),
 
-    // TASK-OUTLIER-10: estado de sources por sessão.
+    // Estado de sources por sessão.
     // `enabled`: slugs que o usuário ativou explicitamente nesta sessão (subset
     //  do catálogo habilitado no workspace).
     // `sticky`: slugs que foram mountados via `activate_sources` e persistem

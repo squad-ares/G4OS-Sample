@@ -5,12 +5,12 @@
 <h1 align="center">G4 OS — v2</h1>
 
 <p align="center">
-  Your AI Operating System — a desktop AI OS that leverages state-of-the-art LLMs<br/>
-  to connect everything, manage everything, and run your business from one place.
+  Seu Sistema Operacional de IA — um app desktop que aproveita os LLMs<br/>
+  state-of-the-art para conectar tudo, gerenciar tudo e rodar seu negócio em um só lugar.
 </p>
 
 <p align="center">
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Proprietary-red" alt="License" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Proprietary-red" alt="Licença" /></a>
   <a href="https://nodejs.org/"><img src="https://img.shields.io/badge/node-24%20LTS-339933" alt="Node" /></a>
   <a href="https://pnpm.io/"><img src="https://img.shields.io/badge/pnpm-10.33+-f69220" alt="pnpm" /></a>
   <a href="https://www.electronjs.org/"><img src="https://img.shields.io/badge/platform-Electron%2041+-47848f" alt="Electron" /></a>
@@ -20,21 +20,21 @@
 
 ---
 
-## Why v2 exists
+## Por que existe a v2
 
-v1 shipped three categories of user-visible incidents. v2 replaces the **architectural decisions** that produced them — not the individual bugs:
+A v1 entregou três categorias de incidentes visíveis para o usuário. A v2 substitui as **decisões arquiteturais** que produziram esses incidentes — não os bugs individuais:
 
-| Dor reportada (v1)              | Root cause (v1)                                                                                       | v2 structural fix                                                                                                                                 |
+| Dor reportada (v1)              | Causa raiz (v1)                                                                                       | Correção estrutural na v2                                                                                                                         |
 |---------------------------------|-------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------|
-| Perda do runtime Claude (Win)   | Binários externos (`node`, `pnpm`, `uv`, `python3`, `git`) resolvidos via `PATH` do usuário           | Runtimes **empacotados** com checksums SHA-256, validados no boot, installer identity autoritativo                                                |
+| Perda do runtime Claude (Win)   | Binários externos (`node`, `pnpm`, `uv`, `python3`, `git`) resolvidos via `PATH` do usuário           | Runtimes **empacotados** com checksums SHA-256, validados no boot, identidade do installer autoritativa                                           |
 | Travamento por memória (Win)    | Main process monolítico (1461 LOC / 151 arquivos), sem isolamento por sessão, `chokidar` vazando handles | Main thin (<3000 LOC), worker-per-session via `utilityProcess`, supervisor com health checks, `@parcel/watcher`                                 |
-| Perda de credenciais            | 93 arquivos tocando `credentials.enc`, escrita sem lock, AES custom com chave derivada de valor estático | `CredentialVault` gateway único, Electron `safeStorage` (Keychain/DPAPI/libsecret), escrita atômica `write→fsync→rename` com `credentials.backup.enc` |
+| Perda de credenciais            | 93 arquivos tocando `credentials.enc`, escrita sem lock, AES custom com chave derivada de valor estático | `CredentialVault` como gateway único, Electron `safeStorage` (Keychain/DPAPI/libsecret), escrita atômica `write→fsync→rename` com `credentials.backup.enc` |
 
-v2 não é uma reescrita cosmética. É a substituição de três decisões estruturais da v1 por padrões já validados em Electron de produção (VS Code, Slack, Discord, 1Password).
+A v2 não é uma reescrita cosmética. É a substituição de três decisões estruturais da v1 por padrões já validados em apps Electron de produção (VS Code, Slack, Discord, 1Password).
 
 ---
 
-## Highlights
+## Destaques
 
 - **Processos isolados por sessão** — cada chat roda em `utilityProcess` próprio, supervisionado com health check + backoff exponencial. Sessão travou? Kill do worker, app continua.
 - **Gateway único de credenciais** — `CredentialVault` serializa escritas via mutex, mantém 3 rotações de backup, usa `safeStorage` nativo.
@@ -57,25 +57,25 @@ v2 não é uma reescrita cosmética. É a substituição de três decisões estr
 
 ## Stack
 
-| Camada                   | Escolha                                                                 | ADR         |
+| Camada                   | Escolha                                                                  | ADR         |
 |--------------------------|--------------------------------------------------------------------------|-------------|
 | Monorepo                 | pnpm 10 + Turborepo                                                      | 0001        |
 | Runtime                  | Node 24 LTS (piso permanente para `node:sqlite`) + Electron ≥ 38         | 0040a       |
-| Language                 | TypeScript 6.0 strict absoluto (`verbatimModuleSyntax` + exact optionals) | 0002        |
-| Lint/Format              | Biome 2.4 (substitui ESLint+Prettier)                                    | 0003        |
+| Linguagem                | TypeScript 6.0 strict absoluto (`verbatimModuleSyntax` + exact optionals) | 0002        |
+| Lint/Formatação          | Biome 2.4 (substitui ESLint+Prettier)                                    | 0003        |
 | Git hooks                | lefthook + commitlint                                                    | 0004        |
 | IPC                      | tRPC v11 + electron-trpc + superjson + Zod                               | 0020        |
 | Erros esperados          | `Result<T, E>` via `neverthrow` — exceptions só para bugs                | 0011        |
-| Lifecycle                | `IDisposable` + `DisposableBase` + `DisposableStore` (VS Code pattern)   | 0012        |
-| Process isolation        | Electron `utilityProcess` por sessão + `piscina` para CPU-bound          | 0030        |
-| Main thin                | <3000 LOC total, ≤300 por arquivo (gate CI)                              | 0031        |
-| SQLite                   | `node:sqlite` nativo (Node 24) — zero native binding, WAL + mmap 256MB   | 0040a       |
+| Lifecycle                | `IDisposable` + `DisposableBase` + `DisposableStore` (padrão VS Code)    | 0012        |
+| Isolamento de processos  | Electron `utilityProcess` por sessão + `piscina` para CPU-bound          | 0030        |
+| Main thin                | <3000 LOC total, ≤300 por arquivo (gate de CI)                           | 0031        |
+| SQLite                   | `node:sqlite` nativo (Node 24) — zero binding nativo, WAL + mmap 256MB   | 0040a       |
 | Event store              | JSONL append-only por sessão + replay + checkpoints multi-consumer       | 0043        |
-| Attachments              | Content-addressed (SHA-256) + refcount + GC                              | 0044        |
+| Anexos                   | Content-addressed (SHA-256) + refcount + GC                              | 0044        |
 | Backup/restore           | ZIP v1 (manifest Zod) + scheduler 7/4/3                                  | 0045        |
-| Credentials              | `CredentialVault` + `safeStorage` + backups + migrador v1→v2 + rotation  | 0050–0053   |
+| Credenciais              | `CredentialVault` + `safeStorage` + backups + migrador v1→v2 + rotation  | 0050–0053   |
 | Logging                  | `pino` estruturado + `pino-roll` via `createLogger(scope)` no kernel     | 0060        |
-| Tracing                  | OpenTelemetry API + SDK Node lazy, W3C propagation                       | 0061        |
+| Tracing                  | OpenTelemetry API + SDK Node lazy, propagação W3C                        | 0061        |
 | Crash reporting          | `@sentry/electron` (main + renderer + worker/node) com scrub central     | 0062        |
 | Métricas                 | `prom-client` com `Registry` por `createMetrics()`                       | 0064        |
 | Agents                   | `@g4os/agents/{interface,claude,codex,shared}` com `IAgent extends IDisposable` | 0070–0073 |
@@ -100,12 +100,12 @@ g4os-v2/
 │   └── viewer/                 # Web viewer/admin
 ├── packages/
 │   ├── kernel/                 # Tipos, Result, Disposable, logger, schemas Zod
-│   ├── platform/               # OS abstraction — paths, keychain, runtime-paths, spawn
+│   ├── platform/               # Abstração de OS — paths, keychain, runtime-paths, spawn
 │   ├── ipc/                    # tRPC v11 + electron-trpc + superjson (router central)
 │   ├── credentials/            # CredentialVault + backends + migrador v1→v2 + rotation
 │   ├── data/                   # node:sqlite + Drizzle + event store + attachments + backup
 │   ├── observability/          # pino transports, OTel, Sentry, memory monitor, metrics, debug
-│   ├── agents/                 # IAgent + AgentRegistry + Claude + Codex + shared broker
+│   ├── agents/                 # IAgent + AgentRegistry + Claude + Codex + broker compartilhado
 │   ├── sources/                # ISource + MCP stdio/http + managed + OAuth + lifecycle
 │   ├── auth/                   # OTP + ManagedLoginService + Entitlement + SessionRefresher
 │   ├── features/               # Feature-Sliced Design por domínio (em curso — Epic 11)
@@ -120,11 +120,11 @@ Roadmap completo e rastreável: `STUDY/Audit/Tasks/` (no repositório irmão `G4
 
 ---
 
-## Quick Start
+## Início Rápido
 
 ### Pré-requisitos
 
-- **Node 24 LTS** (`.nvmrc=24`). `pnpm` auto-busca via `.npmrc use-node-version=24.10.0`.
+- **Node 24 LTS** (`.nvmrc=24`). O `pnpm` busca automaticamente via `.npmrc use-node-version=24.10.0`.
 - **pnpm 10.33+** (hoisting determinístico).
 - macOS 12+ / Windows 10+ / Linux (Ubuntu 20.04+).
 
@@ -145,7 +145,7 @@ pnpm typecheck                      # tsc --noEmit em todo workspace
 pnpm lint                           # biome check
 pnpm test                           # vitest run
 pnpm build                          # tsup em todos os pacotes
-pnpm check:file-lines               # gate max 500 LOC
+pnpm check:file-lines               # gate máx 500 LOC
 pnpm check:main-size                # gate main <3000 LOC, ≤300/arquivo
 pnpm check:circular                 # madge — 0 ciclos
 pnpm check:cruiser                  # dependency-cruiser — boundaries
@@ -154,7 +154,7 @@ pnpm check:unused-deps              # knip --dependencies
 pnpm check:exports                  # attw em pacotes públicos
 ```
 
-Se um gate falha, **não passe por cima** — entenda a causa. Contornar com `// biome-ignore` exige comentário `(reason: <cause>)` e code review específico.
+Se um gate falha, **não passe por cima** — entenda a causa. Contornar com `// biome-ignore` exige comentário `(reason: <causa>)` e code review específico.
 
 ### Changesets / ADRs
 
@@ -166,7 +166,7 @@ pnpm adr:new                        # scaffolda novo ADR em docs/adrs/NNNN-<slug
 
 ---
 
-## Architecture: Critical Execution Path
+## Arquitetura: Caminho Crítico de Execução
 
 Cada fluxo que importa passa por estas camadas, nesta ordem:
 
@@ -177,7 +177,7 @@ Cada fluxo que importa passa por estas camadas, nesta ordem:
 5. **`apps/desktop/src/main/ipc-server.ts`** conecta `electron-trpc/main` ao router em `packages/ipc/src/server`.
 6. Toda resposta percorre `worker.postMessage()` → main → tRPC subscription → renderer (via TanStack Query).
 
-**Graceful shutdown (5s deadline):**
+**Graceful shutdown (deadline de 5s):**
 1. `before-quit` → `AppLifecycle.shutdown()` chama cada handler registrado
 2. `SessionManager.dispose()` → `worker.stop(1000)` em cada sessão
 3. `ProcessSupervisor.shutdownAll()` → `{type:'shutdown'}` → `waitForExit` com deadline → `forceKill` nos presos
@@ -192,16 +192,16 @@ SIGINT/SIGTERM disparam o mesmo fluxo via `app.quit()`.
 
 - **IDisposable.** Toda classe que registra listener, timer, WeakRef, watcher, subprocess retorna um disposer. `extends DisposableBase` + `this._register(...)` é o atalho idiomático.
 - **Result<T, E>.** Erros esperados são tipos, não exceptions. Zero `try/catch` no caminho feliz.
-- **Event sourcing em sessões.** Sessão = sequência imutável de eventos em JSONL append-only + índice em SQLite. Estado é `fold(events)`. Crash recovery = replay até último evento commitado.
-- **Process args, não env.** Worker lê `process.argv[2]`; `process.env` bloqueado por `noProcessEnv: error`. Usar `@g4os/platform` para vars inevitáveis.
-- **Dynamic imports para native deps opcionais** (padrão em `electron-runtime.ts`, `cpu-pool.ts`, `managed-process.ts`).
+- **Event sourcing em sessões.** Sessão = sequência imutável de eventos em JSONL append-only + índice em SQLite. Estado é `fold(events)`. Crash recovery = replay até o último evento commitado.
+- **Args de processo, não env.** Worker lê `process.argv[2]`; `process.env` bloqueado por `noProcessEnv: error`. Use `@g4os/platform` para vars inevitáveis.
+- **Imports dinâmicos para deps nativas opcionais** (padrão em `electron-runtime.ts`, `cpu-pool.ts`, `managed-process.ts`).
 
 ---
 
-## Anti-patterns bloqueados por CI
+## Anti-patterns bloqueados pela CI
 
-- `console.*` fora de `scripts/**` → `noConsole: error` (v1 tinha 330 ocorrências; use `createLogger('scope')`)
-- `ipcMain.handle` direto → use tRPC router
+- `console.*` fora de `scripts/**` → `noConsole: error` (a v1 tinha 330 ocorrências; use `createLogger('scope')`)
+- `ipcMain.handle` direto → use o tRPC router
 - `process.env['X']` → `noProcessEnv: error`
 - `require(...)` ou `module.exports` → `noCommonJs: error`
 - `as any` → proibido por `noExplicitAny`
@@ -216,7 +216,7 @@ SIGINT/SIGTERM disparam o mesmo fluxo via `app.quit()`.
 ```
 keytar                    # arquivado — usar Electron safeStorage
 chokidar                  # memory leak no Windows — @parcel/watcher
-electron-log              # 3 estratégias de log no v1 — só pino + @sentry/electron
+electron-log              # 3 estratégias de log na v1 — só pino + @sentry/electron
 husky                     # deprecated — lefthook
 eslint + plugins          # 10–20x mais lento — Biome
 moment.js                 # deprecated — date-fns / nativo
@@ -230,44 +230,44 @@ Pacotes em alpha/RC/beta **não entram em `dependencies`**, salvo exceção com 
 
 ---
 
-## Testing Strategy
+## Estratégia de Testes
 
 | Tipo         | Onde                                                 | Alvo                              |
 |--------------|------------------------------------------------------|-----------------------------------|
 | Unit         | `packages/kernel`, `packages/data`, lógica pura      | ≥90%                              |
-| Contract     | IPC procedures (input/output fixados via Zod)        | 100% das procedures               |
-| Integration  | Session + Agent + MCP juntos com mocks               | Flows críticos                    |
+| Contract     | Procedures de IPC (input/output fixados via Zod)     | 100% das procedures               |
+| Integration  | Session + Agent + MCP juntos com mocks               | Fluxos críticos                   |
 | E2E          | Playwright + Electron (login, chat, MCP, multi-win)  | Smoke por release                 |
 | Memory       | Heapdump antes/depois de N ciclos, crescimento < 5%  | Loop de 1h sem leak               |
-| Platform     | CI matrix macOS + Windows + Linux                    | Caminho crítico em todos          |
+| Platform     | Matrix de CI macOS + Windows + Linux                 | Caminho crítico em todos          |
 
-Testes de memória em pipeline noturna (`memlab`) — PR não espera, mas issue automática se quebrar.
+Testes de memória rodam em pipeline noturna (`memlab`) — PR não espera, mas issue automática se quebrar.
 
 ---
 
-## Where to Start by Task
+## Por Onde Começar (Por Tarefa)
 
-- **Processo / worker issues:** `apps/desktop/src/main/process/*`, `apps/desktop/src/main/services/session-manager.ts`, `apps/desktop/src/main/workers/*`
-- **IPC contract:** `packages/ipc/src/server/routers/*` — cada domínio em um arquivo ≤300 LOC
+- **Issues de processo / worker:** `apps/desktop/src/main/process/*`, `apps/desktop/src/main/services/session-manager.ts`, `apps/desktop/src/main/workers/*`
+- **Contrato de IPC:** `packages/ipc/src/server/routers/*` — cada domínio em um arquivo ≤300 LOC
 - **Event store / índices:** `packages/data/src/{sqlite,events,schema}/*`
-- **Attachments:** `packages/data/src/attachments/{storage,gateway}.ts`
+- **Anexos:** `packages/data/src/attachments/{storage,gateway}.ts`
 - **Backup/restore:** `packages/data/src/backup/{export,import,manifest}.ts` + scheduler em `apps/desktop/src/main/services/backup-scheduler.ts`
 - **Credenciais:** `packages/credentials/src/{vault,backends,factory,migration,rotation}.ts`. tRPC `credentials.*` expõe `get/set/delete/list/rotate`.
-- **Observability:** `packages/kernel/src/logger/*` + `packages/observability/src/{tracer,sdk,sentry,memory,metrics,debug}.ts`. Subpath exports: `@g4os/observability/{sdk,sentry,memory,metrics,debug}`.
+- **Observabilidade:** `packages/kernel/src/logger/*` + `packages/observability/src/{tracer,sdk,sentry,memory,metrics,debug}.ts`. Subpath exports: `@g4os/observability/{sdk,sentry,memory,metrics,debug}`.
 - **Agents:** `packages/agents/src/{interface,claude,codex,shared}/*`. Subpaths: `@g4os/agents/{interface,claude,codex,shared}`.
 - **Sources/MCP:** `packages/sources/src/{interface,mcp-stdio,mcp-http,managed,oauth,lifecycle}/*`.
-- **Auth:** `packages/auth/src/{otp,managed-login,entitlement,refresh}/*`. Subpath: `@g4os/auth/*`. Supabase adapter em `@g4os/auth/supabase`.
+- **Auth:** `packages/auth/src/{otp,managed-login,entitlement,refresh}/*`. Subpath: `@g4os/auth/*`. Adapter Supabase em `@g4os/auth/supabase`.
 - **Platform/paths:** `packages/platform/src/{paths,keychain,runtime-paths,spawn,platform-info}.ts`.
 - **Main entry:** `apps/desktop/src/main/{index,app-lifecycle,window-manager}.ts`.
 
 ---
 
-## Working on a Task
+## Trabalhando em uma Task
 
 Tasks vêm numeradas e auto-contidas em `STUDY/Audit/Tasks/<epic>/TASK-XX-YY-<slug>.md` (repo vizinho `G4OS/`). Cada task traz:
 
 - **Metadata:** ID, prioridade (P0/P1/P2), esforço (S/M/L/XL), dependências
-- **Contexto:** o que no v1 motiva
+- **Contexto:** o que na v1 motiva
 - **Objetivo** + **passo a passo** (código de exemplo — adaptar ao estilo v2)
 - **Critérios de aceite** (checklist verificável)
 - **Armadilhas v1** (o que NÃO fazer)
@@ -275,33 +275,33 @@ Tasks vêm numeradas e auto-contidas em `STUDY/Audit/Tasks/<epic>/TASK-XX-YY-<sl
 
 Workflow sugerido:
 
-1. Ler a task **inteira** antes de codar. Armadilhas do v1 são o melhor sinal.
+1. Ler a task **inteira** antes de codar. Armadilhas da v1 são o melhor sinal.
 2. Ler o ADR relacionado. Se não há ADR e a decisão é não-trivial, **crie um** antes do código (`pnpm adr:new`).
 3. Implementar seguindo os padrões (IDisposable, Result, tRPC, etc.).
-4. Rodar os gates localmente **antes do commit** (veja Quick Start).
+4. Rodar os gates localmente **antes do commit** (veja Início Rápido).
 5. Criar changeset se tocou em pacote (`pnpm changeset`).
 6. Commit atômico com Conventional Commits (`feat(data): ...`, `fix(electron): ...`, `chore: ...`).
-7. Atualizar ADR/docs **no mesmo PR** se comportamento mudou.
+7. Atualizar ADR/docs **no mesmo PR** se o comportamento mudou.
 
-Tasks concluídas cobrem Fases 00–09 + 10-ui-shell + 10a-ajustes; **Epic 10b-wiring em andamento**. Fase 11 (features) inicia pelo chat.
+Tasks concluídas cobrem as Fases 00–09 + 10-ui-shell + 10a-ajustes; **Epic 10b-wiring em andamento**. Fase 11 (features) inicia pelo chat.
 
 ---
 
-## Security
+## Segurança
 
 - **Credenciais** via Electron `safeStorage` (Keychain macOS / DPAPI Windows / libsecret Linux); gateway único, escrita atômica, 3 rotações de backup.
-- **MCP servers isolados**: runtime protegido por default (`executionMode: auto`); host compatibility mode só quando explícito ou quando protection não está disponível.
-- **Per-session permissions**: cada sessão tem controles independentes de leitura/escrita/execução via `PermissionHandler`.
+- **Servidores MCP isolados**: runtime protegido por default (`executionMode: auto`); host compatibility mode só quando explícito ou quando proteção não está disponível.
+- **Permissões por sessão**: cada sessão tem controles independentes de leitura/escrita/execução via `PermissionHandler`.
 - **Sentry scrub central** em `beforeSend`/`beforeBreadcrumb`; sem DSN → NOOP.
 - **Debug export redigido** (`exportDebugInfo`): shape + texto sanitizados, janela default 7d, cap 10 MiB/log.
 - **Crash reports** via `@sentry/electron` em main + renderer + worker.
 
 ---
 
-## License
+## Licença
 
-[Proprietary](LICENSE) — G4 Educação LTDA. All rights reserved.
+[Proprietária](LICENSE) — G4 Educação LTDA. Todos os direitos reservados.
 
-Confidential. Unauthorized copying, modification, distribution, or use of any file or asset in this repository, in whole or in part, is strictly prohibited.
+Confidencial. Cópia, modificação, distribuição ou uso não autorizado de qualquer arquivo ou asset deste repositório, no todo ou em parte, é estritamente proibido.
 
-Contact: legal@g4educacao.com.br
+Contato: legal@g4educacao.com.br

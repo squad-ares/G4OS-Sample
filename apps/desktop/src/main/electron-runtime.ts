@@ -20,7 +20,7 @@ export interface ElectronApp {
   on(event: 'window-all-closed', listener: () => void): void;
   on(event: 'before-quit', listener: (event: ElectronEvent) => void): void;
   on(event: 'open-url', listener: (event: ElectronEvent, url: string) => void): void;
-  // CR6-06: removeListener é parte do contrato porque AppLifecycle precisa
+  // removeListener é parte do contrato porque AppLifecycle precisa
   // desfazer registros no dispose (E2E reboots, ADR-0142). Tipado opcional
   // porque alguns mocks de runtime não implementam — caller usa `?.()`.
   removeListener?(event: 'window-all-closed', listener: () => void): void;
@@ -114,11 +114,27 @@ export interface BrowserWindowOptions {
   readonly webPreferences?: BrowserWindowWebPreferences;
 }
 
+export interface KeyboardInputEvent {
+  readonly type: string;
+  readonly key: string;
+  readonly meta: boolean;
+  readonly control: boolean;
+}
+
+export interface WebContents {
+  readonly id: number;
+  openDevTools(options?: { mode?: 'detach' }): void;
+  on(
+    event: 'before-input-event',
+    handler: (e: ElectronEvent, input: KeyboardInputEvent) => void,
+  ): void;
+}
+
 export interface BrowserWindowInstance {
   loadURL(url: string): Promise<void>;
   close(): void;
   focus(): void;
-  readonly webContents: { readonly id: number; openDevTools(options?: { mode?: 'detach' }): void };
+  readonly webContents: WebContents;
   isDestroyed(): boolean;
 }
 

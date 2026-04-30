@@ -59,12 +59,9 @@ export function getPlatformInfo(): PlatformInfo {
   const family = detectOsFamily();
   const arch = detectArch();
 
-  // CR7-37: fallback para `os.homedir()` se env não setou. Sem isso, em
-  // ambientes minimal (Docker stripped, systemd service sem UserDirectory),
-  // homeDir vinha empty string e paths derivados ficavam relativos ao cwd.
-  // CR8-07: se TODOS os fallbacks vazios, throw em boot — paths derivados
-  // virariam relativos ao cwd e violariam isolamento (workspace fica
-  // dentro do diretório de trabalho do processo).
+  // Fallback para `os.homedir()` se env não setou — em ambientes minimal
+  // (Docker stripped, systemd service) homeDir vinha empty string. Se todos
+  // os fallbacks vazios, throw em boot para evitar paths relativos ao cwd.
   const homeDir = process.env['HOME'] ?? process.env['USERPROFILE'] ?? homedir() ?? '';
   if (!homeDir) {
     throw new Error(

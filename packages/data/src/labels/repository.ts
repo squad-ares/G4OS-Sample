@@ -1,5 +1,5 @@
 /**
- * LabelsRepository — labels hierárquicos por workspace (TASK-11-01-07).
+ * LabelsRepository — labels hierárquicos por workspace.
  *
  * `treeCode` é materialized-path: raiz tem `code` randômico de 4 chars,
  * filhos concatenam `parent.code + "." + own.code`. Isso permite filtrar
@@ -74,40 +74,63 @@ export class LabelsRepository {
    * Move a label para um novo parent. Recalcula `treeCode` desta label e
    * de todos os descendentes. Não detecta ciclos — o serviço deve validar
    * antes (new parent nunca pode ser descendente da label movida).
+   *
+   * Rename + cascade dos descendentes envolto em `db.transaction`.
+   * Antes, eram N+1 writes independentes — falha no meio (FK violation,
+   * disk full, rollback parcial) deixava árvore com `treeCode` inconsistente
+   * (parent novo, descendentes apontando para path antigo). Drizzle SQLite
+   * usa transação síncrona, então toda operação aqui usa `.run()`/`.all()`/
+   * `.get()` síncronos — método público mantém Promise pra preservar API.
    */
+  // biome-ignore lint/suspicious/useAwait: (reason: async signature preserva Promise<void> público + transforma throws síncronos do db.transaction em rejection observável via await/rejects.toThrow nos testes — sem async, throw escapa do call site)
   async reparent(id: LabelId, newParentId: LabelId | null): Promise<void> {
-    const current = await this.get(id);
-    if (!current) throw new Error(`label ${id} not found`);
+    this.db.transaction((tx) => {
+      const currentRow = tx
+        .select()
+        .from(labelsTable)
+        .where(eq(labelsTable.id, id))
+        .limit(1)
+        .all()[0];
+      if (!currentRow) throw new Error(`label ${id} not found`);
 
-    const parentCode = newParentId ? await this.getTreeCode(newParentId) : null;
-    const ownSegment = current.treeCode.split('.').at(-1) ?? randomSegment();
-    const newTreeCode = parentCode ? `${parentCode}.${ownSegment}` : ownSegment;
+      let parentCode: string | null = null;
+      if (newParentId) {
+        const parentRow = tx
+          .select({ treeCode: labelsTable.treeCode })
+          .from(labelsTable)
+          .where(eq(labelsTable.id, newParentId))
+          .limit(1)
+          .all()[0];
+        if (!parentRow) throw new Error(`parent label ${newParentId} not found`);
+        parentCode = parentRow.treeCode;
+      }
 
-    const descendants = await this.db
-      .select()
-      .from(labelsTable)
-      .where(
-        and(
-          eq(labelsTable.workspaceId, current.workspaceId),
-          like(labelsTable.treeCode, `${current.treeCode}.%`),
-        ),
-      );
-    const now = Date.now();
-    await this.db
-      .update(labelsTable)
-      .set({
-        parentId: newParentId,
-        treeCode: newTreeCode,
-        updatedAt: now,
-      })
-      .where(eq(labelsTable.id, id));
-    for (const desc of descendants) {
-      const remainder = desc.treeCode.slice(current.treeCode.length);
-      await this.db
-        .update(labelsTable)
-        .set({ treeCode: `${newTreeCode}${remainder}`, updatedAt: now })
-        .where(eq(labelsTable.id, desc.id));
-    }
+      const ownSegment = currentRow.treeCode.split('.').at(-1) ?? randomSegment();
+      const newTreeCode = parentCode ? `${parentCode}.${ownSegment}` : ownSegment;
+
+      const descendants = tx
+        .select()
+        .from(labelsTable)
+        .where(
+          and(
+            eq(labelsTable.workspaceId, currentRow.workspaceId),
+            like(labelsTable.treeCode, `${currentRow.treeCode}.%`),
+          ),
+        )
+        .all();
+      const now = Date.now();
+      tx.update(labelsTable)
+        .set({ parentId: newParentId, treeCode: newTreeCode, updatedAt: now })
+        .where(eq(labelsTable.id, id))
+        .run();
+      for (const desc of descendants) {
+        const remainder = desc.treeCode.slice(currentRow.treeCode.length);
+        tx.update(labelsTable)
+          .set({ treeCode: `${newTreeCode}${remainder}`, updatedAt: now })
+          .where(eq(labelsTable.id, desc.id))
+          .run();
+      }
+    });
   }
 
   async delete(id: LabelId): Promise<void> {

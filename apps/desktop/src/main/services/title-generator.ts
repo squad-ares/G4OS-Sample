@@ -96,24 +96,30 @@ export class TitleGeneratorService extends DisposableBase {
   }
 
   private buildPrompt(messages: readonly Message[]): string | null {
-    const userMsg = messages.find((m) => m.role === 'user');
+    // Usa as 2 primeiras mensagens do usuário para contexto mais rico.
+    // Chamado somente quando há >= 3 user messages (gate no turn-dispatcher).
+    const userMsgs = messages.filter((m) => m.role === 'user').slice(0, 2);
     const assistantMsg = [...messages].reverse().find((m) => m.role === 'assistant');
-    if (!userMsg) return null;
+    if (userMsgs.length === 0) return null;
 
-    const userText = extractText(userMsg);
-    const assistantText = assistantMsg ? extractText(assistantMsg) : '';
-    if (userText.length === 0) return null;
+    const userLines = userMsgs
+      .map((m, i) => {
+        const text = extractText(m).slice(0, 500);
+        return text.length > 0 ? `USUÁRIO ${i + 1}:\n${text}` : null;
+      })
+      .filter((l): l is string => l !== null);
+    if (userLines.length === 0) return null;
+
+    const assistantText = assistantMsg ? extractText(assistantMsg).slice(0, 400) : '';
 
     return [
       'Gere um título curto (máximo 6 palavras, idealmente 3-5) para esta conversa.',
       'Responda APENAS com o título, sem aspas, sem prefixo, sem pontuação final.',
       '',
-      'USUÁRIO:',
-      userText.slice(0, 800),
-      '',
-      assistantText.length > 0 ? `ASSISTENTE:\n${assistantText.slice(0, 400)}` : '',
+      ...userLines,
+      assistantText.length > 0 ? `\nASSISTENTE:\n${assistantText}` : '',
     ]
-      .filter((line) => line !== undefined)
+      .filter(Boolean)
       .join('\n');
   }
 

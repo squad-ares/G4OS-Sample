@@ -15,7 +15,7 @@ interface AccumulatorEntry {
 export class OpenAIToolAccumulator {
   private readonly byIndex = new Map<number, AccumulatorEntry>();
 
-  // CR8-23: usar flags `idSet`/`nameSet` em vez de checar `length === 0`. O
+  // Usar flags `idSet`/`nameSet` em vez de checar `length === 0`. O
   // OpenAI streaming pode mandar `id: ''` em delta inicial e o id verdadeiro
   // num delta seguinte — o check antigo (`existing.id.length === 0`) ainda
   // tratava `''` como "não setado" mas era frágil: qualquer caller que

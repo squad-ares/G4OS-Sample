@@ -1,9 +1,9 @@
 /**
  * Agent bootstrap — registra factories disponíveis no global registry.
  *
- * Fase 1 (TASK-OUTLIER-05): só Claude direct API.
- * Fase 2 (TASK-OUTLIER-08): chaves vêm do `CredentialVault` + env fallback.
- * Fase 3 (TASK-OUTLIER-07): multi-provider — Claude, OpenAI, Google registrados
+ * Fase 1: só Claude direct API.
+ * Fase 2: chaves vêm do `CredentialVault` + env fallback.
+ * Fase 3: multi-provider — Claude, OpenAI, Google registrados
  *   conforme chaves disponíveis. `refresh()` re-registra tudo após mutation.
  */
 

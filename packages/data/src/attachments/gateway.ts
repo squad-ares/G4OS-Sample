@@ -14,6 +14,7 @@
  */
 
 import { randomUUID } from 'node:crypto';
+import { Mutex } from 'async-mutex';
 import { eq, sql } from 'drizzle-orm';
 import type { AppDb } from '../drizzle.ts';
 import { attachmentRefs, attachments } from '../schema/attachments.ts';
@@ -36,79 +37,119 @@ export interface AttachResult {
 }
 
 export class AttachmentGateway {
+  /**
+   * Mutex per-hash. Sem isso, `detach` que chega em refCount=0
+   * fazia DELETE do row + storage.delete() **fora** de qualquer lock.
+   * Cenário de race:
+   *   T1 detach(hash=X): SQL tx remove ref + DELETE attachments(hash=X) + commit
+   *   T2 attach(hash=X): storage.store(X) (já tinha o blob) + tx INSERT
+   *                      attachments(hash=X) com refCount=1 + INSERT ref + commit
+   *   T1 storage.delete(X)  ← apaga o blob que T2 acabou de "ressuscitar"
+   * Resultado: ref órfão apontando para arquivo inexistente.
+   * Solução: serializar attach/detach/gc por-hash. Map de Mutex limpa-se
+   * sozinho via runExclusive nunca segurar sem hash em uso.
+   */
+  private readonly hashLocks = new Map<string, Mutex>();
+
   constructor(
     private readonly db: AppDb,
     private readonly storage: AttachmentStorage,
   ) {}
+
+  private getHashLock(hash: string): Mutex {
+    let lock = this.hashLocks.get(hash);
+    if (!lock) {
+      lock = new Mutex();
+      this.hashLocks.set(hash, lock);
+    }
+    return lock;
+  }
 
   async attach(params: AttachParams): Promise<AttachResult> {
     const { hash, size } = await this.storage.store(params.content);
     const refId = randomUUID();
     const now = Date.now();
 
-    this.db.transaction((tx) => {
-      tx.insert(attachments)
-        .values({
-          hash,
-          size,
-          mimeType: params.mimeType,
-          refCount: 1,
-          createdAt: now,
-          lastAccessedAt: now,
-        })
-        .onConflictDoUpdate({
-          target: attachments.hash,
-          set: {
-            refCount: sql`${attachments.refCount} + 1`,
+    await this.getHashLock(hash).runExclusive(() => {
+      this.db.transaction((tx) => {
+        tx.insert(attachments)
+          .values({
+            hash,
+            size,
+            mimeType: params.mimeType,
+            refCount: 1,
+            createdAt: now,
             lastAccessedAt: now,
-          },
-        })
-        .run();
+          })
+          .onConflictDoUpdate({
+            target: attachments.hash,
+            set: {
+              refCount: sql`${attachments.refCount} + 1`,
+              lastAccessedAt: now,
+            },
+          })
+          .run();
 
-      tx.insert(attachmentRefs)
-        .values({
-          id: refId,
-          hash,
-          sessionId: params.sessionId,
-          messageId: params.messageId ?? null,
-          originalName: params.originalName,
-          createdAt: now,
-        })
-        .run();
+        tx.insert(attachmentRefs)
+          .values({
+            id: refId,
+            hash,
+            sessionId: params.sessionId,
+            messageId: params.messageId ?? null,
+            originalName: params.originalName,
+            createdAt: now,
+          })
+          .run();
+      });
     });
 
     return { refId, hash, size };
   }
 
   async detach(refId: string): Promise<void> {
-    const orphanHash = this.db.transaction((tx): string | null => {
-      const ref = tx
-        .select({ hash: attachmentRefs.hash })
-        .from(attachmentRefs)
-        .where(eq(attachmentRefs.id, refId))
-        .get();
-      if (!ref) return null;
+    // Resolve hash ANTES de pegar lock — sem hash não temos chave.
+    const hash = this.db
+      .select({ hash: attachmentRefs.hash })
+      .from(attachmentRefs)
+      .where(eq(attachmentRefs.id, refId))
+      .get()?.hash;
+    if (!hash) return;
 
-      tx.delete(attachmentRefs).where(eq(attachmentRefs.id, refId)).run();
+    await this.getHashLock(hash).runExclusive(async () => {
+      const orphanHash = this.db.transaction((tx): string | null => {
+        const ref = tx
+          .select({ hash: attachmentRefs.hash })
+          .from(attachmentRefs)
+          .where(eq(attachmentRefs.id, refId))
+          .get();
+        if (!ref) return null;
 
-      const updated = tx
-        .update(attachments)
-        .set({
-          refCount: sql`${attachments.refCount} - 1`,
-          lastAccessedAt: Date.now(),
-        })
-        .where(eq(attachments.hash, ref.hash))
-        .returning({ refCount: attachments.refCount })
-        .get();
+        tx.delete(attachmentRefs).where(eq(attachmentRefs.id, refId)).run();
 
-      if (updated && updated.refCount <= 0) {
-        tx.delete(attachments).where(eq(attachments.hash, ref.hash)).run();
-        return ref.hash;
-      }
-      return null;
+        const updated = tx
+          .update(attachments)
+          .set({
+            refCount: sql`${attachments.refCount} - 1`,
+            lastAccessedAt: Date.now(),
+          })
+          .where(eq(attachments.hash, ref.hash))
+          .returning({ refCount: attachments.refCount })
+          .get();
+
+        if (updated && updated.refCount <= 0) {
+          tx.delete(attachments).where(eq(attachments.hash, ref.hash)).run();
+          return ref.hash;
+        }
+        return null;
+      });
+
+      if (orphanHash) await this.storage.delete(orphanHash);
     });
 
-    if (orphanHash) await this.storage.delete(orphanHash);
+    // Cleanup do mutex map se ninguém mais segura: drop opcional para
+    // evitar crescimento ilimitado em workspaces com muitos attachments.
+    const lock = this.hashLocks.get(hash);
+    if (lock && !lock.isLocked()) this.hashLocks.delete(hash);
   }
 
   /**
@@ -130,23 +171,30 @@ export class AttachmentGateway {
 
     let removed = 0;
     for (const { hash } of candidates) {
-      const claimed = this.db.transaction((tx): boolean => {
-        // Re-check dentro da tx: caso `attach()` concorrente tenha
-        // upsertado refCount=1+ entre o SELECT e este DELETE, abortamos.
-        const current = tx
-          .select({ refCount: attachments.refCount, lastAccessedAt: attachments.lastAccessedAt })
-          .from(attachments)
-          .where(eq(attachments.hash, hash))
-          .get();
-        if (!current) return false;
-        if (current.refCount > 0) return false;
-        if (current.lastAccessedAt >= cutoff) return false;
-        tx.delete(attachments).where(eq(attachments.hash, hash)).run();
+      // GC também precisa do lock per-hash. A re-check em tx só
+      // protege o DELETE no SQL; o storage.delete(hash) fora da tx ainda
+      // poderia rodar enquanto attach concorrente recém-upsertou e fechou
+      // a tx. Lock cobre todo o caminho até o unlink físico.
+      const claimedAndDeleted = await this.getHashLock(hash).runExclusive(async () => {
+        const claimed = this.db.transaction((tx): boolean => {
+          const current = tx
+            .select({ refCount: attachments.refCount, lastAccessedAt: attachments.lastAccessedAt })
+            .from(attachments)
+            .where(eq(attachments.hash, hash))
+            .get();
+          if (!current) return false;
+          if (current.refCount > 0) return false;
+          if (current.lastAccessedAt >= cutoff) return false;
+          tx.delete(attachments).where(eq(attachments.hash, hash)).run();
+          return true;
+        });
+        if (!claimed) return false;
+        await this.storage.delete(hash);
         return true;
       });
-      if (!claimed) continue;
-      await this.storage.delete(hash);
-      removed += 1;
+      if (claimedAndDeleted) removed += 1;
+      const lock = this.hashLocks.get(hash);
+      if (lock && !lock.isLocked()) this.hashLocks.delete(hash);
     }
     return removed;
   }

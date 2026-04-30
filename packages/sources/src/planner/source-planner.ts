@@ -10,7 +10,7 @@
  *  - `filesystem_direct`: pastas locais acessíveis via `Read`/`Glob`/`Grep`/
  *    `LS` diretamente pelo agent — não entram em broker.
  *
- * Phase 1 (OUTLIER-10 MVP): produz apenas o plano estruturado. Chamadores
+ * Phase 1 MVP: produz apenas o plano estruturado. Chamadores
  * em main (`TurnDispatcher`) usam o plano pra compor o system prompt
  * contextual. Ativação real dos brokers vira em fases posteriores quando
  * os handlers managed/MCP stdio estiverem implementados.
@@ -42,7 +42,7 @@ export interface SourcePlanInput {
   readonly enabledSources: readonly SourceConfigView[];
   /**
    * Slugs escolhidos no SourcePicker da sessão. Se `undefined`, toda fonte
-   * enabled no workspace entra (modo default pre-OUTLIER-18). Se `[]`, nada
+   * enabled no workspace entra (modo default quando sem seleção por sessão). Se `[]`, nada
    * entra (usuário desabilitou todas as fontes pra esta sessão).
    */
   readonly sessionEnabledSlugs?: readonly string[];

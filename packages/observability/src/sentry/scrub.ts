@@ -23,13 +23,13 @@ export const SECRET_VALUE_PATTERNS: readonly RegExp[] = [
   // Home dirs com username (PII): /Users/<user>/..., /home/<user>/..., C:\Users\<user>\...
   /\/Users\/[^/\s]+/g,
   /\/home\/[^/\s]+/g,
-  // CR7-05: lowercase drive letters (`c:\Users\...`) também precisam ser
+  // Lowercase drive letters (`c:\Users\...`) também precisam ser
   // redacted. Sem isso, paths normalizados via `path.resolve()` no Windows
   // (que pode lowercase a letra) vazam username.
   /[A-Za-z]:\\Users\\[^\\\s]+/g,
   // Email
   /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g,
-  // CR8-14: variações que escapavam dos patterns clássicos.
+  // Variações que escapavam dos patterns clássicos.
   // URL-encoded `@` (`user%40example.com`) — emails escapados em querystring.
   /[a-zA-Z0-9._+-]+%40[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g,
   // JWT em querystring (`?token=eyJ...`).
@@ -43,7 +43,7 @@ function isSensitiveKey(key: string): boolean {
   return SCRUB_KEYS.some((sensitive) => lower.includes(sensitive.toLowerCase()));
 }
 
-// CR6-03: cache `original → scrubbed` em WeakMap. A versão antiga usava
+// Cache `original → scrubbed` em WeakMap. A versão antiga usava
 // `WeakSet<object>` e, ao reencontrar um objeto compartilhado, retornava o
 // ORIGINAL não-scrubado — Sentry vazava PII sempre que duas referências do
 // mesmo objeto apareciam no event (frames reaproveitando `vars`,
@@ -58,14 +58,14 @@ export function scrubObject<T>(input: T, seen: WeakMap<object, unknown> = new We
   const cached = seen.get(input as object);
   if (cached !== undefined) return cached as T;
 
-  // CR8-15: frozen objects fazem mutação em-place falhar silenciosamente
+  // Frozen objects fazem mutação em-place falhar silenciosamente
   // (TypeError em strict mode, no-op em non-strict). Substituir tudo pelo
   // sentinel é a opção segura — frozen costuma sinalizar config/segredo.
   if (Object.isFrozen(input)) {
     return SCRUB_CENSOR as unknown as T;
   }
 
-  // CR7-03: tipos object não-Plain — Map/Set/Date/RegExp passariam pelo
+  // Tipos object não-Plain — Map/Set/Date/RegExp passariam pelo
   // `Object.entries` retornando vazio (ou ISO string sem redação no Date).
   // Sentry SDK Node anexa frequentemente `user: { createdAt: Date, metadata: Map }`.
   // Sem branches específicos, esses payloads vazavam SEM redação.
@@ -107,7 +107,7 @@ export function scrubObject<T>(input: T, seen: WeakMap<object, unknown> = new We
   const source = input as Record<string | symbol, unknown>;
   const out: Record<string, unknown> = {};
   seen.set(input as object, out);
-  // CR8-13: `Object.entries` salta Symbol keys. Caller pode anexar
+  // `Object.entries` salta Symbol keys. Caller pode anexar
   // `event[Symbol.for('pii')] = email` (Sentry SDK middlewares fazem isso).
   // Iteramos `Reflect.ownKeys` mas só aceitamos string keys no output —
   // Symbol-keyed slots são propositalmente descartados (não há serialização
@@ -137,7 +137,7 @@ export interface SentryStackFrameLike {
   vars?: Record<string, unknown> | undefined;
   abs_path?: string | undefined;
   filename?: string | undefined;
-  // CR7-04: Sentry frame schema também carrega linhas de código fonte
+  // Sentry frame schema também carrega linhas de código fonte
   // (com possíveis API keys hardcoded, emails, paths). Sem redação,
   // segredos no código de produção vazam pelo stack trace.
   context_line?: string | undefined;
@@ -178,7 +178,7 @@ function scrubExceptionFrames(
     if (frame.vars) next.vars = scrubObject(frame.vars);
     if (typeof frame.abs_path === 'string') next.abs_path = scrubString(frame.abs_path);
     if (typeof frame.filename === 'string') next.filename = scrubString(frame.filename);
-    // CR7-04: linhas de código fonte ao redor do erro também precisam de
+    // Linhas de código fonte ao redor do erro também precisam de
     // redação (podem conter API keys hardcoded, emails, paths absolutos).
     if (typeof frame.context_line === 'string') next.context_line = scrubString(frame.context_line);
     if (frame.pre_context) next.pre_context = frame.pre_context.map(scrubString);
@@ -198,7 +198,7 @@ function scrubExceptionValues(
       next.stacktrace = { frames: scrubExceptionFrames(value.stacktrace.frames) };
     }
     // Sentry SDK Node anexa `mechanism: { type, handled, synthetic, data }`
-    // a exceções; `data` é livre e pode conter PII custom (CR4-06).
+    // a exceções; `data` é livre e pode conter PII custom.
     if (value.mechanism?.data) {
       next.mechanism = { ...value.mechanism, data: scrubObject(value.mechanism.data) };
     }

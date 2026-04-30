@@ -11,7 +11,7 @@ import { router } from '../trpc.ts';
 
 export const sessionsRuntimeRouter = router({
   globalSearch: authed
-    // CR9: cap em query — buscas reais ficam bem abaixo de 8000 chars,
+    // Cap em query — buscas reais ficam bem abaixo de 8000 chars,
     // mas sem `.max()` um caller hostil/buggy podia mandar payload de
     // MB e travar o FTS engine.
     .input(z.object({ workspaceId: WorkspaceIdSchema, query: z.string().max(8000) }))
@@ -35,7 +35,7 @@ export const sessionsRuntimeRouter = router({
     .output(
       z.object({
         available: z.boolean(),
-        // CR9: cap defensivo. Provider slugs reais (`anthropic-direct`,
+        // Cap defensivo. Provider slugs reais (`anthropic-direct`,
         // `bedrock-claude-3-5-sonnet-latest`) ficam <64 chars; lista total
         // <100. Cap protege contra serialização patológica.
         providers: z.array(z.string().max(128)).max(100),

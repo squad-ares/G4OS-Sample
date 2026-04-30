@@ -1,7 +1,7 @@
 /**
  * Helpers de `retryLastTurn` + `truncateAfter` extraídos do
  * `SessionsService` para manter esse arquivo ≤ 300 LOC (gate
- * `check:main-size`). FOLLOWUP-08.
+ * `check:main-size`).
  *
  * O log append-only (`SessionEventStore`) continua sendo fonte de verdade;
  * os helpers reescrevem o JSONL e depois chamam `truncateProjection` pra
@@ -73,11 +73,9 @@ async function planRetry(
 ): Promise<Result<{ cutoff: number; text: string }, AppError>> {
   const store = new SessionEventStore(session.workspaceId);
   let lastUserSeq = -1;
-  let secondLastUserSeq = -1;
   let lastUserText: string | null = null;
   for await (const event of store.read(id)) {
     if (event.type !== 'message.added' || event.message.role !== 'user') continue;
-    secondLastUserSeq = lastUserSeq;
     lastUserSeq = event.sequenceNumber;
     const textBlock = event.message.content.find((b) => b.type === 'text');
     lastUserText = textBlock?.type === 'text' ? textBlock.text : null;
@@ -91,6 +89,8 @@ async function planRetry(
       }),
     );
   }
-  const cutoff = secondLastUserSeq >= 0 ? secondLastUserSeq : 0;
+  // Cutoff = seq antes da última user msg. Preserva asst da turn anterior;
+  // remove só última user + resposta (que serão regeneradas pelo dispatch).
+  const cutoff = lastUserSeq - 1;
   return ok({ cutoff, text: lastUserText });
 }

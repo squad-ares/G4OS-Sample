@@ -9,7 +9,7 @@
  *
  * Callers com acesso ao `AppDb` devem preferir `emitLifecycleEvent`,
  * que passa pelo reducer e mantém `sessions.lastEventSequence` (SQLite)
- * em sync com o JSONL — ver ADR-0010/0043 (FOLLOWUP-04).
+ * em sync com o JSONL — ver ADR-0010/0043.
  */
 
 import { randomUUID } from 'node:crypto';
@@ -126,27 +126,22 @@ export function eventStoreReader(store: SessionEventStore) {
 }
 
 /**
- * @internal Wrapper experimental — não usado em produção.
+ * Adapter file-only sobre `SessionEventStore` para uso em branching e
+ * outros callers que precisam apenas do append validado.
  *
- * Limitações conhecidas (CR5-09):
- * - `event.payload` é cast direto para `SessionEvent` sem validação Zod;
- *   caller deve garantir que o payload já passou pelo schema antes.
- * - Retorna `{ sequence: 0 }` placeholder. Callers que precisam do
- *   sequence real devem usar `appendLifecycleEvent` / `emitLifecycleEvent`
- *   diretamente, que leem `session.lastEventSequence + 1` e propagam.
+ * Contract simplificado — caller passa um `SessionEvent` já
+ * formatado (com sessionId/sequenceNumber/eventId corretos), wrapper
+ * delega para `store.append` que valida via Zod. Antes, o wrapper
+ * normalizava cast inseguro e retornava `{ sequence: 0 }` placeholder.
  *
- * Mantido apenas para compatibilidade com testes antigos que esperam
- * a interface `{ append(sessionId, event): { sequence } }`. Não usar
- * em código novo — preferir `appendLifecycleEvent`.
+ * Para callers que precisam do `sessionId.lastEventSequence` real
+ * propagado para SQLite, usar `appendLifecycleEvent` /
+ * `emitLifecycleEvent` (que conhecem o reducer SQLite).
  */
 export function eventStoreWriter(store: SessionEventStore) {
   return {
-    async append(sessionId: string, event: { readonly type: string; readonly payload?: unknown }) {
-      const normalized = (event.payload ?? { type: event.type, at: Date.now() }) as SessionEvent;
-      await store.append(sessionId, normalized);
-      // Sequence real exige acesso ao SQLite projection; este wrapper é
-      // file-only — caller deve usar appendLifecycleEvent para sequence.
-      return { sequence: 0 } as const;
+    async append(sessionId: string, event: SessionEvent): Promise<void> {
+      await store.append(sessionId, event);
     },
   };
 }

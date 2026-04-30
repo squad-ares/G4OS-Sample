@@ -41,7 +41,7 @@ export class ClaudeAgent extends DisposableBase implements IAgent {
     this.enablePromptCache1h =
       options.enablePromptCache1h ??
       (this.provider.kind === 'direct' && this.capabilities.promptCaching);
-    // CR5-06: cleanup centralizado via _register. DisposableStore itera em
+    // Cleanup centralizado via _register. DisposableStore itera em
     // ordem de inserção (FIFO via Set), então registramos abort PRIMEIRO e
     // clear DEPOIS — clear antes de abort esvaziaria o map sem cancelar.
     this._register(

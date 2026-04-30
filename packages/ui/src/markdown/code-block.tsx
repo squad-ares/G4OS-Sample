@@ -23,9 +23,8 @@ export function CodeBlock({ className, children }: CodeBlockProps) {
   }
 
   function handleCopy() {
-    // CR7-54: clipboard API pode estar bloqueada (HTTPS-only, sandbox,
-    // user denial). Fallback para `document.execCommand('copy')` via textarea
-    // temporário — funciona em qualquer browser desde 2015.
+    // Clipboard API pode estar bloqueada (HTTPS-only, sandbox, user denial).
+    // Fallback para `document.execCommand('copy')` funciona em qualquer browser desde 2015.
     const showFeedback = (): void => {
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
@@ -75,8 +74,7 @@ export function CodeBlock({ className, children }: CodeBlockProps) {
   );
 }
 
-// CR7-54: fallback de clipboard via execCommand. Usado quando
-// navigator.clipboard não está disponível ou bloqueado.
+// Fallback de clipboard via execCommand — quando navigator.clipboard não está disponível.
 function legacyCopy(text: string, onSuccess: () => void): void {
   if (typeof document === 'undefined') return;
   const textarea = document.createElement('textarea');

@@ -3,7 +3,7 @@
  * `ToolHandler[]` mountados via `McpMountRegistry`.
  *
  * Escopo atual: só monta `mcp-stdio`. Managed connectors ainda dependem de
- * OAuth live mount (FOLLOWUP-OUTLIER-12 Phase 2 / MVP Step 2).
+ * OAuth live mount (Phase 2 / MVP Step 2).
  *
  * Adapta `SourceConfigView` (persistência) → `SourceConfig` (contrato do
  * factory), sintetizando `metadata` a partir dos top-level fields (slug,
@@ -61,7 +61,7 @@ export async function buildMountedHandlers(
   if (configs.length === 0) return [];
 
   const mounted: readonly MountedSource[] = await mountRegistry.ensureMounted(configs);
-  // CR6-19: só logar quando houve um mismatch entre requested e mounted —
+  // Só logar quando houve um mismatch entre requested e mounted —
   // emitir um log por turn em uma sessão saudável (50 sources × 10 turns
   // × 100 sessões) gera 50k entries por uso ativo. Mismatch sinaliza
   // source que falhou activate/listTools — esse é o sinal que importa.

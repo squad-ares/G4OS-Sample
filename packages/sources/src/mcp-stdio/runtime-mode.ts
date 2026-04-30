@@ -20,7 +20,7 @@ export interface RuntimeModeInput {
  * - `auto` → `protected`, except Windows or browser-auth sources → `compat`
  *   (matches v1 CLAUDE.md local-MCP policy)
  *
- * CR7-48: quando user pediu `container` mas Windows força `compat`, logamos
+ * Quando user pediu `container` mas Windows força `compat`, logamos
  * pra o usuário entender por que isolamento não foi aplicado. Sem isso,
  * a expectativa de sandbox protegido era violada silenciosamente.
  */
