@@ -67,7 +67,7 @@ export class CpuPool {
     if (this.pool) return Promise.resolve(this.pool);
     if (this.loadPromise) return this.loadPromise;
 
-    // CR6-18: limpar `loadPromise` em caso de rejeição. Sem isso, qualquer
+    // Limpar `loadPromise` em caso de rejeição. Sem isso, qualquer
     // falha transiente no `import('piscina')` (módulo corrompido, OOM
     // momentâneo) fica cached como rejected — todas as chamadas seguintes
     // recebem o mesmo erro mesmo após o problema sumir.

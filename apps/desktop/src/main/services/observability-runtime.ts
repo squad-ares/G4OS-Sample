@@ -18,7 +18,7 @@
  */
 
 import { createLogger } from '@g4os/kernel/logger';
-import { MemoryMonitor } from '@g4os/observability/memory';
+import { ListenerLeakDetector, MemoryMonitor } from '@g4os/observability/memory';
 import { initTelemetry, type TelemetryHandle } from '@g4os/observability/sdk';
 import { initSentry, type SentryHandle } from '@g4os/observability/sentry';
 import { readRuntimeEnv } from '../runtime-env.ts';
@@ -35,6 +35,14 @@ export interface ObservabilityRuntime {
   readonly telemetry: TelemetryHandle;
   readonly sentry: SentryHandle;
   readonly memory: MemoryMonitor;
+  /**
+   * Detector global de listener leaks. Subsistemas que se
+   * importam (DisposableBase, EventEmitter wrappers) chamam
+   * `listenerDetector.track(target, event, handler)` em paralelo ao
+   * `addListener`, e `untrack` no `removeListener`. O Debug HUD consome
+   * `snapshot()` para visualizar.
+   */
+  readonly listenerDetector: ListenerLeakDetector;
   dispose(): Promise<void>;
 }
 
@@ -77,6 +85,11 @@ export async function createObservabilityRuntime(
   const memory = new MemoryMonitor(memoryOptions);
   memory.start();
 
+  // Detector global de listeners para o Debug HUD.
+  // Inocuo até subsistemas chamarem `track()/untrack()` — sem isso,
+  // `snapshot()` retorna vazio e o card mostra placeholder.
+  const listenerDetector = new ListenerLeakDetector();
+
   log.info(
     { otel: Boolean(otlpEndpoint), sentry: Boolean(sentryDsn) },
     'observability runtime inicializado',
@@ -86,6 +99,7 @@ export async function createObservabilityRuntime(
     telemetry,
     sentry,
     memory,
+    listenerDetector,
     dispose: async () => {
       memory.dispose();
       await Promise.all([telemetry.shutdown(), sentry.close()]);

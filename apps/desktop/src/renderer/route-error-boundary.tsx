@@ -10,8 +10,10 @@
  */
 import { useTranslate } from '@g4os/ui';
 import { useNavigate, useRouter } from '@tanstack/react-router';
+import { useEffect } from 'react';
 import { setAuthUnauthenticated } from './auth/auth-store.ts';
 import { queryClient } from './ipc/query-client.ts';
+import { reportRendererException } from './observability/init-sentry.ts';
 
 export interface RouteErrorBoundaryProps {
   readonly error: Error;
@@ -22,6 +24,13 @@ export function RouteErrorBoundary({ error, reset }: RouteErrorBoundaryProps) {
   const { t } = useTranslate();
   const router = useRouter();
   const navigate = useNavigate();
+
+  // Reporta para Sentry quando o boundary monta com erro.
+  // `useEffect` evita captura repetida em re-renders. Sem DSN configurado,
+  // a função interna vira no-op.
+  useEffect(() => {
+    void reportRendererException(error, { surface: 'renderer-route' });
+  }, [error]);
 
   const message = error?.message ?? String(error);
 

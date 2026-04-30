@@ -11,6 +11,7 @@ import {
   type NewsService,
   type PermissionsService,
   type PlatformService,
+  type PreferencesService,
   type ProjectsService,
   type SchedulerService,
   type SessionsService,
@@ -46,6 +47,7 @@ export interface IpcServiceOverrides {
   readonly workspaceTransfer?: WorkspaceTransferService;
   readonly labels?: LabelsService;
   readonly platform?: PlatformService;
+  readonly preferences?: PreferencesService;
 }
 
 export async function createContext(input: CreateContextInput = {}): Promise<IpcContext> {
@@ -68,6 +70,7 @@ export async function createContext(input: CreateContextInput = {}): Promise<Ipc
     windows: input.services?.windows ?? nulls.windows,
     workspaceTransfer: input.services?.workspaceTransfer ?? nulls.workspaceTransfer,
     labels: input.services?.labels ?? nulls.labels,
+    preferences: input.services?.preferences ?? nulls.preferences,
     ...(input.services?.platform ? { platform: input.services.platform } : {}),
   };
 

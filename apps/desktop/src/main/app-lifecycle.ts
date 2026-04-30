@@ -13,7 +13,7 @@ export interface AppLifecycleOptions {
   readonly shutdownTimeoutMs?: number;
 }
 
-// CR6-06: extends DisposableBase para que SIGINT/SIGTERM e listeners de
+// Extends DisposableBase para que SIGINT/SIGTERM e listeners de
 // `app` sejam removidos no dispose. Cenário motivador: testes E2E
 // (ADR-0142) reutilizam o processo Node parent — sem dispose, cada
 // `launchApp()` empilha listeners no `process` global, causando double
@@ -98,7 +98,7 @@ export class AppLifecycle extends DisposableBase {
 
 function timeoutRejection(ms: number): Promise<never> {
   return new Promise<never>((_, reject) => {
-    // CR9: `unref()` para o timer não segurar o process vivo. Cada handler
+    // `unref()` para o timer não segurar o process vivo. Cada handler
     // criava um setTimeout dedicado; sem unref, mesmo com handler resolvendo
     // antes, o timer permanecia ativo até o ms expirar — o `app.exit(0)`
     // final já cobre, mas usar unref alinha com pattern de outros timers

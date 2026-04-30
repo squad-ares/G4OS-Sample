@@ -1,6 +1,6 @@
 /**
  * Boot-time cleanup of orphan `.tmp` files left by `truncateAfter` JSONL
- * crashes (CR4-15 + CR5-01 wiring). Best-effort: scan all sessions in
+ * crashes. Best-effort: scan all sessions in
  * parallel via `Promise.allSettled` so one bad workspace doesn't block
  * boot. Errors logged at warn level — boot continues.
  */

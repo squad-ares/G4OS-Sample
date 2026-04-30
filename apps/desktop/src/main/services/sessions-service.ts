@@ -234,7 +234,8 @@ export class SqliteSessionsService implements SessionsServiceContract {
   }
 
   respondPermission(id: string, d: PermissionDecision): Promise<Result<void, AppError>> {
-    return Promise.resolve(respondPermissionOp(this.#deps.permissionBroker, id, d));
+    // respondPermissionOp agora é async (await persist allow_always).
+    return respondPermissionOp(this.#deps.permissionBroker, id, d);
   }
 
   stopTurn(id: SessionId): Promise<Result<void, AppError>> {

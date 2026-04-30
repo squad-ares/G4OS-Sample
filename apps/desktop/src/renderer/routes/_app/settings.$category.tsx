@@ -8,13 +8,15 @@ import {
   type SettingsCategory,
   UsageCategory,
 } from '@g4os/features/settings';
-import { ShellPageScaffold, ShellStatusPanel, ShortcutsList } from '@g4os/features/shell';
+import { ShortcutsList } from '@g4os/features/shell';
 import {
+  PageScaffold,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
+  StatusPanel,
   useTranslate,
 } from '@g4os/ui';
 import { createFileRoute, redirect } from '@tanstack/react-router';
@@ -35,13 +37,13 @@ function SettingsCategoryPage() {
   if (!active) return null;
 
   return (
-    <ShellPageScaffold
+    <PageScaffold
       eyebrow={t('page.settings.badge')}
       title={t(active.labelKey)}
       description={t(active.descriptionKey)}
     >
       <CategoryContent category={active} />
-    </ShellPageScaffold>
+    </PageScaffold>
   );
 }
 
@@ -79,7 +81,7 @@ function CategoryContent({ category }: { readonly category: SettingsCategory }) 
 function InputCategory() {
   const { locale, setLocale, t } = useTranslate();
   return (
-    <ShellStatusPanel
+    <StatusPanel
       title={t('page.settings.localeTitle')}
       description={t('page.settings.localeDescription')}
       badge={t('page.settings.localeBadge')}
@@ -95,20 +97,20 @@ function InputCategory() {
           </SelectContent>
         </Select>
       </div>
-    </ShellStatusPanel>
+    </StatusPanel>
   );
 }
 
 function ShortcutsCategory() {
   const { t } = useTranslate();
   return (
-    <ShellStatusPanel
+    <StatusPanel
       title={t('page.settings.shortcutsTitle')}
       description={t('page.settings.shortcutsDescription')}
       tone="warning"
     >
       <ShortcutsList />
-    </ShellStatusPanel>
+    </StatusPanel>
   );
 }
 

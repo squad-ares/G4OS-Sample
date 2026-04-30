@@ -7,7 +7,7 @@ export function registerStartupCrashHandlers(startup: Promise<void>): void {
   void startup.catch((err: unknown) => {
     writeStartupCrashLog('startup-error', err);
     log.fatal({ err }, 'fatal startup error');
-    // CR8-34: além do exit, mostrar dialog Electron para o usuário saber
+    // Além do exit, mostrar dialog Electron para o usuário saber
     // o que aconteceu — antes app saía silenciosamente e o usuário ficava
     // com tela branca sem entender. `dialog.showErrorBox` é síncrono e
     // funciona mesmo antes de `app.whenReady()`.

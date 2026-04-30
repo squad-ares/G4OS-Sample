@@ -7,7 +7,6 @@
  *   - sessions.length === 0
  *   → cria session + envia mensagem inicial pedindo ajuda no setup
  *
- * MVP sem skills bundled (TASK-CR1-18 plantará `/setup` como skill formal).
  * Por enquanto envia prompt em texto plano que o agent responde.
  *
  * Uso: chamar uma vez no shell autenticado quando workspace ativo carrega.

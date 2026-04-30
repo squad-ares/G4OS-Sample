@@ -2,9 +2,9 @@
  * `/news` index page — quando o usuário navega sem um `newsId` selecionado,
  * rende uma grid com os últimos itens ao invés de um detail vazio.
  *
- * Polling de 30min (useQuery refetchInterval) atende OUTLIER-15 AC de
- * fresh content check periódico sem ficar martelando o viewer API. O
- * sidebar panel compartilha o mesmo query key — refetch aqui propaga.
+ * Polling de 30min (useQuery refetchInterval) para fresh content check
+ * periódico sem martelar o viewer API. O sidebar panel compartilha o
+ * mesmo query key — refetch aqui propaga.
  */
 
 import { NewsDetail } from '@g4os/features/news';

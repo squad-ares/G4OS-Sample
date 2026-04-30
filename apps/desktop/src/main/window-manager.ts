@@ -257,7 +257,7 @@ export class WindowManager extends DisposableBase {
         y: bounds.y,
       };
       const path = this.statePath(workspaceId);
-      // CR9: substitui `writeFile` direto por `writeAtomic` (tmp+fsync+rename).
+      // Substitui `writeFile` direto por `writeAtomic` (tmp+fsync+rename).
       // Antes, crash mid-write deixava arquivo parcial; próximo `loadBounds`
       // recuperava via catch ENOENT-like, mas o JSON corrompido permanecia
       // no disco até saveBounds próximo. Atomic rename é gratuito (já é

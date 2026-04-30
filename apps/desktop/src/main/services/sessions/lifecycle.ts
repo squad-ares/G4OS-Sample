@@ -1,7 +1,7 @@
 /**
  * Wrappers finos de lifecycle (delete/archive/restore) sobre
  * `lifecycleMutation` + `emitLifecycleEvent`. Extraído de
- * `SessionsService` pra manter o arquivo ≤ 300 LOC. FOLLOWUP-04/08.
+ * `SessionsService` pra manter o arquivo ≤ 300 LOC.
  *
  * Todos usam `applyReducer` pra manter `sessions.lastEventSequence` em
  * sync com o JSONL append-only — sem isso o SQLite fica com sequence

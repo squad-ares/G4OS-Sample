@@ -58,6 +58,7 @@
     "atomic-sleep": "1.0.0",
     "date-fns": "4.1.0",
     "drizzle-orm": "catalog:",
+    "zod": "catalog:",
     "electron-trpc": "catalog:",
     "electron-updater": "6.8.3",
     "isows": "1.0.7",
@@ -100,6 +101,10 @@
     "execa": "9.6.1",
     "tsx": "4.21.0",
     "vite": "^8.0.9"
+  },
+  "optionalDependencies": {
+    "_comment": "CR12-O1: deps de runtime carregadas via dynamic import com fallback NOOP. Marcadas optional para que builds prod (electron-builder) bundlem quando presentes, sem quebrar `pnpm install` em CI sem DSN. Fallback é silencioso (init-sentry.ts faz try/catch).",
+    "@sentry/electron": "5.10.0"
   },
   "engines": {
     "node": ">=24.0.0"

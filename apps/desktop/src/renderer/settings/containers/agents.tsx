@@ -1,6 +1,5 @@
 import { ApiKeysPanel, type ApiKeysPanelCredential } from '@g4os/features/settings';
-import { ShellStatusPanel } from '@g4os/features/shell';
-import { toast, useTranslate } from '@g4os/ui';
+import { StatusPanel, toast, useTranslate } from '@g4os/ui';
 import { useQuery } from '@tanstack/react-query';
 import { useCallback } from 'react';
 import { queryClient } from '../../ipc/query-client.ts';
@@ -46,7 +45,7 @@ export function AgentsCategoryContainer() {
   );
 
   return (
-    <ShellStatusPanel
+    <StatusPanel
       title={t('settings.apiKeys.title')}
       description={t('settings.apiKeys.description')}
       badge={t('settings.category.agents.label')}
@@ -57,6 +56,6 @@ export function AgentsCategoryContainer() {
         onClear={handleClear}
         disabled={credentialsQuery.isLoading}
       />
-    </ShellStatusPanel>
+    </StatusPanel>
   );
 }

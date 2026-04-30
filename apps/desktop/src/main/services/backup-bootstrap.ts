@@ -2,7 +2,7 @@
  * Bootstrap do BackupScheduler com attachment storage/gateway. Gateway
  * é leve (apenas refs Drizzle); storage usa diretório default
  * (`<appPaths.data>/attachments`). Scheduler roda 24h com retenção
- * 7/4/3 conforme ADR-0045 (CR5-01 wiring).
+ * 7/4/3 conforme ADR-0045.
  */
 
 import type { AppDb } from '@g4os/data';

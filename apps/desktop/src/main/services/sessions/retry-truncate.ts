@@ -1,7 +1,7 @@
 /**
  * Helpers de `retryLastTurn` + `truncateAfter` extraídos do
  * `SessionsService` para manter esse arquivo ≤ 300 LOC (gate
- * `check:main-size`). FOLLOWUP-08.
+ * `check:main-size`).
  *
  * O log append-only (`SessionEventStore`) continua sendo fonte de verdade;
  * os helpers reescrevem o JSONL e depois chamam `truncateProjection` pra

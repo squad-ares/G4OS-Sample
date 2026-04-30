@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="pt-BR" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- CSP do HUD restrito: sem connect-src externo. Toda comunicação é
+         via IPC do preload (`window.debugHud`). -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self' http://localhost:* ws://localhost:*;"
+    />
+    <title>G4 OS Debug HUD</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: rgba(12, 16, 24, 0.86);
+        --fg: #e8e6e4;
+        --muted: rgba(232, 230, 228, 0.55);
+        --border: rgba(232, 230, 228, 0.1);
+        --ok: #4ade80;
+        --warn: #facc15;
+        --critical: #f87171;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body,
+      #root {
+        margin: 0;
+        height: 100%;
+        background: transparent;
+        color: var(--fg);
+        font-family: 'JetBrains Mono', ui-monospace, monospace;
+        font-size: 12px;
+        -webkit-font-smoothing: antialiased;
+      }
+      body {
+        background: var(--bg);
+        backdrop-filter: blur(8px);
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="./main.tsx"></script>
+  </body>
+</html>

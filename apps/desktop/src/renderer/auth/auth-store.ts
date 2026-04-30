@@ -59,10 +59,18 @@ export function getCachedAuthState(queryClient: QueryClient): AuthState | undefi
 
 export function setAuthAuthenticated(queryClient: QueryClient, session: IpcSession): void {
   queryClient.setQueryData<AuthState>(AUTH_QUERY_KEY, { status: 'authenticated', session });
+  // Propaga identidade para Sentry quando user fica autenticado. Lazy import —
+  // sem DSN configurado, init-sentry é NOOP e setUser também.
+  void import('../observability/init-sentry.ts').then((mod) =>
+    mod.updateRendererSentryUser({ id: session.userId, email: session.email }),
+  );
 }
 
 export function setAuthUnauthenticated(queryClient: QueryClient): void {
   queryClient.setQueryData<AuthState>(AUTH_QUERY_KEY, { status: 'unauthenticated' });
+  // Limpa identidade no logout — events futuros não devem
+  // ser atribuídos ao user que saiu.
+  void import('../observability/init-sentry.ts').then((mod) => mod.updateRendererSentryUser(null));
 }
 
 export async function invalidateAuth(queryClient: QueryClient): Promise<void> {
@@ -76,6 +84,10 @@ async function fetchAuthState(): Promise<AuthState> {
     const session = await trpc.auth.getMe.query();
     // biome-ignore lint/suspicious/noConsole: diagnostic log for boot
     console.info('[auth] fetchAuthState: authenticated', session.email);
+    // Cobre o caminho de restore (sessão persistida no vault).
+    void import('../observability/init-sentry.ts').then((mod) =>
+      mod.updateRendererSentryUser({ id: session.userId, email: session.email }),
+    );
     return { status: 'authenticated', session };
   } catch (error: unknown) {
     if (isUnauthorizedError(error)) {
