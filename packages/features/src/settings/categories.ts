@@ -1,5 +1,5 @@
 /**
- * Settings categories — OUTLIER-16.
+ * Settings categories.
  *
  * Paridade com V1 (12 categorias). Cada categoria tem:
  *  - `id` estável para URL (`/settings/:category`)

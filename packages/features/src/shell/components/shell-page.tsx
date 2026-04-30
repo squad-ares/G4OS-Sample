@@ -1,50 +1,21 @@
-import { Spinner, StatusPanel, type StatusPanelProps, useTranslate } from '@g4os/ui';
-import { type ReactNode, useEffect, useState } from 'react';
+import { PageScaffold, Spinner, StatusPanel, type StatusPanelProps, useTranslate } from '@g4os/ui';
+import { useEffect, useState } from 'react';
 import { formatShortcut, shellActionDefinitions } from '../actions.ts';
 import { getShellNavigationEntry, type ShellNavigationId } from '../navigation.ts';
 
 /**
- * Alias retrocompatível para `StatusPanel` movido para `@g4os/ui` em CR5-04.
- * Consumers internos de shell continuam usando este nome; cross-feature
- * (settings/etc.) deve importar `StatusPanel` direto de `@g4os/ui`.
- *
  * @deprecated Use `StatusPanel` de `@g4os/ui`.
  */
 export type ShellStatusPanelProps = StatusPanelProps;
+/** @deprecated Use `StatusPanel` de `@g4os/ui`. */
 export const ShellStatusPanel = StatusPanel;
 
-export interface ShellPageScaffoldProps {
-  readonly eyebrow?: string;
-  readonly title: string;
-  readonly description: string;
-  readonly children: ReactNode;
-}
-
-export function ShellPageScaffold({
-  eyebrow,
-  title,
-  description,
-  children,
-}: ShellPageScaffoldProps) {
-  return (
-    <section className="h-full overflow-y-auto p-6 md:p-8">
-      <div className="space-y-6 pb-6">
-        <div className="rounded-[28px] border border-foreground/10 p-6 shadow-[0_18px_48px_rgba(0,31,53,0.08)]">
-          {eyebrow ? (
-            <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-accent">
-              {eyebrow}
-            </div>
-          ) : null}
-          <h1 className="mt-2 text-3xl font-semibold tracking-[-0.04em] text-foreground">
-            {title}
-          </h1>
-          <p className="mt-3 max-w-3xl text-sm leading-7 text-muted-foreground">{description}</p>
-        </div>
-        {children}
-      </div>
-    </section>
-  );
-}
+/**
+ * @deprecated Use `PageScaffold` de `@g4os/ui`.
+ */
+export type ShellPageScaffoldProps = Parameters<typeof PageScaffold>[0];
+/** @deprecated Use `PageScaffold` de `@g4os/ui`. */
+export const ShellPageScaffold = PageScaffold;
 
 // Após `STUCK_THRESHOLD_MS` mostramos botão de recovery. Boot real é
 // tipicamente <500ms; se ultrapassar 5s, algo está pendurado e o usuário

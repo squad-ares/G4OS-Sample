@@ -1,7 +1,7 @@
 /**
  * Hook de atalhos globais da feature sessions:
- *   - Cmd/Ctrl + N → criar nova sessão (TASK-11-01-02)
- *   - Cmd/Ctrl + K → abrir command palette / global search (TASK-11-01-03)
+ *   - Cmd/Ctrl + N → criar nova sessão
+ *   - Cmd/Ctrl + K → abrir command palette / global search
  *
  * Ignora o evento quando o foco está em input/textarea editável, a
  * menos que o atalho seja especificamente o Cmd+K (que deve abrir a

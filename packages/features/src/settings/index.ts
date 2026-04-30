@@ -30,7 +30,12 @@ export {
   PreferencesCategory,
   type PreferencesCategoryProps,
 } from './components/preferences-category.tsx';
-export { RepairCategory, type RepairCategoryProps } from './components/repair-category.tsx';
+export {
+  type IntegrityFailureView,
+  type IntegrityReportView,
+  RepairCategory,
+  type RepairCategoryProps,
+} from './components/repair-category.tsx';
 export { SettingsPanel, type SettingsPanelProps } from './components/settings-panel.tsx';
 export { TagsCategory, type TagsCategoryProps } from './components/tags-category.tsx';
 export { UsageCategory } from './components/usage-category.tsx';

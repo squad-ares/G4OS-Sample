@@ -21,6 +21,7 @@ import {
   SessionsEmptyState,
 } from './sessions-panel-states.tsx';
 import type { SessionsPanelSessionItem, SessionsSubTab } from './sessions-panel-types.ts';
+import { VIRTUAL_THRESHOLD, VirtualizedSessionGroups } from './sessions-panel-virtual.tsx';
 import { SubSidebarShell } from './sub-sidebar-shell.tsx';
 
 export type { SessionsPanelSessionItem, SessionsSubTab } from './sessions-panel-types.ts';
@@ -66,8 +67,13 @@ export function SessionsPanel({
   const trimmedQuery = query.trim();
   const filteredSessions = useMemo(() => {
     if (trimmedQuery.length === 0) return sessions;
-    const q = trimmedQuery.toLowerCase();
-    return sessions.filter((s) => s.title.toLowerCase().includes(q));
+    // Word-based fuzzy — cada palavra do query deve ser substring
+    // do título (case-insensitive). "nova ml" bate em "Nova sessão sobre ML".
+    const words = trimmedQuery.toLowerCase().split(/\s+/).filter(Boolean);
+    return sessions.filter((s) => {
+      const t = s.title.toLowerCase();
+      return words.every((w) => t.includes(w));
+    });
   }, [sessions, trimmedQuery]);
   const isSearching = trimmedQuery.length > 0;
 
@@ -298,12 +304,23 @@ function SessionsListBody({
         ) : null}
         {showNoMatches ? <NoSearchResults query={query} onClear={onClearSearch} /> : null}
         {showList ? (
-          <SessionGroups
-            sessions={filteredSessions}
-            onOpenSession={onOpenSession}
-            searchQuery={isSearching ? query : undefined}
-            {...(onSessionContextMenu ? { onContextMenu: onSessionContextMenu } : {})}
-          />
+          filteredSessions.length > VIRTUAL_THRESHOLD ? (
+            // Virtualização para listas grandes — apenas itens
+            // visíveis + overscan são renderizados.
+            <VirtualizedSessionGroups
+              sessions={filteredSessions}
+              {...(isSearching ? { searchQuery: query } : {})}
+              onOpenSession={onOpenSession}
+              {...(onSessionContextMenu ? { onContextMenu: onSessionContextMenu } : {})}
+            />
+          ) : (
+            <SessionGroups
+              sessions={filteredSessions}
+              onOpenSession={onOpenSession}
+              searchQuery={isSearching ? query : undefined}
+              {...(onSessionContextMenu ? { onContextMenu: onSessionContextMenu } : {})}
+            />
+          )
         ) : null}
       </div>
     </div>

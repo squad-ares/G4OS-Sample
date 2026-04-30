@@ -47,13 +47,13 @@ export interface ComposerAffordances {
  * voice recording, mention typeahead, source/working-dir/mode pickers e
  * action bar.
  *
- * **ARIA combobox (CR3-11 + CR5-21):** o `<textarea>` recebe
+ * **ARIA combobox:** o `<textarea>` recebe
  * `role="combobox"` quando `mentionSources` é fornecido — papel
  * pertence ao input/textarea (que detém foco), nunca ao popover. Outras
  * decisões ARIA do composer:
  * - `aria-expanded` reflete `mentionActive` (popover visível).
  * - `aria-controls` aponta para o id do `<div role="listbox">` dentro
- *   do `MentionPicker`. CR7 fix: id é gerado via `useId()` aqui no
+ *   do `MentionPicker`. O id é gerado via `useId()` aqui no
  *   Composer e injetado no MentionPicker, garantindo que aria-controls
  *   case com o id real do listbox (multi-window safe).
  * - `aria-autocomplete="list"` indica autocomplete via popover (vs.
@@ -76,7 +76,7 @@ export interface ComposerProps {
   readonly transcribe?: (audio: Uint8Array, mimeType: string) => Promise<string>;
   readonly affordances?: ComposerAffordances;
   /**
-   * OUTLIER-20: quando passado, habilita typeahead `@source` no textarea.
+   * Quando passado, habilita typeahead `@source` no textarea.
    * Seleção insere marker plain-text `[source:slug] ` — backend já parseia
    * via `SourceIntentDetector`.
    */
@@ -114,10 +114,10 @@ export function Composer({
     textareaRef: elementRef,
   });
   const mentionActive = Boolean(mentionSources && mention.trigger);
-  // CR7 fix: id de listbox gerado aqui (e injetado no MentionPicker) para
-  // garantir que `aria-controls` aponte para o id real do popover. Antes:
-  // composer hardcoded `'mention-picker-listbox'`, picker usava `useId()`
-  // → mismatch silencioso quebrava ARIA combobox.
+  // Id de listbox gerado aqui (e injetado no MentionPicker) para
+  // garantir que `aria-controls` aponte para o id real do popover.
+  // Composer injeta via prop; picker usava `useId()` interno antes →
+  // mismatch silencioso quebrava ARIA combobox (multi-window unsafe).
   const mentionListboxId = useId();
   const comboboxAriaProps = {
     role: 'combobox' as const,

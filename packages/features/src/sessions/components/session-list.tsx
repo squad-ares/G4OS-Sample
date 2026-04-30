@@ -33,7 +33,7 @@ export interface SessionListProps {
 }
 
 type Row =
-  | { readonly kind: 'header'; readonly id: string; readonly labelKey: string }
+  | { readonly kind: 'header'; readonly id: string; readonly labelKey: TranslationKey }
   | { readonly kind: 'item'; readonly id: string; readonly session: SessionListItem };
 
 export function SessionList({
@@ -112,7 +112,7 @@ export function SessionList({
             >
               {row.kind === 'header' ? (
                 <div className="px-3 pt-3 pb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  {t(row.labelKey as TranslationKey)}
+                  {t(row.labelKey)}
                 </div>
               ) : (
                 <div className="px-2">

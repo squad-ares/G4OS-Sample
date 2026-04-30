@@ -2,7 +2,7 @@
  * Botão compacto para criar sessão rápida (Cmd/Ctrl+N). Sem dialog —
  * a mutation usa os defaults do workspace. Para detalhes customizados,
  * o consumidor navega para um detail screen; aqui apenas atende a UX
- * de "quick create" descrita na TASK-11-01-02.
+ * de "quick create".
  */
 
 import { Button, useTranslate } from '@g4os/ui';

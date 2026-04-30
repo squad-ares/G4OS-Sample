@@ -4,10 +4,9 @@ import type {
   SourceConfigView,
 } from '@g4os/kernel/types';
 import type { TranslationKey } from '@g4os/translate';
-import { Button, StatusPanel, useTranslate } from '@g4os/ui';
+import { Button, PageScaffold, StatusPanel, useTranslate } from '@g4os/ui';
 import { CheckCircle2, Grid2X2, Plug, Plus, Search, Server } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import { ShellPageScaffold } from '../../shell/index.ts';
 import { CatalogItemCard } from './catalog-item.tsx';
 import { CreateStdioDialog } from './create-stdio-dialog.tsx';
 import { SourceCard } from './source-card.tsx';
@@ -85,7 +84,7 @@ export function SourcesPage({
   const grouped = useMemo(() => groupByCategory(filteredCatalog), [filteredCatalog]);
 
   return (
-    <ShellPageScaffold
+    <PageScaffold
       eyebrow={t('sources.page.eyebrow')}
       title={t('sources.page.title')}
       description={t('sources.page.description')}
@@ -142,7 +141,7 @@ export function SourcesPage({
           ) : filteredSources.length === 0 ? (
             <EmptyState />
           ) : (
-            <ul className="grid grid-cols-1 gap-2 xl:grid-cols-2">
+            <ul className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
               {filteredSources.map((s) => (
                 <SourceCard
                   key={s.id}
@@ -200,7 +199,7 @@ export function SourcesPage({
           setStdioDialogOpen(false);
         }}
       />
-    </ShellPageScaffold>
+    </PageScaffold>
   );
 }
 

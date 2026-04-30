@@ -7,7 +7,7 @@ export interface SessionShortcutHandlers {
 }
 
 /**
- * Registra atalhos de teclado para ações de sessão (TASK-11-00-08):
+ * Atalhos de teclado para ações de sessão:
  * Cmd+. (macOS) / Ctrl+. (outros) → stop turn atual
  * Cmd+R / Ctrl+R → retry última turn (preventDefault para não recarregar)
  */
