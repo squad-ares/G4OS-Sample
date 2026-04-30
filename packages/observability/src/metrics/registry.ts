@@ -9,7 +9,7 @@ export interface CreateMetricsOptions {
    * Quando `true`, registra métricas default do prom-client (`process_*`,
    * `nodejs_*`) no mesmo Registry. Default `true` em produção (visibility
    * de health do process), `false` em testes para evitar coletas
-   * automáticas que poluem snapshots. CR4-17.
+   * automáticas que poluem snapshots.
    */
   readonly includeDefaults?: boolean;
 }
@@ -26,7 +26,7 @@ export interface G4Metrics {
   readonly mcpSubprocessCrashTotal: Counter<string>;
   readonly workerMemoryRss: Gauge<string>;
   readonly workerRestartTotal: Counter<string>;
-  /** TASK-OUTLIER-22 — turn-scoped métricas de alta granularidade. */
+  /** Turn-scoped métricas de alta granularidade. */
   readonly turnDurationMs: Histogram<string>;
   readonly turnTokensTotal: Counter<string>;
   readonly turnErrorsTotal: Counter<string>;
@@ -43,7 +43,7 @@ export function createMetrics(options: CreateMetricsOptions = {}): G4Metrics {
   const registry = new Registry();
   registry.setDefaultLabels({ app: 'g4os' });
   if (options.includeDefaults !== false) {
-    // CR4-17: process metrics (heap, gc, event loop) coletadas no mesmo
+    // Process metrics (heap, gc, event loop) coletadas no mesmo
     // registry; aparecem em `exportMetrics()` ao lado das custom.
     collectDefaultMetrics({ register: registry, prefix: 'g4os_' });
   }
@@ -182,7 +182,7 @@ export function getMetrics(): G4Metrics {
   return sharedMetrics;
 }
 
-// CR9: limpar o registry anterior antes de soltar a referência. Sem
+// Limpar o registry anterior antes de soltar a referência. Sem
 // `registry.clear()`, métricas registradas (Counters, Histograms, Gauges)
 // e o interval do `collectDefaultMetrics` permanecem coletando heap/gc/
 // event-loop em background — vazamento memory + pollution em snapshots

@@ -25,7 +25,7 @@ export function withSpan<T>(
           return result;
         })
         .catch((err: unknown) => {
-          // CR7-22: span.recordException ou span.setStatus podem throw em
+          // Span.recordException ou span.setStatus podem throw em
           // alguns transports (ex.: OTel SDK Node com endpoint indisponível
           // momentaneamente). Sem try/catch aqui o original `err` ficava
           // mascarado e finally `span.end()` nunca rodava → spans órfãos
