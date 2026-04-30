@@ -112,7 +112,7 @@ describe('execute', () => {
       dryRun: false,
       force: false,
       onProgress: vi.fn(),
-      stepFilter: new Set(['credentials']), // stub — sempre err
+      stepFilter: new Set(['sessions']), // stub — sempre err
     });
     expect(result.isErr()).toBe(true);
     expect(existsSync(v2Path)).toBe(false);
