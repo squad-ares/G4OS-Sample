@@ -9,9 +9,8 @@ import { z } from 'zod';
  * `markdown` é o conteúdo renderizável (sanitizado pelo renderer no client).
  * `publishDate` é ISO-8601; `sortRank` ordena itens do mesmo dia.
  */
-// CR8-05: caps em campos vindos de feed externo (viewer público). Sem
-// `.max()`/`.datetime()`, um payload malicioso ou bug do server pode injetar
-// MB de markdown ou datas inválidas no renderer.
+// Caps em campos vindos de feed externo — payload malicioso ou bug do server
+// não pode injetar MB de markdown ou datas inválidas no renderer.
 export const NewsItemSchema = z.object({
   id: z.string().min(1).max(128),
   title: z.string().min(1).max(512),

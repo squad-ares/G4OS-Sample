@@ -94,8 +94,7 @@ export const CreateMcpStdioSourceInputSchema = z.object({
     .max(100)
     .regex(/^[a-z0-9][a-z0-9-]*$/),
   displayName: z.string().min(1).max(200),
-  // CR7-33: caps em strings para prevenir DoS. Paths típicos: 100-300
-  // chars. 8000 cobre paths exóticos sem ser ridículo.
+  // Caps em strings para prevenir DoS — paths típicos são 100-300 chars; 8000 cobre casos exóticos.
   command: z.string().min(1).max(8000),
   args: z.array(z.string().max(8000)).max(100).default([]),
   env: z.record(z.string().max(200), z.string().max(8000)).default({}),

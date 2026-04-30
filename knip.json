@@ -19,6 +19,7 @@
       "entry": [
         "src/index.ts",
         "src/preload.ts",
+        "src/preload-debug-hud.ts",
         "src/main/index.ts",
         "src/main/agents-bootstrap.ts",
         "src/main/services/db-service.ts",
@@ -88,14 +89,12 @@
     "packages/ipc": {
       "ignoreDependencies": ["@trpc/client", "electron-trpc"]
     },
-    "packages/data": {
-      "ignoreDependencies": ["node:sqlite"]
-    },
+    "packages/data": {},
     "packages/kernel": {
       "ignoreDependencies": ["pino-pretty", "pino-roll"]
     },
     "packages/observability": {
-      "ignoreDependencies": ["@opentelemetry/sdk-node", "@opentelemetry/exporter-trace-otlp-http"]
+      "ignoreDependencies": ["@opentelemetry/exporter-trace-otlp-http"]
     },
     "packages/ui": {
       "entry": ["src/**/*.tsx", "src/**/*.ts"],

@@ -50,10 +50,8 @@ export async function writeAtomic(
     await fileHandle.close();
     fileHandle = null;
 
-    // CR7-01: rename() lança EXDEV quando tmp e target estão em
-    // filesystems diferentes (ex.: Docker volume mount, /tmp em tmpfs vs
-    // workspace em ext4, OneDrive sync no Windows). Sem fallback,
-    // CredentialVault, PermissionStore e SourcesStore falhavam silenciosamente.
+    // rename() lança EXDEV quando tmp e target estão em filesystems diferentes
+    // (Docker volume mount, /tmp em tmpfs, OneDrive sync no Windows).
     // Fallback: copy + unlink (não-atômico mas funcional).
     try {
       await rename(tmpPath, path);
@@ -65,10 +63,8 @@ export async function writeAtomic(
         'rename failed with EXDEV (cross-device); falling back to copy+unlink',
       );
       await copyFile(tmpPath, path);
-      // CR8-02: copyFile não preserva mode do source. Sem chmod explícito
-      // após copy, credenciais escritas via fallback EXDEV viravam 0o644
-      // (legíveis por outros usuários). Reaplica `mode` (default 0o600)
-      // antes do unlink do tmp para garantir o invariante de privacidade.
+      // copyFile não preserva mode do source — reaplica `mode` (default 0o600)
+      // para que credenciais escritas via fallback não fiquem 0o644 (legíveis).
       try {
         const { chmod } = await import('node:fs/promises');
         await chmod(path, mode);

@@ -1,4 +1,5 @@
 import { type Level, type Logger as PinoLogger, pino } from 'pino';
+import { type LogStreamLine, logStream } from './log-stream.ts';
 
 export interface LogContext {
   workspaceId?: string;
@@ -50,8 +51,17 @@ export const REDACT_PATHS: readonly string[] = [
 
 export const REDACT_CENSOR = '[REDACTED]';
 
-const defaultLevel: Level = (process.env['LOG_LEVEL'] ?? 'info') as Level;
-const isDev = process.env['NODE_ENV'] === 'development';
+// Guarded process access — `logger.ts` é re-exportado por
+// `@g4os/kernel/logger`, e em dev o Vite renderer pode resolver o módulo
+// completo mesmo via `import type`. Sem `process` no main world do
+// renderer (sandbox), o module load crasha. Guard preserva o
+// comportamento Node (env wins) e dá fallback seguro no browser.
+function readProcessEnv(key: string): string | undefined {
+  if (typeof process === 'undefined' || process.env === undefined) return undefined;
+  return process.env[key];
+}
+const defaultLevel: Level = (readProcessEnv('LOG_LEVEL') ?? 'info') as Level;
+const isDev = readProcessEnv('NODE_ENV') === 'development';
 
 const baseLogger = pino({
   level: defaultLevel,
@@ -85,6 +95,26 @@ export interface Logger {
   fatal(ctx: LogContext | string, msg?: string): void;
 }
 
+/**
+ * Bindings do pino logger expostos via `bindings()` mas custa cada call.
+ * Só lê quando há subscriber (fast path em `hasSubscribers()`).
+ */
+function emitToStream(
+  inner: PinoLogger,
+  level: LogStreamLine['level'],
+  ctx: LogContext | string,
+  msg: string | undefined,
+): void {
+  if (!logStream.hasSubscribers()) return;
+  const bindings = inner.bindings() as Record<string, unknown>;
+  const component = typeof bindings['component'] === 'string' ? bindings['component'] : 'root';
+  const line: LogStreamLine =
+    typeof ctx === 'string'
+      ? { level, time: Date.now(), component, msg: ctx }
+      : { level, time: Date.now(), component, msg: msg ?? '', ctx };
+  logStream.emit(line);
+}
+
 export function wrapPinoLogger(inner: PinoLogger): Logger {
   const log =
     (level: Level) =>
@@ -94,6 +124,9 @@ export function wrapPinoLogger(inner: PinoLogger): Logger {
       } else {
         (inner[level] as (obj: object, msg?: string) => void)(ctx, msg);
       }
+      // Fan-out paralelo para o Debug HUD log tail — custo zero quando
+      // ninguém está subscrito (`hasSubscribers` early return).
+      emitToStream(inner, level as LogStreamLine['level'], ctx, msg);
     };
 
   return {

@@ -18,6 +18,7 @@ export const ErrorCode = {
   AUTH_OTP_INVALID: 'auth.otp_invalid',
   AUTH_ENTITLEMENT_REQUIRED: 'auth.entitlement_required',
   AUTH_BOOTSTRAP_FAILED: 'auth.bootstrap_failed',
+  AUTH_DISPOSED: 'auth.disposed',
 
   // IPC
   IPC_HANDLER_NOT_FOUND: 'ipc.handler_not_found',
@@ -37,6 +38,7 @@ export const ErrorCode = {
 
   // Project
   PROJECT_NOT_FOUND: 'project.not_found',
+  PROJECT_SLUG_CONFLICT: 'project.slug_conflict',
 
   // Agent
   AGENT_UNAVAILABLE: 'agent.unavailable',

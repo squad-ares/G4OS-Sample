@@ -51,9 +51,8 @@ export class CredentialError extends AppError {
   }
 
   /**
-   * CR5-19: razão tipada (enum) para discriminação caller-side sem
-   * parsear strings. Caller pode `switch (err.context.reason)` se
-   * `err.code === CREDENTIAL_INVALID_VALUE`.
+   * Razão tipada (enum) para discriminação caller-side sem parsear strings;
+   * `switch (err.context.reason)` quando `err.code === CREDENTIAL_INVALID_VALUE`.
    */
   static invalidValue(reason: CredentialInvalidValueReason): CredentialError {
     return new CredentialError({

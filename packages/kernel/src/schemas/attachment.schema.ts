@@ -3,9 +3,8 @@ import { z } from 'zod';
 export const AttachmentTypeSchema = z.enum(['file', 'image', 'doc', 'link']);
 export type AttachmentType = z.infer<typeof AttachmentTypeSchema>;
 
-// CR8-06: caps + sanidade em mimeType e sizeBytes. mimeType bate o pattern
-// IANA (`type/subtype` com caracteres aceitos); sem isso, valores como
-// `application/x-executable` ou strings arbitrárias passavam.
+// Caps + sanidade em mimeType e sizeBytes — MIME bate o pattern IANA
+// (`type/subtype`); sem isso valores como `application/x-executable` passavam.
 const MIME_TYPE_RE = /^[a-zA-Z0-9!#$&^_+.-]+\/[a-zA-Z0-9!#$&^_+.-]+(;.*)?$/;
 
 const BaseAttachmentSchema = z.object({
@@ -36,7 +35,7 @@ export const DocAttachmentSchema = BaseAttachmentSchema.extend({
 
 export const LinkAttachmentSchema = BaseAttachmentSchema.extend({
   type: z.literal('link'),
-  // CR8-06: cap em url para evitar payloads gigantes via paste.
+  // Cap em url para evitar payloads gigantes via paste.
   url: z.url().max(2048),
   previewTitle: z.string().max(512).optional(),
   previewDescription: z.string().max(2048).optional(),

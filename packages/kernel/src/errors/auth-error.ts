@@ -42,4 +42,15 @@ export class AuthError extends AppError {
       context: { reason: message },
     });
   }
+
+  /**
+   * Sinaliza calls em service já disposto (race entre logout/quit e operações
+   * em vôo). Caller decide se ignora ou propaga.
+   */
+  static disposed(): AuthError {
+    return new AuthError({
+      code: ErrorCode.AUTH_DISPOSED,
+      message: 'Auth service has been disposed',
+    });
+  }
 }

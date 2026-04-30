@@ -18,6 +18,9 @@ const ignoredPathFragments = [
   '/routeTree.gen.ts',
   '/platform/',
   '/node_modules/',
+  // Debug HUD é tela interna de developer; strings em pt-BR fixas, não
+  // entram no escopo de i18n.
+  '/renderer/debug-hud/',
 ] as const;
 
 const findings: string[] = [];
