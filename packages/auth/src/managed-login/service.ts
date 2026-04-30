@@ -63,7 +63,7 @@ export class ManagedLoginService extends DisposableBase {
   }
 
   /**
-   * @deprecated CR6-14: para telemetria/logs/Sentry use `redactedState$` —
+   * @deprecated Para telemetria/logs/Sentry use `redactedState$` —
    * este Observable carrega o email do usuário (PII) e tokens preview no
    * payload bruto. Suba pra UI/state-sync apenas onde a UI realmente
    * precisa do email (ex: tela de login). Em qualquer outro contexto
@@ -74,7 +74,7 @@ export class ManagedLoginService extends DisposableBase {
   }
 
   /**
-   * CR6-14: canal de telemetria PII-safe. Mesma semântica de FSM transitions
+   * Canal de telemetria PII-safe. Mesma semântica de FSM transitions
    * de `state$`, mas sem email/tokens. Use este em Sentry breadcrumbs,
    * métricas, debug exports e logs estruturados.
    */
@@ -83,12 +83,30 @@ export class ManagedLoginService extends DisposableBase {
   }
 
   async requestOtp(email: string): Promise<Result<void, AuthError>> {
-    // CR7-28: sanitiza `previous` para nunca aninhar error → error → error.
+    // Bloqueia chamadas pós-dispose. Sem isso, listeners em
+    // `subject` continuam emitindo após `subject.complete()` (silencioso
+    // no rxjs, mas I/O e setState rodam à toa) e UI consumidora ainda
+    // recebia transitions de FSM em janelas race entre logout/quit.
+    if (this._disposed) {
+      return err(AuthError.disposed());
+    }
+    // Entry guard. requestOtp só faz sentido a partir de
+    // estados terminais (idle/awaiting_otp/error/authenticated) — chamar
+    // no meio de `verifying` ou `bootstrapping` indica bug do caller
+    // (UI deveria desabilitar botão durante esses estados). Rejeitar
+    // explicitamente evita transitions inválidas que mascarem o bug.
+    const current = this.subject.value;
+    if (current.kind === 'verifying' || current.kind === 'requesting_otp') {
+      log.warn({ from: current.kind }, 'requestOtp ignored: another OTP flow in progress');
+      return err(AuthError.disposed());
+    }
+    // Sanitiza `previous` para nunca aninhar error → error → error.
     // Se o estado atual já é error, o "anterior" lógico é o `previous` dele
     // (a chance de estado válido pra back-button). Evita nesting infinito.
     const previous = sanitizePrevious(this.subject.value);
     this.setState({ kind: 'requesting_otp', email });
     const result = await sendOtp(this.supabase, email);
+    if (this._disposed) return err(AuthError.disposed());
     if (result.isErr()) {
       this.setState({ kind: 'error', error: result.error, previous });
       return err(result.error);
@@ -98,6 +116,23 @@ export class ManagedLoginService extends DisposableBase {
   }
 
   async submitOtp(email: string, token: string): Promise<Result<AuthSession, AuthError>> {
+    // Idem requestOtp.
+    if (this._disposed) {
+      return err(AuthError.disposed());
+    }
+    // Entry guard relaxado. Bloqueia apenas estados que
+    // indicam "já há flow em andamento" — duplo-clique, retry antes do
+    // primeiro completar, ou bootstrapping em curso. Permite chamada de
+    // idle (deep-link com OTP code) e de error (retry após bad code).
+    const currentSubmit = this.subject.value;
+    if (
+      currentSubmit.kind === 'verifying' ||
+      currentSubmit.kind === 'bootstrapping' ||
+      currentSubmit.kind === 'requesting_otp'
+    ) {
+      log.warn({ from: currentSubmit.kind }, 'submitOtp ignored: another auth flow in progress');
+      return err(AuthError.disposed());
+    }
     const previous = sanitizePrevious(this.subject.value);
     this.setState({ kind: 'verifying', email });
     const result = await verifyOtp(this.supabase, email, token);
@@ -134,7 +169,7 @@ export class ManagedLoginService extends DisposableBase {
   }
 
   async logout(): Promise<void> {
-    // CR7-29: paralelizar deletes via Promise.allSettled. Sequencial era
+    // Paralelizar deletes via Promise.allSettled. Sequencial era
     // problemático: se primeiro falhasse, segundo nunca rodava → tokens
     // órfãos. Agora todos rodam, partial failure só é logada — state
     // SEMPRE volta pra idle pra UI fechar limpo.
@@ -197,11 +232,11 @@ export class ManagedLoginService extends DisposableBase {
     return true;
   }
 
-  // CR7-08: rollback explícito quando uma das 3 escritas falha. Sem isso,
+  // Rollback explícito quando uma das 3 escritas falha. Sem isso,
   // sucesso parcial deixa tokens órfãos (ex: setMeta falha mas setAccess
   // já gravou) e `restore()` retorna false — usuário fica unauthenticated
   // mas com lixo persistente até `wipeAndReset`.
-  // CR9: rollback erros agora são logados (antes silenciados via
+  // Rollback erros agora são logados (antes silenciados via
   // `.catch(() => undefined)`). Sem visibilidade, partial-rollback failures
   // (ex: disk-full impede também o delete) ficavam invisíveis.
   private async persistSession(session: AuthSession): Promise<Result<void, AuthError>> {
@@ -286,7 +321,7 @@ function parseMeta(raw: string): PersistedSessionMeta | null {
 }
 
 /**
- * CR7-28: extrai um `previous` seguro pra `error` state. Sem isso, retry
+ * Extrai um `previous` seguro pra `error` state. Sem isso, retry
  * de OTP a partir de error nesting acumula:
  *  - 1ª falha: state = `{error, previous: awaiting_otp}` ✓
  *  - 2ª falha (retry de error): state = `{error, previous: {error, previous: awaiting_otp}}` ✗

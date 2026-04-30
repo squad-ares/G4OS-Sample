@@ -16,7 +16,7 @@ interface EntitlementServiceDevOptions {
   readonly devBypass: true;
   /**
    * Callback obrigatório quando `devBypass: true`. Garante audit trail —
-   * sem ele, bypass ativaria silenciosamente em produção. ADR-0093 + CR4-11.
+   * sem ele, bypass ativaria silenciosamente em produção. ADR-0093.
    */
   readonly onBypassUsed: (entitlements: Entitlements) => void;
 }

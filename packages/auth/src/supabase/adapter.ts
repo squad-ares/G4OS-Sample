@@ -39,8 +39,8 @@ export interface CreateSupabaseAdapterOptions {
  * testes) sem expor detalhes do cliente para cima. O cliente é lazy — só
  * instanciado na primeira chamada — mas é reusado entre chamadas.
  *
- * CR8-28: generation counter (mesmo pattern do `DirectApiProvider.loadSdk`
- * em CR7-24). Antes, se `clientFactory` rejeitasse intermitentemente
+ * Generation counter (mesmo pattern do `DirectApiProvider.loadSdk`). Antes,
+ * se `clientFactory` rejeitasse intermitentemente
  * (network blip, módulo ainda não disponível), `clientPromise` ficava
  * rejected forever — todas as próximas chamadas reutilizavam a mesma
  * promise rejeitada sem chance de recovery. Agora, o slot é zerado quando

@@ -2,7 +2,7 @@ import { AuthError, ErrorCode } from '@g4os/kernel/errors';
 import { err, ok, type Result } from 'neverthrow';
 import type { AuthSession, SupabaseAuthPort } from '../types.ts';
 
-// CR9: validação leve de email antes de enviar para Supabase. Sem isso,
+// Validação leve de email antes de enviar para Supabase. Sem isso,
 // emails malformados (vazio, sem @, espaço duplo) viram round-trip pra
 // Supabase só pra retornar erro com message vaga. Validar local economiza
 // rede + dá feedback mais claro ao caller. Padrão RFC-5322 simplificado.
