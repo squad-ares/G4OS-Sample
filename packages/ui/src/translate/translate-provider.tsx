@@ -69,13 +69,7 @@ export function useTranslate(): TranslateContextValue {
   if (context) return context;
   // Fallback graceful em vez de throw — componentes carregados antes do TranslateProvider
   // (Suspense, lazy boundary, dev hot-reload) retornam context degradado:
-  // `t` ecoa a chave, locale=DEFAULT_LOCALE. Expõe chaves não-traduzidas ao dev.
-  if (typeof window !== 'undefined') {
-    // biome-ignore lint/suspicious/noConsole: dev warn for missing provider
-    console.warn(
-      '[useTranslate] called outside TranslateProvider — falling back to identity translator',
-    );
-  }
+  // `t` ecoa a chave, locale=DEFAULT_LOCALE. Chaves cruas na UI sinalizam o problema ao dev.
   // Fallback degradado — só ergonomia/dev-mode, sem dependência do dictionary.
   return {
     locale: 'pt-BR' as AppLocale,
