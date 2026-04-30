@@ -51,7 +51,7 @@ describe('PermissionBroker', () => {
     expect(emitted).toHaveLength(1);
     expect(broker.pendingCount).toBe(1);
 
-    const accepted = broker.respond(firstRequestId(emitted), 'allow_once');
+    const accepted = await broker.respond(firstRequestId(emitted), 'allow_once');
     expect(accepted).toBe(true);
     await expect(pending).resolves.toBe('allow_once');
     expect(broker.pendingCount).toBe(0);
@@ -129,11 +129,11 @@ describe('PermissionBroker', () => {
     expect(broker.pendingCount).toBe(0);
   });
 
-  it('respond returns false for unknown requestId', () => {
+  it('respond returns false for unknown requestId', async () => {
     broker = new PermissionBroker(() => {
       // no-op emitter — this test never emits
     });
-    expect(broker.respond('nope', 'allow_once')).toBe(false);
+    await expect(broker.respond('nope', 'allow_once')).resolves.toBe(false);
   });
 
   it('dispose rejects all pending requests', async () => {
