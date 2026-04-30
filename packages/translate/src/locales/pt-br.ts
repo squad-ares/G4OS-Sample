@@ -681,6 +681,7 @@ export const ptBR = {
   'session.action.rename': 'Renomear',
   'session.action.labels': 'Rótulos',
   'session.rename.prompt': 'Renomear sessão',
+  'session.rename.placeholder': 'Nome da sessão',
 
   'session.dialog.archive.title': 'Arquivar esta sessão?',
   'session.dialog.archive.description':
@@ -951,6 +952,38 @@ export const ptBR = {
     'Resetar banco do workspace, limpar anexos, reinstalar runtime bundled.',
   'settings.repair.destructive.planned':
     'Reset destrutivo chega junto com restore via cloud sync para garantir que nenhum dado se perca.',
+  'settings.repair.debugHud.title': 'Modo de inspeção (Debug HUD)',
+  'settings.repair.debugHud.description':
+    'Janela flutuante com métricas de runtime em tempo real (memória, listeners, IPC, sessões). Útil para diagnosticar travamentos e enviar evidências para o suporte.',
+  'settings.repair.debugHud.toggle.label': 'Habilitar Debug HUD',
+  'settings.repair.debugHud.toggle.hint':
+    'Quando ligado, atalho Cmd/Ctrl+Shift+D abre/fecha a janela. Em desenvolvimento já vem ligado por padrão.',
+  'settings.repair.debugHud.toggle.enabled': 'Debug HUD habilitado',
+  'settings.repair.debugHud.toggle.disabled': 'Debug HUD desabilitado',
+  'settings.repair.debugHud.toggle.error': 'Não foi possível salvar a preferência',
+  'settings.repair.integrity.title': 'Integridade do runtime',
+  'settings.repair.integrity.description':
+    'Verifica SHA-256 dos binários empacotados (Node, pnpm, uv, Python, Git) contra o manifesto assinado. Útil quando o cliente reporta runtime quebrado pós-update ou após antivírus mover binários para quarentena.',
+  'settings.repair.integrity.verify': 'Verificar integridade',
+  'settings.repair.integrity.checking': 'Verificando…',
+  'settings.repair.integrity.ok': 'Tudo certo — runtime íntegro',
+  'settings.repair.integrity.failed': 'Integridade comprometida',
+  'settings.repair.integrity.metaMissing':
+    'Manifesto ausente — provavelmente build dev. Em prod, indica instalação corrompida.',
+  'settings.repair.integrity.appVersion': 'Versão',
+  'settings.repair.integrity.flavor': 'Canal',
+  'settings.repair.integrity.target': 'Plataforma',
+  'settings.repair.integrity.runtimes': 'Runtimes verificados',
+  'settings.repair.integrity.failureSingular': 'falha',
+  'settings.repair.integrity.failurePlural': 'falhas',
+  'settings.repair.integrity.toastOk': 'Runtime íntegro',
+  'settings.repair.integrity.toastFailed': 'Problemas detectados na integridade',
+  'settings.repair.integrity.toastMetaMissing': 'Manifesto não encontrado',
+  'settings.repair.integrity.toastError': 'Falha ao verificar integridade',
+  'settings.repair.integrity.failureRuntime': 'runtime',
+  'settings.repair.integrity.failurePath': 'caminho',
+  'settings.repair.integrity.failureExpected': 'esperado',
+  'settings.repair.integrity.failureActual': 'obtido',
 
   'chat.workingDir.ariaLabel': 'Diretório de trabalho',
   'chat.workingDir.empty': 'Nenhum caminho configurado.',

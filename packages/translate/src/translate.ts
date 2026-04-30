@@ -12,8 +12,8 @@ export function normalizeLocale(locale: string | null | undefined): AppLocale {
 
 export function resolveInitialLocale(): AppLocale {
   if (typeof globalThis.window === 'undefined') return DEFAULT_LOCALE;
-  // CR8-72: localStorage pode lançar (private mode no Safari, quota
-  // exceeded, sandbox restrito). Fallback gracioso para navigator.language.
+  // localStorage pode lançar em private mode (Safari), quota exceeded ou sandbox.
+  // Fallback gracioso para navigator.language.
   let stored: string | null = null;
   try {
     stored = globalThis.window.localStorage.getItem(LOCALE_STORAGE_KEY);
@@ -25,9 +25,8 @@ export function resolveInitialLocale(): AppLocale {
 
 export function persistLocale(locale: AppLocale): void {
   if (typeof globalThis.window === 'undefined') return;
-  // CR8-72: idem — localStorage.setItem pode lançar QuotaExceededError.
-  // Persistência é best-effort; se falha, próximo boot reverte ao default
-  // mas a sessão atual continua com o locale escolhido.
+  // localStorage.setItem pode lançar QuotaExceededError — persistência é
+  // best-effort; falha reverte ao default no próximo boot.
   try {
     globalThis.window.localStorage.setItem(LOCALE_STORAGE_KEY, locale);
   } catch {
@@ -35,19 +34,24 @@ export function persistLocale(locale: AppLocale): void {
   }
 }
 
-// CR8-30: regex aceita dots em token names (`{{nested.key}}`). O `\w+`
-// anterior parava no primeiro `.` e deixava `{{user.name}}` virar string
-// vazia — chaves nested em params nunca substituíam.
+// Regex aceita dots em token names (`{{nested.key}}`) — `\w+` básico
+// parava no primeiro `.` e deixava substituições nested falharem silenciosamente.
 const PLACEHOLDER_RE = /\{\{([a-zA-Z_$][a-zA-Z0-9_$.]*)\}\}/gu;
 
 function resolveParam(params: TranslationParams, token: string): unknown {
-  if (!token.includes('.')) return params[token];
-  // CR8-30: lookup nested via dot-path. `params['user.name']` direto cobre
-  // chaves achatadas; quando não existe, faz traversal em `user.name`.
-  if (token in params) return params[token];
+  // Sem `Object.hasOwn`, lookups como `{{__proto__}}` injetam
+  // `[object Object]` na UI via String(value) — text injection via template.
+  // `Object.hasOwn` força chaves próprias do params.
+  if (!token.includes('.')) {
+    return Object.hasOwn(params, token) ? params[token] : undefined;
+  }
+  // Lookup nested via dot-path — `params['user.name']` direto cobre
+  // chaves achatadas; senão faz traversal em `user.name`.
+  if (Object.hasOwn(params, token)) return params[token];
   let cursor: unknown = params;
   for (const segment of token.split('.')) {
     if (cursor === null || typeof cursor !== 'object') return undefined;
+    if (!Object.hasOwn(cursor as object, segment)) return undefined;
     cursor = (cursor as Record<string, unknown>)[segment];
   }
   return cursor;
@@ -67,9 +71,8 @@ export function translate(
   });
 }
 
-// CR8-81: Intl.* lança RangeError em locales não suportados (raros, mas
-// possíveis em legacy locales armazenados ou bug de region). Fallback
-// silencioso pra ISO/string raw em vez de quebrar a UI inteira.
+// Intl.* lança RangeError em locales não suportados (raros, mas possíveis
+// em legacy locales armazenados). Fallback silencioso para ISO/string raw.
 export function formatDate(
   locale: AppLocale,
   value: Date | number | string,
