@@ -74,11 +74,11 @@ export class SessionEventStore {
   }
 
   /**
-   * Lê eventos em ordem de append. Linhas corrompidas são SKIPPED + warn
-   * (CR7-21). Para callers que precisam saber sobre gaps de corrupção,
+   * Lê eventos em ordem de append. Linhas corrompidas são SKIPPED + warn.
+   * Para callers que precisam saber sobre gaps de corrupção,
    * passar `stats` — `stats.skipped` é incrementado por linha skippada.
    *
-   * CR8-12: agregadores (`readAfter`, `count`, `truncateAfter`) não tinham
+   * Agregadores (`readAfter`, `count`, `truncateAfter`) não tinham
    * sinal de "houve corrupção?" e retornavam números assimétricos com a
    * realidade do JSONL. `stats` resolve isso sem mudar a assinatura
    * principal — caller passa o objeto se quer rastrear.
@@ -103,7 +103,7 @@ export class SessionEventStore {
         for (const line of lines) {
           lineNumber++;
           if (!line.trim()) continue;
-          // CR7-21: linha corrompida (write parcial em crash, FS corruption)
+          // Linha corrompida (write parcial em crash, FS corruption)
           // não pode quebrar replay inteiro. Antes: parseLine throw → toda
           // a sessão ficava inacessível por uma única linha ruim. Agora:
           // log warn + skip → recuperamos eventos remanescentes.
@@ -139,7 +139,7 @@ export class SessionEventStore {
   /**
    * Eventos com `sequenceNumber > afterSequence` — recovery após checkpoint.
    *
-   * CR8-12: emite warn estruturado se houve corrupção mid-stream. Replay
+   * Emite warn estruturado se houve corrupção mid-stream. Replay
    * pós-checkpoint que tropeça em linha ruim mantém o gap sem que o caller
    * (replay.ts) tenha visibilidade. Stats no log permite operador correlacionar
    * "session X tem checkpoint stuck" com "session X teve N linhas skipped".
@@ -162,7 +162,7 @@ export class SessionEventStore {
   /**
    * Total de eventos registrados (inclusive eventos passados).
    *
-   * CR8-12: idem readAfter — warn se corrupção. Caller que precisar do
+   * Idem readAfter — warn se corrupção. Caller que precisar do
    * skipped count exato deve usar `read()` direto com `stats`.
    */
   async count(sessionId: string): Promise<number> {
@@ -180,7 +180,7 @@ export class SessionEventStore {
 
   /**
    * Remove eventos com `sequenceNumber > afterSequence`. Destrutivo.
-   * Usado por retry/truncate (TASK-11-00-08). Write é atômico via tmp+rename:
+   * Usado por retry/truncate. Write é atômico via tmp+rename:
    * falha no meio do processo não deixa log parcial. Retorna número de eventos
    * removidos; no-op se arquivo não existe.
    */
@@ -212,7 +212,7 @@ export class SessionEventStore {
   }
 
   /**
-   * CR4-15: limpa arquivos `.tmp` órfãos deixados por `truncateAfter` que
+   * Limpa arquivos `.tmp` órfãos deixados por `truncateAfter` que
    * crashou entre `writeFile(tmp)` e `rename(tmp, path)`. Chamada idempotente
    * recomendada no boot do desktop main process. Remove apenas `.tmp` mais
    * antigos que `ORPHAN_TMP_MAX_AGE_MS` para evitar corrida com truncate

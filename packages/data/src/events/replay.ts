@@ -63,7 +63,7 @@ export async function catchUp(
 /**
  * Trunca a projeção SQLite após `SessionEventStore.truncateAfter` ter
  * removido entradas do JSONL. Usado por `retryLastTurn`/`truncateAfter`
- * (FOLLOWUP-08): remove linhas de `messages_index` com sequence > cutoff,
+ * Remove linhas de `messages_index` com sequence > cutoff,
  * recalcula `messageCount`/`lastMessageAt` e reposiciona o checkpoint do
  * consumer `messages-index`.
  *

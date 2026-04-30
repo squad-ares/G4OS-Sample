@@ -288,4 +288,43 @@ describe('workspace delete cascade', () => {
       .all();
     expect(refsAfter).toHaveLength(0);
   });
+
+  // CR12-D7: attachment_refs.hash → attachments.hash usa NO ACTION (default
+  // Drizzle), garantindo que delete direto de attachment com refs vivas
+  // falha. O gateway decrementa refcount + apaga o blob só quando chega a
+  // zero — esta FK é o último gate caso o gateway tenha bug.
+  it('FK hash: bloqueia delete de attachment quando refs existem (CR12-D7)', () => {
+    const hash = 'sha256-test-cr12-d7';
+    drizzle
+      .insert(attachments)
+      .values({
+        hash,
+        size: 100,
+        mimeType: 'text/plain',
+        refCount: 1,
+        createdAt: NOW,
+        lastAccessedAt: NOW,
+      })
+      .run();
+    drizzle
+      .insert(attachmentRefs)
+      .values({
+        id: 'ref-cr12-d7',
+        hash,
+        sessionId,
+        originalName: 'test.txt',
+        createdAt: NOW,
+      })
+      .run();
+
+    expect(() => drizzle.delete(attachments).where(eq(attachments.hash, hash)).run()).toThrow(
+      /FOREIGN KEY constraint/,
+    );
+
+    // Após remover o ref, delete passa.
+    drizzle.delete(attachmentRefs).where(eq(attachmentRefs.id, 'ref-cr12-d7')).run();
+    drizzle.delete(attachments).where(eq(attachments.hash, hash)).run();
+    const blob = drizzle.select().from(attachments).where(eq(attachments.hash, hash)).all();
+    expect(blob).toHaveLength(0);
+  });
 });

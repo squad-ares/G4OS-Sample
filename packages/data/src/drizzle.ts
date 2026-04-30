@@ -2,7 +2,7 @@
  * Factory do cliente Drizzle sobre o wrapper `Db` (node:sqlite).
  *
  * Usa `drizzle-orm/node-sqlite` — adapter first-class para `DatabaseSync`
- * do Node 24 LTS. Vê ADR-0040a (driver node:sqlite) e TASK-04-02.
+ * do Node 24 LTS. Vê ADR-0040a (driver node:sqlite).
  *
  * Uso:
  *   const db = new Db();

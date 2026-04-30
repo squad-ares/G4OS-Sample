@@ -41,6 +41,22 @@ export class ProjectsRepository {
     return row ? rowToProject(row) : null;
   }
 
+  /**
+   * Pré-check de slug duplicado por workspace. Substitui o catch
+   * de "UNIQUE constraint failed" que vinha como erro raw SQLite — service
+   * agora consegue mapear para `PROJECT_SLUG_CONFLICT` antes do insert.
+   * Returns o id do project conflitante ou null.
+   */
+  async findBySlug(workspaceId: WorkspaceId, slug: string): Promise<ProjectId | null> {
+    const rows = await this.db
+      .select({ id: projectsTable.id })
+      .from(projectsTable)
+      .where(and(eq(projectsTable.workspaceId, workspaceId), eq(projectsTable.slug, slug)))
+      .limit(1);
+    const row = rows[0];
+    return row ? (row.id as ProjectId) : null;
+  }
+
   async create(input: ProjectCreateInput & { rootPath: string }): Promise<Project> {
     const id = crypto.randomUUID();
     const slug = toSlug(input.name);
@@ -117,6 +133,10 @@ export class ProjectsRepository {
     if (!created) throw new Error(`legacy project insert failed: ${id}`);
     return created;
   }
+}
+
+export function toProjectSlug(name: string): string {
+  return toSlug(name);
 }
 
 function toSlug(name: string): string {

@@ -1,5 +1,5 @@
 /**
- * Global search (TASK-11-01-03) — FTS5 sobre `messages_index` + JOIN em
+ * Global search — FTS5 sobre `messages_index` + JOIN em
  * `sessions` para recuperar nome da sessão e updatedAt. Limita por
  * workspace. Fallback para LIKE quando MATCH é inválido ou FTS não existe.
  *

@@ -5,7 +5,7 @@ import type {
   ProjectTaskId,
   ProjectTaskPatch,
 } from '@g4os/kernel/types';
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, desc, eq } from 'drizzle-orm';
 import type { AppDb } from '../drizzle.ts';
 import { projectTasks as tasksTable } from '../schema/index.ts';
 import type { ProjectTaskRow } from '../schema/project-tasks.ts';
@@ -87,13 +87,17 @@ export class ProjectTasksRepository {
   }
 
   private async nextOrder(projectId: ProjectId): Promise<string> {
+    // Ordenação fracional precisa do MAIOR order existente para
+    // posicionar a nova task no FINAL. `asc` retornava o menor e
+    // `generateOrder(menor, null)` empilhava todas as novas logo acima da
+    // primeira task (board ficava com inserts em loop no topo).
     const rows = await this.db
       .select({ order: tasksTable.order })
       .from(tasksTable)
       .where(eq(tasksTable.projectId, projectId))
-      .orderBy(asc(tasksTable.order))
+      .orderBy(desc(tasksTable.order))
       .limit(1);
-    const last = rows[rows.length - 1]?.order ?? null;
+    const last = rows[0]?.order ?? null;
     return generateOrder(last, null);
   }
 }

@@ -5,7 +5,7 @@
  * arquivo markdown em `<workspaceRoot>/skills/<slug>/SKILL.md`. O runtime
  * de skills (resolve frontmatter, executa via session) é épico separado;
  * aqui só plantamos os artefatos para que `getSetupNeeds` + auto-onboarding
- * (TASK-CR1-01) tenham conteúdo coerente disponível.
+ * tenham conteúdo coerente disponível.
  *
  * Conteúdo derivado das skills V1 (`apps/electron/resources/default-workspace/skills/`)
  * com adaptação ao tom e arquitetura V2.

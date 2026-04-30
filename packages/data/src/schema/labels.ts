@@ -1,5 +1,5 @@
 /**
- * Labels hierárquicos por workspace (TASK-11-01-07). `parentId` forma a
+ * Labels hierárquicos por workspace. `parentId` forma a
  * árvore; `treeCode` guarda o caminho materialized-path (`root.child.leaf`)
  * para filtros prefix-based ("todos sob Área") sem recursive CTE.
  *
