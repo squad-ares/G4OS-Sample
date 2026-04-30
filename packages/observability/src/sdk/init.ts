@@ -59,8 +59,16 @@ export async function initTelemetry(options: TelemetryInitOptions): Promise<Tele
     DiagLogLevel.WARN,
   );
 
-  const [{ NodeSDK }, { OTLPTraceExporter }, { resourceFromAttributes }, sampler] =
-    await Promise.all([loadSdkNode(), loadOtlpExporter(), loadResources(), loadSampler()]);
+  const loadAll = () =>
+    Promise.all([loadSdkNode(), loadOtlpExporter(), loadResources(), loadSampler()]);
+  let sdkModules: Awaited<ReturnType<typeof loadAll>>;
+  try {
+    sdkModules = await loadAll();
+  } catch (err) {
+    log.warn({ err }, 'otel sdk packages not available; returning noop (run pnpm install)');
+    return NOOP_HANDLE;
+  }
+  const [{ NodeSDK }, { OTLPTraceExporter }, { resourceFromAttributes }, sampler] = sdkModules;
 
   const baseAttrs: Record<string, unknown> = {
     'service.name': options.serviceName,

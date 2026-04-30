@@ -59,6 +59,13 @@ export async function initSentry(options: SentryInitOptions): Promise<SentryHand
       return crumb;
     },
   };
+  if (options.process === 'main') {
+    // OTel SDK (NodeSDK) já registra o provider global de trace/context/propagation.
+    // Sem skipOpenTelemetrySetup, @sentry/node 8.x tenta registrar o seu próprio
+    // provider → "Attempted duplicate registration" nos logs do diag. Sentry segue
+    // capturando erros/breadcrumbs; só o provider OTel redundante é desabilitado.
+    config['skipOpenTelemetrySetup'] = true;
+  }
   if (options.process === 'renderer') {
     config['replaysSessionSampleRate'] = options.replaysSessionSampleRate ?? 0.05;
     config['replaysOnErrorSampleRate'] = options.replaysOnErrorSampleRate ?? 1.0;

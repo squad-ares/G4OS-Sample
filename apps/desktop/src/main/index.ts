@@ -1,5 +1,6 @@
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { loadSupabaseEnvFiles } from '@g4os/auth/supabase';
 import { createVault } from '@g4os/credentials';
 import { SessionsRepository } from '@g4os/data/sessions';
 import { setIpcMetricsRecorder } from '@g4os/ipc/server';
@@ -64,7 +65,16 @@ export async function bootstrapMain(options: BootstrapOptions = {}): Promise<voi
     log.warn('electron runtime unavailable; main boot skipped');
     return;
   }
-  await electron.app.whenReady();
+
+  // .env loading ANTES de app.whenReady(): Sentry exige init pré-ready.
+  const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), '../../../..');
+  if (!electron.app.isPackaged) {
+    const { env: dotEnv } = loadSupabaseEnvFiles(rootDir);
+    for (const [k, v] of Object.entries(dotEnv)) {
+      // biome-ignore lint/style/noProcessEnv: composition root; seed único do .env
+      if (process.env[k] === undefined) process.env[k] = v;
+    }
+  }
 
   const observability = await createObservabilityRuntime({
     serviceName: '@g4os/desktop',
@@ -72,10 +82,12 @@ export async function bootstrapMain(options: BootstrapOptions = {}): Promise<voi
     environment: electron.app.isPackaged ? 'production' : 'development',
   });
 
+  await electron.app.whenReady();
+
   const preflight = new StartupPreflightService();
   const preflightReport = await preflight.run({
     isPackaged: electron.app.isPackaged,
-    rootDir: resolve(dirname(fileURLToPath(import.meta.url)), '../../../..'),
+    rootDir,
     appVersion: electron.app.getVersion(),
   });
   if (preflightReport.status === 'fatal') {
@@ -95,7 +107,6 @@ export async function bootstrapMain(options: BootstrapOptions = {}): Promise<voi
 
   const lifecycle = new AppLifecycle(electron.app);
   const cpuPool = new CpuPool();
-  const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), '../../../..');
   const iconPath = resolveIconPath({ isPackaged: electron.app.isPackaged, rootDir });
   if (iconPath && isMacOS() && !electron.app.isPackaged && electron.app.dock) {
     electron.app.dock.setIcon(iconPath);
