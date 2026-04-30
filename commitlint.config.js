@@ -40,6 +40,7 @@ export default {
         'observability',
         'permissions',
         'session-runtime',
+        'migration',
         // Features
         'chat',
         'sessions',
