@@ -454,10 +454,11 @@ function LogTailCard({ logs }: { logs: LogsSnapshot }): ReactNode {
           }}
         />
       </div>
+      {/* Sem overflow próprio — scroll vive no body do HUD pra evitar
+          dual-scroll (mouse wheel ambíguo entre região interna e externa).
+          Limite de 100 linhas via slice já cap o tamanho. */}
       <div
         style={{
-          maxHeight: 220,
-          overflowY: 'auto',
           fontSize: 10,
           lineHeight: 1.4,
           fontFamily: 'inherit',

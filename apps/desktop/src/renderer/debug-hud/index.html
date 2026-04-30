@@ -13,7 +13,7 @@
     <style>
       :root {
         color-scheme: dark;
-        --bg: rgba(12, 16, 24, 0.86);
+        --bg: #0c1018;
         --fg: #e8e6e4;
         --muted: rgba(232, 230, 228, 0.55);
         --border: rgba(232, 230, 228, 0.1);
@@ -28,16 +28,12 @@
       body,
       #root {
         margin: 0;
-        height: 100%;
-        background: transparent;
+        min-height: 100%;
+        background: var(--bg);
         color: var(--fg);
         font-family: 'JetBrains Mono', ui-monospace, monospace;
         font-size: 12px;
         -webkit-font-smoothing: antialiased;
-      }
-      body {
-        background: var(--bg);
-        backdrop-filter: blur(8px);
       }
     </style>
   </head>

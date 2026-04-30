@@ -63,17 +63,17 @@ export class DebugHudWindow implements IDisposable {
     this.state = await loadHudState();
     const { browserWindowFactory: BrowserWindow } = this.options;
 
+    // Frame nativo (drag + close + min/max grátis), alwaysOnTop=false
+    // pra não roubar foco da janela principal.
     const w = new BrowserWindow({
       x: this.state.bounds.x,
       y: this.state.bounds.y,
       width: this.state.bounds.width,
       height: this.state.bounds.height,
-      frame: false,
-      transparent: true,
-      alwaysOnTop: true,
-      skipTaskbar: true,
+      frame: true,
+      alwaysOnTop: false,
       resizable: true,
-      hasShadow: false,
+      backgroundColor: '#0c1018',
       title: 'G4 OS Debug HUD',
       webPreferences: {
         preload: this.options.preloadPath,
