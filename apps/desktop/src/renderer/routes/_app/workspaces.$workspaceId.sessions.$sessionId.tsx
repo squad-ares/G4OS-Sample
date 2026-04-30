@@ -280,13 +280,16 @@ function SessionPage() {
     }
   }, [sessionId]);
 
-  const handleRetryLast = useCallback(async (): Promise<void> => {
-    try {
-      await trpc.sessions.retryLastTurn.mutate({ id: sessionId });
-      setIsStreaming(true);
-    } catch (err) {
+  const handleRetryLast = useCallback((): void => {
+    // setIsStreaming(true) precisa vir ANTES da mutate (não depois do await):
+    // a mutate aguarda o turn inteiro server-side, e quando resolve o
+    // `message.added` já chegou e setou isStreaming=false. Setar depois
+    // sobrescreve esse reset e a UI fica travada com botão de stop.
+    setIsStreaming(true);
+    void trpc.sessions.retryLastTurn.mutate({ id: sessionId }).catch((err: unknown) => {
+      setIsStreaming(false);
       toast.error(String(err));
-    }
+    });
   }, [sessionId]);
 
   const handleRetryFromMessage = useCallback(
@@ -312,8 +315,13 @@ function SessionPage() {
         confirm: true,
       });
       await invalidateMessages(queryClient, sessionId);
-      await trpc.sessions.retryLastTurn.mutate({ id: sessionId });
+      // Mesma armadilha de handleRetryLast: setIsStreaming antes da mutate
+      // de retryLastTurn, sem await — caso contrário a UI trava no stop.
       setIsStreaming(true);
+      void trpc.sessions.retryLastTurn.mutate({ id: sessionId }).catch((err: unknown) => {
+        setIsStreaming(false);
+        toast.error(String(err));
+      });
     } catch (err) {
       toast.error(String(err));
     } finally {
@@ -328,7 +336,6 @@ function SessionPage() {
 
   useSessionShortcuts({
     ...(isStreaming ? { onStop: () => void handleStop() } : {}),
-    ...(isStreaming ? {} : { onRetry: () => void handleRetryLast() }),
   });
 
   const callbacks = useMemo<MessageCardCallbacks>(
