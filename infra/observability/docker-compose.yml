@@ -45,11 +45,6 @@ services:
         condition: service_started
       prometheus:
         condition: service_started
-    healthcheck:
-      test: ['CMD', 'wget', '--spider', '-q', 'http://localhost:13133']
-      interval: 10s
-      timeout: 5s
-      retries: 5
 
   loki:
     image: grafana/loki:3.2.1

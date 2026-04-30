@@ -17,3 +17,13 @@ scrape_configs:
   - job_name: prometheus
     static_configs:
       - targets: ['localhost:9090']
+
+  # App Electron — prom-client exposto via metrics-scrape-server.ts na porta 9464.
+  # `host.docker.internal` resolve para o host no Docker Desktop (macOS/Windows).
+  # Em Linux: adicionar `extra_hosts: host.docker.internal:host-gateway` no compose.
+  - job_name: g4os-app
+    scrape_interval: 15s
+    static_configs:
+      - targets: ['host.docker.internal:9464']
+        labels:
+          service: g4os-desktop
