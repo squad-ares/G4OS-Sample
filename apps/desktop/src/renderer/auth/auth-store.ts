@@ -78,12 +78,8 @@ export async function invalidateAuth(queryClient: QueryClient): Promise<void> {
 }
 
 async function fetchAuthState(): Promise<AuthState> {
-  // biome-ignore lint/suspicious/noConsole: diagnostic log for boot
-  console.info('[auth] fetchAuthState: calling auth.getMe');
   try {
     const session = await trpc.auth.getMe.query();
-    // biome-ignore lint/suspicious/noConsole: diagnostic log for boot
-    console.info('[auth] fetchAuthState: authenticated', session.email);
     // Cobre o caminho de restore (sessão persistida no vault).
     void import('../observability/init-sentry.ts').then((mod) =>
       mod.updateRendererSentryUser({ id: session.userId, email: session.email }),
@@ -91,16 +87,12 @@ async function fetchAuthState(): Promise<AuthState> {
     return { status: 'authenticated', session };
   } catch (error: unknown) {
     if (isUnauthorizedError(error)) {
-      // biome-ignore lint/suspicious/noConsole: diagnostic log for boot
-      console.info('[auth] fetchAuthState: unauthenticated (expected)');
       return { status: 'unauthenticated' };
     }
     // Qualquer outro erro NÃO deve quebrar boot do app — degrade para
-    // unauthenticated (usuário vai pra /login). Logamos para investigação
-    // mas não propagamos: ensureQueryData rejeitar aqui = router pendura
-    // em "Loading environment…" sem caminho de recovery.
-    // biome-ignore lint/suspicious/noConsole: defensive log on auth boot path
-    console.warn('[auth] getMe failed with unexpected error; treating as unauthenticated', error);
+    // unauthenticated (usuário vai pra /login). Sentry captura se configurado.
+    // ensureQueryData rejeitar aqui = router pendura em "Loading environment…"
+    // sem caminho de recovery.
     return { status: 'unauthenticated' };
   }
 }
