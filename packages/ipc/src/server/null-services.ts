@@ -9,6 +9,7 @@ import type {
   MessagesService,
   NewsService,
   PermissionsService,
+  PreferencesService,
   ProjectsService,
   SchedulerService,
   SessionsService,
@@ -46,6 +47,7 @@ export interface NullServices {
   readonly windows: WindowsService;
   readonly workspaceTransfer: WorkspaceTransferService;
   readonly labels: LabelsService;
+  readonly preferences: PreferencesService;
 }
 
 export function createNullServices(): NullServices {
@@ -180,6 +182,12 @@ export function createNullServices(): NullServices {
       recolor: async () => err(notImplemented('labels.recolor')),
       reparent: async () => err(notImplemented('labels.reparent')),
       delete: async () => err(notImplemented('labels.delete')),
+    },
+    preferences: {
+      // Default sensato em scaffolds: HUD desligado (prod-like).
+      getDebugHudEnabled: async () => ok(false),
+      setDebugHudEnabled: async () => err(notImplemented('preferences.setDebugHudEnabled')),
+      verifyRuntimeIntegrity: async () => err(notImplemented('preferences.verifyRuntimeIntegrity')),
     },
   };
 }

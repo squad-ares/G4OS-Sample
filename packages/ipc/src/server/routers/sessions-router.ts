@@ -1,5 +1,5 @@
 /**
- * Sessions router — composição dos sub-routers (CR4-04).
+ * Sessions router — composição dos sub-routers.
  *
  * Split em 3 sub-arquivos para manter cada um abaixo do gate informal de
  * 300 LOC para routers IPC:

@@ -4,7 +4,7 @@ import { router } from '../trpc.ts';
 
 const WorkspaceIdSchema = z.uuid();
 
-// CR9: caps em campos de Permission. `toolName` em uso fica < 50 chars.
+// Caps em campos de Permission. `toolName` em uso fica < 50 chars.
 // `argsHash` é sempre SHA-256 hex 64 chars exatos (legacy 32 chars era
 // suportado em find/persist mas writes novos usam 64). `argsPreview` é
 // truncado em 200 chars no store. Caps espelham invariantes do produtor.

@@ -50,7 +50,7 @@ export type ETRPCRequest =
   | { readonly method: 'subscription.stop'; readonly id: string | number };
 
 export interface IpcReplyEventLike {
-  readonly sender: { isDestroyed(): boolean };
+  readonly sender: { isDestroyed(): boolean; readonly id?: number };
   reply(channel: string, data: unknown): void;
 }
 
@@ -63,8 +63,31 @@ type RespondFn = (payload: RespondPayload) => void;
  * Subscriptions ativas por request id — permite `subscription.stop` cancelar
  * a iteração via `iterator.return()`, que dispara o `finally` do async
  * generator e limpa listeners/disposables.
+ *
+ * Tracking inclui `senderId` (webContents.id) para permitir cleanup
+ * em massa quando o renderer recarrega via `did-start-navigation`. Sem isso,
+ * subscriptions órfãs continuavam tentando emitir para um sender que já
+ * descartou os listeners (electron-trpc client foi remontado), vazando
+ * memória + handles na main process.
  */
-const activeSubscriptions = new Map<string | number, () => void>();
+interface ActiveSubscription {
+  readonly stop: () => void;
+  readonly senderId: number | undefined;
+}
+const activeSubscriptions = new Map<string | number, ActiveSubscription>();
+
+/**
+ * Cancela todas as subscriptions associadas a um `senderId` (webContents.id).
+ * Chamada do `ipc-server` via hook de navigation/destroy do webContents.
+ */
+export function cleanupSubscriptionsForSender(senderId: number): void {
+  for (const [id, entry] of activeSubscriptions) {
+    if (entry.senderId === senderId) {
+      activeSubscriptions.delete(id);
+      entry.stop();
+    }
+  }
+}
 
 export async function handleIpcRequest(
   event: IpcReplyEventLike,
@@ -72,10 +95,10 @@ export async function handleIpcRequest(
   createContext: CreateIpcContextFn,
 ): Promise<void> {
   if (request.method === 'subscription.stop') {
-    const stop = activeSubscriptions.get(request.id);
-    if (stop) {
+    const entry = activeSubscriptions.get(request.id);
+    if (entry) {
       activeSubscriptions.delete(request.id);
-      stop();
+      entry.stop();
     }
     return;
   }
@@ -87,7 +110,7 @@ export async function handleIpcRequest(
     if (event.sender.isDestroyed()) return;
     event.reply(
       ELECTRON_TRPC_CHANNEL,
-      // biome-ignore lint/suspicious/noExplicitAny: (reason: tRPC v11 internal config + ResolveResponse types não são exportados de @trpc/server; remover quando electron-trpc adicionar suporte v11 nativo — tracker em FOLLOWUP-OUTLIER-23)
+      // biome-ignore lint/suspicious/noExplicitAny: (reason: tRPC v11 internal config + ResolveResponse types não são exportados de @trpc/server; remover quando electron-trpc adicionar suporte v11 nativo)
       transformTRPCResponse(config as unknown as any, payload as unknown as any),
     );
   };
@@ -137,7 +160,13 @@ export async function handleIpcRequest(
     const result = await (fn as (x?: unknown) => Promise<unknown>)(input);
 
     if (type === 'subscription') {
-      await streamSubscription(id, result, respond, () => event.sender.isDestroyed());
+      await streamSubscription(
+        id,
+        result,
+        respond,
+        () => event.sender.isDestroyed(),
+        event.sender.id,
+      );
     } else {
       respond({ id, result: { type: 'data', data: result } });
     }
@@ -171,6 +200,7 @@ async function streamSubscription(
   source: unknown,
   respond: RespondFn,
   isClosed: () => boolean,
+  senderId?: number,
 ): Promise<void> {
   if (!isAsyncIterable(source)) {
     throw new TRPCError({
@@ -189,7 +219,7 @@ async function streamSubscription(
       });
     }
   };
-  activeSubscriptions.set(id, stop);
+  activeSubscriptions.set(id, { stop, senderId });
 
   try {
     while (!stopped && !isClosed()) {

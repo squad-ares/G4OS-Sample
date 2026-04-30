@@ -16,8 +16,11 @@ export type {
   PermissionDecisionView,
   PermissionsService,
   PlatformService,
+  PreferencesService,
   ProjectFile,
   ProjectsService,
+  RuntimeIntegrityFailure,
+  RuntimeIntegrityReport,
   SchedulerService,
   SessionListPage,
   SessionsService,
@@ -32,6 +35,7 @@ export type {
 } from './context.ts';
 export {
   type CreateIpcContextFn,
+  cleanupSubscriptionsForSender,
   ELECTRON_TRPC_CHANNEL,
   type ETRPCRequest,
   handleIpcRequest,
@@ -39,6 +43,12 @@ export {
 } from './electron-ipc-handler.ts';
 export { authed } from './middleware/authed.ts';
 export { withLogging } from './middleware/logging.ts';
+export {
+  type IpcMetricsRecorder,
+  type IpcMetricsSample,
+  setIpcMetricsRecorder,
+  withMetrics,
+} from './middleware/metrics.ts';
 export { rateLimit } from './middleware/rate-limit.ts';
 export { withTelemetry } from './middleware/telemetry.ts';
 export { createNullServices, type NullServices } from './null-services.ts';
