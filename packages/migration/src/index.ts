@@ -14,6 +14,14 @@
 
 export { type ExecuteOptions, execute } from './executor.ts';
 export { type CreatePlanInput, createMigrationPlan, MIGRATION_DONE_MARKER } from './plan.ts';
+export type {
+  StepContext,
+  StepOptions,
+  StepResult,
+  StepRunner,
+  V2WorkspaceInput,
+  V2WorkspaceWriter,
+} from './steps/contract.ts';
 export {
   type MigrationError,
   type MigrationErrorCode,

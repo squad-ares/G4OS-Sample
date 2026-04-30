@@ -20,15 +20,11 @@ import { dirname, join } from 'node:path';
 import { AppError, ErrorCode } from '@g4os/kernel/errors';
 import { err, ok, type Result } from 'neverthrow';
 import { MIGRATION_DONE_MARKER } from './plan.ts';
-import type { StepRunner } from './steps/contract.ts';
+import type { StepOptions, StepRunner } from './steps/contract.ts';
 import { migrateConfig } from './steps/migrate-config.ts';
-import {
-  migrateCredentials,
-  migrateSessions,
-  migrateSkills,
-  migrateSources,
-  migrateWorkspaces,
-} from './steps/stubs.ts';
+import { migrateCredentials } from './steps/migrate-credentials.ts';
+import { migrateWorkspaces } from './steps/migrate-workspaces.ts';
+import { migrateSessions, migrateSkills, migrateSources } from './steps/stubs.ts';
 import type {
   MigrationPlan,
   MigrationReport,
@@ -56,6 +52,11 @@ export interface ExecuteOptions {
    * Útil pra retry parcial após falha.
    */
   readonly stepFilter?: ReadonlySet<MigrationStepKind>;
+  /**
+   * Dependências externas dos steps (vault, masterKey, workspace writer).
+   * Steps que precisam e não recebem retornam err — caller decide.
+   */
+  readonly stepOptions?: StepOptions;
 }
 
 export async function execute(
@@ -109,6 +110,7 @@ export async function execute(
       stepCount: totalSteps,
       onProgress: options.onProgress,
       dryRun: options.dryRun,
+      options: options.stepOptions ?? {},
     });
 
     if (stepResult.isErr()) {
