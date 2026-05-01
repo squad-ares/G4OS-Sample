@@ -129,7 +129,14 @@ import { globSync } from 'glob';
 // (detect + plan) ao contrato `MigrationService` do IPC. Composition root
 // instancia + plumbing através de `IpcServiceOverrides`. `execute()` virá
 // em slice 4 part 2 com writers (workspaces/sessions/sources).
-const MAIN_LIMIT = 9000;
+//
+// 2026-04-30 (TASK-14-01 Slice 4 part 2): teto sobe de 9000 → 9300 com
+// `migration/writers.ts` (~190 LOC) — V2WorkspaceWriter (drizzle direct +
+// bootstrap fs), V2SourceWriter (SourcesStore.insert), V2SessionWriter
+// (SessionsRepository + SessionEventStore + applyEvent). Composição
+// limpa: writers ficam em arquivo próprio dentro de `services/migration/`,
+// migration-service.ts cresce ~80 LOC com `execute()` que orquestra.
+const MAIN_LIMIT = 9300;
 const FILE_LIMIT = 300;
 
 // Composition roots e agregadores de diagnóstico com teto próprio.
