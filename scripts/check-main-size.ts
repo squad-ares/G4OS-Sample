@@ -123,7 +123,13 @@ import { globSync } from 'glob';
 // - turn-dispatcher.ts: emite `turn.done` após runToolLoop pra renderer limpar
 //   `streamingTurnId` de forma confiável (antes era leak; ghost message ficava
 //   pendurado em algumas paths de erro).
-const MAIN_LIMIT = 8900;
+//
+// 2026-04-30 (TASK-14-01 Slice 4 part 1): teto sobe de 8900 → 9000 com
+// `migration-service.ts` (~75 LOC) — facade que adapta `@g4os/migration`
+// (detect + plan) ao contrato `MigrationService` do IPC. Composition root
+// instancia + plumbing através de `IpcServiceOverrides`. `execute()` virá
+// em slice 4 part 2 com writers (workspaces/sessions/sources).
+const MAIN_LIMIT = 9000;
 const FILE_LIMIT = 300;
 
 // Composition roots e agregadores de diagnóstico com teto próprio.
