@@ -1166,6 +1166,8 @@ export const enUS = {
   'migration.wizard.close': 'Close',
   'migration.wizard.errorTitle': 'Migration error',
   'migration.wizard.retry': 'Try again',
+
+  'markdown.mermaid.renderError': 'Failed to render Mermaid diagram',
 } as const;
 
 export type TranslationKey = keyof typeof enUS;

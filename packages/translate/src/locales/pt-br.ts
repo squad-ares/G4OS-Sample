@@ -1184,4 +1184,6 @@ export const ptBR = {
   'migration.wizard.close': 'Fechar',
   'migration.wizard.errorTitle': 'Erro na migração',
   'migration.wizard.retry': 'Tentar novamente',
+
+  'markdown.mermaid.renderError': 'Erro ao renderizar diagrama Mermaid',
 } satisfies Record<TranslationKey, string>;
