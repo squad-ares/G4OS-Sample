@@ -35,15 +35,41 @@ Mesmo `docker-compose.yml` adapta para:
 
 ## Runbooks
 
-- `docs/runbook-memory-leak.md` (TODO sub-task)
-- `docs/runbook-mcp-zombie.md` (TODO)
-- `docs/runbook-vault-failure.md` (TODO)
+- [`docs/runbook-memory-leak.md`](docs/runbook-memory-leak.md) — leak suspeito,
+  alerta `RSSAbove1GB` ou `HeapGrowthSustained`.
+- [`docs/runbook-mcp-zombie.md`](docs/runbook-mcp-zombie.md) — alerta
+  `McpSubprocessZombie`, subprocess solto sem supervisão.
+- [`docs/runbook-vault-failure.md`](docs/runbook-vault-failure.md) — alerta
+  `VaultGetFailureSpike`, "perdi minhas credenciais", mutex starvation.
+
+Cada runbook lista sintomas, painéis a olhar, queries Loki/Tempo prontas e
+critério de escalação. Alvo: dev/suporte plantão consegue triar em ≤5 min.
+
+## Cloud deploy
+
+- [`docs/cloud-deploy.md`](docs/cloud-deploy.md) — adaptação do mesmo
+  `docker-compose` pra ECS Fargate, k8s (Helm Charts oficiais) e Grafana Cloud
+  (managed).
+
+## Dashboards
+
+- `grafana/dashboards/g4os-overview.json` — KPIs do app (sessions, MCP, RSS).
+- `grafana/dashboards/02-memory.json` — heap, RSS, listeners, GC pressure.
+- `grafana/dashboards/03-mcp-subprocesses.json` — subprocess count, RSS por
+  slug, tool latency, zumbis.
+- `grafana/dashboards/04-credentials-vault.json` — vault ops, error rate por
+  kind, mutex contention, refresh queue.
+- `grafana/dashboards/05-ipc-trpc.json` — tRPC volume, latência, top procedures.
+
+CI gate `pnpm check:grafana-dashboards` valida JSON + uid único + variáveis
+`$service`/`$env` em cada dashboard.
 
 ## Status
 
 - [x] OTel Collector (TASK-16-01)
 - [x] Loki + Tempo + Grafana (TASK-16-02)
 - [x] Prometheus + alerts (TASK-16-03)
-- [ ] Dashboards-as-code (TASK-16-04) — provisionamento configurado mas
-      JSON dos dashboards é sub-task dedicada (precisa baseline real)
-- [ ] Runbook + cloud deploy doc (TASK-16-05) — sub-tasks dedicadas
+- [x] Dashboards-as-code (TASK-16-04) — 5 dashboards versionados, CI gate
+      `check:grafana-dashboards` valida JSON + uid + templating.
+- [x] Runbook + cloud deploy doc (TASK-16-05) — 3 runbooks + cloud-deploy.md
+      cobrindo ECS/k8s/Grafana Cloud.
