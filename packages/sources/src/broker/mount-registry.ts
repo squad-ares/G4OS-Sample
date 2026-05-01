@@ -111,13 +111,18 @@ export class McpMountRegistry extends DisposableBase {
   }
 
   override dispose(): void {
+    // CR-18 F-S5: best-effort `deactivate()` ANTES do super.dispose() —
+    // o disposable já registrado (`_register(toDisposable(() => source.dispose()))`
+    // em `#tryMount`) é quem efetivamente chama `dispose()` durante o
+    // `super.dispose()`. Não chamamos `m.source.dispose()` aqui pra evitar
+    // double-dispose redundante. DisposableBase é idempotente, mas reduzir
+    // duplicação clarifica a leitura e evita logs duplicados em telemetria.
     for (const m of this.#mounted.values()) {
       try {
         void m.source.deactivate();
       } catch (e) {
         log.warn({ slug: m.slug, err: String(e) }, 'deactivate threw during dispose');
       }
-      m.source.dispose();
     }
     this.#mounted.clear();
     super.dispose();

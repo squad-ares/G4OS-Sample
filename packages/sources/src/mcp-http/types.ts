@@ -8,7 +8,12 @@ export interface McpHttpConfig {
   readonly url: string;
   /** @deprecated Token plaintext em config contradiz vault gateway único. Usar `authCredentialKey`. */
   readonly authToken?: string;
-  /** Chave no `CredentialVault` cujo valor é usado como Bearer token. Resolvido em runtime por `authResolver`. */
+  /**
+   * Chave no `CredentialVault` cujo valor é usado como Bearer token.
+   * Resolvido em runtime via `McpHttpAuthResolver` (injetado em
+   * `createMcpHttpFactory({ authResolver })`). CR-18 F-S1 wired isso —
+   * antes era armazenado mas nunca propagado para o header.
+   */
   readonly authCredentialKey?: string;
   readonly headers?: Readonly<Record<string, string>>;
 }
@@ -25,3 +30,17 @@ export interface McpHttpClient {
 export interface McpHttpClientFactory {
   create(config: McpHttpConfig): McpHttpClient;
 }
+
+/**
+ * CR-18 F-S1: resolve `authCredentialKey` para o valor opaco armazenado no
+ * `CredentialVault`. Retorna `null` quando a chave não existe — caller
+ * deve emitir `needs_auth` em vez de prosseguir sem header. Implementação
+ * típica:
+ * ```ts
+ * const authResolver: McpHttpAuthResolver = async (key) => {
+ *   const r = await vault.get(key);
+ *   return r.isOk() ? r.value : null;
+ * };
+ * ```
+ */
+export type McpHttpAuthResolver = (credentialKey: string) => Promise<string | null>;

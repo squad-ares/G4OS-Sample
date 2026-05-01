@@ -22,6 +22,15 @@ import { BACKUP_MANIFEST_VERSION, type BackupManifest } from './manifest.ts';
 
 const log = createLogger('data:backup:export');
 
+/**
+ * Limit hard pra ZIP de backup. Workspaces com vários GBs de attachments
+ * + milhares de sessões podem produzir ZIPs arbitrariamente grandes;
+ * sem cap, processo pode bater OOM ou disk-full mid-write deixando ZIP
+ * parcial corrompido. 5 GiB é generoso (cobre ~95% dos workspaces) mas
+ * proteção contra estado-degenerado.
+ */
+export const MAX_BACKUP_SIZE_BYTES = 5 * 1024 * 1024 * 1024;
+
 export interface ExportBackupParams {
   workspaceId: string;
   db: AppDb;
@@ -30,6 +39,8 @@ export interface ExportBackupParams {
   workspaceRoot: string;
   outputPath: string;
   appVersion?: string;
+  /** Override `MAX_BACKUP_SIZE_BYTES` (caller que sabe o que faz). */
+  maxSizeBytes?: number;
 }
 
 export interface ExportBackupResult {
@@ -73,11 +84,30 @@ export async function exportWorkspaceBackup(
     ...(params.appVersion ? { appVersion: params.appVersion } : {}),
   };
 
+  const sizeLimit = params.maxSizeBytes ?? MAX_BACKUP_SIZE_BYTES;
+
   return new Promise<ExportBackupResult>((resolve, reject) => {
     const archive = archiver('zip', { zlib: { level: 9 } });
     const out = createWriteStream(params.outputPath);
 
+    // Size guard: aborta archive + write stream se ZIP cresce além do
+    // limit. Sem isso, workspace gigante consome OOM/disk-full sem
+    // signal pro caller até crash do processo.
+    let aborted = false;
+    archive.on('data', () => {
+      if (aborted) return;
+      if (archive.pointer() > sizeLimit) {
+        aborted = true;
+        const err = new Error(
+          `backup ZIP exceeds ${sizeLimit} bytes (${archive.pointer()} written); aborting to prevent disk-full`,
+        );
+        archive.abort();
+        out.destroy(err);
+      }
+    });
+
     out.on('close', () => {
+      if (aborted) return;
       log.info(
         {
           workspaceId: params.workspaceId,

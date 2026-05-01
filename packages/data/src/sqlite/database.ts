@@ -163,11 +163,16 @@ export class Db extends DisposableBase {
 
   private applyPragmas(options: DbOptions): void {
     const db = this.raw;
-    db.exec(`PRAGMA journal_mode = ${options.journalMode ?? DEFAULT_JOURNAL_MODE}`);
+    // CR-18 F-D2: `:memory:` não tem disk, então `journal_mode = wal` é
+    // ignorado pelo SQLite (sempre rola `memory` mode). Skip evita o
+    // setting morto + reduz noise em CI (94 testes inicializam in-memory).
+    if (this._filename !== ':memory:') {
+      db.exec(`PRAGMA journal_mode = ${options.journalMode ?? DEFAULT_JOURNAL_MODE}`);
+    }
     db.exec('PRAGMA foreign_keys = ON');
     db.exec(`PRAGMA synchronous = ${options.synchronous ?? DEFAULT_SYNC_MODE}`);
     const mmap = options.mmapBytes ?? DEFAULT_MMAP_BYTES;
-    if (mmap > 0) db.exec(`PRAGMA mmap_size = ${mmap}`);
+    if (mmap > 0 && this._filename !== ':memory:') db.exec(`PRAGMA mmap_size = ${mmap}`);
   }
 }
 

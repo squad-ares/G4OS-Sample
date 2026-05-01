@@ -20,6 +20,17 @@ export const SECRET_VALUE_PATTERNS: readonly RegExp[] = [
   /sk-[a-zA-Z0-9_-]{20,}/g,
   /AIza[a-zA-Z0-9_-]{30,}/g,
   /eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/g,
+  // CR-18 F-O1: tokens opacos não-JWT que vazavam pelo debug ZIP via texto
+  // bruto (logs em JSONL passam por `scrubString`, sem visibilidade de
+  // chave). Cobertura espelha o catálogo de providers reais de SDK.
+  // GitHub PAT/OAuth/server-to-server (`gho_`, `ghp_`, `ghr_`, `ghs_`, `ghu_`).
+  /\bgh[oprsu]_[A-Za-z0-9]{20,}/g,
+  // Slack bot/app/refresh/user (`xoxb-`, `xoxa-`, `xoxp-`, `xoxr-`, `xoxs-`).
+  /\bxox[abprs]-[A-Za-z0-9-]{10,}/g,
+  // Notion-style opaque secrets (`secret_<40chars>`).
+  /\bsecret_[A-Za-z0-9]{20,}/g,
+  // Bearer/Basic em headers logados (`Authorization: Bearer <opaque>`).
+  /\b(?:Bearer|Basic)\s+[A-Za-z0-9._\-+/=]{16,}/gi,
   // Home dirs com username (PII): /Users/<user>/..., /home/<user>/..., C:\Users\<user>\...
   /\/Users\/[^/\s]+/g,
   /\/home\/[^/\s]+/g,

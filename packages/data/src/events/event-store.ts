@@ -7,8 +7,14 @@
  *
  * Contrato:
  *   - `append(sessionId, event)` valida o evento (Zod) e escreve 1 linha
- *     atomicamente via `appendFile` com `O_APPEND` (kernel garante
- *     atomicidade por write ≤ PIPE_BUF em fs nativos).
+ *     via `appendFile` com `O_APPEND`. Atomicidade do offset é garantida
+ *     pelo kernel (POSIX `write(2)` em modo O_APPEND), mas o conteúdo
+ *     pode ser fragmentado se for maior que PIPE_BUF (~4KB) — em
+ *     concorrência inter-process. CR-18 F-D4: o desenho assume
+ *     SINGLE-WRITER-PER-SESSION (TurnDispatcher in-process), então
+ *     fragmentação não acontece em prática. Em Windows, `appendFile`
+ *     via NTFS não dá garantia equivalente a O_APPEND POSIX, mas o
+ *     mesmo single-writer cobre.
  *   - `read(sessionId)` retorna AsyncGenerator de eventos validados.
  *     Eventos corrompidos (JSON/Zod inválido) lançam — replay quebra
  *     na linha ruim em vez de swallow silencioso.
@@ -22,7 +28,7 @@
  */
 
 import { createReadStream } from 'node:fs';
-import { appendFile, mkdir, readdir, rename, stat, unlink, writeFile } from 'node:fs/promises';
+import { appendFile, mkdir, open, readdir, rename, stat, unlink } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { createLogger } from '@g4os/kernel/logger';
 import { type SessionEvent, SessionEventSchema } from '@g4os/kernel/schemas';
@@ -183,14 +189,45 @@ export class SessionEventStore {
    * Usado por retry/truncate. Write é atômico via tmp+rename:
    * falha no meio do processo não deixa log parcial. Retorna número de eventos
    * removidos; no-op se arquivo não existe.
+   *
+   * CR-18 F-D1: o caminho antigo iterava `read(sessionId)` SEM passar
+   * `stats`. Linhas corruptas eram silenciosamente skipped pelo replay E
+   * descartadas pelo rewrite — perda do audit trail no source-of-truth
+   * (ADR-0010/0043). Agora propagamos `stats` e logamos um warn estruturado
+   * quando há linhas skipped. Caller pode opt-in para `failOnCorrupted`
+   * que aborta a operação preservando o JSONL original.
    */
-  async truncateAfter(sessionId: string, afterSequence: number): Promise<number> {
+  async truncateAfter(
+    sessionId: string,
+    afterSequence: number,
+    options: { readonly failOnCorrupted?: boolean } = {},
+  ): Promise<number> {
     const path = this.path(sessionId);
     const kept: SessionEvent[] = [];
     let total = 0;
-    for await (const event of this.read(sessionId)) {
+    const stats: ReadStats = { skipped: 0 };
+    for await (const event of this.read(sessionId, stats)) {
       total += 1;
       if (event.sequenceNumber <= afterSequence) kept.push(event);
+    }
+    if (stats.skipped > 0) {
+      log.warn(
+        {
+          sessionId,
+          afterSequence,
+          skipped: stats.skipped,
+          kept: kept.length,
+          total,
+        },
+        'truncateAfter: corrupted JSONL lines detected during read scan',
+      );
+      if (options.failOnCorrupted) {
+        log.error(
+          { sessionId, skipped: stats.skipped },
+          'truncateAfter aborted: failOnCorrupted=true and skipped lines present',
+        );
+        return 0;
+      }
     }
     const removed = total - kept.length;
     if (removed === 0) return 0;
@@ -204,9 +241,21 @@ export class SessionEventStore {
       return removed;
     }
 
+    // CR-18 F-D3: padrão atômico completo `open+write+fsync+close+rename`.
+    // Antes: `writeFile(tmp) + rename` — sem fsync, em crash kernel-level
+    // (power loss, kill -9 PID 1) o conteúdo podia não estar no disco
+    // mesmo com rename atômico (ext4/APFS reordenam). Para um event log
+    // que é source-of-truth, fsync antes do rename é defesa contra perda
+    // silenciosa de eventos.
     const tmp = `${path}.tmp`;
     const body = `${kept.map((e) => JSON.stringify(e)).join('\n')}\n`;
-    await writeFile(tmp, body, 'utf8');
+    const fh = await open(tmp, 'w');
+    try {
+      await fh.writeFile(body, { encoding: 'utf8' });
+      await fh.sync();
+    } finally {
+      await fh.close();
+    }
     await rename(tmp, path);
     return removed;
   }

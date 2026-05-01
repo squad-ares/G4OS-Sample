@@ -62,6 +62,15 @@ describe('scrubObject', () => {
     expect(out.a).toBe(out.b.nested);
   });
 
+  // CR-18 F-O4: `Object.isFrozen(input)` retorna sentinel `[REDACTED]`
+  // inteiro. Test garante que isso permanece (configs `as const` em
+  // runtime são frequentemente frozen — devem ser scrubadas conservadoramente).
+  it('replaces frozen objects with REDACTED sentinel (F-O4)', () => {
+    const frozen = Object.freeze({ token: 'sk-secret', user: 'jane@example.com' });
+    const result = scrubObject(frozen) as unknown;
+    expect(result).toBe(SCRUB_CENSOR);
+  });
+
   it('preserves cycle structure with both nodes scrubbed (CR6-03)', () => {
     const a: Record<string, unknown> = { token: 'tk-leak', name: 'a' };
     a['self'] = a;
@@ -91,6 +100,35 @@ describe('scrubString', () => {
     const out = scrubString(`Bearer ${jwt}`);
     expect(out).toContain(SCRUB_CENSOR);
     expect(out).not.toContain(jwt);
+  });
+
+  // CR-18 F-O1: tokens opacos não-JWT vazavam pelo debug ZIP via texto
+  // bruto (logs JSONL passam pelo scrubString sem visibilidade de chave).
+  it('redacts GitHub PAT/OAuth tokens (gh[oprsu]_)', () => {
+    const out = scrubString('Authorization: token gho_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA1');
+    expect(out).toContain(SCRUB_CENSOR);
+    expect(out).not.toContain('gho_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA1');
+  });
+
+  it('redacts Slack tokens (xox[abprs]-)', () => {
+    const out = scrubString('webhook payload "token":"xoxb-1234-567-AAAAAAAAAAAA"');
+    expect(out).toContain(SCRUB_CENSOR);
+    expect(out).not.toContain('xoxb-1234-567');
+  });
+
+  it('redacts Notion-style opaque secrets (secret_)', () => {
+    const out = scrubString('integration secret_AAAAAAAAAAAAAAAAAAAAAAAA1234');
+    expect(out).toContain(SCRUB_CENSOR);
+    expect(out).not.toContain('secret_AAAAAAAAAAAAAAAAAAAAAAAA1234');
+  });
+
+  it('redacts Bearer/Basic in arbitrary log text', () => {
+    const out = scrubString('curl -H "Authorization: Bearer ABCdef123_-=/abcdefghij"');
+    expect(out).toContain(SCRUB_CENSOR);
+    expect(out).not.toContain('Bearer ABCdef123_-=/abcdefghij');
+    const out2 = scrubString('http GET / Authorization: Basic dXNlcjpwYXNzd29yZA==');
+    expect(out2).toContain(SCRUB_CENSOR);
+    expect(out2).not.toContain('Basic dXNlcjpwYXNzd29yZA==');
   });
 });
 
