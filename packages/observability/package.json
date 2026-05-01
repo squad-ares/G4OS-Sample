@@ -34,6 +34,10 @@
     "./ipc": {
       "types": "./src/ipc/index.ts",
       "import": "./src/ipc/index.ts"
+    },
+    "./posthog": {
+      "types": "./src/posthog/index.ts",
+      "import": "./src/posthog/index.ts"
     }
   },
   "dependencies": {
