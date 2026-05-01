@@ -30,7 +30,10 @@ const DialogOverlay = React.forwardRef<
       ref={ref}
       data-slot="dialog-overlay"
       className={cn(
-        'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-modal bg-black/50',
+        // CR-UX: V1 paridade — overlay com blur + bg mais opaco. Antes era
+        // só `bg-black/50` sem blur, dando sensação de "modal e fundo
+        // fundidos". Agora destaca claramente o modal do conteúdo atrás.
+        'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-modal bg-black/65 backdrop-blur-sm',
         className,
       )}
       {...props}

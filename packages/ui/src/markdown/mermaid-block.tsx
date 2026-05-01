@@ -25,25 +25,56 @@ interface MermaidLibLike {
   render(id: string, code: string): Promise<{ svg: string }>;
 }
 
+// CR-18 F-U2: memoiza a Promise, não uma flag boolean. A versão antiga
+// usava `mermaidLoadAttempted = true` antes do `await import` resolver — 2+
+// blocos Mermaid renderizando simultaneamente faziam o 2º encontrar
+// `mermaidLib==null` mas `mermaidLoadAttempted===true` → retornava null →
+// só o 1º bloco renderizava SVG, demais ficavam no fallback raw text.
+// Padrão correto (espelha `use-highlighted-html.ts:56`): cache da Promise
+// para que múltiplos awaiters compartilhem o mesmo carregamento.
+//
+// CR-18 F-U3: theme não é mais hardcoded `'dark'`. `initialize` é singleton
+// global (chamar 2x não troca tema de SVGs já renderizados), então
+// memoizamos por theme — re-render de um diagrama em modo light após carga
+// inicial em dark gera nova call de `lib.initialize` antes do render.
 let mermaidLib: MermaidLibLike | null = null;
-let mermaidLoadAttempted = false;
+let mermaidPromise: Promise<MermaidLibLike | null> | null = null;
+let lastTheme: 'dark' | 'light' | null = null;
 
-async function loadMermaid(): Promise<MermaidLibLike | null> {
-  if (mermaidLib) return mermaidLib;
-  if (mermaidLoadAttempted) return null;
-  mermaidLoadAttempted = true;
-  try {
-    // Specifier opaco pra Vite/TS não tentar resolver no compile time —
-    // mermaid é dep opcional (lazy via runtime).
-    const specifier = 'mermaid';
-    const mod = await import(/* @vite-ignore */ specifier);
-    const lib = (mod.default ?? mod) as MermaidLibLike;
-    lib.initialize({ startOnLoad: false, theme: 'dark' });
-    mermaidLib = lib;
-    return lib;
-  } catch {
-    return null;
+function readDocumentTheme(): 'dark' | 'light' {
+  if (typeof document === 'undefined') return 'dark';
+  const attr = document.documentElement.getAttribute('data-theme');
+  return attr === 'light' ? 'light' : 'dark';
+}
+
+function loadMermaid(theme: 'dark' | 'light'): Promise<MermaidLibLike | null> {
+  // Re-init quando o theme mudar (singleton global no SDK).
+  if (mermaidLib && lastTheme !== theme) {
+    try {
+      mermaidLib.initialize({ startOnLoad: false, theme });
+      lastTheme = theme;
+    } catch {
+      // ignora; fallback degrade pro raw code.
+    }
+    return Promise.resolve(mermaidLib);
   }
+  if (mermaidPromise) return mermaidPromise;
+  mermaidPromise = (async () => {
+    try {
+      // Specifier opaco pra Vite/TS não tentar resolver no compile time —
+      // mermaid é dep opcional (lazy via runtime).
+      const specifier = 'mermaid';
+      const mod = await import(/* @vite-ignore */ specifier);
+      const lib = (mod.default ?? mod) as MermaidLibLike;
+      lib.initialize({ startOnLoad: false, theme });
+      mermaidLib = lib;
+      lastTheme = theme;
+      return lib;
+    } catch {
+      return null;
+    }
+  })();
+  return mermaidPromise;
 }
 
 export interface MermaidBlockProps {
@@ -60,7 +91,10 @@ export function MermaidBlock({ children }: MermaidBlockProps): React.JSX.Element
 
   useEffect(() => {
     let cancelled = false;
-    void loadMermaid().then(async (lib) => {
+    // CR-18 F-U3: lê o theme do DOM (`data-theme` no html — mantido pelo
+    // ThemeProvider). Sem provider (e.g. test SSR), assume dark default.
+    const theme = readDocumentTheme();
+    void loadMermaid(theme).then(async (lib) => {
       if (cancelled) return;
       if (!lib) {
         // Mermaid não disponível — graceful fallback mostra raw code.

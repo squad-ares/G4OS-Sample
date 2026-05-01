@@ -38,24 +38,27 @@ interface ReactPdfLib {
   Page: React.ComponentType<ReactPdfPageProps>;
 }
 
-let reactPdfLib: ReactPdfLib | null = null;
-let reactPdfLoadAttempted = false;
+// CR-18 F-U2: memoiza a Promise (não a flag) — múltiplos PDFs renderizando
+// simultaneamente compartilham o mesmo carregamento. Versão antiga setava
+// `reactPdfLoadAttempted=true` antes do `await import` resolver e o 2º bloco
+// recebia null mesmo após o 1º ter sucesso.
+let reactPdfPromise: Promise<ReactPdfLib | null> | null = null;
 
-async function loadReactPdf(): Promise<ReactPdfLib | null> {
-  if (reactPdfLib) return reactPdfLib;
-  if (reactPdfLoadAttempted) return null;
-  reactPdfLoadAttempted = true;
-  try {
-    // Specifier opaco pra Vite/TS não tentar resolver no compile time —
-    // react-pdf é dep opcional (lazy via runtime).
-    const specifier = 'react-pdf';
-    const mod = (await import(/* @vite-ignore */ specifier)) as Partial<ReactPdfLib>;
-    if (!mod.Document || !mod.Page) return null;
-    reactPdfLib = { Document: mod.Document, Page: mod.Page };
-    return reactPdfLib;
-  } catch {
-    return null;
-  }
+function loadReactPdf(): Promise<ReactPdfLib | null> {
+  if (reactPdfPromise) return reactPdfPromise;
+  reactPdfPromise = (async () => {
+    try {
+      // Specifier opaco pra Vite/TS não tentar resolver no compile time —
+      // react-pdf é dep opcional (lazy via runtime).
+      const specifier = 'react-pdf';
+      const mod = (await import(/* @vite-ignore */ specifier)) as Partial<ReactPdfLib>;
+      if (!mod.Document || !mod.Page) return null;
+      return { Document: mod.Document, Page: mod.Page };
+    } catch {
+      return null;
+    }
+  })();
+  return reactPdfPromise;
 }
 
 export interface PdfPreviewProps {
