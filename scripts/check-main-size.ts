@@ -140,7 +140,13 @@ import { globSync } from 'glob';
 // 2026-04-30 (Epic 18 + 10b sub-tasks): teto sobe de 9300 → 9400 com
 // `global-shortcuts.ts` (~85 LOC) — registro Cmd+Shift+N + Cmd+Shift+W
 // no main process, IPC channel pra renderer focar composer.
-const MAIN_LIMIT = 9400;
+//
+// 2026-04-30 (Epic 18 — tray + deep-link extension): teto sobe de 9400 →
+// 9600 com `tray-service.ts` (~148 LOC) + expansão de
+// `deep-link-handler.ts` (~40 LOC adicionais: PATH_WHITELIST estendido +
+// IPC forward `deep-link:navigate` pra janela existente em vez de só
+// abrir nova).
+const MAIN_LIMIT = 9600;
 const FILE_LIMIT = 300;
 
 // Composition roots e agregadores de diagnóstico com teto próprio.

@@ -26,6 +26,13 @@ import { contextBridge, ipcRenderer } from 'electron';
 
 const CHANNEL = 'electron-trpc';
 const NEW_TURN_CHANNEL = 'global:new-turn';
+const DEEP_LINK_CHANNEL = 'deep-link:navigate';
+
+interface DeepLinkPayload {
+  readonly host: string;
+  readonly path: string;
+  readonly search: string;
+}
 
 type Listener = (args: unknown) => void;
 
@@ -47,5 +54,15 @@ contextBridge.exposeInMainWorld('g4osShortcuts', {
     const handler = () => callback();
     ipcRenderer.on(NEW_TURN_CHANNEL, handler);
     return () => ipcRenderer.removeListener(NEW_TURN_CHANNEL, handler);
+  },
+});
+
+// Bridge pra deep-links. Main valida path/scheme; renderer router
+// converte `{host, path}` em rota e navega.
+contextBridge.exposeInMainWorld('g4osDeepLinks', {
+  onNavigate: (callback: (payload: DeepLinkPayload) => void): (() => void) => {
+    const handler = (_event: unknown, payload: DeepLinkPayload) => callback(payload);
+    ipcRenderer.on(DEEP_LINK_CHANNEL, handler);
+    return () => ipcRenderer.removeListener(DEEP_LINK_CHANNEL, handler);
   },
 });

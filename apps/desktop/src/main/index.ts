@@ -52,6 +52,7 @@ import { createWorkspaceTransferService } from './services/workspace-transfer-se
 import { createWorkspacesService } from './services/workspaces-service.ts';
 import { registerStartupCrashHandlers } from './startup-crash-log.ts';
 import { StartupPreflightService } from './startup-preflight-service.ts';
+import { createTrayService } from './tray-service.ts';
 import { WindowManager } from './window-manager.ts';
 
 const log = createLogger('main');
@@ -415,6 +416,28 @@ export async function bootstrapMain(options: BootstrapOptions = {}): Promise<voi
       shortcuts.dispose();
       return Promise.resolve();
     });
+  }
+
+  // Tray icon + system menu. Mesma estratégia: dynamic import pra evitar
+  // acoplar runtime mock. Sem icon resolvido, tray service retorna null.
+  if (electronModule?.Tray && electronModule?.Menu) {
+    const tray = createTrayService({
+      Tray: electronModule.Tray as never,
+      Menu: electronModule.Menu as never,
+      app: electronModule.app,
+      iconPath,
+      getMainWindow: () => mainWindow,
+      onNewTurn: () => {
+        const wc = (mainWindow as { webContents?: { send?: (ch: string) => void } }).webContents;
+        wc?.send?.('global:new-turn');
+      },
+    });
+    if (tray) {
+      lifecycle.onQuit(() => {
+        tray.dispose();
+        return Promise.resolve();
+      });
+    }
   }
 
   log.info({ preloadPath, rendererUrl }, 'main ready');
