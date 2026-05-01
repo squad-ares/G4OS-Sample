@@ -12,6 +12,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
+import { HighlightedTitle } from '../../shell/index.ts';
 import { SourceGlyph } from './source-glyph.tsx';
 
 export interface SourceCardProps {
@@ -21,6 +22,8 @@ export interface SourceCardProps {
   readonly onTest?: () => void;
   readonly testing?: boolean;
   readonly disabled?: boolean;
+  /** CR-18 F-F5: query opcional para search-inline highlight no displayName. */
+  readonly searchQuery?: string;
 }
 
 export function SourceCard({
@@ -30,6 +33,7 @@ export function SourceCard({
   onTest,
   testing,
   disabled,
+  searchQuery,
 }: SourceCardProps): ReactNode {
   const { t } = useTranslate();
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -51,7 +55,13 @@ export function SourceCard({
           </div>
           <div className="min-w-0 flex-1 pt-0.5">
             <div className="flex items-center gap-2">
-              <span className="truncate text-sm font-semibold">{source.displayName}</span>
+              <span className="truncate text-sm font-semibold">
+                {searchQuery ? (
+                  <HighlightedTitle text={source.displayName} query={searchQuery} />
+                ) : (
+                  source.displayName
+                )}
+              </span>
               <StatusBadge status={source.status} enabled={source.enabled} t={t} />
             </div>
             <p className="mt-0.5 truncate font-mono text-[10px] text-muted-foreground">

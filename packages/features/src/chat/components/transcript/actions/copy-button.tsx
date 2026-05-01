@@ -1,4 +1,4 @@
-import { cn } from '@g4os/ui';
+import { cn, useTranslate } from '@g4os/ui';
 import { Check, Copy } from 'lucide-react';
 import { useState } from 'react';
 
@@ -8,6 +8,7 @@ interface CopyButtonProps {
 }
 
 export function CopyButton({ text, className }: CopyButtonProps) {
+  const { t } = useTranslate();
   const [copied, setCopied] = useState(false);
 
   function handleCopy() {
@@ -21,7 +22,7 @@ export function CopyButton({ text, className }: CopyButtonProps) {
     <button
       type="button"
       onClick={handleCopy}
-      aria-label={copied ? 'Copied' : 'Copy message'}
+      aria-label={copied ? t('chat.actions.copied') : t('chat.actions.copy')}
       className={cn(
         'flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent/15 hover:text-foreground',
         className,

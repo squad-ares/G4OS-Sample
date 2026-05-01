@@ -64,16 +64,6 @@ export function AppCategory({ info, onCheckUpdates, updateState }: AppCategoryPr
           )}
         </div>
       </StatusPanel>
-
-      <StatusPanel
-        title={t('settings.app.diagnostics.title')}
-        description={t('settings.app.diagnostics.description')}
-        tone="warning"
-      >
-        <p className="text-xs text-muted-foreground">
-          {t('settings.category.plannedBadge')} · {t('settings.app.diagnostics.planned')}
-        </p>
-      </StatusPanel>
     </div>
   );
 }

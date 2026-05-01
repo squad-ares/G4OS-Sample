@@ -1,4 +1,6 @@
-import { StatusPanel, Switch, useTranslate } from '@g4os/ui';
+import { ConfirmDestructiveDialog, StatusPanel, Switch, useTranslate } from '@g4os/ui';
+import { AlertTriangle } from 'lucide-react';
+import { useState } from 'react';
 
 export interface IntegrityFailureView {
   readonly code: string;
@@ -37,6 +39,14 @@ export interface RepairCategoryProps {
   readonly integrityReport: IntegrityReportView | null;
   /** Loading state da verificação. */
   readonly integrityPending?: boolean;
+  /**
+   * Hard reset opcional — apaga workspaces + credenciais + relança app.
+   * Tipicamente wirado pra `trpc.auth.wipeAndReset`. Se não fornecido,
+   * o painel de hard reset não aparece.
+   */
+  readonly onHardReset?: () => void | Promise<void>;
+  /** Loading state do hard reset. */
+  readonly hardResetPending?: boolean;
 }
 
 export function RepairCategory({
@@ -50,8 +60,11 @@ export function RepairCategory({
   onVerifyIntegrity,
   integrityReport,
   integrityPending,
+  onHardReset,
+  hardResetPending,
 }: RepairCategoryProps) {
   const { t } = useTranslate();
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   return (
     <div className="flex flex-col gap-4">
@@ -129,15 +142,46 @@ export function RepairCategory({
         </div>
       </StatusPanel>
 
-      <StatusPanel
-        title={t('settings.repair.destructive.title')}
-        description={t('settings.repair.destructive.description')}
-        tone="warning"
-      >
-        <p className="text-xs text-muted-foreground">
-          {t('settings.category.plannedBadge')} · {t('settings.repair.destructive.planned')}
-        </p>
-      </StatusPanel>
+      {onHardReset ? (
+        <StatusPanel
+          title={t('settings.repair.hardReset.title')}
+          description={t('settings.repair.hardReset.description')}
+          tone="warning"
+        >
+          <div className="flex flex-col gap-3">
+            <ul className="list-disc pl-5 text-xs text-muted-foreground">
+              <li>{t('settings.repair.hardReset.bullet.workspaces')}</li>
+              <li>{t('settings.repair.hardReset.bullet.credentials')}</li>
+              <li>{t('settings.repair.hardReset.bullet.relaunch')}</li>
+            </ul>
+            <div>
+              <button
+                type="button"
+                onClick={() => setConfirmOpen(true)}
+                disabled={hardResetPending === true}
+                className="inline-flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-1.5 text-sm font-medium text-destructive transition hover:bg-destructive/10 disabled:opacity-50"
+              >
+                <AlertTriangle className="size-3.5" aria-hidden={true} />
+                {hardResetPending
+                  ? t('settings.repair.hardReset.running')
+                  : t('settings.repair.hardReset.action')}
+              </button>
+            </div>
+          </div>
+          <ConfirmDestructiveDialog
+            open={confirmOpen}
+            onOpenChange={setConfirmOpen}
+            title={t('settings.repair.hardReset.confirmTitle')}
+            description={t('settings.repair.hardReset.confirmDescription')}
+            confirmLabel={t('settings.repair.hardReset.confirmAction')}
+            cancelLabel={t('settings.repair.hardReset.confirmCancel')}
+            onConfirm={() => {
+              setConfirmOpen(false);
+              void onHardReset();
+            }}
+          />
+        </StatusPanel>
+      ) : null}
     </div>
   );
 }

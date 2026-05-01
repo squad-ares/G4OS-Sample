@@ -3,15 +3,23 @@ import type { TranslationKey } from '@g4os/translate';
 import { Button, useTranslate } from '@g4os/ui';
 import { Check, Clock3, Plus } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { HighlightedTitle } from '../../shell/index.ts';
 import { SourceGlyph } from './source-glyph.tsx';
 
 export interface CatalogItemProps {
   readonly item: SourceCatalogItem;
   readonly onEnable: () => void;
   readonly disabled?: boolean;
+  /** CR-18 F-F5: query opcional para search-inline highlight no displayName. */
+  readonly searchQuery?: string;
 }
 
-export function CatalogItemCard({ item, onEnable, disabled }: CatalogItemProps): ReactNode {
+export function CatalogItemCard({
+  item,
+  onEnable,
+  disabled,
+  searchQuery,
+}: CatalogItemProps): ReactNode {
   const { t } = useTranslate();
   const isPendingRuntime = item.kind === 'managed' && item.authKind === 'oauth';
   const description = item.descriptionKey
@@ -24,7 +32,13 @@ export function CatalogItemCard({ item, onEnable, disabled }: CatalogItemProps):
           <SourceGlyph source={item} />
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              <span className="truncate text-sm font-semibold">{item.displayName}</span>
+              <span className="truncate text-sm font-semibold">
+                {searchQuery ? (
+                  <HighlightedTitle text={item.displayName} query={searchQuery} />
+                ) : (
+                  item.displayName
+                )}
+              </span>
               {item.authKind === 'oauth' && (
                 <span className="rounded-full border border-amber-400/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-300">
                   {t('sources.badge.oauth')}

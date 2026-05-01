@@ -146,6 +146,7 @@ export function SourcesPage({
                 <SourceCard
                   key={s.id}
                   source={s}
+                  searchQuery={query}
                   onToggle={(next) => void onToggle(s.id, next)}
                   onDelete={() => void onDelete(s.id)}
                   {...(onTest ? { onTest: () => void onTest(s.id) } : {})}
@@ -174,6 +175,7 @@ export function SourcesPage({
                     <CatalogItemCard
                       key={item.slug}
                       item={item}
+                      searchQuery={query}
                       onEnable={() => void onEnableManaged(item.slug)}
                       disabled={mutating === true}
                     />

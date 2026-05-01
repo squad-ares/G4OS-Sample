@@ -1,14 +1,17 @@
-import { Button, Input, useTranslate } from '@g4os/ui';
+import { Button, Input, InputField, Spinner, useTranslate } from '@g4os/ui';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { AlertCircle, KeyRound, ShieldCheck } from 'lucide-react';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
-type Step = 'workspace-name' | 'agent-selection' | 'ready';
+type AgentChoice = 'claude' | 'codex';
+type Step = 'workspace-name' | 'agent-selection' | 'credentials' | 'ready';
 
 export interface OnboardingPorts {
   createWorkspace(input: { name: string }): Promise<{ id: string }>;
   createFirstSession(input: { workspaceId: string }): Promise<{ id: string }>;
+  saveCredential(input: { key: string; value: string }): Promise<void>;
 }
 
 export interface OnboardingWizardProps {
@@ -16,9 +19,17 @@ export interface OnboardingWizardProps {
   readonly onComplete: (result: { workspaceId: string; sessionId: string }) => void;
 }
 
+const STEPS: readonly Step[] = ['workspace-name', 'agent-selection', 'credentials', 'ready'];
+
+const CREDENTIAL_KEY_BY_AGENT: Record<AgentChoice, string> = {
+  claude: 'anthropic_api_key',
+  codex: 'openai_api_key',
+};
+
 export function OnboardingWizard({ ports, onComplete }: OnboardingWizardProps) {
   const [step, setStep] = useState<Step>('workspace-name');
   const [workspaceId, setWorkspaceId] = useState<string | null>(null);
+  const [agent, setAgent] = useState<AgentChoice | null>(null);
   const [isBusy, setBusy] = useState(false);
 
   return (
@@ -46,7 +57,31 @@ export function OnboardingWizard({ ports, onComplete }: OnboardingWizardProps) {
             ) : null}
 
             {step === 'agent-selection' && workspaceId ? (
-              <AgentSelectionStep onNext={() => setStep('ready')} onSkip={() => setStep('ready')} />
+              <AgentSelectionStep
+                onSelect={(choice) => {
+                  setAgent(choice);
+                  setStep('credentials');
+                }}
+              />
+            ) : null}
+
+            {step === 'credentials' && workspaceId && agent ? (
+              <CredentialsStep
+                agent={agent}
+                onSubmit={async (value) => {
+                  setBusy(true);
+                  try {
+                    await ports.saveCredential({
+                      key: CREDENTIAL_KEY_BY_AGENT[agent],
+                      value: value.trim(),
+                    });
+                    setStep('ready');
+                  } finally {
+                    setBusy(false);
+                  }
+                }}
+                onBack={() => setStep('agent-selection')}
+              />
             ) : null}
 
             {step === 'ready' && workspaceId ? (
@@ -72,16 +107,15 @@ export function OnboardingWizard({ ports, onComplete }: OnboardingWizardProps) {
 
 function StepProgress({ current }: { readonly current: Step }) {
   const { t } = useTranslate();
-  const steps: readonly Step[] = ['workspace-name', 'agent-selection', 'ready'];
-  const currentIndex = steps.indexOf(current);
+  const currentIndex = STEPS.indexOf(current);
 
   return (
     <ol className="flex items-center gap-2" aria-label={t('onboarding.progress.ariaLabel')}>
-      {steps.map((stepName, index) => (
+      {STEPS.map((stepName, index) => (
         <li
           key={stepName}
           aria-current={index === currentIndex ? 'step' : undefined}
-          className={`h-2 w-12 rounded-full transition-colors ${
+          className={`h-2 w-10 rounded-full transition-colors ${
             index <= currentIndex ? 'bg-accent' : 'bg-foreground/10'
           }`}
         />
@@ -128,13 +162,7 @@ function WorkspaceNameStep({ onNext }: { readonly onNext: (name: string) => Prom
   );
 }
 
-function AgentSelectionStep({
-  onNext,
-  onSkip,
-}: {
-  readonly onNext: () => void;
-  readonly onSkip: () => void;
-}) {
+function AgentSelectionStep({ onSelect }: { readonly onSelect: (agent: AgentChoice) => void }) {
   const { t } = useTranslate();
 
   return (
@@ -148,18 +176,14 @@ function AgentSelectionStep({
         <AgentCard
           name="Claude"
           description={t('onboarding.agent.claude.provider')}
-          onClick={onNext}
+          onClick={() => onSelect('claude')}
         />
         <AgentCard
           name="Codex"
           description={t('onboarding.agent.codex.provider')}
-          onClick={onNext}
+          onClick={() => onSelect('codex')}
         />
       </div>
-
-      <Button variant="ghost" onClick={onSkip}>
-        {t('onboarding.agent.skip')}
-      </Button>
     </div>
   );
 }
@@ -182,6 +206,107 @@ function AgentCard({
       <span className="text-sm font-medium">{name}</span>
       <span className="text-xs text-muted-foreground">{description}</span>
     </button>
+  );
+}
+
+interface CredentialsValues {
+  apiKey: string;
+}
+
+function CredentialsStep({
+  agent,
+  onSubmit,
+  onBack,
+}: {
+  readonly agent: AgentChoice;
+  readonly onSubmit: (apiKey: string) => Promise<void>;
+  readonly onBack: () => void;
+}) {
+  const { t } = useTranslate();
+  const [error, setError] = useState<string | null>(null);
+
+  const schema = z.object({
+    apiKey: z.string().trim().min(8, t('onboarding.credentials.errorTooShort')),
+  });
+
+  const form = useForm<CredentialsValues>({
+    resolver: zodResolver(schema),
+    mode: 'onChange',
+    defaultValues: { apiKey: '' },
+  });
+
+  const placeholder =
+    agent === 'claude'
+      ? t('onboarding.credentials.claude.placeholder')
+      : t('onboarding.credentials.codex.placeholder');
+  const helper =
+    agent === 'claude'
+      ? t('onboarding.credentials.claude.helper')
+      : t('onboarding.credentials.codex.helper');
+
+  const submitting = form.formState.isSubmitting;
+
+  return (
+    <div className="flex w-full flex-col gap-4">
+      <div className="inline-flex size-12 items-center justify-center rounded-full bg-info/10">
+        <ShieldCheck className="size-6 text-info" aria-hidden={true} />
+      </div>
+      <h2 className="text-2xl font-semibold tracking-[-0.03em]">
+        {t('onboarding.credentials.title')}
+      </h2>
+      <p className="max-w-xl text-sm leading-6 text-muted-foreground">
+        {t('onboarding.credentials.description')}
+      </p>
+
+      <form
+        onSubmit={form.handleSubmit(async (values) => {
+          setError(null);
+          try {
+            await onSubmit(values.apiKey);
+          } catch (err) {
+            setError(err instanceof Error ? err.message : String(err));
+          }
+        })}
+        className="flex flex-col gap-3"
+      >
+        <InputField
+          control={form.control}
+          name="apiKey"
+          type="password"
+          autoComplete="off"
+          placeholder={placeholder}
+          required={true}
+          icon={<KeyRound className="size-4" aria-hidden={true} />}
+        />
+        <p className="text-xs text-muted-foreground">{helper}</p>
+
+        {error ? (
+          <div
+            role="alert"
+            className="flex items-center gap-2 rounded-md bg-destructive/10 px-3 py-2 text-xs text-destructive"
+          >
+            <AlertCircle className="size-4" aria-hidden={true} />
+            {error}
+          </div>
+        ) : null}
+
+        <div className="flex items-center gap-2">
+          <Button type="button" variant="ghost" onClick={onBack} disabled={submitting}>
+            {t('onboarding.credentials.back')}
+          </Button>
+          <Button type="submit" disabled={submitting || !form.formState.isValid} className="flex-1">
+            {submitting ? (
+              <span className="inline-flex items-center gap-2">
+                <Spinner size="sm" />
+                {t('onboarding.credentials.saving')}
+              </span>
+            ) : (
+              t('onboarding.credentials.save')
+            )}
+          </Button>
+        </div>
+      </form>
+    </div>
   );
 }
 

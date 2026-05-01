@@ -19,6 +19,12 @@ export {
   type AppInfoView,
 } from './components/app-category.tsx';
 export { AppearanceCategory } from './components/appearance-category.tsx';
+export {
+  BackupCategory,
+  type BackupCategoryProps,
+  type BackupEntryView,
+  type BackupWorkspaceOption,
+} from './components/backup-category.tsx';
 export { CategoryPlaceholder } from './components/category-placeholder.tsx';
 export { CloudSyncCategory } from './components/cloud-sync-category.tsx';
 export {
@@ -37,6 +43,11 @@ export {
   type RepairCategoryProps,
 } from './components/repair-category.tsx';
 export { SettingsPanel, type SettingsPanelProps } from './components/settings-panel.tsx';
+export {
+  type SupportAppInfoView,
+  SupportCategory,
+  type SupportCategoryProps,
+} from './components/support-category.tsx';
 export { TagsCategory, type TagsCategoryProps } from './components/tags-category.tsx';
 export { UsageCategory } from './components/usage-category.tsx';
 export {

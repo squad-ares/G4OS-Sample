@@ -8,6 +8,7 @@ import {
   useTranslate,
 } from '@g4os/ui';
 import { FolderKanban, MoreHorizontal } from 'lucide-react';
+import { HighlightedTitle } from '../../shell/index.ts';
 import type { ProjectListItem } from '../types.ts';
 
 export interface ProjectCardProps {
@@ -15,11 +16,19 @@ export interface ProjectCardProps {
   readonly onOpen?: (id: string) => void;
   readonly onArchive?: (id: string) => void;
   readonly onDelete?: (id: string) => void;
+  /** CR-18 F-F5: query opcional para search-inline highlight no nome. */
+  readonly searchQuery?: string;
 }
 
 const COLOR_FALLBACK = '#6366f1';
 
-export function ProjectCard({ project, onOpen, onArchive, onDelete }: ProjectCardProps) {
+export function ProjectCard({
+  project,
+  onOpen,
+  onArchive,
+  onDelete,
+  searchQuery,
+}: ProjectCardProps) {
   const { t } = useTranslate();
   const accent = project.color ?? COLOR_FALLBACK;
   const isArchived = project.status === 'archived';
@@ -46,7 +55,13 @@ export function ProjectCard({ project, onOpen, onArchive, onDelete }: ProjectCar
             <FolderKanban className="h-4 w-4" />
           </span>
           <span className="min-w-0">
-            <span className="block truncate text-sm font-semibold">{project.name}</span>
+            <span className="block truncate text-sm font-semibold">
+              {searchQuery ? (
+                <HighlightedTitle text={project.name} query={searchQuery} />
+              ) : (
+                project.name
+              )}
+            </span>
             <span className="block truncate text-[11px] text-muted-foreground">{project.slug}</span>
           </span>
         </button>

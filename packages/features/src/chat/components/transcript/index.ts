@@ -23,12 +23,12 @@ export {
   SessionBanners,
   type SessionBannersProps,
 } from './session-banners.tsx';
-export { SessionHeader, type SessionHeaderProps } from './session-header.tsx';
 export {
   SessionMetadataPanel,
   type SessionMetadataPanelProps,
   type SessionMetadataProject,
 } from './session-metadata-panel.tsx';
+export { SessionTitleBar, type SessionTitleBarProps } from './session-title-bar.tsx';
 export { TranscriptView, type TranscriptViewProps } from './transcript-view.tsx';
 export {
   type SuggestedPrompt,

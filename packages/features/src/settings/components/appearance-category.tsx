@@ -52,14 +52,6 @@ export function AppearanceCategory() {
           {t('settings.appearance.theme.active', { resolved })}
         </p>
       </StatusPanel>
-
-      <StatusPanel
-        title={t('settings.appearance.density.title')}
-        description={t('settings.appearance.density.description')}
-        tone="warning"
-      >
-        <p className="text-xs text-muted-foreground">{t('settings.category.plannedBadge')}</p>
-      </StatusPanel>
     </div>
   );
 }

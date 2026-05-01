@@ -105,7 +105,7 @@ export function CreateStdioDialog({
             name="argsText"
             label={t('sources.dialog.stdio.args.label')}
             description={t('sources.dialog.stdio.args.description')}
-            placeholder={'mcp-server-filesystem\n/Users/...'}
+            placeholder={t('sources.dialog.stdio.args.placeholder')}
             minRows={3}
           />
           <TextareaField
@@ -113,7 +113,7 @@ export function CreateStdioDialog({
             name="envText"
             label={t('sources.dialog.stdio.env.label')}
             description={t('sources.dialog.stdio.env.description')}
-            placeholder={'KEY=value\nANOTHER=secret'}
+            placeholder={t('sources.dialog.stdio.env.placeholder')}
             minRows={3}
           />
           <InputField
