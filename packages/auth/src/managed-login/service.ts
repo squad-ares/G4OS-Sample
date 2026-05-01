@@ -98,7 +98,10 @@ export class ManagedLoginService extends DisposableBase {
     const current = this.subject.value;
     if (current.kind === 'verifying' || current.kind === 'requesting_otp') {
       log.warn({ from: current.kind }, 'requestOtp ignored: another OTP flow in progress');
-      return err(AuthError.disposed());
+      // CR-18 F-AU3: era `AuthError.disposed()` — caller checando
+      // `code === AUTH_DISPOSED` disparava shutdown indevido. `flowInProgress`
+      // discrimina: "tente de novo" vs "serviço destruído".
+      return err(AuthError.flowInProgress(current.kind));
     }
     // Sanitiza `previous` para nunca aninhar error → error → error.
     // Se o estado atual já é error, o "anterior" lógico é o `previous` dele
@@ -131,7 +134,8 @@ export class ManagedLoginService extends DisposableBase {
       currentSubmit.kind === 'requesting_otp'
     ) {
       log.warn({ from: currentSubmit.kind }, 'submitOtp ignored: another auth flow in progress');
-      return err(AuthError.disposed());
+      // CR-18 F-AU3: ver requestOtp acima.
+      return err(AuthError.flowInProgress(currentSubmit.kind));
     }
     const previous = sanitizePrevious(this.subject.value);
     this.setState({ kind: 'verifying', email });
@@ -206,7 +210,22 @@ export class ManagedLoginService extends DisposableBase {
     const metaResult = await this.tokenStore.get(AUTH_SESSION_META_KEY);
     if (metaResult.isErr()) return false;
     const meta = parseMeta(metaResult.value);
-    if (!meta) return false;
+    if (!meta) {
+      // CR-18 F-AU5: meta corrompida (JSON malformado, schema antigo
+      // incompatível, dados truncados) ficava persistida indefinidamente —
+      // todo restore subsequente falhava igual sem self-healing. User
+      // precisava wipe manual. Best-effort delete do meta key para que o
+      // próximo login reconstrua o slot do zero.
+      log.warn('persisted session meta is corrupt; clearing for self-healing');
+      const deleteResult = await this.tokenStore.delete(AUTH_SESSION_META_KEY);
+      if (deleteResult.isErr()) {
+        log.warn(
+          { err: deleteResult.error.message },
+          'failed to delete corrupt session meta; user may need wipe',
+        );
+      }
+      return false;
+    }
 
     if (meta.expiresAt !== undefined && meta.expiresAt <= Date.now() + RESTORE_EXPIRY_BUFFER_MS) {
       log.info(

@@ -28,6 +28,14 @@ export interface SessionRefresherOptions {
 
 const DEFAULT_BUFFER_MS = 5 * 60 * 1000;
 const DEFAULT_MIN_DELAY_MS = 1000;
+/**
+ * Máximo de schedules consecutivos no piso `minDelayMs` antes de bailar para
+ * `reauth_required`. CR-18 F-AU2: backend devolvendo tokens cronicamente
+ * curtos faria o refresher martelar a 1Hz. 3 retries permite caminho
+ * saudável (token expirado → refresh imediato → token novo de 1h) mas barra
+ * o loop quando o backend está degradado.
+ */
+const MAX_TIGHT_SCHEDULES = 3;
 
 export class SessionRefresher extends DisposableBase {
   private readonly subject = new BehaviorSubject<RefresherState>({ kind: 'idle' });
@@ -48,6 +56,14 @@ export class SessionRefresher extends DisposableBase {
    * compartilha a mesma promise.
    */
   private inflight: Promise<void> | null = null;
+  /**
+   * CR-18 F-AU2: contador de schedules consecutivas que caem no piso
+   * `minDelayMs` (token já dentro do buffer ou past-expiry quando agendou).
+   * Backend que devolve tokens com `expires_at` curto cronicamente faria
+   * o refresher martelar a 1Hz. Após N=3 caps consecutivos emitimos
+   * `reauth_required` em vez de continuar agendando.
+   */
+  private tightScheduleCount = 0;
 
   constructor(options: SessionRefresherOptions) {
     super();
@@ -124,10 +140,35 @@ export class SessionRefresher extends DisposableBase {
       this.subject.next({ kind: 'reauth_required', reason: 'invalid_expiry' });
       return;
     }
-    const delay = Math.max(this.minDelayMs, expiresAt - this.nowFn() - this.bufferMs);
+    const rawDelay = expiresAt - this.nowFn() - this.bufferMs;
+    const delay = Math.max(this.minDelayMs, rawDelay);
     if (!Number.isFinite(delay)) {
       this.subject.next({ kind: 'reauth_required', reason: 'invalid_expiry' });
       return;
+    }
+    // CR-18 F-AU2: token chegou no piso minDelayMs porque já está dentro do
+    // buffer (rawDelay ≤ minDelayMs). Primeira vez é OK — refresh imediato
+    // é o caminho saudável quando token está expirado. Mas se isso se
+    // repete N vezes consecutivas após refresh bem-sucedido, o backend
+    // está devolvendo tokens curtos cronicamente — bail para `reauth_required`.
+    if (rawDelay <= this.minDelayMs) {
+      this.tightScheduleCount += 1;
+      if (this.tightScheduleCount >= MAX_TIGHT_SCHEDULES) {
+        log.warn(
+          {
+            expiresAt,
+            now: this.nowFn(),
+            bufferMs: this.bufferMs,
+            consecutiveTight: this.tightScheduleCount,
+          },
+          'refresher detected sustained near-expiry tokens; requiring reauth instead of tight-loop',
+        );
+        this.tightScheduleCount = 0;
+        this.subject.next({ kind: 'reauth_required', reason: 'token_too_short_lived' });
+        return;
+      }
+    } else {
+      this.tightScheduleCount = 0;
     }
     const fireAt = this.nowFn() + delay;
     this.subject.next({ kind: 'scheduled', fireAt });
@@ -173,15 +214,39 @@ export class SessionRefresher extends DisposableBase {
       });
       return;
     }
-    await this.tokenStore.set(
+    // CR-18 F-AU1: descartar o `Result` dos tokenStore.set silencia disk
+    // full / IO error e leva o refresher a `scheduleNext` referenciando
+    // estado inconsistente (ou loopa tentando salvar em vão). Sinalizamos
+    // `reauth_required` reason=`token_persist_failed` quando qualquer write
+    // falha — usuário precisa relogar pra recriar o slot do zero.
+    const accessSet = await this.tokenStore.set(
       AUTH_ACCESS_TOKEN_KEY,
       data.session.access_token,
       typeof data.session.expires_at === 'number'
         ? { expiresAt: data.session.expires_at * 1000 }
         : undefined,
     );
+    if (accessSet.isErr()) {
+      log.warn(
+        { err: accessSet.error.message },
+        'failed to persist refreshed access token; requiring reauth',
+      );
+      this.subject.next({ kind: 'reauth_required', reason: 'token_persist_failed' });
+      return;
+    }
     if (data.session.refresh_token) {
-      await this.tokenStore.set(AUTH_REFRESH_TOKEN_KEY, data.session.refresh_token);
+      const refreshSet = await this.tokenStore.set(
+        AUTH_REFRESH_TOKEN_KEY,
+        data.session.refresh_token,
+      );
+      if (refreshSet.isErr()) {
+        log.warn(
+          { err: refreshSet.error.message },
+          'failed to persist refreshed refresh token; requiring reauth',
+        );
+        this.subject.next({ kind: 'reauth_required', reason: 'token_persist_failed' });
+        return;
+      }
     }
     await this.scheduleNext();
   }
