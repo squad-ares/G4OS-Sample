@@ -265,6 +265,11 @@ export function createTestCaller(
     workspaceTransfer: createWorkspaceTransferMock(),
     labels: createLabelsMock(),
     preferences: createPreferencesMock(),
+    migration: {
+      detect: async () => ok(null),
+      plan: async () =>
+        err(new AppError({ code: ErrorCode.UNKNOWN_ERROR, message: 'migration.plan stub' })),
+    },
     ...overrides,
   };
   return appRouter.createCaller(ctx);
