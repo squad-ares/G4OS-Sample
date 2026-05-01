@@ -44,10 +44,10 @@ module.exports = {
     {
       name: 'agents-layered',
       comment:
-        '@g4os/agents subpaths não-interface podem depender só de kernel/platform/agents. Sem features/ui/data/etc.',
+        '@g4os/agents subpaths não-interface podem depender só de kernel/platform/agents/codex-types. Sem features/ui/data/etc.',
       severity: 'error',
       from: { path: '^packages/agents/src/(?!interface)' },
-      to: { path: '^packages/(?!(kernel|platform|agents))' },
+      to: { path: '^packages/(?!(kernel|platform|agents|codex-types))' },
     },
     {
       name: 'auth-isolated',
