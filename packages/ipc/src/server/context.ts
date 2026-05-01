@@ -36,6 +36,7 @@ import type {
   Workspace,
   WorkspaceId,
 } from '@g4os/kernel/types';
+import type { MigrationService } from './migration-types.ts';
 
 /**
  * Tipo estrutural para o IpcMainInvokeEvent do Electron.
@@ -401,6 +402,15 @@ export interface PreferencesService {
   verifyRuntimeIntegrity(): Promise<Result<RuntimeIntegrityReport, AppError>>;
 }
 
+export type {
+  MigrationPlanView,
+  MigrationService,
+  MigrationStepKindView,
+  MigrationStepView,
+  V1FlavorView,
+  V1InstallView,
+} from './migration-types.ts';
+
 /**
  * Contexto compartilhado por todas as procedures tRPC.
  *
@@ -445,4 +455,5 @@ export interface IpcContext {
   readonly workspaceTransfer: WorkspaceTransferService;
   readonly labels: LabelsService;
   readonly preferences: PreferencesService;
+  readonly migration: MigrationService;
 }
