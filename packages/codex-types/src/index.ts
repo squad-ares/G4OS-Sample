@@ -11,12 +11,27 @@
  * (tsup gera só `.d.ts`).
  */
 
+/**
+ * Dialeto **wire-format** do thinking level enviado pro Codex CLI.
+ *
+ * NÃO é o mesmo enum que `ThinkingLevel` em `@g4os/agents/interface` (que cobre
+ * `'low' | 'think' | 'high' | 'ultra'`). O mapeamento entre os dois acontece em
+ * `@g4os/agents/codex/app-server/input-mapper.ts#THINKING_LEVEL_MAP`. Mantemos
+ * tipos distintos para que adicionar um novo nível em `ThinkingLevel` quebre o
+ * mapper em compile-time, evitando silent strip.
+ */
+export type CodexWireThinkingLevel = 'low' | 'medium' | 'high';
+
 export interface CodexRunTurnInput {
   readonly instructions?: string;
   readonly messages: readonly CodexWireMessage[];
   readonly model?: string;
   readonly tools?: readonly CodexWireTool[];
-  readonly thinkingLevel?: 'low' | 'medium' | 'high';
+  /**
+   * Pós-mapeamento. Caller passa `AgentConfig.thinkingLevel` (interface) e o
+   * input-mapper traduz pro dialeto wire abaixo. Ver `CodexWireThinkingLevel`.
+   */
+  readonly thinkingLevel?: CodexWireThinkingLevel;
 }
 
 export interface CodexWireMessage {
@@ -56,12 +71,26 @@ export interface CodexCancelRequest {
   readonly requestId: string;
 }
 
+/**
+ * CR-18 F-CT3: type pré-cabeado para handshake — `AppServerClient` ainda
+ * não emite (sem versionamento de protocol em uso). Mantido como surface
+ * area para o roadmap (TASK-08-XX bridge MCP versionado). `protocolVersion`
+ * é numérico simples; quando handshake for wired, definir constante
+ * exportada `PROTOCOL_VERSION = 1` aqui.
+ */
 export interface CodexHandshakeRequest {
   readonly type: 'handshake';
   readonly requestId: string;
   readonly protocolVersion: number;
   readonly bridgeMcpUrl?: string;
 }
+
+/**
+ * Versão atual do protocolo NDJSON quando handshake estiver wired.
+ * Hoje exportado como constante para callers que queiram pinar a versão
+ * que conhecem. Mudança requer ADR.
+ */
+export const CODEX_PROTOCOL_VERSION = 1 as const;
 
 export type CodexRequest = CodexRunTurnRequest | CodexCancelRequest | CodexHandshakeRequest;
 

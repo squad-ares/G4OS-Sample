@@ -91,8 +91,9 @@ export class OpenAIAgent extends DisposableBase implements IAgent {
     return Promise.resolve(ok(undefined));
   }
 
-  // dispose() herdado de DisposableBase — executa LIFO os disposables
-  // registrados no constructor.
+  // dispose() herdado de DisposableBase — itera disposables em ordem de
+  // inserção (FIFO via Set), não LIFO. CR-18 F-AG5: comentário antigo
+  // afirmava LIFO erroneamente.
 
   private buildRunnerDeps(): StreamRunnerDeps {
     return {

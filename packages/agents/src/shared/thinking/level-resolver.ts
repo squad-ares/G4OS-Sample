@@ -54,7 +54,14 @@ function modelSupportsThinking(provider: Provider, modelId: string): boolean {
   if (provider === 'google') {
     return id.includes('gemini-2') || id.includes('gemini-3');
   }
+  // CR-18 F-AG3: `claude-haiku-4` foi adicionado às capabilities com
+  // `thinking: true` mas o resolver não tinha entry — `thinkingLevel: 'high'`
+  // virava `{ provider: 'none' }` silenciosamente, sem `budget_tokens`.
+  // Modelos Anthropic 4.x e 3.7 suportam extended thinking.
   return (
-    id.includes('claude-3.7') || id.includes('claude-sonnet-4') || id.includes('claude-opus-4')
+    id.includes('claude-3.7') ||
+    id.includes('claude-sonnet-4') ||
+    id.includes('claude-opus-4') ||
+    id.includes('claude-haiku-4')
   );
 }

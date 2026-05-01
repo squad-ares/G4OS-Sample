@@ -1,18 +1,22 @@
 import type { ContentBlock, Message } from '@g4os/kernel';
-import type { AgentConfig, AgentTurnInput } from '../../interface/agent.ts';
+import type { AgentConfig, AgentTurnInput, ThinkingLevel } from '../../interface/agent.ts';
 import type {
   CodexRunTurnInput,
   CodexWireContentBlock,
   CodexWireMessage,
+  CodexWireThinkingLevel,
   CodexWireTool,
 } from './protocol.ts';
 
+// `satisfies Record<ThinkingLevel, ...>` força que adicionar um novo nível em
+// `ThinkingLevel` quebre o mapper em compile-time. NÃO trocar pra Partial — o
+// silent strip era o bug original (ver CR-18 F-CT1).
 const THINKING_LEVEL_MAP = {
   low: 'low',
   think: 'low',
   high: 'medium',
   ultra: 'high',
-} as const satisfies Record<'low' | 'think' | 'high' | 'ultra', 'low' | 'medium' | 'high'>;
+} as const satisfies Record<ThinkingLevel, CodexWireThinkingLevel>;
 
 function mapBlock(block: ContentBlock): CodexWireContentBlock | undefined {
   switch (block.type) {

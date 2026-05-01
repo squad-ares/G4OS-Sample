@@ -14,7 +14,16 @@ export interface GenAIProviderOptions {
 
 export interface GoogleGenAISdkLike {
   generateContentStream(params: GoogleStreamRequest): Promise<AsyncIterable<GoogleStreamChunk>>;
-  generateContent(params: GoogleStreamRequest): Promise<{ text?: string }>;
+  /**
+   * CR-18 F-AG4: aceita `signal` opcional para cancelar a chamada do
+   * classifier antes do round-trip HTTP completar. Sem isso, abort
+   * mid-flight só era detectado APÓS a resposta voltar — usuário cancelava
+   * o turn, classifier seguia rodando até timeout do provider.
+   */
+  generateContent(
+    params: GoogleStreamRequest,
+    options?: { signal?: AbortSignal },
+  ): Promise<{ text?: string }>;
 }
 
 interface GoogleStreamRequest {
@@ -64,11 +73,17 @@ export class GenAIProvider implements GeminiProvider {
     signal: AbortSignal,
   ): Promise<GeminiTurnStrategy> {
     const sdk = await this.resolveSdk();
-    const response = await sdk.generateContent({
-      model: modelId.replace(/^pi\//, ''),
-      contents: [{ role: 'user', parts: [{ text }] }],
-      config: { systemInstruction: CLASSIFIER_SYSTEM_PROMPT },
-    });
+    // CR-18 F-AG4: passa o signal para o SDK — provider que suporta
+    // cancela na rede; o que não suporta apenas ignora o option (Gemini
+    // SDK em adapter NodeHttp não cancela, mas opt-in está no contrato).
+    const response = await sdk.generateContent(
+      {
+        model: modelId.replace(/^pi\//, ''),
+        contents: [{ role: 'user', parts: [{ text }] }],
+        config: { systemInstruction: CLASSIFIER_SYSTEM_PROMPT },
+      },
+      { signal },
+    );
 
     if (signal.aborted) throw AgentError.network('google', { reason: 'aborted' });
 

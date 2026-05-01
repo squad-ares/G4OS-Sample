@@ -54,13 +54,16 @@ export class CodexAgent extends DisposableBase implements IAgent {
     // Ordem determinística de teardown: bridge detacha PRIMEIRO (corta
     // canal MCP), depois subprocess é morto (NDJSON inflight é descartado
     // de forma segura porque não tem mais consumers), por fim limpa
-    // estado in-memory. `_register` garante LIFO em super.dispose().
-    this._register(toDisposable(() => this.activeRequests.clear()));
-    this._register(toDisposable(() => this.deps.appServer.dispose()));
+    // estado in-memory. CR-18 F-AG1: `DisposableStore` itera em ORDEM DE
+    // INSERÇÃO (FIFO via `Set`), não LIFO — o comentário antigo estava
+    // invertido. Registramos `bridge` PRIMEIRO, `appServer.dispose` SEGUNDO,
+    // `clear` POR ÚLTIMO para o run order match a documentação.
     if (this.deps.bridgeMcp) {
       const bridge = this.deps.bridgeMcp;
       this._register(toDisposable(() => bridge.detach()));
     }
+    this._register(toDisposable(() => this.deps.appServer.dispose()));
+    this._register(toDisposable(() => this.activeRequests.clear()));
   }
 
   run(input: AgentTurnInput): Observable<AgentEvent> {

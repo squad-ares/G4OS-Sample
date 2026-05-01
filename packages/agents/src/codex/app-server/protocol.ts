@@ -19,5 +19,6 @@ export type {
   CodexRunTurnRequest,
   CodexWireContentBlock,
   CodexWireMessage,
+  CodexWireThinkingLevel,
   CodexWireTool,
 } from '@g4os/codex-types';

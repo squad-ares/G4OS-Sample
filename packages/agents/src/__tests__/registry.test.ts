@@ -146,4 +146,25 @@ describe('AgentRegistry', () => {
       .orElse(() => err('no backend'));
     expect(missing.isErr()).toBe(true);
   });
+
+  // CR-18 F-AG2: factory.create() podia jogar exceção (binary não
+  // encontrado, provider sem credentials) e a Promise/Result não capturava.
+  // Agora a registry converte throws em err(AgentError).
+  it('create() converts factory throw into err(AgentError) [F-AG2]', () => {
+    const throwingFactory: AgentFactory = {
+      kind: 'codex-throwing',
+      supports: (config) => config.connectionSlug === 'codex',
+      create: () => {
+        throw new Error('codex binary not found');
+      },
+    };
+    registry.register(throwingFactory);
+    const result = registry.create({ connectionSlug: 'codex', modelId: 'codex-001' });
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      // Erro genérico vira AgentError.unavailable wrapper preservando cause.
+      expect(result.error).toBeInstanceOf(Error);
+      expect(result.error.message.toLowerCase()).toContain('unavailable');
+    }
+  });
 });
