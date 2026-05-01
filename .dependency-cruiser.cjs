@@ -190,6 +190,14 @@ module.exports = {
           '(^|/)tsconfig\\.json$',
           '(^|/)\\.[^/]+\\.(js|cjs|mjs|ts)$',
           '(src|dist)/index\\.(ts|js|d\\.(ts|cts|mts)|cjs)$', // package exports
+          // Build/test runner config entry points — consumidos pelo runner
+          // externo (tsup CLI, vitest CLI, electron-builder), não importados
+          // por código fonte. Orphan por design.
+          '(^|/)(tsup|vitest|electron-builder)\\.config\\.(ts|js|mjs|cjs)$',
+          // Test files são discovered pelo vitest via glob, não importados
+          // por código fonte. Orphan por design quando não compartilham helpers.
+          '\\.(test|spec)\\.(ts|tsx)$',
+          '/__tests__/',
           'apps/desktop/src/preload\\.ts$', // Electron preload entry point
           'apps/desktop/src/main/index\\.ts$', // Main entry point
           'apps/desktop/src/main/workers/', // utilityProcess / Piscina worker entries

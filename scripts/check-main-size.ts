@@ -146,17 +146,81 @@ import { globSync } from 'glob';
 // `deep-link-handler.ts` (~40 LOC adicionais: PATH_WHITELIST estendido +
 // IPC forward `deep-link:navigate` pra janela existente em vez de só
 // abrir nova).
-const MAIN_LIMIT = 9600;
+//
+// 2026-05-01 (10c-32 + window-bounds extraction): teto sobe de 9600 →
+// 9700 com `window-bounds.ts` (~67 LOC, extraído de window-manager pra
+// reduzir o file-size do composition root e separar I/O atômico de
+// lifecycle) + `onWindowCreated` subscriber pattern em window-manager
+// pra IPC server cobrir janelas criadas após o boot (multi-window via
+// WindowsService, deep-link, debug-hud).
+//
+// 2026-05-01 (CR-15 Wave 1+2): teto sobe de 9700 → 9800 com:
+// - `services/attachments-gc-bootstrap.ts` (~37 LOC) wired no boot pra
+//   GC de blobs órfãos (sem isso, attachments folder crescia monotonic).
+// - `turn-dispatcher` ganhou try/catch em buildMountedHandlers (~12 LOC).
+// - `backup-bootstrap` retorna {scheduler, gateway} (~10 LOC).
+// - `shutdown-bootstrap` await drain antes de dispose (~5 LOC).
+// - `debug-hud/{index,window}.ts` ganharam onWebContentsCreated hook
+//   (~16 LOC) pra IPC bootstrap wirar cleanup de subscriptions no HUD.
+//
+// 2026-05-01 (CR-17 — Backup IPC + UI completion): teto sobe de 9800 →
+// 10000 com:
+// - `services/backup-service.ts` (~135 LOC NEW) — implementa `BackupService`
+//   IPC (list/runNow/delete) compondo `BackupScheduler` + filesystem queries
+//   com path-guard no delete (refused se path fora de auto-backups dir).
+// - `services/backup-scheduler.ts` (+~25 LOC) — método público novo
+//   `runForWorkspace(id)` pra backup manual fora do ciclo periódico, +
+//   getter `backupDir` pra UI revelar via showItemInFolder.
+// - `ipc-context.ts` (+~5 LOC) — wire de `backup` service no override map
+//   + null fallback.
+// - `index.ts` (+~3 LOC) — import + injeção de `createBackupService` no
+//   `initIpcServer({ services })`.
+// Settings hub pré-canary completou as 14 categorias (12 ready + 2 planned)
+// com Backup como categoria de UI funcional — antes o BackupScheduler
+// rodava 24h em background mas usuário não tinha visibilidade nem trigger
+// manual. Pequena dívida de domínio paga.
+//
+// 10000 → 10150 — CR-18 F-DT-I: novo `services/single-instance-bootstrap.ts`
+// (~107 LOC) registra `requestSingleInstanceLock` + `setAsDefaultProtocolClient`
+// + `second-instance` listener + argv deep-link consumer. Sem isso o OS
+// jamais entrega URLs `g4os://...` ao app: era um buraco crítico não
+// mapeado em CRs anteriores (deep-link handler existia mas runtime ignorava
+// porque o protocol nunca era registrado). +`electron-runtime.ts` (+~20 LOC)
+// expõe `requestSingleInstanceLock`/`setAsDefaultProtocolClient` no contrato
+// `ElectronApp` e adiciona overload `on('second-instance', ...)` para
+// type-safety. +`index.ts` (+~25 LOC) wire 4 funções da bootstrap no
+// composition root antes de `whenReady()`. Próxima elevação exige nova
+// extração estrutural OU ADR justificando.
+const MAIN_LIMIT = 10150;
 const FILE_LIMIT = 300;
 
 // Composition roots e agregadores de diagnóstico com teto próprio.
 // Cada entrada justifica por que o FILE_LIMIT padrão não se aplica.
 const FILE_EXEMPTIONS: Map<string, number> = new Map([
+  // TurnDispatcher: orquestra agent run + tool loop + permission broker
+  // + mount registry + telemetry + event bus. CR-15 wave 1 adicionou
+  // try/catch em buildMountedHandlers (~12 LOC pra fail-soft). Extrair
+  // em helper sibling foi avaliado mas o try local mantém escopo do
+  // logger e do sessionId — extração viraria 2 indireções pra mesmo log.
+  // Teto 320.
+  ['apps/desktop/src/main/services/turn-dispatcher.ts', 320],
+
+  // SourcesService: 9 procedures IPC (list/listAvailable/get/enableManaged/
+  // createStdio/createHttp/setEnabled/delete/testConnection) + secrets
+  // wire + status probing. CR-16 F-22 adicionou cleanup explícito de
+  // timer no testConnection (~5 LOC). Cada procedure tem boilerplate
+  // mínimo e error mapping próprio — extrair em sub-services ainda
+  // exigiria pass-through props sem ganho de legibilidade. Teto 320.
+  ['apps/desktop/src/main/services/sources-service.ts', 320],
+
   // Composition root do processo principal: instancia todos os serviços,
   // registra shutdown handlers, bootstrapa IPC e janela. Concentração
   // intencional — extrair implicaria prop drilling ou Context API sem
-  // ganho real de legibilidade. Teto: 450 LOC.
-  ['apps/desktop/src/main/index.ts', 450],
+  // ganho real de legibilidade. CR-18 F-DT-I bumpou para acomodar wiring
+  // do single-instance lock + protocol client + second-instance handler
+  // (~10 LOC inline antes do whenReady, ~5 LOC adjacente ao deep-link).
+  // Teto: 500 LOC.
+  ['apps/desktop/src/main/index.ts', 500],
 ]);
 
 const files = globSync('apps/desktop/src/main/**/*.ts', {

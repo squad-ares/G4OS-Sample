@@ -18,7 +18,8 @@ const EXEMPTIONS: Set<string> = new Set([
 
   // Composition root da rota autenticada. Concentra wiring de queries +
   // handlers + render dos 7 panels de sub-sidebar + diálogos. Helpers
-  // puros e adapters extraídos para `_app.helpers.tsx`. Refator adicional
+  // puros e adapters extraídos para `_app-helpers.tsx` (sibling de `routes/`
+  // pra que TanStack Router não tente carregar como rota). Refator adicional
   // dos render functions exigiria N props per panel ou Context API,
   // ambos comprometendo legibilidade do composition root.
   // ADR-0151: exceção formal com teto 600 LOC e plano de retirada.
