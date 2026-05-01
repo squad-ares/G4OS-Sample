@@ -23,8 +23,10 @@ import { MIGRATION_DONE_MARKER } from './plan.ts';
 import type { StepOptions, StepRunner } from './steps/contract.ts';
 import { migrateConfig } from './steps/migrate-config.ts';
 import { migrateCredentials } from './steps/migrate-credentials.ts';
+import { migrateSessions } from './steps/migrate-sessions.ts';
+import { migrateSkills } from './steps/migrate-skills.ts';
+import { migrateSources } from './steps/migrate-sources.ts';
 import { migrateWorkspaces } from './steps/migrate-workspaces.ts';
-import { migrateSessions, migrateSkills, migrateSources } from './steps/stubs.ts';
 import type {
   MigrationPlan,
   MigrationReport,
