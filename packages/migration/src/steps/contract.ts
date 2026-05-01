@@ -72,6 +72,14 @@ export interface V2SessionWriter {
   /**
    * Anexa um evento já validado pelo Zod schema V2 (`SessionEventSchema`).
    * Migrate-sessions envia só eventos que passaram pela validação.
+   *
+   * **Importante (CR-18 F-M5):** o `event` PODE conter `sequenceNumber`
+   * derivado do índice JSONL V1, mas a impl real do writer (que delega
+   * para `SessionEventStore.append`) **DEVE sobrescrever** com sequência
+   * monotônica gerenciada pelo store (ADR-0043 — `(consumer_name,
+   * session_id)` checkpoint depende disso). Migrator não tem visibilidade
+   * de sequência V2 ativa; passar V1 sequence cru contaminava o checkpoint
+   * cross-consumer. O writer é responsável por strip + recompor.
    */
   appendEvent(sessionId: string, event: unknown): Promise<void>;
 }
@@ -117,6 +125,20 @@ export interface StepResult {
   readonly itemsSkipped: number;
   readonly bytesProcessed: number;
   readonly nonFatalWarnings: readonly string[];
+  /**
+   * Paths absolutos (arquivos/diretórios) que o step escreveu **direto no
+   * disco** dentro de `targetPath`. Usado pelo executor para rollback
+   * cirúrgico em caso de falha — em vez de `rm -rf` no `targetPath` inteiro,
+   * remove apenas o que o próprio migrator criou. Steps que delegam a
+   * writers injetados (vault, SessionsRepository, SourcesStore) NÃO devem
+   * popular esse campo — esses writers gerenciam a própria persistência e
+   * rollback é responsabilidade do caller (não do executor de migration).
+   *
+   * CR-18 F-M1 + F-DT-D: a versão antiga fazia `rm -rf targetPath`, o que
+   * em caso do caller passar `getAppPaths().data` como target apagava a V2
+   * inteira numa falha de step.
+   */
+  readonly writtenPaths?: readonly string[];
 }
 
 export type StepRunner = (ctx: StepContext) => Promise<Result<StepResult, AppError>>;

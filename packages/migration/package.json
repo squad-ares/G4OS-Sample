@@ -15,6 +15,7 @@
   "dependencies": {
     "@g4os/credentials": "workspace:*",
     "@g4os/kernel": "workspace:*",
+    "@g4os/platform": "workspace:*",
     "neverthrow": "catalog:",
     "zod": "catalog:"
   },

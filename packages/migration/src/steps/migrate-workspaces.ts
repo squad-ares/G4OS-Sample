@@ -170,6 +170,10 @@ function emptyResult(): StepResult {
 }
 
 function slugify(s: string): string {
+  // CR-18 F-M7: usar escape Unicode explícito `̀-ͯ` em vez do
+  // range literal `̀-ͯ`. O literal depende do encoding do source file
+  // ser preservado por toda a toolchain (TS, tsup, biome) — qualquer
+  // re-encode pode quebrar o range. `\u…` é estável.
   return s
     .toLowerCase()
     .normalize('NFD')

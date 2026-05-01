@@ -10,8 +10,18 @@
  *
  * V2 não tem um único `config.json` — preferences vivem no
  * `PreferencesStore` (per-workspace) e `app.config` é env-driven. Este
- * step grava `migration-config.json` no target, e o caller decide quais
- * fields aplicar na primeira boot pós-migração.
+ * step grava `migration-config.json` no target.
+ *
+ * **CR-18 F-M4 (status):** o arquivo `migration-config.json` é HOJE
+ * write-only no migrator — `apps/desktop/src/main/services/preferences-store.ts`
+ * NÃO lê este arquivo na primeira boot. Decisão deliberada: o caller
+ * (UI Wizard / CLI) é responsável por inspecionar `report.stepResults`
+ * + ler manualmente o JSON e aplicar campos via API pública do
+ * PreferencesStore. Auto-aplicação foi rejeitada porque V1 traz
+ * formatos heurísticos (theme/locale com casing variado) que precisam
+ * de mapeamento explícito por field — colocar essa lógica num boot
+ * silent agrava bugs sem feedback. TASK-14-01 (consumer real) fica
+ * deferred até o wizard de migração consumir a API.
  */
 
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
@@ -86,11 +96,13 @@ export async function migrateConfig(ctx: StepContext): Promise<Result<StepResult
 
   const bytes = Buffer.byteLength(raw, 'utf-8');
 
+  const writtenPaths: string[] = [];
   if (!dryRun) {
     const outPath = join(targetPath, 'migration-config.json');
     await mkdir(dirname(outPath), { recursive: true });
     const payload = JSON.stringify({ migratedFromV1: true, known, extras }, null, 2);
     await writeFile(outPath, payload, 'utf-8');
+    writtenPaths.push(outPath);
   }
 
   onProgress({
@@ -106,5 +118,6 @@ export async function migrateConfig(ctx: StepContext): Promise<Result<StepResult
     itemsSkipped: 0,
     bytesProcessed: bytes,
     nonFatalWarnings: warnings,
+    writtenPaths,
   });
 }

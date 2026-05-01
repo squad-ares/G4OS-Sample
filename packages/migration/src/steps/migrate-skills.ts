@@ -76,7 +76,7 @@ export async function migrateSkills(ctx: StepContext): Promise<Result<StepResult
       stepIndex,
       stepCount,
       stepProgress: 1,
-      message: 'skills: skips-legacy/ já presente',
+      message: 'skills: skills-legacy/ já presente',
     });
     return ok({
       itemsMigrated: 0,
@@ -127,6 +127,7 @@ export async function migrateSkills(ctx: StepContext): Promise<Result<StepResult
     itemsSkipped: 0,
     bytesProcessed: bytes,
     nonFatalWarnings: warnings,
+    writtenPaths: [targetDir],
   });
 }
 
