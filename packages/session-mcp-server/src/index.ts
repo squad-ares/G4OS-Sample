@@ -21,6 +21,9 @@
  * Por que skeleton: como bridge-mcp-server, depende do SDK MCP +
  * decisão de transport. Mas as resources/tools expostas já podem ser
  * declaradas — fixar a surface area facilita o IDE extension paralelo.
+ *
+ * Rastreado em: TASK-18-02 (`STUDY/Audit/Tasks/18-v1-parity-gaps/`).
+ * ADR de transport: compartilhada com bridge-mcp-server (TASK-18-01).
  */
 
 import { AppError, ErrorCode, type Result } from '@g4os/kernel/errors';

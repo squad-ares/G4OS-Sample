@@ -19,6 +19,10 @@
  * websocket). ADR pendente. Estamos entregando o slot do package +
  * tipos pra que CodexAgent (que já tem `BridgeMcpConnector` skeleton)
  * tenha uma API canônica pra apontar.
+ *
+ * Rastreado em: TASK-18-01 (`STUDY/Audit/Tasks/18-v1-parity-gaps/`).
+ * ADR de transport: pendente — alocar próximo slot disponível em
+ * `docs/adrs/` quando promover o skeleton.
  */
 
 import { AppError, ErrorCode, type Result } from '@g4os/kernel/errors';

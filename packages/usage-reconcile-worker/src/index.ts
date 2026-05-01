@@ -15,6 +15,9 @@
  * Por que skeleton: V2 MVP é single-user device-only. Tokens são contados
  * localmente pra observabilidade (metric `turn.tokens.total`), não pra
  * cobrança. Worker só faz sentido quando billing entrar — se entrar.
+ *
+ * Rastreado em: TASK-18-07 (`STUDY/Audit/Tasks/18-v1-parity-gaps/`).
+ * Doc de deferral: `docs/deferred/usage-reconcile-worker.md`.
  */
 
 import { AppError, ErrorCode, type Result } from '@g4os/kernel/errors';
