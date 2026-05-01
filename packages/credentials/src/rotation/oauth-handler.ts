@@ -9,7 +9,14 @@
  */
 
 import { z } from 'zod';
-import type { RotatedCredential, RotationHandler } from './handler.ts';
+import type { RotatedCredential, RotationContext, RotationHandler } from './handler.ts';
+
+/**
+ * Convenção: refresh tokens vivem em slot `<key>.refresh_token`. Migrator V1→V2
+ * já grava nesse padrão (`migrator.ts:187`). Não usamos mais o `currentValue`
+ * passado pelo orchestrator (que reflete a meta-key, ou seja, o access token).
+ */
+const REFRESH_TOKEN_SUFFIX = '.refresh_token';
 
 // Alguns providers retornam HTTP 200 com payload de erro (ex.: Google
 // `{"error":"invalid_grant"}` retornava 400, mas há casos de 200 mal
@@ -29,7 +36,8 @@ const OAuthTokenResponseSchema = z.object({
 export type OAuthRotationFailure =
   | { readonly kind: 'timeout'; readonly timeoutMs: number }
   | { readonly kind: 'http_error'; readonly status: number; readonly statusText: string }
-  | { readonly kind: 'network'; readonly cause: unknown };
+  | { readonly kind: 'network'; readonly cause: unknown }
+  | { readonly kind: 'refresh_token_missing'; readonly key: string };
 
 export class OAuthRotationError extends Error {
   readonly kind: OAuthRotationFailure['kind'];
@@ -53,6 +61,8 @@ function formatMessage(failure: OAuthRotationFailure): string {
       return `OAuth rotation network error: ${
         failure.cause instanceof Error ? failure.cause.message : String(failure.cause)
       }`;
+    case 'refresh_token_missing':
+      return `OAuth rotation: refresh token slot ${failure.key}${REFRESH_TOKEN_SUFFIX} not found in vault`;
     default: {
       const _exhaustive: never = failure;
       void _exhaustive;
@@ -97,7 +107,16 @@ export class OAuthRotationHandler implements RotationHandler {
     return key.startsWith(OAUTH_KEY_PREFIX);
   }
 
-  async rotate(currentRefreshToken: string): Promise<RotatedCredential> {
+  async rotate(context: RotationContext): Promise<RotatedCredential> {
+    // Resolve o refresh token via convenção `<key>.refresh_token`. NÃO usa
+    // `context.currentValue` — esse é o access token (meta-key), o que falhava
+    // na V1 do handler (CR-18 F-C2).
+    const refreshKey = `${context.key}${REFRESH_TOKEN_SUFFIX}`;
+    const refreshResult = await context.vault.get(refreshKey);
+    if (refreshResult.isErr()) {
+      throw new OAuthRotationError({ kind: 'refresh_token_missing', key: context.key });
+    }
+    const currentRefreshToken = refreshResult.value;
     const body = new URLSearchParams({
       grant_type: 'refresh_token',
       refresh_token: currentRefreshToken,

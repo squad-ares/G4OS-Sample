@@ -34,6 +34,12 @@ const BACKUP_RETENTION = 3;
 const KEY_PATTERN = /^[a-z0-9._-]+$/;
 const KEY_MAX_LENGTH = 100;
 const VALUE_MAX_LENGTH = 1_000_000;
+// CR-18 F-C4: limites de tags alinhados com `CredentialMetaSchema` em
+// `@g4os/kernel/schemas/credential.schema.ts`. Sem essa validação no
+// `set`/`rotate`, caller que passe 33 tags grava OK, mas o `readMeta`
+// subsequente falha no Zod parse e a entry vira "stale" sem sinal claro.
+const MAX_TAGS = 32;
+const TAG_MAX_LENGTH = 64;
 
 export interface CredentialMeta {
   readonly key: string;
@@ -91,6 +97,8 @@ export class CredentialVault {
     if (keyValidation.isErr()) return err(keyValidation.error);
     const valueValidation = validateValue(value);
     if (valueValidation.isErr()) return err(valueValidation.error);
+    const tagsValidation = validateTags(options.tags);
+    if (tagsValidation.isErr()) return err(tagsValidation.error);
 
     return await this.writeLock.runExclusive(async () => {
       log.debug({ key, hasExpiry: options.expiresAt !== undefined }, 'set credential');
@@ -154,6 +162,8 @@ export class CredentialVault {
     if (keyValidation.isErr()) return err(keyValidation.error);
     const valueValidation = validateValue(newValue);
     if (valueValidation.isErr()) return err(valueValidation.error);
+    const tagsValidation = validateTags(options.tags);
+    if (tagsValidation.isErr()) return err(tagsValidation.error);
 
     return await this.writeLock.runExclusive(async () => {
       log.info({ key, hasExpiry: options.expiresAt !== undefined }, 'rotate credential');
@@ -336,6 +346,22 @@ function timestampOf(name: string, prefix: string): number {
 function validateKey(key: string): Result<void, CredentialError> {
   if (!KEY_PATTERN.test(key) || key.length > KEY_MAX_LENGTH) {
     return err(CredentialErrorClass.invalidKey(key));
+  }
+  return ok(undefined);
+}
+
+function validateTags(tags: readonly string[] | undefined): Result<void, CredentialError> {
+  // CR-18 F-C4: alinhamento com `CredentialMetaSchema` — sem essa guarda,
+  // tags excessivas/longas eram aceitas pelo set/rotate mas o readMeta
+  // subsequente falhava no Zod parse e a entry virava "stale" sem sinal.
+  if (!tags) return ok(undefined);
+  if (tags.length > MAX_TAGS) {
+    return err(CredentialErrorClass.invalidValue('too_many_tags'));
+  }
+  for (const tag of tags) {
+    if (tag.length === 0 || tag.length > TAG_MAX_LENGTH) {
+      return err(CredentialErrorClass.invalidValue('tag_length_out_of_range'));
+    }
   }
   return ok(undefined);
 }
