@@ -19,7 +19,7 @@
  * `validateRuntimeIntegrity` original só fazia `existsSync`.
  */
 
-import { createHash } from 'node:crypto';
+import { createHash, timingSafeEqual } from 'node:crypto';
 import { createReadStream, existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -179,7 +179,10 @@ export async function verifyRuntimeHashes(
       continue;
     }
     const actual = await sha256OfFile(binaryPath);
-    if (actual !== entry.sha256) {
+    // Timing-safe compare em vez de `!==` direto. Cenário de timing
+    // side-channel é acadêmico aqui (FS access local já implica game
+    // over), mas é defesa-em-profundidade padrão pra hash comparison.
+    if (!hexEquals(actual, entry.sha256)) {
       failures.push({
         code: 'hash_mismatch',
         runtime: name,
@@ -210,4 +213,19 @@ function isRuntimeName(name: string): name is RuntimeName {
 function describeError(cause: unknown): string {
   if (cause instanceof Error) return cause.message;
   return String(cause);
+}
+
+/**
+ * Compara duas strings hex em tempo constante. Tamanhos diferentes
+ * retornam false sem invocar `timingSafeEqual` (que rejeita buffers de
+ * tamanhos distintos). SHA-256 sempre é 64 chars hex, mas o length
+ * check explícito blinda contra hashes corrompidos.
+ */
+function hexEquals(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  try {
+    return timingSafeEqual(Buffer.from(a, 'hex'), Buffer.from(b, 'hex'));
+  } catch {
+    return false;
+  }
 }

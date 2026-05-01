@@ -76,6 +76,17 @@ export const runtime = {
   },
 } as const;
 
+/**
+ * CR-18 F-P3: helper test-only para resetar o singleton entre testes.
+ * Sem isso, suítes que querem reinicializar via `initRuntimePaths` (ex.:
+ * `__tests__/platform.test.ts`) ficavam com estado do teste anterior e
+ * só validavam o try/catch do "already initialized". NÃO usar em código
+ * de aplicação — singleton-by-design para o runtime do produto.
+ */
+export function _resetForTestingInternal(): void {
+  _location = null;
+}
+
 /** Valida que todos os runtime paths críticos existem. Chamar em startup. */
 export function validateRuntimeIntegrity(): { ok: boolean; missing: string[] } {
   const checks: Array<[string, string]> = [

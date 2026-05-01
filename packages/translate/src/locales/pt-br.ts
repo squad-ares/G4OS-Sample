@@ -21,10 +21,8 @@ export const ptBR = {
   'chat.composer.chip.source': 'Fontes',
   'chat.composer.chip.mode': 'Balanceado',
   'chat.composer.chip.partners': 'Parceiros',
-  'chat.composer.chip.sourceTodo': 'Seleção de Sources chega junto com o runtime de agente.',
-  'chat.composer.chip.workingDirTodo':
-    'Seleção de diretório de trabalho chega com sessões vinculadas a projeto.',
-  'chat.composer.chip.modeTodo': 'Seletor de modelo chega com o runtime multi-provider.',
+  // CR-18 F-T1: removidos os 3 placeholder TODOs (pickers já existem via
+  // OUTLIER-17/18/19). `partnersTodo` permanece.
   'chat.composer.chip.partnersTodo': 'Sugestões de parceiros usarão a skill dedicada.',
 
   'chat.transcript.ariaLabel': 'Transcrição da conversa',
@@ -83,6 +81,22 @@ export const ptBR = {
   'chat.actions.truncateTitle': 'Excluir mensagens a partir daqui?',
   'chat.actions.truncateDescription':
     'Isso removerá permanentemente todas as mensagens após este ponto. Essa ação não pode ser desfeita.',
+  'chat.actions.copy': 'Copiar mensagem',
+  'chat.actions.copied': 'Copiado',
+
+  'chat.toolRenderer.result': 'Resultado',
+  'chat.toolRenderer.error': 'Erro',
+  'chat.toolRenderer.bash.outputSingular': 'Saída — 1 linha',
+  'chat.toolRenderer.bash.outputPlural': 'Saída — {{count}} linhas',
+  'chat.toolRenderer.readFile.summarySingular': 'Arquivo — 1 linha',
+  'chat.toolRenderer.readFile.summaryPlural': 'Arquivo — {{count}} linhas',
+  'chat.toolRenderer.search.resultsSingular': '1 resultado',
+  'chat.toolRenderer.search.resultsPlural': '{{count}} resultados',
+
+  'chat.slashCommand.setup.description': 'Iniciar assistente de configuração do workspace',
+  'chat.slashCommand.clear.description': 'Limpar a conversa atual',
+  'chat.slashCommand.compact.description': 'Resumir e compactar o contexto',
+  'chat.slashCommand.help.description': 'Listar comandos disponíveis',
 
   'chat.modelSelector.ariaLabel': 'Selecionar modelo',
   'chat.modelSelector.placeholder': 'Selecionar modelo',
@@ -202,6 +216,19 @@ export const ptBR = {
   'onboarding.agent.skip': 'Pular por agora',
   'onboarding.agent.claude.provider': 'Anthropic',
   'onboarding.agent.codex.provider': 'OpenAI',
+  'onboarding.credentials.title': 'Adicione sua API key',
+  'onboarding.credentials.description':
+    'A chave fica salva localmente no keychain do sistema. Você pode trocar ou remover em Configurações depois.',
+  'onboarding.credentials.errorTooShort': 'A API key parece curta demais',
+  'onboarding.credentials.claude.placeholder': 'sk-ant-...',
+  'onboarding.credentials.claude.helper':
+    'Console da Anthropic → API keys. Necessário pra usar Claude neste workspace.',
+  'onboarding.credentials.codex.placeholder': 'sk-...',
+  'onboarding.credentials.codex.helper':
+    'Dashboard da OpenAI → API keys. Necessário pra usar Codex neste workspace.',
+  'onboarding.credentials.save': 'Salvar e continuar',
+  'onboarding.credentials.saving': 'Salvando...',
+  'onboarding.credentials.back': 'Voltar',
   'onboarding.ready.title': 'Tudo pronto',
   'onboarding.ready.description': 'Seu workspace foi preparado. Vamos começar?',
   'onboarding.ready.start': 'Iniciar primeira sessão',
@@ -476,6 +503,7 @@ export const ptBR = {
   'workspace.wizard.back': 'Voltar',
   'workspace.wizard.next': 'Próximo',
   'workspace.wizard.cancel': 'Cancelar',
+  'workspace.wizard.close': 'Fechar assistente',
   'workspace.wizard.step.name.title': 'Dê um nome ao workspace',
   'workspace.wizard.step.name.description':
     'Escolha algo memorável. Você pode renomear a qualquer momento.',
@@ -746,6 +774,11 @@ export const ptBR = {
   'project.dialog.create': 'Criar projeto',
   'project.dialog.creating': 'Criando…',
   'project.dialog.errorGeneric': 'Erro ao criar projeto. Tente novamente.',
+  'project.new.title': 'Novo projeto',
+  'project.new.description':
+    'Escolha um nome, cor e descrição opcional. Você pode adicionar arquivos, tarefas e detalhes depois.',
+  'project.new.submit': 'Criar projeto',
+  'project.new.close': 'Fechar',
   'project.files.empty': 'Nenhum arquivo em files/.',
   'project.files.local': 'local',
   'project.files.localTitle': 'Arquivo muito grande para sync',
@@ -840,12 +873,57 @@ export const ptBR = {
   'settings.category.tags.description': 'Gerenciar árvore de labels para sessões e projetos.',
   'settings.category.cloudSync.label': 'Sincronização na nuvem',
   'settings.category.cloudSync.description': 'Backup e restore deste workspace.',
+  'settings.category.backup.label': 'Backup',
+  'settings.category.backup.description': 'Snapshots locais, retenção 7/4/3, execução manual.',
+  'settings.backup.runNow.title': 'Rodar backup agora',
+  'settings.backup.runNow.description':
+    'Gera um ZIP fresco para qualquer workspace. O scheduler roda automaticamente a cada 24h.',
+  'settings.backup.runNow.action': 'Backup agora',
+  'settings.backup.runNow.running': 'Rodando…',
+  'settings.backup.runNow.success': 'Backup criado.',
+  'settings.backup.runNow.failed': 'Falha no backup: {{message}}',
+  'settings.backup.runNow.lastBackup': 'Último backup: {{when}}',
+  'settings.backup.runNow.noBackupsYet': 'Nenhum backup ainda neste workspace.',
+  'settings.backup.runNow.noWorkspaces': 'Nenhum workspace pra fazer backup.',
+  'settings.backup.list.title': 'Backups existentes',
+  'settings.backup.list.description':
+    'Mais recente primeiro. Salvos no diretório de dados local; nunca enviados pra cloud automaticamente.',
+  'settings.backup.list.empty': 'Nenhum backup ainda.',
+  'settings.backup.list.loading': 'Carregando backups…',
+  'settings.backup.list.reveal': 'Mostrar no Finder',
+  'settings.backup.list.revealFailed': 'Não foi possível abrir a pasta: {{message}}',
+  'settings.backup.list.delete': 'Apagar backup',
+  'settings.backup.delete.confirmTitle': 'Apagar este backup?',
+  'settings.backup.delete.confirmDescription':
+    'O arquivo ZIP é removido do disco. Outros backups continuam. Não dá pra desfazer.',
+  'settings.backup.delete.confirmAction': 'Apagar',
+  'settings.backup.delete.confirmCancel': 'Cancelar',
+  'settings.backup.delete.success': 'Backup apagado.',
+  'settings.backup.delete.failed': 'Não foi possível apagar: {{message}}',
+  'settings.backup.unknownWorkspace': 'Workspace desconhecido',
   'settings.category.repair.label': 'Modo de reparo',
   'settings.category.repair.description': 'Diagnósticos e ferramentas de reset de cache.',
   'settings.category.shortcuts.label': 'Atalhos',
   'settings.category.shortcuts.description': 'Referência de atalhos de teclado.',
   'settings.category.preferences.label': 'Preferências',
   'settings.category.preferences.description': 'Reset de tutorial e toggles diversos.',
+  'settings.category.support.label': 'Suporte',
+  'settings.category.support.description': 'Ajuda, feedback e fingerprint do build.',
+  'settings.support.fingerprint.title': 'Fingerprint do build',
+  'settings.support.fingerprint.description':
+    'Copie esse bloco ao reportar um problema — ajuda a casar os logs com a sua versão.',
+  'settings.support.fingerprint.copy': 'Copiar fingerprint',
+  'settings.support.fingerprint.copied': 'Fingerprint copiado pra área de transferência.',
+  'settings.support.fingerprint.loading': 'Carregando informações do build…',
+  'settings.support.docs.title': 'Documentação',
+  'settings.support.docs.description': 'Guias do produto, receitas e referência.',
+  'settings.support.docs.linkLabel': 'Abrir docs do G4 OS',
+  'settings.support.feedback.title': 'Feedback e problemas',
+  'settings.support.feedback.description':
+    'Reporte um bug ou sugira algo. Respondemos no GitHub e por email.',
+  'settings.support.feedback.issuesLabel': 'Abrir issue no GitHub',
+  'settings.support.feedback.emailLabel': 'Enviar email para support@g4oscloud.com',
+  'settings.support.openExternalFailed': 'Não foi possível abrir o link: {{message}}',
 
   'settings.app.runtime.title': 'Runtime',
   'settings.app.runtime.description': 'Versões instaladas e plataforma atual.',
@@ -864,9 +942,6 @@ export const ptBR = {
   'settings.app.updates.available': 'Atualização disponível: {{version}}',
   'settings.app.updates.upToDate': 'Você está na versão mais recente.',
   'settings.app.updates.failed': 'Não foi possível verificar: {{message}}',
-  'settings.app.diagnostics.title': 'Diagnósticos',
-  'settings.app.diagnostics.description': 'Exportar logs e ferramentas de cache.',
-  'settings.app.diagnostics.planned': 'Exportação de logs entra na categoria de modo de reparo.',
 
   'settings.appearance.theme.title': 'Tema',
   'settings.appearance.theme.description': 'Escolha como o G4 OS aparece.',
@@ -874,8 +949,6 @@ export const ptBR = {
   'settings.appearance.theme.dark': 'Escuro',
   'settings.appearance.theme.system': 'Sistema',
   'settings.appearance.theme.active': 'Exibindo atualmente: {{resolved}}',
-  'settings.appearance.density.title': 'Densidade',
-  'settings.appearance.density.description': 'Ajuste o espaçamento entre elementos da UI.',
 
   'settings.workspace.empty.title': 'Nenhum workspace',
   'settings.workspace.empty.description':
@@ -947,11 +1020,22 @@ export const ptBR = {
   'settings.repair.softReset.clearCache': 'Limpar cache de queries',
   'settings.repair.softReset.clearCacheDone': 'Cache de queries limpo',
   'settings.repair.softReset.reload': 'Recarregar janela',
-  'settings.repair.destructive.title': 'Reset destrutivo',
-  'settings.repair.destructive.description':
-    'Resetar banco do workspace, limpar anexos, reinstalar runtime bundled.',
-  'settings.repair.destructive.planned':
-    'Reset destrutivo chega junto com restore via cloud sync para garantir que nenhum dado se perca.',
+  'settings.repair.hardReset.title': 'Hard reset (dev / login limpo)',
+  'settings.repair.hardReset.description':
+    'Apaga tudo que está salvo localmente e reinicia o app para um login limpo. Sem backup — use apenas quando quiser começar do zero.',
+  'settings.repair.hardReset.bullet.workspaces':
+    'Remove todos os workspaces e seus anexos / sessões / projetos.',
+  'settings.repair.hardReset.bullet.credentials':
+    'Apaga todas as credenciais do keychain do sistema (API keys, tokens OAuth).',
+  'settings.repair.hardReset.bullet.relaunch': 'Reinicia o app — você cai direto na tela de login.',
+  'settings.repair.hardReset.action': 'Resetar tudo e reiniciar',
+  'settings.repair.hardReset.running': 'Resetando…',
+  'settings.repair.hardReset.confirmTitle': 'Resetar tudo?',
+  'settings.repair.hardReset.confirmDescription':
+    'Isso apaga todos os dados locais e desloga sua conta. Não dá pra desfazer.',
+  'settings.repair.hardReset.confirmAction': 'Sim, resetar',
+  'settings.repair.hardReset.confirmCancel': 'Cancelar',
+  'settings.repair.hardReset.failed': 'Falha no hard reset: {{message}}',
   'settings.repair.debugHud.title': 'Modo de inspeção (Debug HUD)',
   'settings.repair.debugHud.description':
     'Janela flutuante com métricas de runtime em tempo real (memória, listeners, IPC, sessões). Útil para diagnosticar travamentos e enviar evidências para o suporte.',
@@ -1068,9 +1152,11 @@ export const ptBR = {
     'Binário a ser executado (ex: `npx`, `uvx`, `/usr/local/bin/my-mcp`).',
   'sources.dialog.stdio.args.label': 'Argumentos',
   'sources.dialog.stdio.args.description': 'Um argumento por linha.',
+  'sources.dialog.stdio.args.placeholder': 'mcp-server-filesystem\n/caminho/para/dir',
   'sources.dialog.stdio.env.label': 'Variáveis de ambiente',
   'sources.dialog.stdio.env.description':
     'KEY=valor, uma por linha. Segredos devem ficar no vault.',
+  'sources.dialog.stdio.env.placeholder': 'CHAVE=valor\nOUTRA=segredo',
   'sources.dialog.slug.label': 'Slug',
   'sources.dialog.slug.description': 'Alfanumérico minúsculo + hífens. Precisa ser único.',
   'sources.dialog.displayName.label': 'Nome exibido',
@@ -1147,6 +1233,10 @@ export const ptBR = {
 
   'chat.mention.title': 'Mencionar uma fonte',
   'chat.mention.empty': 'Nenhuma fonte corresponde a "{{query}}"',
+  'chat.slashCommand.title': 'Comandos slash',
+  'chat.slashCommand.empty': 'Nenhum comando corresponde a "/{{query}}"',
+  'chat.streaming.thinking': 'Pensando…',
+  'chat.streaming.tool': 'Executando ferramenta…',
 
   'migration.wizard.title': 'Migrar dados do G4 OS v1',
   'migration.wizard.subtitle':

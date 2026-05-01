@@ -16,7 +16,11 @@ describe('locale parity (pt-BR vs en-US)', () => {
   });
 
   it('placeholder tokens match between locales for keys with {{token}}', () => {
-    const re = /\{\{(\w+)\}\}/gu;
+    // CR-18 F-T2: regex alinhada com `PLACEHOLDER_RE` em translate.ts —
+    // a versão antiga `/\{\{(\w+)\}\}/gu` parava no primeiro `.` e perdia
+    // dot-paths nested (`{{user.name}}`). O dict atual não usa nested,
+    // mas o teste agora cobre futuro drift.
+    const re = /\{\{([a-zA-Z_$][a-zA-Z0-9_$.]*)\}\}/gu;
     const drift: Array<{ key: string; pt: string[]; en: string[] }> = [];
     for (const [key, ptValue] of Object.entries(dictionaries['pt-BR'])) {
       const enValue = dictionaries['en-US'][key as TranslationKey];

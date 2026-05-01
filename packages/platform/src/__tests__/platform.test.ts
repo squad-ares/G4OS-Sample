@@ -127,12 +127,12 @@ describe('validateRuntimeIntegrity()', () => {
 
   afterEach(async () => {
     await rm(tmpDir, { recursive: true, force: true });
-    // reset singleton para próximo teste
-    // @ts-expect-error acesso a módulo interno para reset de estado de teste
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    // CR-18 F-P3: reset singleton via helper test-only `_resetForTestingInternal`.
+    // Antes era `_resetForTesting?.()` (com `?.`), que silenciava a ausência
+    // do helper — o teste passava sem realmente resetar, e o segundo teste
+    // reusava `_location` seedado pelo primeiro.
     const mod = await import('../runtime-paths.ts');
-    // @ts-expect-error
-    mod._resetForTesting?.();
+    mod._resetForTestingInternal();
   });
 
   it('retorna missing quando arquivos não existem', () => {

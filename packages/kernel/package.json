@@ -1,9 +1,10 @@
 {
   "name": "@g4os/kernel",
   "version": "0.0.0",
-  "description": "Types, errors",
+  "description": "Types, errors. CR-18 F-K3: padrão workspace-source-direct — exports apontam para `./src/*.ts`. Build via tsup gera `dist/` mas é desperdício de CI; consumers internos resolvem via tsx/vite-node em dev e via bundler em prod (apps/desktop empacota tudo). Não publicado externamente (`private:true`); attw + tipos vivos com `noUncheckedIndexedAccess` são prioridade vs publish artifacts.",
   "private": true,
   "type": "module",
+  "sideEffects": false,
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "exports": {

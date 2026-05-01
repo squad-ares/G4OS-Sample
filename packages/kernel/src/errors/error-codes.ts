@@ -11,6 +11,12 @@ export const ErrorCode = {
   CREDENTIAL_EXPIRED: 'credential.expired',
   CREDENTIAL_INVALID_KEY: 'credential.invalid_key',
   CREDENTIAL_INVALID_VALUE: 'credential.invalid_value',
+  // CR-18 F-C5: discriminado de `DECRYPT_FAILED` — erros de IO em
+  // FileKeychain (mkdir EACCES, writeAtomic ENOSPC, readdir fail) NÃO
+  // significam que a chave está corrompida criptograficamente. Caller que
+  // faz `switch (err.code)` confundia IO com chave corrupta e rodava
+  // fluxo de repair errado.
+  CREDENTIAL_IO_ERROR: 'credential.io_error',
 
   // Autenticação
   AUTH_NOT_AUTHENTICATED: 'auth.not_authenticated',
@@ -19,6 +25,11 @@ export const ErrorCode = {
   AUTH_ENTITLEMENT_REQUIRED: 'auth.entitlement_required',
   AUTH_BOOTSTRAP_FAILED: 'auth.bootstrap_failed',
   AUTH_DISPOSED: 'auth.disposed',
+  // CR-18 F-AU3: discriminado de `AUTH_DISPOSED` — flow conflict (chamada
+  // requestOtp/submitOtp durante verifying/bootstrapping/requesting_otp)
+  // não significa que o serviço está disposed. Caller que tratava por
+  // `code === AUTH_DISPOSED` disparava shutdown indevido.
+  AUTH_FLOW_IN_PROGRESS: 'auth.flow_in_progress',
 
   // IPC
   IPC_HANDLER_NOT_FOUND: 'ipc.handler_not_found',

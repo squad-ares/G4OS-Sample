@@ -58,7 +58,8 @@ export function createProductionTransport(options: ProductionTransportOptions): 
 }
 
 export function createProductionLogger(options: ProductionTransportOptions): Logger {
-  const transport = pinoTransport(createProductionTransport(options) as never);
+  // biome-ignore lint/suspicious/noExplicitAny: pino TransportMultiOptions usa generic Record que não bate com nosso shape estrito; cast `as never` mascarava o gap. `any` aqui é tipado pelo helper acima e o Pino runtime aceita o objeto literal.
+  const transport = pinoTransport(createProductionTransport(options) as any);
   const inner = pino(
     {
       level: options.level ?? 'info',

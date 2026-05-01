@@ -93,3 +93,16 @@ export function getPlatformInfo(): PlatformInfo {
 export const isMacOS = (): boolean => getPlatformInfo().family === 'macos';
 export const isWindows = (): boolean => getPlatformInfo().family === 'windows';
 export const isLinux = (): boolean => getPlatformInfo().family === 'linux';
+
+/**
+ * Atalho idiomático para `getPlatformInfo().homeDir`. Prefira esse helper
+ * em vez de `import { homedir } from 'node:os'` — o gate `check:platform-leaks`
+ * rejeita named imports diretos de `node:os` fora deste pacote (ADR-0013).
+ */
+export const getHomeDir = (): string => getPlatformInfo().homeDir;
+
+/**
+ * Atalho idiomático para `getPlatformInfo().tempDir`. Mesma regra de
+ * `getHomeDir`: nunca importe `tmpdir` direto fora deste pacote.
+ */
+export const getTempDir = (): string => getPlatformInfo().tempDir;

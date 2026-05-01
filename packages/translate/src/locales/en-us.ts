@@ -15,10 +15,9 @@ export const enUS = {
   'chat.composer.chip.source': 'Sources',
   'chat.composer.chip.mode': 'Balanced',
   'chat.composer.chip.partners': 'Partners',
-  'chat.composer.chip.sourceTodo': 'Source picker lands with agent runtime wiring.',
-  'chat.composer.chip.workingDirTodo':
-    'Working directory picker lands with project-linked sessions.',
-  'chat.composer.chip.modeTodo': 'Model selector lands with multi-provider runtime.',
+  // CR-18 F-T1: removidos os 3 placeholder TODOs (sourceTodo, workingDirTodo,
+  // modeTodo) — pickers reais aterrissaram via OUTLIER-17/18/19.
+  // `partnersTodo` permanece (Partners ainda não implementado).
   'chat.composer.chip.partnersTodo': 'Partner suggestions will use the dedicated skill lane.',
 
   'chat.transcript.ariaLabel': 'Conversation transcript',
@@ -77,6 +76,22 @@ export const enUS = {
   'chat.actions.truncateTitle': 'Delete messages from here?',
   'chat.actions.truncateDescription':
     'This will permanently remove all messages after this point. This action cannot be undone.',
+  'chat.actions.copy': 'Copy message',
+  'chat.actions.copied': 'Copied',
+
+  'chat.toolRenderer.result': 'Result',
+  'chat.toolRenderer.error': 'Error',
+  'chat.toolRenderer.bash.outputSingular': 'Output — 1 line',
+  'chat.toolRenderer.bash.outputPlural': 'Output — {{count}} lines',
+  'chat.toolRenderer.readFile.summarySingular': 'File — 1 line',
+  'chat.toolRenderer.readFile.summaryPlural': 'File — {{count}} lines',
+  'chat.toolRenderer.search.resultsSingular': '1 result',
+  'chat.toolRenderer.search.resultsPlural': '{{count}} results',
+
+  'chat.slashCommand.setup.description': 'Run workspace setup wizard',
+  'chat.slashCommand.clear.description': 'Clear current conversation',
+  'chat.slashCommand.compact.description': 'Summarize and compact context',
+  'chat.slashCommand.help.description': 'List available commands',
 
   'chat.modelSelector.ariaLabel': 'Select model',
   'chat.modelSelector.placeholder': 'Select model',
@@ -193,6 +208,19 @@ export const enUS = {
   'onboarding.agent.skip': 'Skip for now',
   'onboarding.agent.claude.provider': 'Anthropic',
   'onboarding.agent.codex.provider': 'OpenAI',
+  'onboarding.credentials.title': 'Add your API key',
+  'onboarding.credentials.description':
+    'We store the key locally in your OS keychain. You can change or remove it in Settings later.',
+  'onboarding.credentials.errorTooShort': 'API key looks too short',
+  'onboarding.credentials.claude.placeholder': 'sk-ant-...',
+  'onboarding.credentials.claude.helper':
+    'Anthropic console → API keys. Required for Claude on this workspace.',
+  'onboarding.credentials.codex.placeholder': 'sk-...',
+  'onboarding.credentials.codex.helper':
+    'OpenAI dashboard → API keys. Required for Codex on this workspace.',
+  'onboarding.credentials.save': 'Save and continue',
+  'onboarding.credentials.saving': 'Saving...',
+  'onboarding.credentials.back': 'Back',
   'onboarding.ready.title': 'Everything is ready',
   'onboarding.ready.description': 'Your workspace has been prepared. Shall we start?',
   'onboarding.ready.start': 'Start first session',
@@ -468,6 +496,7 @@ export const enUS = {
   'workspace.wizard.back': 'Back',
   'workspace.wizard.next': 'Next',
   'workspace.wizard.cancel': 'Cancel',
+  'workspace.wizard.close': 'Close wizard',
   'workspace.wizard.step.name.title': 'Name your workspace',
   'workspace.wizard.step.name.description': 'Pick something memorable. You can rename it anytime.',
   'workspace.wizard.step.name.label': 'Workspace name',
@@ -735,6 +764,11 @@ export const enUS = {
   'project.dialog.create': 'Create project',
   'project.dialog.creating': 'Creating…',
   'project.dialog.errorGeneric': 'Could not create project. Please try again.',
+  'project.new.title': 'New project',
+  'project.new.description':
+    'Pick a name, color and an optional description. You can add files, tasks and details later.',
+  'project.new.submit': 'Create project',
+  'project.new.close': 'Close',
   'project.files.empty': 'No files in files/.',
   'project.files.local': 'local',
   'project.files.localTitle': 'File too large for sync',
@@ -829,12 +863,57 @@ export const enUS = {
   'settings.category.tags.description': 'Manage label tree for sessions and projects.',
   'settings.category.cloudSync.label': 'Cloud Sync',
   'settings.category.cloudSync.description': 'Backup and restore for this workspace.',
+  'settings.category.backup.label': 'Backup',
+  'settings.category.backup.description': 'Local snapshots, retention 7/4/3, manual run.',
+  'settings.backup.runNow.title': 'Run a backup now',
+  'settings.backup.runNow.description':
+    'Generate a fresh ZIP for any workspace. The scheduler also runs every 24h.',
+  'settings.backup.runNow.action': 'Backup now',
+  'settings.backup.runNow.running': 'Running…',
+  'settings.backup.runNow.success': 'Backup created.',
+  'settings.backup.runNow.failed': 'Backup failed: {{message}}',
+  'settings.backup.runNow.lastBackup': 'Last backup: {{when}}',
+  'settings.backup.runNow.noBackupsYet': 'No backups yet for this workspace.',
+  'settings.backup.runNow.noWorkspaces': 'No workspaces to back up.',
+  'settings.backup.list.title': 'Existing backups',
+  'settings.backup.list.description':
+    'Most recent first. Stored under your local data directory; never uploaded automatically.',
+  'settings.backup.list.empty': 'No backups stored yet.',
+  'settings.backup.list.loading': 'Loading backups…',
+  'settings.backup.list.reveal': 'Show in folder',
+  'settings.backup.list.revealFailed': 'Could not open folder: {{message}}',
+  'settings.backup.list.delete': 'Delete backup',
+  'settings.backup.delete.confirmTitle': 'Delete this backup?',
+  'settings.backup.delete.confirmDescription':
+    'The ZIP file is removed from disk. Other backups are kept. This cannot be undone.',
+  'settings.backup.delete.confirmAction': 'Delete',
+  'settings.backup.delete.confirmCancel': 'Cancel',
+  'settings.backup.delete.success': 'Backup deleted.',
+  'settings.backup.delete.failed': 'Could not delete: {{message}}',
+  'settings.backup.unknownWorkspace': 'Unknown workspace',
   'settings.category.repair.label': 'Repair mode',
   'settings.category.repair.description': 'Diagnostics and cache reset tools.',
   'settings.category.shortcuts.label': 'Shortcuts',
   'settings.category.shortcuts.description': 'Keyboard shortcuts reference.',
   'settings.category.preferences.label': 'Preferences',
   'settings.category.preferences.description': 'Tutorial reset and misc toggles.',
+  'settings.category.support.label': 'Support',
+  'settings.category.support.description': 'Help, feedback, and build fingerprint.',
+  'settings.support.fingerprint.title': 'Build fingerprint',
+  'settings.support.fingerprint.description':
+    'Copy this block when reporting an issue so we can match logs to your build.',
+  'settings.support.fingerprint.copy': 'Copy fingerprint',
+  'settings.support.fingerprint.copied': 'Fingerprint copied to clipboard.',
+  'settings.support.fingerprint.loading': 'Loading build info…',
+  'settings.support.docs.title': 'Documentation',
+  'settings.support.docs.description': 'Product guides, recipes, and reference.',
+  'settings.support.docs.linkLabel': 'Open G4 OS docs',
+  'settings.support.feedback.title': 'Feedback and issues',
+  'settings.support.feedback.description':
+    'Report a bug or suggest something. We respond on GitHub and email.',
+  'settings.support.feedback.issuesLabel': 'Open new GitHub issue',
+  'settings.support.feedback.emailLabel': 'Email support@g4oscloud.com',
+  'settings.support.openExternalFailed': 'Could not open link: {{message}}',
 
   'settings.app.runtime.title': 'Runtime',
   'settings.app.runtime.description': 'Installed versions and current platform.',
@@ -853,9 +932,6 @@ export const enUS = {
   'settings.app.updates.available': 'Update available: {{version}}',
   'settings.app.updates.upToDate': 'You are on the latest version.',
   'settings.app.updates.failed': 'Could not check: {{message}}',
-  'settings.app.diagnostics.title': 'Diagnostics',
-  'settings.app.diagnostics.description': 'Export logs and cache tools.',
-  'settings.app.diagnostics.planned': 'Log export lands with repair mode category.',
 
   'settings.appearance.theme.title': 'Theme',
   'settings.appearance.theme.description': 'Choose how G4 OS looks.',
@@ -863,8 +939,6 @@ export const enUS = {
   'settings.appearance.theme.dark': 'Dark',
   'settings.appearance.theme.system': 'System',
   'settings.appearance.theme.active': 'Currently showing: {{resolved}}',
-  'settings.appearance.density.title': 'Density',
-  'settings.appearance.density.description': 'Adjust spacing between UI elements.',
 
   'settings.workspace.empty.title': 'No workspaces',
   'settings.workspace.empty.description': 'Create a workspace first to edit its settings.',
@@ -934,11 +1008,23 @@ export const enUS = {
   'settings.repair.softReset.clearCache': 'Clear query cache',
   'settings.repair.softReset.clearCacheDone': 'Query cache cleared',
   'settings.repair.softReset.reload': 'Reload window',
-  'settings.repair.destructive.title': 'Destructive reset',
-  'settings.repair.destructive.description':
-    'Reset workspace database, purge attachments, reinstall bundled runtime.',
-  'settings.repair.destructive.planned':
-    'Destructive reset lands together with cloud sync restore so users never lose data.',
+  'settings.repair.hardReset.title': 'Hard reset (dev / fresh login)',
+  'settings.repair.hardReset.description':
+    'Wipes everything stored locally and restarts the app for a clean login. No backup is taken — use only when you want to start over.',
+  'settings.repair.hardReset.bullet.workspaces':
+    'Removes all workspaces and their attachments / sessions / projects.',
+  'settings.repair.hardReset.bullet.credentials':
+    'Deletes every credential from the OS keychain (API keys, OAuth tokens).',
+  'settings.repair.hardReset.bullet.relaunch':
+    'Relaunches the app — you will land on the login screen.',
+  'settings.repair.hardReset.action': 'Reset everything and relaunch',
+  'settings.repair.hardReset.running': 'Resetting…',
+  'settings.repair.hardReset.confirmTitle': 'Reset everything?',
+  'settings.repair.hardReset.confirmDescription':
+    'This deletes all local data and signs you out. You cannot undo this.',
+  'settings.repair.hardReset.confirmAction': 'Yes, reset',
+  'settings.repair.hardReset.confirmCancel': 'Cancel',
+  'settings.repair.hardReset.failed': 'Hard reset failed: {{message}}',
   'settings.repair.debugHud.title': 'Inspection mode (Debug HUD)',
   'settings.repair.debugHud.description':
     'Floating window with live runtime metrics (memory, listeners, IPC, sessions). Useful for diagnosing freezes and sharing evidence with support.',
@@ -1053,9 +1139,11 @@ export const enUS = {
     'Binary to spawn (e.g. `npx`, `uvx`, `/usr/local/bin/my-mcp`).',
   'sources.dialog.stdio.args.label': 'Arguments',
   'sources.dialog.stdio.args.description': 'One argument per line.',
+  'sources.dialog.stdio.args.placeholder': 'mcp-server-filesystem\n/path/to/dir',
   'sources.dialog.stdio.env.label': 'Environment variables',
   'sources.dialog.stdio.env.description':
     'KEY=value, one per line. Secrets should go in the vault.',
+  'sources.dialog.stdio.env.placeholder': 'KEY=value\nANOTHER=secret',
   'sources.dialog.slug.label': 'Slug',
   'sources.dialog.slug.description': 'Lowercase alphanumeric + dashes. Must be unique.',
   'sources.dialog.displayName.label': 'Display name',
@@ -1130,6 +1218,10 @@ export const enUS = {
 
   'chat.mention.title': 'Mention a source',
   'chat.mention.empty': 'No source matches "{{query}}"',
+  'chat.slashCommand.title': 'Slash commands',
+  'chat.slashCommand.empty': 'No command matches "/{{query}}"',
+  'chat.streaming.thinking': 'Thinking…',
+  'chat.streaming.tool': 'Running tool…',
 
   'migration.wizard.title': 'Migrate G4 OS v1 data',
   'migration.wizard.subtitle':
