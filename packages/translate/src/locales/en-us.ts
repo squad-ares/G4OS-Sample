@@ -1130,6 +1130,42 @@ export const enUS = {
 
   'chat.mention.title': 'Mention a source',
   'chat.mention.empty': 'No source matches "{{query}}"',
+
+  'migration.wizard.title': 'Migrate G4 OS v1 data',
+  'migration.wizard.subtitle':
+    "We detected a previous install. Let's import workspaces, sessions, and credentials.",
+  'migration.wizard.detecting': 'Looking for V1 install…',
+  'migration.wizard.noV1Found': 'No V1 install found. You can continue.',
+  'migration.wizard.continueWithoutMigrate': 'Continue without migrating',
+  'migration.wizard.detectedAt': 'Detected at',
+  'migration.wizard.version': 'Version',
+  'migration.wizard.versionUnknown': 'unknown',
+  'migration.wizard.flavor.internal': 'internal build',
+  'migration.wizard.flavor.public': 'public build',
+  'migration.wizard.alreadyMigrated':
+    'This V2 install has already been migrated. Use the CLI with --force to re-migrate.',
+  'migration.wizard.warnings': 'Warnings',
+  'migration.wizard.steps.config': 'Global config',
+  'migration.wizard.steps.credentials': 'Credentials',
+  'migration.wizard.steps.workspaces': 'Workspaces',
+  'migration.wizard.steps.sessions': 'Sessions',
+  'migration.wizard.steps.sources': 'Sources (MCP/API)',
+  'migration.wizard.steps.skills': 'Skills (legacy copy)',
+  'migration.wizard.masterKeyLabel': 'V1 master key',
+  'migration.wizard.masterKeyPlaceholder': 'Enter V1 master key',
+  'migration.wizard.masterKeyHelp': 'Required to decrypt V1 credentials.enc. Not stored in V2.',
+  'migration.wizard.execute': 'Migrate now',
+  'migration.wizard.skip': 'Skip',
+  'migration.wizard.executing': 'Migrating data… this may take a few minutes.',
+  'migration.wizard.successTitle': 'Migration completed successfully',
+  'migration.wizard.itemsMigrated': 'items migrated',
+  'migration.wizard.itemsSkipped': 'skipped',
+  'migration.wizard.backupAt': 'V1 backup preserved at',
+  'migration.wizard.warningsLabel': 'non-fatal warning(s)',
+  'migration.wizard.moreWarnings': '… +{{count}} additional warnings not shown',
+  'migration.wizard.close': 'Close',
+  'migration.wizard.errorTitle': 'Migration error',
+  'migration.wizard.retry': 'Try again',
 } as const;
 
 export type TranslationKey = keyof typeof enUS;
