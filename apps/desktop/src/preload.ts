@@ -25,6 +25,7 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
 const CHANNEL = 'electron-trpc';
+const NEW_TURN_CHANNEL = 'global:new-turn';
 
 type Listener = (args: unknown) => void;
 
@@ -36,5 +37,15 @@ contextBridge.exposeInMainWorld('electronTRPC', {
     ipcRenderer.on(CHANNEL, (_event, args: unknown) => {
       callback(args);
     });
+  },
+});
+
+// Bridge mínima para shortcuts globais. Renderer subscreve
+// pra reagir a atalhos OS-level (Cmd+Shift+N → focar composer).
+contextBridge.exposeInMainWorld('g4osShortcuts', {
+  onNewTurn: (callback: () => void): (() => void) => {
+    const handler = () => callback();
+    ipcRenderer.on(NEW_TURN_CHANNEL, handler);
+    return () => ipcRenderer.removeListener(NEW_TURN_CHANNEL, handler);
   },
 });

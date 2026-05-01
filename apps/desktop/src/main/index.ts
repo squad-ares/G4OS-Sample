@@ -16,6 +16,7 @@ import { AppLifecycle } from './app-lifecycle.ts';
 import { createDebugHudRuntime, type DebugHudRuntime } from './debug-hud/index.ts';
 import { DeepLinkHandler } from './deep-link-handler.ts';
 import { loadElectron } from './electron-runtime.ts';
+import { registerGlobalShortcuts } from './global-shortcuts.ts';
 import { initIpcServer } from './ipc-bootstrap.ts';
 import { readRuntimeEnv } from './runtime-env.ts';
 import { createAuthRuntime } from './services/auth-runtime.ts';
@@ -400,6 +401,21 @@ export async function bootstrapMain(options: BootstrapOptions = {}): Promise<voi
     },
   });
   await windowManager.load(mainWindow, { url: rendererUrl, openDevTools: isDev });
+
+  // Atalhos globais. Carregamos `globalShortcut` lazy via
+  // dynamic import — runtime do `loadElectron()` é minimalista e não
+  // expõe globalShortcut no shape ElectronRuntime (mantém runtime mock testável).
+  const electronModule = await import('electron').catch(() => null);
+  if (electronModule?.globalShortcut) {
+    const shortcuts = registerGlobalShortcuts({
+      globalShortcut: electronModule.globalShortcut,
+      getMainWindow: () => mainWindow,
+    });
+    lifecycle.onQuit(() => {
+      shortcuts.dispose();
+      return Promise.resolve();
+    });
+  }
 
   log.info({ preloadPath, rendererUrl }, 'main ready');
 }
