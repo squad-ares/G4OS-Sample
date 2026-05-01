@@ -136,7 +136,11 @@ import { globSync } from 'glob';
 // (SessionsRepository + SessionEventStore + applyEvent). Composição
 // limpa: writers ficam em arquivo próprio dentro de `services/migration/`,
 // migration-service.ts cresce ~80 LOC com `execute()` que orquestra.
-const MAIN_LIMIT = 9300;
+//
+// 2026-04-30 (Epic 18 + 10b sub-tasks): teto sobe de 9300 → 9400 com
+// `global-shortcuts.ts` (~85 LOC) — registro Cmd+Shift+N + Cmd+Shift+W
+// no main process, IPC channel pra renderer focar composer.
+const MAIN_LIMIT = 9400;
 const FILE_LIMIT = 300;
 
 // Composition roots e agregadores de diagnóstico com teto próprio.
