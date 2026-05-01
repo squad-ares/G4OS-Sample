@@ -390,7 +390,13 @@ export async function bootstrapMain(options: BootstrapOptions = {}): Promise<voi
         isPackaged: electron.app.isPackaged,
         appVersion: electron.app.getVersion(),
       }),
-      migration: new MigrationServiceImpl(),
+      migration: new MigrationServiceImpl({
+        drizzle: database.drizzle,
+        sessionsRepo,
+        sourcesStore,
+        vault: credentialVault,
+        resolveWorkspaceRoot: (id: string) => appPaths.workspace(id),
+      }),
     },
   });
   await windowManager.load(mainWindow, { url: rendererUrl, openDevTools: isDev });

@@ -1,18 +1,25 @@
 /**
  * MigrationService — facade que adapta `@g4os/migration` ao contrato
- * `MigrationService` do IPC. Expõe `detect()` e `plan()` por enquanto;
- * `execute()` virá com slice 4 part 2 (writers + UI Wizard).
+ * `MigrationService` do IPC. Expõe `detect()`, `plan()` e `execute()`.
  *
- * Não há `lastDetectedInstall` cache aqui — caller (UI Wizard) é
- * responsável por chamar `detect()` e passar o resultado pra `plan()`.
- * Mantém o service stateless e testável.
+ * Stateless: caller (UI Wizard / CLI) chama `detect()` → `plan()` →
+ * `execute()` em sequência, passando os outputs anteriores como input.
+ *
+ * Writers V2 (workspaces/sources/sessions) ficam em `migration/writers.ts`
+ * — composição de SessionsRepository + SourcesStore + drizzle. Step
+ * `credentials` usa o vault injetado e v1MasterKey vindo do input.
  */
 
 import { homedir } from 'node:os';
 import { join } from 'node:path';
+import type { CredentialVault } from '@g4os/credentials';
+import type { AppDb } from '@g4os/data';
+import type { SessionsRepository } from '@g4os/data/sessions';
 import type {
   MigrationService as IMigrationService,
+  MigrationExecuteInputView,
   MigrationPlanView,
+  MigrationReportView,
   V1InstallView,
 } from '@g4os/ipc/server';
 import { AppError, ErrorCode } from '@g4os/kernel/errors';
@@ -20,15 +27,37 @@ import { createLogger } from '@g4os/kernel/logger';
 import {
   createMigrationPlan,
   detectV1Install,
+  execute,
   type MigrationPlan,
+  type ProgressEvent,
   type V1Install,
 } from '@g4os/migration';
 import { getAppPaths } from '@g4os/platform';
+import type { SourcesStore } from '@g4os/sources/store';
 import { err, ok, type Result } from 'neverthrow';
+import {
+  buildSessionWriter,
+  buildSourceWriter,
+  buildWorkspaceWriter,
+} from './migration/writers.ts';
 
 const log = createLogger('migration-service');
 
+export interface MigrationServiceDeps {
+  readonly drizzle: AppDb;
+  readonly sessionsRepo: SessionsRepository;
+  readonly sourcesStore: SourcesStore;
+  readonly vault: CredentialVault;
+  readonly resolveWorkspaceRoot: (id: string) => string;
+}
+
 export class MigrationServiceImpl implements IMigrationService {
+  readonly #deps: MigrationServiceDeps;
+
+  constructor(deps: MigrationServiceDeps) {
+    this.#deps = deps;
+  }
+
   async detect(): Promise<Result<V1InstallView | null, AppError>> {
     try {
       const v1 = await detectV1Install(homedir());
@@ -36,13 +65,7 @@ export class MigrationServiceImpl implements IMigrationService {
       return ok(v1);
     } catch (cause) {
       log.warn({ err: cause }, 'V1 detection failed');
-      return err(
-        new AppError({
-          code: ErrorCode.UNKNOWN_ERROR,
-          message: 'migration.detect: falha inesperada',
-          cause: cause instanceof Error ? cause : undefined,
-        }),
-      );
+      return err(wrap('migration.detect', cause));
     }
   }
 
@@ -51,33 +74,98 @@ export class MigrationServiceImpl implements IMigrationService {
     readonly target?: string;
   }): Promise<Result<MigrationPlanView, AppError>> {
     try {
-      // Se source não veio, redetect — UI pode chamar plan() diretamente
-      // depois de detect(), mas testamos defensivamente.
-      const source: V1Install | null = input.source
-        ? { path: input.source.path, version: input.source.version, flavor: input.source.flavor }
-        : await detectV1Install(homedir());
-      if (!source) {
-        return err(
-          new AppError({
-            code: ErrorCode.UNKNOWN_ERROR,
-            message: 'migration.plan: V1 install não encontrado',
-          }),
-        );
-      }
+      const source = await this.resolveSource(input.source);
+      if (!source) return err(notFound('migration.plan'));
       const target = input.target ?? join(getAppPaths().data);
       const plan: MigrationPlan = await createMigrationPlan({ source, target });
-      // MigrationPlan e MigrationPlanView são structuralmente compatíveis
-      // (plan já tem source/target/steps/estimatedSize/warnings/alreadyMigrated).
       return ok(plan);
     } catch (cause) {
       log.warn({ err: cause }, 'plan failed');
-      return err(
-        new AppError({
-          code: ErrorCode.UNKNOWN_ERROR,
-          message: 'migration.plan: falha inesperada',
-          cause: cause instanceof Error ? cause : undefined,
-        }),
-      );
+      return err(wrap('migration.plan', cause));
     }
   }
+
+  async execute(input: MigrationExecuteInputView): Promise<Result<MigrationReportView, AppError>> {
+    try {
+      const source = await this.resolveSource(input.source);
+      if (!source) return err(notFound('migration.execute'));
+      const target = input.target ?? join(getAppPaths().data);
+
+      const plan = await createMigrationPlan({ source, target });
+      log.info(
+        { source: plan.source.path, target: plan.target, steps: plan.steps.length },
+        'starting migration execute',
+      );
+
+      const writersInput = {
+        drizzle: this.#deps.drizzle,
+        sessionsRepo: this.#deps.sessionsRepo,
+        sourcesStore: this.#deps.sourcesStore,
+        resolveWorkspaceRoot: this.#deps.resolveWorkspaceRoot,
+      };
+
+      const result = await execute(plan, {
+        dryRun: input.dryRun ?? false,
+        force: input.force ?? false,
+        onProgress: logProgress,
+        stepOptions: {
+          vault: this.#deps.vault,
+          ...(input.v1MasterKey ? { v1MasterKey: input.v1MasterKey } : {}),
+          workspaceWriter: buildWorkspaceWriter(writersInput),
+          sourceWriter: buildSourceWriter(writersInput),
+          sessionWriter: buildSessionWriter(writersInput),
+        },
+      });
+
+      if (result.isErr()) {
+        log.error({ err: result.error }, 'migration execute failed');
+        return err(result.error);
+      }
+      log.info(
+        {
+          duration: result.value.finishedAt - result.value.startedAt,
+          stepCount: result.value.stepResults.length,
+        },
+        'migration execute complete',
+      );
+      return ok(result.value);
+    } catch (cause) {
+      log.error({ err: cause }, 'execute threw');
+      return err(wrap('migration.execute', cause));
+    }
+  }
+
+  private resolveSource(view?: V1InstallView): Promise<V1Install | null> {
+    if (view) {
+      return Promise.resolve({ path: view.path, version: view.version, flavor: view.flavor });
+    }
+    return detectV1Install(homedir());
+  }
+}
+
+function logProgress(ev: ProgressEvent): void {
+  log.debug(
+    {
+      stepKind: ev.stepKind,
+      stepIndex: ev.stepIndex,
+      stepCount: ev.stepCount,
+      progress: ev.stepProgress,
+    },
+    ev.message,
+  );
+}
+
+function wrap(scope: string, cause: unknown): AppError {
+  return new AppError({
+    code: ErrorCode.UNKNOWN_ERROR,
+    message: `${scope}: falha inesperada`,
+    cause: cause instanceof Error ? cause : undefined,
+  });
+}
+
+function notFound(scope: string): AppError {
+  return new AppError({
+    code: ErrorCode.UNKNOWN_ERROR,
+    message: `${scope}: V1 install não encontrado`,
+  });
 }
