@@ -435,6 +435,13 @@ export interface IpcContext {
   readonly event?: IpcInvokeEventLike;
   /** Sempre presente. Trace ID propagado via OTel para o request inteiro. */
   readonly traceId: string;
+  /**
+   * W3C traceparent injetado pelo renderer via `tracing-link`. Null em
+   * callers diretos (testes, headless). Middleware de telemetria usa
+   * `propagation.extract` para fazer o span do main como filho do span
+   * do renderer.
+   */
+  readonly traceparent?: string;
   /** Null em rotas pré-auth (login). `authed` middleware estreita pra obrigatório. */
   readonly session?: IpcSession;
 

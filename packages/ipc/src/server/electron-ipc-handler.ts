@@ -54,7 +54,35 @@ export interface IpcReplyEventLike {
   reply(channel: string, data: unknown): void;
 }
 
-export type CreateIpcContextFn = (event: IpcInvokeEventLike) => Promise<IpcContext>;
+export interface CreateIpcContextOpts {
+  readonly traceparent?: string;
+}
+
+export type CreateIpcContextFn = (
+  event: IpcInvokeEventLike,
+  opts?: CreateIpcContextOpts,
+) => Promise<IpcContext>;
+
+const G4OS_TRACE_INPUT_KEY = '__g4os_traceparent';
+const G4OS_INPUT_WRAPPED_KEY = '__input';
+
+/**
+ * Espelha o wrapper sentinel definido em
+ * `apps/desktop/src/renderer/ipc/tracing-link.ts`. Retorna o input real
+ * + traceparent extraído, ou o input original se não houver wrapper.
+ */
+function unwrapTraceEnvelope(input: unknown): {
+  readonly input: unknown;
+  readonly traceparent: string | undefined;
+} {
+  if (typeof input !== 'object' || input === null) return { input, traceparent: undefined };
+  const obj = input as Record<string, unknown>;
+  if (typeof obj[G4OS_TRACE_INPUT_KEY] !== 'string') return { input, traceparent: undefined };
+  return {
+    input: obj[G4OS_INPUT_WRAPPED_KEY],
+    traceparent: obj[G4OS_TRACE_INPUT_KEY] as string,
+  };
+}
 
 type RespondPayload = { id: string | number; result?: unknown; error?: unknown };
 type RespondFn = (payload: RespondPayload) => void;
@@ -115,9 +143,29 @@ export async function handleIpcRequest(
     );
   };
 
+  // Desempacota o wrapper antes de criar contexto pra que o traceparent
+  // possa ser injetado no `IpcContext` e usado pelo middleware de
+  // telemetria. superjson preserva a forma do objeto, então o wrapper
+  // aparece intacto após deserialize.
+  let inputRaw: unknown;
+  let traceparent: string | undefined;
+  if (serializedInput === undefined) {
+    inputRaw = undefined;
+  } else {
+    const deserialized = (
+      config.transformer.input as { deserialize(v: unknown): unknown }
+    ).deserialize(serializedInput);
+    const unwrapped = unwrapTraceEnvelope(deserialized);
+    inputRaw = unwrapped.input;
+    traceparent = unwrapped.traceparent;
+  }
+
   let ctx: IpcContext | Record<string, never> = {};
   try {
-    ctx = await createContext(event as unknown as IpcInvokeEventLike);
+    ctx = await createContext(
+      event as unknown as IpcInvokeEventLike,
+      traceparent ? { traceparent } : undefined,
+    );
   } catch (ctxErr: unknown) {
     const error = getTRPCErrorFromUnknown(ctxErr) as TRPCErrorType;
     respond({
@@ -136,12 +184,7 @@ export async function handleIpcRequest(
   }
 
   try {
-    const input: unknown =
-      serializedInput === undefined
-        ? undefined
-        : (config.transformer.input as { deserialize(v: unknown): unknown }).deserialize(
-            serializedInput,
-          );
+    const input: unknown = inputRaw;
 
     const caller = appRouter.createCaller(ctx as IpcContext);
 

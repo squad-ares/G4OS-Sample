@@ -27,6 +27,7 @@ import {
 export interface CreateContextInput {
   readonly event?: IpcInvokeEventLike;
   readonly services?: IpcServiceOverrides;
+  readonly traceparent?: string;
 }
 
 export interface IpcServiceOverrides {
@@ -82,6 +83,7 @@ export async function createContext(input: CreateContextInput = {}): Promise<Ipc
   return {
     ...(input.event ? { event: input.event } : {}),
     ...(sessionResult.isOk() ? { session: sessionResult.value } : {}),
+    ...(input.traceparent ? { traceparent: input.traceparent } : {}),
     traceId: `trace_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`,
     ...services,
   };

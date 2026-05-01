@@ -44,6 +44,7 @@ export type {
 } from './context.ts';
 export {
   type CreateIpcContextFn,
+  type CreateIpcContextOpts,
   cleanupSubscriptionsForSender,
   ELECTRON_TRPC_CHANNEL,
   type ETRPCRequest,

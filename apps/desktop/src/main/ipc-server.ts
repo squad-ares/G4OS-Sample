@@ -28,10 +28,11 @@ export async function createIpcServer(options: CreateIpcServerOptions): Promise<
   if (!ipcMain) return;
 
   ipcMain.on(ELECTRON_TRPC_CHANNEL, (event: IpcReplyEventLike, request: ETRPCRequest) => {
-    void handleIpcRequest(event, request, (ev) =>
+    void handleIpcRequest(event, request, (ev, opts) =>
       createContext({
         event: ev as IpcInvokeEventLike,
         ...(options.services ? { services: options.services } : {}),
+        ...(opts?.traceparent ? { traceparent: opts.traceparent } : {}),
       }),
     ).catch((err: unknown) => {
       log.error({ err }, 'unhandled IPC request error');
