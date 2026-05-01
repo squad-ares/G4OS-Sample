@@ -203,6 +203,9 @@ importers:
       '@g4os/kernel':
         specifier: workspace:^
         version: link:../../packages/kernel
+      '@g4os/migration':
+        specifier: workspace:^
+        version: link:../../packages/migration
       '@g4os/observability':
         specifier: workspace:^
         version: link:../../packages/observability

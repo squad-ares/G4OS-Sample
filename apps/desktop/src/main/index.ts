@@ -26,6 +26,7 @@ import { createCredentialsService } from './services/credentials-service.ts';
 import { initDatabase } from './services/db-service.ts';
 import { createLabelsService } from './services/labels-service.ts';
 import { SqliteMessagesService } from './services/messages-service.ts';
+import { MigrationServiceImpl } from './services/migration-service.ts';
 import { createNewsService } from './services/news-service.ts';
 import { createObservabilityRuntime } from './services/observability-runtime.ts';
 import { createPerformWipe } from './services/perform-wipe.ts';
@@ -389,6 +390,7 @@ export async function bootstrapMain(options: BootstrapOptions = {}): Promise<voi
         isPackaged: electron.app.isPackaged,
         appVersion: electron.app.getVersion(),
       }),
+      migration: new MigrationServiceImpl(),
     },
   });
   await windowManager.load(mainWindow, { url: rendererUrl, openDevTools: isDev });

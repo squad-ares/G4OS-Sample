@@ -36,6 +36,7 @@
     "@g4os/features": "workspace:^",
     "@g4os/ipc": "workspace:^",
     "@g4os/kernel": "workspace:^",
+    "@g4os/migration": "workspace:^",
     "@g4os/observability": "workspace:^",
     "@g4os/permissions": "workspace:^",
     "@g4os/platform": "workspace:^",

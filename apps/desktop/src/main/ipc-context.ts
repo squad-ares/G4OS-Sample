@@ -8,6 +8,7 @@ import {
   type LabelsService,
   type MarketplaceService,
   type MessagesService,
+  type MigrationService,
   type NewsService,
   type PermissionsService,
   type PlatformService,
@@ -48,6 +49,7 @@ export interface IpcServiceOverrides {
   readonly labels?: LabelsService;
   readonly platform?: PlatformService;
   readonly preferences?: PreferencesService;
+  readonly migration?: MigrationService;
 }
 
 export async function createContext(input: CreateContextInput = {}): Promise<IpcContext> {
@@ -71,6 +73,7 @@ export async function createContext(input: CreateContextInput = {}): Promise<Ipc
     workspaceTransfer: input.services?.workspaceTransfer ?? nulls.workspaceTransfer,
     labels: input.services?.labels ?? nulls.labels,
     preferences: input.services?.preferences ?? nulls.preferences,
+    migration: input.services?.migration ?? nulls.migration,
     ...(input.services?.platform ? { platform: input.services.platform } : {}),
   };
 
