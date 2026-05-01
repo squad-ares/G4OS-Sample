@@ -93,9 +93,7 @@
     "packages/kernel": {
       "ignoreDependencies": ["pino-pretty", "pino-roll"]
     },
-    "packages/observability": {
-      "ignoreDependencies": ["@opentelemetry/exporter-trace-otlp-http"]
-    },
+    "packages/observability": {},
     "packages/ui": {
       "entry": ["src/**/*.tsx", "src/**/*.ts"],
       "ignoreDependencies": ["@tanstack/react-query", "@trpc/react-query"]
