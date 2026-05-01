@@ -106,13 +106,17 @@ describe('execute', () => {
     expect(calls.some((e) => e.stepProgress === 1)).toBe(true);
   });
 
-  it('rolls back V2 when a step fails (stub steps return err)', async () => {
+  it('rolls back V2 when a step fails (credentials sem vault provoca err)', async () => {
+    // Adiciona credentials.enc no V1 fixture pra forçar migrate-credentials
+    // a entrar no caminho que requer vault. Sem stepOptions.vault, retorna err.
+    await writeFile(join(v1Path, 'credentials.enc'), Buffer.alloc(64));
+
     const plan = await createMigrationPlan({ source: makeV1Install(), target: v2Path });
     const result = await execute(plan, {
       dryRun: false,
       force: false,
       onProgress: vi.fn(),
-      stepFilter: new Set(['sessions']), // stub — sempre err
+      stepFilter: new Set(['credentials']),
     });
     expect(result.isErr()).toBe(true);
     expect(existsSync(v2Path)).toBe(false);
