@@ -1,4 +1,3 @@
-import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
 import { procedure, router } from '../trpc.ts';
 
@@ -35,12 +34,11 @@ export const preferencesRouter = router({
     .output(z.boolean())
     .query(async ({ ctx }) => {
       const result = await ctx.preferences.getDebugHudEnabled();
-      if (result.isErr()) {
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: result.error.message,
-        });
-      }
+      // CR-18 F-I3: throw `result.error` direto preserva `AppError`
+      // (errorFormatter em trpc-base.ts anexa toJSON()+errorType). Antes
+      // era `new TRPCError({code:'INTERNAL_SERVER_ERROR', message})` que
+      // strippava `code`/`context`/`cause` — renderer recebia genérico.
+      if (result.isErr()) throw result.error;
       return result.value;
     }),
   setDebugHudEnabled: procedure
@@ -48,24 +46,22 @@ export const preferencesRouter = router({
     .output(z.void())
     .mutation(async ({ input, ctx }) => {
       const result = await ctx.preferences.setDebugHudEnabled(input.enabled);
-      if (result.isErr()) {
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: result.error.message,
-        });
-      }
+      // CR-18 F-I3: throw `result.error` direto preserva `AppError`
+      // (errorFormatter em trpc-base.ts anexa toJSON()+errorType). Antes
+      // era `new TRPCError({code:'INTERNAL_SERVER_ERROR', message})` que
+      // strippava `code`/`context`/`cause` — renderer recebia genérico.
+      if (result.isErr()) throw result.error;
     }),
   verifyRuntimeIntegrity: procedure
     .input(z.void())
     .output(RuntimeIntegrityReportSchema)
     .mutation(async ({ ctx }) => {
       const result = await ctx.preferences.verifyRuntimeIntegrity();
-      if (result.isErr()) {
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: result.error.message,
-        });
-      }
+      // CR-18 F-I3: throw `result.error` direto preserva `AppError`
+      // (errorFormatter em trpc-base.ts anexa toJSON()+errorType). Antes
+      // era `new TRPCError({code:'INTERNAL_SERVER_ERROR', message})` que
+      // strippava `code`/`context`/`cause` — renderer recebia genérico.
+      if (result.isErr()) throw result.error;
       // Spread `failures` para soltar `readonly` exigido por Zod output.
       return { ...result.value, failures: [...result.value.failures] };
     }),

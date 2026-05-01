@@ -402,6 +402,23 @@ export interface PreferencesService {
   verifyRuntimeIntegrity(): Promise<Result<RuntimeIntegrityReport, AppError>>;
 }
 
+/** Snapshot ZIP exportado pelo `BackupScheduler` para `<data>/auto-backups/`. */
+export interface BackupEntry {
+  readonly path: string;
+  readonly workspaceId: WorkspaceId;
+  readonly timestamp: number;
+  readonly sizeBytes: number;
+}
+export interface BackupRunResult {
+  readonly entry: BackupEntry;
+}
+/** Backup management — auto-backups locais (ADR-0045). UI em Settings > Backup. */
+export interface BackupService {
+  list(): Promise<Result<readonly BackupEntry[], AppError>>;
+  runNow(workspaceId: WorkspaceId): Promise<Result<BackupRunResult, AppError>>;
+  delete(path: string): Promise<Result<void, AppError>>;
+}
+
 export type {
   MigrationExecuteInputView,
   MigrationPlanView,
@@ -466,4 +483,5 @@ export interface IpcContext {
   readonly labels: LabelsService;
   readonly preferences: PreferencesService;
   readonly migration: MigrationService;
+  readonly backup: BackupService;
 }

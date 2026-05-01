@@ -1,3 +1,4 @@
+import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
 import { authed } from '../middleware/authed.ts';
 import { router } from '../trpc.ts';
@@ -16,7 +17,18 @@ export const voiceRouter = router({
     .input(TranscribeInput)
     .output(TranscribeOutput)
     .mutation(async ({ input, ctx }) => {
-      const buf = Buffer.from(input.audioBase64, 'base64');
+      // `Buffer.from` throwa `TypeError` em base64 inválido. Sem try,
+      // erro vira TRPCError genérico em vez de BAD_REQUEST estruturado.
+      let buf: Buffer;
+      try {
+        buf = Buffer.from(input.audioBase64, 'base64');
+      } catch (cause) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'invalid base64 audio',
+          cause,
+        });
+      }
       const text = await ctx.voice.transcribe(buf, input.mimeType);
       return { text };
     }),

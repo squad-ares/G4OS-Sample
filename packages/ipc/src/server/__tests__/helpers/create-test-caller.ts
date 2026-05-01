@@ -272,6 +272,13 @@ export function createTestCaller(
       execute: async () =>
         err(new AppError({ code: ErrorCode.UNKNOWN_ERROR, message: 'migration.execute stub' })),
     },
+    backup: {
+      list: async () => ok([]),
+      runNow: async () =>
+        err(new AppError({ code: ErrorCode.UNKNOWN_ERROR, message: 'backup.runNow stub' })),
+      delete: async () =>
+        err(new AppError({ code: ErrorCode.UNKNOWN_ERROR, message: 'backup.delete stub' })),
+    },
     ...overrides,
   };
   return appRouter.createCaller(ctx);

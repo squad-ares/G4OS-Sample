@@ -84,7 +84,12 @@ export const migrationRouter = router({
         ...(input.source ? { source: input.source } : {}),
         ...(input.target ? { target: input.target } : {}),
       });
-      if (result.isErr()) throw new Error(result.error.message);
+      // CR-18 F-I1: `throw new Error(result.error.message)` strippava o
+      // typed `AppError` (perde `code`/`context`/`cause`). `errorFormatter`
+      // em `trpc-base.ts` depende de `cause instanceof AppError` para
+      // anexar `appError.toJSON()`+`errorType`. Throwar `result.error`
+      // direto preserva identidade no renderer (ADR-0020).
+      if (result.isErr()) throw result.error;
       return result.value;
     }),
 
@@ -101,7 +106,12 @@ export const migrationRouter = router({
         ...(input.force === undefined ? {} : { force: input.force }),
         ...(input.v1MasterKey ? { v1MasterKey: input.v1MasterKey } : {}),
       });
-      if (result.isErr()) throw new Error(result.error.message);
+      // CR-18 F-I1: `throw new Error(result.error.message)` strippava o
+      // typed `AppError` (perde `code`/`context`/`cause`). `errorFormatter`
+      // em `trpc-base.ts` depende de `cause instanceof AppError` para
+      // anexar `appError.toJSON()`+`errorType`. Throwar `result.error`
+      // direto preserva identidade no renderer (ADR-0020).
+      if (result.isErr()) throw result.error;
       return result.value;
     }),
 });

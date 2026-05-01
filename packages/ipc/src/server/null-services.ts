@@ -3,6 +3,7 @@ import { err, ok } from 'neverthrow';
 import type {
   AgentsService,
   AuthService,
+  BackupService,
   CredentialsService,
   LabelsService,
   MarketplaceService,
@@ -50,6 +51,7 @@ export interface NullServices {
   readonly labels: LabelsService;
   readonly preferences: PreferencesService;
   readonly migration: MigrationService;
+  readonly backup: BackupService;
 }
 
 export function createNullServices(): NullServices {
@@ -195,6 +197,11 @@ export function createNullServices(): NullServices {
       detect: async () => ok(null),
       plan: async () => err(notImplemented('migration.plan')),
       execute: async () => err(notImplemented('migration.execute')),
+    },
+    backup: {
+      list: async () => ok([]),
+      runNow: async () => err(notImplemented('backup.runNow')),
+      delete: async () => err(notImplemented('backup.delete')),
     },
   };
 }

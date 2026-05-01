@@ -1,5 +1,6 @@
 import { agentsRouter } from './routers/agents-router.ts';
 import { authRouter } from './routers/auth-router.ts';
+import { backupRouter } from './routers/backup-router.ts';
 import { credentialsRouter } from './routers/credentials-router.ts';
 import { healthRouter } from './routers/health-router.ts';
 import { labelsRouter } from './routers/labels-router.ts';
@@ -33,6 +34,7 @@ export const appRouter = router({
   sources: sourcesRouter,
   agents: agentsRouter,
   auth: authRouter,
+  backup: backupRouter,
   marketplace: marketplaceRouter,
   news: newsRouter,
   platform: platformRouter,
