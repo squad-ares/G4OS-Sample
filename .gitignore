@@ -12,3 +12,9 @@ build/
 # exceções: assets Linux commitados para packaging (não são build output)
 !apps/desktop/build/
 !apps/desktop/build/**
+
+# Security audit artifacts (regenerados sob demanda)
+sbom.json
+
+# Bench results (regenerados a cada run; só baseline.json é commitado)
+tools/bench/bench-results.json

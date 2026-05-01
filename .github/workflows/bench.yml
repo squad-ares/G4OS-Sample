@@ -1,0 +1,37 @@
+name: Performance benchmarks
+
+on:
+  pull_request:
+    paths:
+      - 'apps/desktop/**'
+      - 'packages/**'
+      - 'tools/bench/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+  workflow_dispatch:
+
+# Bench scaffold — `pnpm bench:all` ainda é stub (ver tools/bench/README.md).
+# Promover quando Playwright + dist/build estiverem estáveis no runner CI.
+# Por enquanto roda em pull_request mas só valida que o suite parsea + escreve
+# `bench-results.json` válido. `bench:check` compara contra baseline.
+
+jobs:
+  bench:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: pnpm bench:all
+      - run: pnpm bench:check
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bench-results
+          path: tools/bench/bench-results.json
+          retention-days: 30
