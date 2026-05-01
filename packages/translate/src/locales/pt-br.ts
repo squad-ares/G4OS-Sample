@@ -1186,4 +1186,7 @@ export const ptBR = {
   'migration.wizard.retry': 'Tentar novamente',
 
   'markdown.mermaid.renderError': 'Erro ao renderizar diagrama Mermaid',
+  'markdown.pdf.renderError': 'Erro ao renderizar PDF',
+  'markdown.pdf.previewUnavailable': 'Pré-visualização indisponível neste build',
+  'markdown.pdf.openExternal': 'Abrir',
 } satisfies Record<TranslationKey, string>;

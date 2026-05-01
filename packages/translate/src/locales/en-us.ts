@@ -1168,6 +1168,9 @@ export const enUS = {
   'migration.wizard.retry': 'Try again',
 
   'markdown.mermaid.renderError': 'Failed to render Mermaid diagram',
+  'markdown.pdf.renderError': 'Failed to render PDF',
+  'markdown.pdf.previewUnavailable': 'Inline preview unavailable in this build',
+  'markdown.pdf.openExternal': 'Open',
 } as const;
 
 export type TranslationKey = keyof typeof enUS;
