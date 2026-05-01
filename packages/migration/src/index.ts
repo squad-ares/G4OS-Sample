@@ -19,6 +19,10 @@ export type {
   StepOptions,
   StepResult,
   StepRunner,
+  V2SessionMetadata,
+  V2SessionWriter,
+  V2SourceInput,
+  V2SourceWriter,
   V2WorkspaceInput,
   V2WorkspaceWriter,
 } from './steps/contract.ts';
