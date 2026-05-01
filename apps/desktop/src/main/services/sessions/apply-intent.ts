@@ -35,7 +35,14 @@ export async function applyTurnIntent(
   text: string,
   session: Session | null,
 ): Promise<void> {
-  if (!deps.updater || !session) return;
+  if (!session) return;
+  if (!deps.updater) {
+    // Composição incompleta — em testes é esperado (mock partial); em
+    // produção indica bug de wiring que deixaria UX silenciosamente
+    // quebrada (sticky/rejected sources nunca persistidos).
+    log.warn({ sessionId }, 'intent updater unavailable; intent detection skipped');
+    return;
+  }
   try {
     const enabled = await deps.sourcesStore.list(session.workspaceId);
     const available = enabled

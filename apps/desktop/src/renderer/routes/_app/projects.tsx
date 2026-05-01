@@ -47,6 +47,7 @@ function ProjectsIndexPage() {
         loading={page.isLoading}
         onOpen={(id) => void navigate({ to: '/projects/$projectId', params: { projectId: id } })}
         onCreate={page.create}
+        onNavigateToCreate={() => void navigate({ to: '/projects/new' })}
         onArchive={page.archive}
         onDelete={page.softDelete}
       />

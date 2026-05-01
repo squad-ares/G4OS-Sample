@@ -23,9 +23,11 @@ import { createFileRoute, redirect } from '@tanstack/react-router';
 import {
   AgentsCategoryContainer,
   AppCategoryContainer,
+  BackupCategoryContainer,
   PermissionsCategoryContainer,
   PreferencesCategoryContainer,
   RepairCategoryContainer,
+  SupportCategoryContainer,
   TagsCategoryContainer,
   WorkspaceCategoryContainer,
 } from '../../settings/category-containers.tsx';
@@ -73,6 +75,10 @@ function CategoryContent({ category }: { readonly category: SettingsCategory }) 
       return <PermissionsCategoryContainer />;
     case 'cloud-sync':
       return <CloudSyncCategory />;
+    case 'backup':
+      return <BackupCategoryContainer />;
+    case 'support':
+      return <SupportCategoryContainer />;
     default:
       return <CategoryPlaceholder category={category} />;
   }

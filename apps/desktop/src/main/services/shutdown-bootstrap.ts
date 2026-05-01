@@ -1,13 +1,15 @@
 /**
  * Registra shutdown handlers de todos os services do main em ordem.
- * Extraído do composition root para manter `index.ts ≤ 300 LOC`
+ * Extraído do composition root para manter `index.ts ≤ 500 LOC`
  * (gate `check:main-size`).
  *
  * Ordem importa: services que dependem de outros (ex: turnDispatcher
- * depende de sessionEventBus) são disposed primeiro. AppLifecycle dispara
- * cada handler em ordem reversa de registro (LIFO) — então registramos
- * do "consumidor" para o "provider" para que recursos básicos vivam até
- * o fim.
+ * depende de sessionEventBus) são disposed primeiro. CR-18 F-DT-J:
+ * `AppLifecycle.shutdown()` usa `Promise.allSettled` (paralelo, NÃO LIFO)
+ * — o comentário antigo afirmava LIFO erroneamente. Cada handler tem
+ * deadline próprio, então a ordem de registro influencia tie-breakers
+ * mas NÃO sequencia execução. Para serializar (raríssimo em prática),
+ * usar `for…await` interno no próprio handler.
  */
 
 import type { AppLifecycle } from '../app-lifecycle.ts';
@@ -21,7 +23,7 @@ export interface ShutdownTargets {
   readonly cpuPool: { destroy(): void | Promise<void> };
   readonly authRuntime: { dispose(): void };
   readonly sessionsCleanup: { dispose(): void };
-  readonly backupScheduler: { dispose(): void };
+  readonly backupScheduler: { dispose(): void; drain(timeoutMs?: number): Promise<boolean> };
   readonly titleGenerator: { dispose(): void };
   readonly newsService: { dispose(): void };
   readonly database: { db: { dispose(): void } };
@@ -40,7 +42,12 @@ export function registerShutdownHandlers(lifecycle: AppLifecycle, targets: Shutd
   lifecycle.onQuit(() => targets.cpuPool.destroy());
   lifecycle.onQuit(() => targets.authRuntime.dispose());
   lifecycle.onQuit(() => targets.sessionsCleanup.dispose());
-  lifecycle.onQuit(() => targets.backupScheduler.dispose());
+  // Drain antes do dispose: aguarda runOnce em-voo terminar (timeout 2s)
+  // pra evitar ZIP parcial corrompido se quit dispara mid-write.
+  lifecycle.onQuit(async () => {
+    await targets.backupScheduler.drain();
+    targets.backupScheduler.dispose();
+  });
   lifecycle.onQuit(() => targets.titleGenerator.dispose());
   lifecycle.onQuit(() => targets.newsService.dispose());
   lifecycle.onQuit(() => targets.database.db.dispose());

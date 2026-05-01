@@ -10,8 +10,8 @@ import {
   PermissionProvider,
   SessionActiveBadges,
   SessionBanners,
-  SessionHeader,
   SessionMetadataPanel,
+  SessionTitleBar,
   SourcePicker,
   type ThinkingLevel,
   ThinkingLevelSelector,
@@ -366,23 +366,16 @@ function SessionPage() {
         <div className="flex min-w-0 flex-1 flex-col">
           {sessionQuery.data ? (
             <>
-              <SessionHeader
-                name={sessionQuery.data.name}
-                {...(modelLabel ? { modelLabel } : {})}
-                {...(providerLabel ? { providerLabel } : {})}
-                workingDirectory={sessionQuery.data.workingDirectory ?? null}
-                onRename={handleRename}
-                onArchive={() => void handleArchive()}
-                {...(isStreaming ? {} : { onRetryLast: () => void handleRetryLast() })}
-                onToggleMetadata={() => setMetadataOpen((v) => !v)}
-                metadataOpen={metadataOpen}
-              />
+              <SessionTitleBar name={sessionQuery.data.name} onRename={handleRename} />
               <SessionActiveBadges
                 {...(modelLabel ? { modelLabel } : {})}
                 {...(providerLabel ? { providerLabel } : {})}
                 workingDirectory={sessionQuery.data.workingDirectory ?? null}
                 enabledSourceCount={enabledSourceSlugs.length}
                 stickySourceCount={sessionQuery.data.stickyMountedSourceSlugs?.length ?? 0}
+                {...(isStreaming ? {} : { onRetryLast: () => void handleRetryLast() })}
+                onToggleMetadata={() => setMetadataOpen((v) => !v)}
+                metadataOpen={metadataOpen}
               />
               <SessionBanners banners={sessionBanners} />
             </>
@@ -448,6 +441,7 @@ function SessionPage() {
             onClose={() => setMetadataOpen(false)}
             name={sessionQuery.data.name}
             onRename={handleRename}
+            onArchive={() => void handleArchive()}
             project={linkedProject}
             availableProjects={availableProjects}
             onSelectProject={handleSelectProject}

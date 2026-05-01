@@ -161,13 +161,26 @@ export class TurnDispatcher extends DisposableBase {
     const plan = await buildSourcePlan(this.#deps.sourcesStore, refreshedSession);
     const systemPrompt = composeSystemPrompt(this.#defaults.systemPrompt, plan);
 
-    const mountedHandlers: readonly ToolHandler[] = await buildMountedHandlers({
-      mountRegistry: this.#deps.mountRegistry,
-      sourcesStore: this.#deps.sourcesStore,
-      credentialVault: this.#deps.credentialVault,
-      plan,
-      session: refreshedSession,
-    });
+    // Mount registry I/O pode falhar (filesystem, MCP probe timeout,
+    // OAuth refresh). Sem try/catch, reject termina turn sem emitir
+    // `turn.error` — renderer fica com spinner permanente. Fallback
+    // graceful: continua sem dynamic tools (built-in catalog ainda
+    // funciona) + log warn pra observability.
+    let mountedHandlers: readonly ToolHandler[] = [];
+    try {
+      mountedHandlers = await buildMountedHandlers({
+        mountRegistry: this.#deps.mountRegistry,
+        sourcesStore: this.#deps.sourcesStore,
+        credentialVault: this.#deps.credentialVault,
+        plan,
+        session: refreshedSession,
+      });
+    } catch (cause) {
+      log.warn(
+        { err: cause, sessionId },
+        'mount handlers build failed; turn proceeds without dynamic tools',
+      );
+    }
     const effectiveCatalog: ToolCatalog =
       mountedHandlers.length === 0
         ? this.#deps.toolCatalog

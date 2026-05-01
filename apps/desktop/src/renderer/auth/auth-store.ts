@@ -15,6 +15,7 @@
 
 import type { QueryClient } from '@tanstack/react-query';
 import { trpc } from '../ipc/trpc-client.ts';
+import { updateRendererSentryUser } from '../observability/init-sentry.ts';
 
 export type IpcSession = Awaited<ReturnType<typeof trpc.auth.getMe.query>>;
 
@@ -59,18 +60,16 @@ export function getCachedAuthState(queryClient: QueryClient): AuthState | undefi
 
 export function setAuthAuthenticated(queryClient: QueryClient, session: IpcSession): void {
   queryClient.setQueryData<AuthState>(AUTH_QUERY_KEY, { status: 'authenticated', session });
-  // Propaga identidade para Sentry quando user fica autenticado. Lazy import —
-  // sem DSN configurado, init-sentry é NOOP e setUser também.
-  void import('../observability/init-sentry.ts').then((mod) =>
-    mod.updateRendererSentryUser({ id: session.userId, email: session.email }),
-  );
+  // Propaga identidade para Sentry quando user fica autenticado.
+  // Sem DSN configurado, `init-sentry` é NOOP e `updateRendererSentryUser` também.
+  updateRendererSentryUser({ id: session.userId, email: session.email });
 }
 
 export function setAuthUnauthenticated(queryClient: QueryClient): void {
   queryClient.setQueryData<AuthState>(AUTH_QUERY_KEY, { status: 'unauthenticated' });
   // Limpa identidade no logout — events futuros não devem
   // ser atribuídos ao user que saiu.
-  void import('../observability/init-sentry.ts').then((mod) => mod.updateRendererSentryUser(null));
+  updateRendererSentryUser(null);
 }
 
 export async function invalidateAuth(queryClient: QueryClient): Promise<void> {
@@ -81,9 +80,7 @@ async function fetchAuthState(): Promise<AuthState> {
   try {
     const session = await trpc.auth.getMe.query();
     // Cobre o caminho de restore (sessão persistida no vault).
-    void import('../observability/init-sentry.ts').then((mod) =>
-      mod.updateRendererSentryUser({ id: session.userId, email: session.email }),
-    );
+    updateRendererSentryUser({ id: session.userId, email: session.email });
     return { status: 'authenticated', session };
   } catch (error: unknown) {
     if (isUnauthorizedError(error)) {

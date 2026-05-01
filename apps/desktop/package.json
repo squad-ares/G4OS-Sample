@@ -71,6 +71,7 @@
     "pino-roll": "catalog:",
     "pino-std-serializers": "7.1.0",
     "piscina": "5.1.4",
+    "lucide-react": "catalog:",
     "process-warning": "5.0.0",
     "quick-format-unescaped": "4.0.4",
     "react": "catalog:",

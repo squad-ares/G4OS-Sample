@@ -81,7 +81,38 @@ export class BackupScheduler extends DisposableBase {
     }
   }
 
+  /**
+   * Aguarda ciclo em-voo terminar com timeout. Caller deve invocar antes
+   * de `dispose()` no shutdown — sem isso, `clearInterval` para o timer
+   * mas `runOnce` continua escrevendo ZIP em background, podendo deixar
+   * arquivo parcial se processo morre antes do `archive.finalize()`.
+   *
+   * Retorna `true` se ciclo terminou dentro do timeout, `false` se
+   * timed out (caller pode escolher kill mesmo assim — tradeoff vs
+   * janela de shutdown da Electron de 5s).
+   */
+  async drain(timeoutMs = 2000): Promise<boolean> {
+    if (!this.running) return true;
+    const start = Date.now();
+    while (this.running && Date.now() - start < timeoutMs) {
+      await new Promise<void>((resolve) => setTimeout(resolve, 50));
+    }
+    return !this.running;
+  }
+
   private async backupWorkspace(workspaceId: string): Promise<void> {
+    await this.runForWorkspace(workspaceId);
+  }
+
+  /**
+   * Roda backup de um único workspace fora do ciclo periódico (manual via
+   * `Settings > Backup > Run now`). Cria `outputDir` se ausente, devolve
+   * o path absoluto do ZIP gerado.
+   */
+  async runForWorkspace(
+    workspaceId: string,
+  ): Promise<{ readonly path: string; readonly sizeBytes: number }> {
+    await mkdir(this.outputDir, { recursive: true });
     const outputPath = join(this.outputDir, `${workspaceId}-${Date.now()}.zip`);
     const result = await exportWorkspaceBackup({
       workspaceId,
@@ -96,6 +127,12 @@ export class BackupScheduler extends DisposableBase {
       { workspaceId, outputPath, size: result.size, sessionsCount: result.sessionsCount },
       'workspace backup created',
     );
+    return { path: outputPath, sizeBytes: result.size };
+  }
+
+  /** Diretório onde os ZIPs são gravados. UI usa pra `showItemInFolder`. */
+  get backupDir(): string {
+    return this.outputDir;
   }
 
   private async prune(): Promise<void> {

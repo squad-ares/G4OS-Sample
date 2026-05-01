@@ -24,8 +24,11 @@ interface UseSessionHeaderResult {
 }
 
 /**
- * Hook que monta callbacks + labels usados pelo `SessionHeader` na página de
- * sessão. Extraído pra manter o route file abaixo do cap 500 LOC.
+ * Hook que monta callbacks + labels da sessão (rename/archive + provider/model
+ * labels). Extraído pra manter o route file abaixo do cap 500 LOC. Os
+ * consumers atuais são `SessionActiveBadges` (chip line) e
+ * `SessionMetadataPanel` (rename + archive). O antigo componente
+ * `SessionHeader` foi removido em paridade com V1 — chrome leve só.
  */
 export function useSessionHeader({
   sessionId,

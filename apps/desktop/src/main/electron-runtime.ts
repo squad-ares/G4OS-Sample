@@ -20,12 +20,26 @@ export interface ElectronApp {
   on(event: 'window-all-closed', listener: () => void): void;
   on(event: 'before-quit', listener: (event: ElectronEvent) => void): void;
   on(event: 'open-url', listener: (event: ElectronEvent, url: string) => void): void;
+  on(
+    event: 'second-instance',
+    listener: (event: ElectronEvent, argv: readonly string[], workingDirectory: string) => void,
+  ): void;
   // removeListener é parte do contrato porque AppLifecycle precisa
   // desfazer registros no dispose (E2E reboots, ADR-0142). Tipado opcional
   // porque alguns mocks de runtime não implementam — caller usa `?.()`.
   removeListener?(event: 'window-all-closed', listener: () => void): void;
   removeListener?(event: 'before-quit', listener: (event: ElectronEvent) => void): void;
   removeListener?(event: 'open-url', listener: (event: ElectronEvent, url: string) => void): void;
+  /**
+   * Single-instance lock — `acquired` se true, segundo lançamento se false.
+   * Pode não existir em mocks E2E; caller trata como `acquired: true`.
+   */
+  requestSingleInstanceLock?(): boolean;
+  /**
+   * Registra esta instância como handler default de `<protocol>://` URLs.
+   * No Windows opcionalmente passa o exec path + extra args para Squirrel.
+   */
+  setAsDefaultProtocolClient?(protocol: string, path?: string, args?: readonly string[]): boolean;
 }
 
 export interface ElectronDialogFilter {

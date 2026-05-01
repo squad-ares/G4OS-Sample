@@ -6,7 +6,11 @@ import { createRoot } from 'react-dom/client';
 import '@g4os/ui/globals.css';
 import { ACTIVE_WORKSPACE_STORAGE_KEY } from '@g4os/features/workspaces';
 import { TRPCProvider } from './ipc/trpc-provider.tsx';
-import { initRendererSentry, startWebVitalsReporting } from './observability/init-sentry.ts';
+import {
+  initRendererSentry,
+  reportRendererException,
+  startWebVitalsReporting,
+} from './observability/init-sentry.ts';
 import { electronPlatform } from './platform/electron-platform.ts';
 import { router } from './router.ts';
 
@@ -14,8 +18,10 @@ const urlWorkspaceId = new URL(window.location.href).searchParams.get('workspace
 if (urlWorkspaceId) {
   try {
     window.localStorage.setItem(ACTIVE_WORKSPACE_STORAGE_KEY, urlWorkspaceId);
-  } catch {
-    // storage unavailable; active workspace will resolve via default
+  } catch (cause) {
+    // localStorage indisponível (private mode, quota, sandbox). Workspace
+    // ativo resolve via default; reportar pra observability sem bloquear.
+    reportRendererException(cause, { context: 'localStorage.setItem.activeWorkspace' });
   }
 }
 

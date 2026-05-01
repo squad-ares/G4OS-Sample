@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { loadSupabaseEnvFiles } from '@g4os/auth/supabase';
 import { createVault } from '@g4os/credentials';
 import { SessionsRepository } from '@g4os/data/sessions';
-import { setIpcMetricsRecorder } from '@g4os/ipc/server';
+import { cleanupSubscriptionsForSender, setIpcMetricsRecorder } from '@g4os/ipc/server';
 import { createLogger } from '@g4os/kernel/logger';
 import { ipcMetrics } from '@g4os/observability/ipc';
 import { PermissionBroker, PermissionStore } from '@g4os/permissions';
@@ -19,8 +19,10 @@ import { loadElectron } from './electron-runtime.ts';
 import { registerGlobalShortcuts } from './global-shortcuts.ts';
 import { initIpcServer } from './ipc-bootstrap.ts';
 import { readRuntimeEnv } from './runtime-env.ts';
+import { startAttachmentsGcScheduler } from './services/attachments-gc-bootstrap.ts';
 import { createAuthRuntime } from './services/auth-runtime.ts';
 import { createBackupScheduler } from './services/backup-bootstrap.ts';
+import { createBackupService } from './services/backup-service.ts';
 import { scheduleOrphanTmpCleanup } from './services/cleanup-orphan-tmp-bootstrap.ts';
 import { CpuPool } from './services/cpu-pool.ts';
 import { createCredentialsService } from './services/credentials-service.ts';
@@ -40,6 +42,12 @@ import { resolveIconPath, resolveRendererTargets } from './services/renderer-pat
 import { SessionsCleanupScheduler } from './services/sessions-cleanup-scheduler.ts';
 import { createSessionsService } from './services/sessions-service.ts';
 import { registerShutdownHandlers } from './services/shutdown-bootstrap.ts';
+import {
+  acquireSingleInstance,
+  consumeBootstrapArgvDeepLink,
+  registerProtocolClient,
+  wireSecondInstance,
+} from './services/single-instance-bootstrap.ts';
 import { createMountRegistry } from './services/sources/mount-bootstrap.ts';
 import { createSourcesService } from './services/sources-service.ts';
 import { TitleGeneratorService } from './services/title-generator.ts';
@@ -68,6 +76,18 @@ export async function bootstrapMain(options: BootstrapOptions = {}): Promise<voi
     log.warn('electron runtime unavailable; main boot skipped');
     return;
   }
+
+  // CR-18 F-DT-I: lock + protocol ANTES de qualquer init pesado. Se outra
+  // instância já está rodando, o segundo lançamento (deep-link em
+  // Windows/Linux, double-click no shortcut) deve quitar imediatamente —
+  // a 1ª instância recebe o evento `second-instance` e foca a janela.
+  const instanceCtx = acquireSingleInstance(electron);
+  if (!instanceCtx.acquired) {
+    log.info('another instance already holds the single-instance lock; quitting');
+    electron.app.quit();
+    return;
+  }
+  registerProtocolClient(electron, log);
 
   // .env loading ANTES de app.whenReady(): Sentry exige init pré-ready.
   const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), '../../../..');
@@ -267,11 +287,20 @@ export async function bootstrapMain(options: BootstrapOptions = {}): Promise<voi
   sessionsCleanup.start();
 
   // BackupScheduler — 24h interval, retenção 7/4/3 (ADR-0045).
-  const backupScheduler = createBackupScheduler({
+  const { scheduler: backupScheduler, attachmentGateway } = createBackupScheduler({
     drizzle: database.drizzle,
     appVersion: electron.app.getVersion(),
   });
   backupScheduler.start();
+
+  // Attachments GC scheduler — 24h cycle separado do backup pra evitar
+  // coupling de cadências. Sem isso, blobs órfãos (refCount ≤ 0)
+  // acumulam indefinidamente em `attachments/`.
+  const attachmentsGcDisposable = startAttachmentsGcScheduler(attachmentGateway);
+  lifecycle.onQuit(() => {
+    attachmentsGcDisposable.dispose();
+    return Promise.resolve();
+  });
 
   // Limpa `.tmp` órfãos deixados por crashes do `truncateAfter` JSONL.
   // Best-effort, async em background — boot continua.
@@ -292,6 +321,15 @@ export async function bootstrapMain(options: BootstrapOptions = {}): Promise<voi
       initialEnabled: initialHudEnabled,
       listenerDetector: observability.listenerDetector,
       activeTurnsProvider: turnDispatcher,
+      // HUD window não passa pelo WindowManager.createWindow, então o
+      // `onWindowCreated` listener do windowManager não dispara aqui.
+      // Hook explícito wireia cleanup de IPC subscriptions órfãs em
+      // reload/destroy do HUD (10c-32 cobre caso multi-window do main).
+      onWebContentsCreated: (wc) => {
+        const senderId = wc.id;
+        wc.on('did-start-navigation', () => cleanupSubscriptionsForSender(senderId));
+        wc.on('destroyed', () => cleanupSubscriptionsForSender(senderId));
+      },
     });
     log.info({ initialHudEnabled }, 'debug HUD runtime ready');
   } catch (cause) {
@@ -364,6 +402,11 @@ export async function bootstrapMain(options: BootstrapOptions = {}): Promise<voi
 
   const deepLinks = new DeepLinkHandler(windowManager);
   lifecycle.onOpenUrl(deepLinks.handle);
+  // CR-18 F-DT-I: roteia 2ª instância (Windows/Linux deep-link delivery)
+  // para a 1ª via evento `second-instance` + processa argv inicial caso
+  // o usuário abra o app via deep-link em cold-start.
+  wireSecondInstance(electron, deepLinks, log);
+  consumeBootstrapArgvDeepLink(deepLinks, log);
 
   const isDev = !electron.app.isPackaged;
   const mainWindow = await windowManager.create({ preloadPath });
@@ -399,6 +442,7 @@ export async function bootstrapMain(options: BootstrapOptions = {}): Promise<voi
         vault: credentialVault,
         resolveWorkspaceRoot: (id: string) => appPaths.workspace(id),
       }),
+      backup: createBackupService({ scheduler: backupScheduler }),
     },
   });
   await windowManager.load(mainWindow, { url: rendererUrl, openDevTools: isDev });

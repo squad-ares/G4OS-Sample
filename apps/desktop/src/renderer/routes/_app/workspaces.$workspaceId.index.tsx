@@ -4,7 +4,7 @@ import {
   type WorkspaceLandingChip,
 } from '@g4os/features/workspaces';
 import type { Session, SessionFilter } from '@g4os/kernel/types';
-import { toast, useTranslate } from '@g4os/ui';
+import { G4OSSymbol, toast, useTranslate } from '@g4os/ui';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { useEffect, useMemo } from 'react';
@@ -94,7 +94,7 @@ function WorkspaceLandingPage() {
       eyebrow={t('workspace.landing.eyebrow')}
       title={t('workspace.landing.title')}
       description={t('workspace.landing.description')}
-      brandMark={t('app.mark')}
+      brandMark={<G4OSSymbol className="h-8 w-8" />}
       primaryActionLabel={t('workspace.landing.cta.newSession')}
       onPrimaryAction={handleNewSession}
       primaryActionDisabled={createSessionMutation.isPending}

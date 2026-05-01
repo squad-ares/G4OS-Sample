@@ -1,6 +1,7 @@
 import {
   type AgentsService,
   type AuthService,
+  type BackupService,
   type CredentialsService,
   createNullServices,
   type IpcContext,
@@ -51,6 +52,7 @@ export interface IpcServiceOverrides {
   readonly platform?: PlatformService;
   readonly preferences?: PreferencesService;
   readonly migration?: MigrationService;
+  readonly backup?: BackupService;
 }
 
 export async function createContext(input: CreateContextInput = {}): Promise<IpcContext> {
@@ -75,6 +77,7 @@ export async function createContext(input: CreateContextInput = {}): Promise<Ipc
     labels: input.services?.labels ?? nulls.labels,
     preferences: input.services?.preferences ?? nulls.preferences,
     migration: input.services?.migration ?? nulls.migration,
+    backup: input.services?.backup ?? nulls.backup,
     ...(input.services?.platform ? { platform: input.services.platform } : {}),
   };
 

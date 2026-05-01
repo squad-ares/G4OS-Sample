@@ -9,7 +9,7 @@
  */
 
 import type { AppDb, Db } from '@g4os/data';
-import { SessionEventStore } from '@g4os/data/events';
+import { rebuildProjection, SessionEventStore } from '@g4os/data/events';
 import { globalSearch as globalSearchQuery } from '@g4os/data/queries';
 import { branchSession as branchSessionHelper, SessionsRepository } from '@g4os/data/sessions';
 import type {
@@ -154,6 +154,11 @@ export class SqliteSessionsService implements SessionsServiceContract {
         reader: eventStoreReader(eventStore),
         writer: eventStoreWriter(eventStore),
       });
+      // `branchSessionHelper` replica os eventos JSONL pra branch nova,
+      // mas não popula o `messages_index` em SQLite (consumer separado).
+      // Sem rebuild, busca/listagem da branch fica vazia até reboot. Custo
+      // proporcional ao tamanho da branch — aceitável dentro do mutation.
+      await rebuildProjection(this.#deps.drizzle, eventStore, created.id);
       return ok(created);
     } catch (error) {
       return failure('sessions.branch', error, { sourceId: input.sourceId });

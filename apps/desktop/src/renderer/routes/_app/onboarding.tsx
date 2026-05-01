@@ -23,6 +23,9 @@ function OnboardingRoute() {
           setWorkspacesCache(queryClient, [workspace]);
           return { id: workspace.id };
         },
+        saveCredential: async ({ key, value }) => {
+          await trpc.credentials.set.mutate({ key, value });
+        },
         createFirstSession: ({ workspaceId }) => Promise.resolve({ id: `sess_${workspaceId}_01` }),
       }}
       onComplete={({ workspaceId, sessionId }) => {

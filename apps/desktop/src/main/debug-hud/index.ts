@@ -56,6 +56,16 @@ export interface CreateDebugHudOptions {
   readonly activeTurnsProvider?: {
     snapshotActive(): readonly { sessionId: string; turnId: string; startedAt: number }[];
   };
+  /**
+   * Hook chamado quando a janela do HUD abre, com o `webContents` do HUD.
+   * Caller (composition root) usa pra registrar cleanup de IPC subscriptions
+   * — o HUD não passa por `WindowManager.createWindow`, então `onWindowCreated`
+   * do windowManager não dispara aqui.
+   */
+  readonly onWebContentsCreated?: (webContents: {
+    id: number;
+    on: (event: string, listener: () => void) => void;
+  }) => void;
 }
 
 export async function createDebugHudRuntime(
@@ -84,6 +94,7 @@ export async function createDebugHudRuntime(
     preloadPath: options.preloadPath,
     rendererUrl: options.rendererUrl,
     aggregator,
+    ...(options.onWebContentsCreated ? { onWebContentsCreated: options.onWebContentsCreated } : {}),
   });
 
   // IPC handlers para a janela do HUD ler/salvar config — sempre

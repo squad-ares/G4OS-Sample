@@ -1,7 +1,5 @@
-import { mkdir, readFile } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
-import { DisposableBase, toDisposable } from '@g4os/kernel/disposable';
-import { writeAtomic } from '@g4os/kernel/fs';
+import { join } from 'node:path';
+import { DisposableBase, type IDisposable, toDisposable } from '@g4os/kernel/disposable';
 import { createLogger } from '@g4os/kernel/logger';
 import { getAppPaths, isLinux, isMacOS, isWindows } from '@g4os/platform';
 import type {
@@ -9,6 +7,7 @@ import type {
   BrowserWindowOptions,
   ElectronRuntime,
 } from './electron-runtime.ts';
+import { loadWindowBounds, saveWindowBounds, type WindowBounds } from './window-bounds.ts';
 
 const log = createLogger('window-manager');
 
@@ -17,13 +16,6 @@ const DEFAULT_HEIGHT = 900;
 const MIN_WIDTH = 800;
 const MIN_HEIGHT = 600;
 const WINDOW_BACKGROUND_COLOR = '#0B0B0F';
-
-interface WindowBounds {
-  readonly width: number;
-  readonly height: number;
-  readonly x?: number;
-  readonly y?: number;
-}
 
 export interface OpenWindowOptions {
   readonly url?: string;
@@ -48,9 +40,12 @@ export interface WindowManagerOptions {
   readonly defaultRendererUrl?: string;
 }
 
+export type WindowCreatedListener = (win: BrowserWindowInstance) => void;
+
 export class WindowManager extends DisposableBase {
   private readonly windows = new Set<BrowserWindowInstance>();
   private readonly byWorkspace = new Map<string, BrowserWindowInstance>();
+  private readonly windowCreatedListeners = new Set<WindowCreatedListener>();
   private readonly stateDir: string;
   private readonly iconPath: string | undefined;
   private defaultPreloadPath: string | undefined;
@@ -91,7 +86,7 @@ export class WindowManager extends DisposableBase {
       );
     }
 
-    const bounds = await this.loadBounds(workspaceId);
+    const bounds = await loadWindowBounds(this.stateDir, workspaceId);
     const win = this.createWindow({ ...bounds }, { preloadPath });
     this.byWorkspace.set(workspaceId, win);
 
@@ -99,7 +94,8 @@ export class WindowManager extends DisposableBase {
 
     const w = win as BoundsableWindow;
     const onClose = () => {
-      void this.saveBounds(
+      void saveWindowBounds(
+        this.stateDir,
         workspaceId,
         w.getBounds?.() ?? { x: 0, y: 0, width: DEFAULT_WIDTH, height: DEFAULT_HEIGHT },
       );
@@ -137,6 +133,22 @@ export class WindowManager extends DisposableBase {
 
   list(): readonly BrowserWindowInstance[] {
     return Array.from(this.windows);
+  }
+
+  /**
+   * Inscreve um listener disparado a cada janela criada (após o
+   * `createWindow` ter populado `windows`). Usado pelo IPC server pra
+   * registrar cleanup de subscriptions órfãs em `did-start-navigation` /
+   * `destroyed` de janelas que aparecem depois do boot — multi-window
+   * via `WindowsService.openWorkspaceWindow`, deep-link, debug-hud.
+   *
+   * Listener corre síncrono — não jogue I/O caro aqui.
+   */
+  onWindowCreated(listener: WindowCreatedListener): IDisposable {
+    this.windowCreatedListeners.add(listener);
+    return toDisposable(() => {
+      this.windowCreatedListeners.delete(listener);
+    });
   }
 
   async load(win: BrowserWindowInstance, options: Pick<OpenWindowOptions, 'url' | 'openDevTools'>) {
@@ -208,6 +220,16 @@ export class WindowManager extends DisposableBase {
       }),
     );
 
+    // Notifica listeners de pós-create. Erros num listener não devem
+    // afetar criação da janela nem outros listeners — log + continua.
+    for (const listener of this.windowCreatedListeners) {
+      try {
+        listener(win);
+      } catch (cause) {
+        log.warn({ err: cause }, 'window created listener threw; ignoring');
+      }
+    }
+
     return win;
   }
 
@@ -234,49 +256,6 @@ export class WindowManager extends DisposableBase {
       };
     }
     return {};
-  }
-
-  private statePath(workspaceId: string): string {
-    return join(this.stateDir, `${workspaceId}.json`);
-  }
-
-  private async loadBounds(workspaceId: string): Promise<WindowBounds> {
-    try {
-      const raw = await readFile(this.statePath(workspaceId), 'utf-8');
-      const parsed = JSON.parse(raw) as WindowBounds;
-      return {
-        width: parsed.width ?? DEFAULT_WIDTH,
-        height: parsed.height ?? DEFAULT_HEIGHT,
-        ...(parsed.x === undefined ? {} : { x: parsed.x }),
-        ...(parsed.y === undefined ? {} : { y: parsed.y }),
-      };
-    } catch {
-      return { width: DEFAULT_WIDTH, height: DEFAULT_HEIGHT };
-    }
-  }
-
-  private async saveBounds(
-    workspaceId: string,
-    bounds: { x: number; y: number; width: number; height: number },
-  ): Promise<void> {
-    try {
-      const data: WindowBounds = {
-        width: bounds.width,
-        height: bounds.height,
-        x: bounds.x,
-        y: bounds.y,
-      };
-      const path = this.statePath(workspaceId);
-      // Substitui `writeFile` direto por `writeAtomic` (tmp+fsync+rename).
-      // Antes, crash mid-write deixava arquivo parcial; próximo `loadBounds`
-      // recuperava via catch ENOENT-like, mas o JSON corrompido permanecia
-      // no disco até saveBounds próximo. Atomic rename é gratuito (já é
-      // padrão do projeto para credentials/permissions/sources).
-      await mkdir(dirname(path), { recursive: true });
-      await writeAtomic(path, JSON.stringify(data));
-    } catch (err) {
-      log.warn({ err, workspaceId }, 'failed to save window bounds');
-    }
   }
 }
 

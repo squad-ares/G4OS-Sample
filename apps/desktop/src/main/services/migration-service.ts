@@ -10,7 +10,6 @@
  * `credentials` usa o vault injetado e v1MasterKey vindo do input.
  */
 
-import { homedir } from 'node:os';
 import { join } from 'node:path';
 import type { CredentialVault } from '@g4os/credentials';
 import type { AppDb } from '@g4os/data';
@@ -32,7 +31,7 @@ import {
   type ProgressEvent,
   type V1Install,
 } from '@g4os/migration';
-import { getAppPaths } from '@g4os/platform';
+import { getAppPaths, getHomeDir } from '@g4os/platform';
 import type { SourcesStore } from '@g4os/sources/store';
 import { err, ok, type Result } from 'neverthrow';
 import {
@@ -60,7 +59,7 @@ export class MigrationServiceImpl implements IMigrationService {
 
   async detect(): Promise<Result<V1InstallView | null, AppError>> {
     try {
-      const v1 = await detectV1Install(homedir());
+      const v1 = await detectV1Install(getHomeDir());
       if (v1) log.info({ path: v1.path, version: v1.version }, 'V1 install detected');
       return ok(v1);
     } catch (cause) {
@@ -76,7 +75,11 @@ export class MigrationServiceImpl implements IMigrationService {
     try {
       const source = await this.resolveSource(input.source);
       if (!source) return err(notFound('migration.plan'));
-      const target = input.target ?? join(getAppPaths().data);
+      // CR-18 F-DT-G: subdiretório dedicado pra que rollback NUNCA toque a
+      // V2 produtiva. `getAppPaths().data` é a raiz onde SQLite/JSONL/vault
+      // V2 vivem; passar isso direto era catastrófico em caso de falha de
+      // step (pre-fix do executor faria `rm -rf` no root).
+      const target = input.target ?? join(getAppPaths().data, 'v1-migrated');
       const plan: MigrationPlan = await createMigrationPlan({ source, target });
       return ok(plan);
     } catch (cause) {
@@ -89,7 +92,11 @@ export class MigrationServiceImpl implements IMigrationService {
     try {
       const source = await this.resolveSource(input.source);
       if (!source) return err(notFound('migration.execute'));
-      const target = input.target ?? join(getAppPaths().data);
+      // CR-18 F-DT-G: subdiretório dedicado pra que rollback NUNCA toque a
+      // V2 produtiva. `getAppPaths().data` é a raiz onde SQLite/JSONL/vault
+      // V2 vivem; passar isso direto era catastrófico em caso de falha de
+      // step (pre-fix do executor faria `rm -rf` no root).
+      const target = input.target ?? join(getAppPaths().data, 'v1-migrated');
 
       const plan = await createMigrationPlan({ source, target });
       log.info(
@@ -118,7 +125,15 @@ export class MigrationServiceImpl implements IMigrationService {
       });
 
       if (result.isErr()) {
-        log.error({ err: result.error }, 'migration execute failed');
+        // CR-18 F-DT-K: serializa o erro via `toJSON()` (que NÃO inclui
+        // `cause` nem `context.v1MasterKey`) para evitar vazar a master
+        // key em `error.log` se algum step puser o key no `error.context`
+        // por descuido. Quando AppError, usa toJSON; senão, fallback message.
+        const safeErr =
+          result.error instanceof AppError
+            ? result.error.toJSON()
+            : { message: String(result.error) };
+        log.error({ err: safeErr }, 'migration execute failed');
         return err(result.error);
       }
       log.info(
@@ -139,7 +154,7 @@ export class MigrationServiceImpl implements IMigrationService {
     if (view) {
       return Promise.resolve({ path: view.path, version: view.version, flavor: view.flavor });
     }
-    return detectV1Install(homedir());
+    return detectV1Install(getHomeDir());
   }
 }
 

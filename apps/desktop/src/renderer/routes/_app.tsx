@@ -56,6 +56,13 @@ import {
 } from '@tanstack/react-router';
 import type React from 'react';
 import { startTransition, useCallback, useMemo, useState } from 'react';
+import {
+  matchActiveSessionId,
+  matchPathSegment,
+  renderSessionTagsContent,
+  toMarketplacePanelItem,
+  toSessionListItem,
+} from '../_app-helpers.tsx';
 import { ensureAuthState, setAuthUnauthenticated } from '../auth/auth-store.ts';
 import { queryClient } from '../ipc/query-client.ts';
 import { trpc } from '../ipc/trpc-client.ts';
@@ -64,13 +71,6 @@ import { useFirstLoginSetup } from '../onboarding/use-first-login-setup.ts';
 import { projectsListQueryOptions } from '../projects/projects-store.ts';
 import { invalidateSessions, sessionsListQueryOptions } from '../sessions/sessions-store.ts';
 import { workspacesListQueryOptions } from '../workspaces/workspaces-store.ts';
-import {
-  matchActiveSessionId,
-  matchPathSegment,
-  renderSessionTagsContent,
-  toMarketplacePanelItem,
-  toSessionListItem,
-} from './_app.helpers.tsx';
 
 export const Route = createFileRoute('/_app')({
   beforeLoad: async ({ context }) => {
