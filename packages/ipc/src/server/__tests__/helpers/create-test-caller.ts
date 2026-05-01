@@ -269,6 +269,8 @@ export function createTestCaller(
       detect: async () => ok(null),
       plan: async () =>
         err(new AppError({ code: ErrorCode.UNKNOWN_ERROR, message: 'migration.plan stub' })),
+      execute: async () =>
+        err(new AppError({ code: ErrorCode.UNKNOWN_ERROR, message: 'migration.execute stub' })),
     },
     ...overrides,
   };

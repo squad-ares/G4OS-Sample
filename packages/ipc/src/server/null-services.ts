@@ -194,6 +194,7 @@ export function createNullServices(): NullServices {
     migration: {
       detect: async () => ok(null),
       plan: async () => err(notImplemented('migration.plan')),
+      execute: async () => err(notImplemented('migration.execute')),
     },
   };
 }

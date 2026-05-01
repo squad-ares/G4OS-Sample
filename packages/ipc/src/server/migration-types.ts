@@ -39,6 +39,33 @@ export interface MigrationPlanView {
   readonly alreadyMigrated: boolean;
 }
 
+export interface MigrationStepReportView {
+  readonly kind: MigrationStepKindView;
+  readonly itemsMigrated: number;
+  readonly itemsSkipped: number;
+  readonly bytesProcessed: number;
+  readonly nonFatalWarnings: readonly string[];
+}
+
+export interface MigrationReportView {
+  readonly source: string;
+  readonly target: string;
+  readonly v1Version: string | null;
+  readonly startedAt: number;
+  readonly finishedAt: number;
+  readonly stepResults: readonly MigrationStepReportView[];
+  readonly backupPath: string | null;
+  readonly success: boolean;
+}
+
+export interface MigrationExecuteInputView {
+  readonly source?: V1InstallView;
+  readonly target?: string;
+  readonly dryRun?: boolean;
+  readonly force?: boolean;
+  readonly v1MasterKey?: string;
+}
+
 export interface MigrationService {
   /** Procura V1 install em `homedir()` candidatos. Retorna null se não achar. */
   detect(): Promise<Result<V1InstallView | null, AppError>>;
@@ -50,4 +77,11 @@ export interface MigrationService {
     readonly source?: V1InstallView;
     readonly target?: string;
   }): Promise<Result<MigrationPlanView, AppError>>;
+  /**
+   * Executa a migração completa: backup V1 → run steps → rollback em falha →
+   * `.migration-done` marker. Idempotente (skipa marker existente sem `force`).
+   * Em `dryRun`, valida sem escrever (testa decryption de creds, parsing de
+   * workspaces.json/sessions.jsonl, etc.) — útil pro UI Wizard antes do commit.
+   */
+  execute(input: MigrationExecuteInputView): Promise<Result<MigrationReportView, AppError>>;
 }

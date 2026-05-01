@@ -40,6 +40,35 @@ const MigrationPlanInputSchema = z.object({
   target: z.string().optional(),
 });
 
+const MigrationStepReportSchema = z.object({
+  kind: MigrationStepKindSchema,
+  itemsMigrated: z.number().int().nonnegative(),
+  itemsSkipped: z.number().int().nonnegative(),
+  bytesProcessed: z.number().int().nonnegative(),
+  nonFatalWarnings: z.array(z.string()).readonly(),
+});
+
+const MigrationReportSchema = z.object({
+  source: z.string(),
+  target: z.string(),
+  v1Version: z.string().nullable(),
+  startedAt: z.number().int().nonnegative(),
+  finishedAt: z.number().int().nonnegative(),
+  stepResults: z.array(MigrationStepReportSchema).readonly(),
+  backupPath: z.string().nullable(),
+  success: z.boolean(),
+});
+
+const MigrationExecuteInputSchema = z.object({
+  source: V1InstallSchema.optional(),
+  target: z.string().optional(),
+  dryRun: z.boolean().optional(),
+  force: z.boolean().optional(),
+  // Master key V1 (PBKDF2) — necessário só se V1 tem credentials.enc.
+  // Renderer NUNCA deve persistir; UI pede quando necessário.
+  v1MasterKey: z.string().optional(),
+});
+
 export const migrationRouter = router({
   detect: authed.output(V1InstallSchema.nullable()).query(async ({ ctx }) => {
     const result = await ctx.migration.detect();
@@ -58,6 +87,21 @@ export const migrationRouter = router({
       if (result.isErr()) throw new Error(result.error.message);
       return result.value;
     }),
-});
 
-export type MigrationRouter = typeof migrationRouter;
+  execute: authed
+    .input(MigrationExecuteInputSchema)
+    .output(MigrationReportSchema)
+    .mutation(async ({ ctx, input }) => {
+      // exactOptionalPropertyTypes: filtra undefined explícito antes de
+      // chamar; passar `{key: undefined}` quebra contrato {key?: T}.
+      const result = await ctx.migration.execute({
+        ...(input.source ? { source: input.source } : {}),
+        ...(input.target ? { target: input.target } : {}),
+        ...(input.dryRun === undefined ? {} : { dryRun: input.dryRun }),
+        ...(input.force === undefined ? {} : { force: input.force }),
+        ...(input.v1MasterKey ? { v1MasterKey: input.v1MasterKey } : {}),
+      });
+      if (result.isErr()) throw new Error(result.error.message);
+      return result.value;
+    }),
+});

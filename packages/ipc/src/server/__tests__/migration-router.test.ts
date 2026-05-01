@@ -21,6 +21,40 @@ describe('migration router', () => {
     expect(result?.version).toBe('0.5.1');
   });
 
+  it('execute delegates with input', async () => {
+    const reportFixture = {
+      source: '/v1',
+      target: '/v2',
+      v1Version: '0.5.1',
+      startedAt: 1000,
+      finishedAt: 2000,
+      stepResults: [],
+      backupPath: '/v1.backup-123',
+      success: true,
+    };
+    const execute = vi.fn(async () => ok(reportFixture));
+    const caller = createTestCaller({
+      migration: {
+        detect: async () => ok(null),
+        plan: async () => ok({} as never),
+        execute,
+      },
+    });
+
+    await caller.migration.execute({ dryRun: true });
+    expect(execute).toHaveBeenCalledWith({ dryRun: true });
+
+    const result = await caller.migration.execute({
+      source: { path: '/x', version: null, flavor: 'public' },
+      v1MasterKey: 'secret',
+    });
+    expect(execute).toHaveBeenLastCalledWith({
+      source: { path: '/x', version: null, flavor: 'public' },
+      v1MasterKey: 'secret',
+    });
+    expect(result.success).toBe(true);
+  });
+
   it('plan delegates with optional source/target', async () => {
     const plan = vi.fn(async () =>
       ok({

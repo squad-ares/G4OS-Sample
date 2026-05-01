@@ -403,9 +403,12 @@ export interface PreferencesService {
 }
 
 export type {
+  MigrationExecuteInputView,
   MigrationPlanView,
+  MigrationReportView,
   MigrationService,
   MigrationStepKindView,
+  MigrationStepReportView,
   MigrationStepView,
   V1FlavorView,
   V1InstallView,
