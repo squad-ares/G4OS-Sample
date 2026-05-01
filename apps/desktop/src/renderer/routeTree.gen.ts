@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as MigrationRouteImport } from './routes/migration'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as IndexRouteImport } from './routes/index'
@@ -32,6 +33,11 @@ import { Route as AppWorkspacesWorkspaceIdSettingsRouteImport } from './routes/_
 import { Route as AppWorkspacesWorkspaceIdSessionsIndexRouteImport } from './routes/_app/workspaces.$workspaceId.sessions.index'
 import { Route as AppWorkspacesWorkspaceIdSessionsSessionIdRouteImport } from './routes/_app/workspaces.$workspaceId.sessions.$sessionId'
 
+const MigrationRoute = MigrationRouteImport.update({
+  id: '/migration',
+  path: '/migration',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
@@ -149,6 +155,7 @@ const AppWorkspacesWorkspaceIdSessionsSessionIdRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/migration': typeof MigrationRoute
   '/automations': typeof AppAutomationsRoute
   '/connections': typeof AppConnectionsRoute
   '/marketplace': typeof AppMarketplaceRoute
@@ -172,6 +179,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/migration': typeof MigrationRoute
   '/automations': typeof AppAutomationsRoute
   '/connections': typeof AppConnectionsRoute
   '/marketplace': typeof AppMarketplaceRoute
@@ -194,6 +202,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_app': typeof AppRouteWithChildren
   '/login': typeof LoginRoute
+  '/migration': typeof MigrationRoute
   '/_app/automations': typeof AppAutomationsRoute
   '/_app/connections': typeof AppConnectionsRoute
   '/_app/marketplace': typeof AppMarketplaceRoute
@@ -219,6 +228,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/login'
+    | '/migration'
     | '/automations'
     | '/connections'
     | '/marketplace'
@@ -242,6 +252,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/login'
+    | '/migration'
     | '/automations'
     | '/connections'
     | '/marketplace'
@@ -263,6 +274,7 @@ export interface FileRouteTypes {
     | '/'
     | '/_app'
     | '/login'
+    | '/migration'
     | '/_app/automations'
     | '/_app/connections'
     | '/_app/marketplace'
@@ -288,10 +300,18 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AppRoute: typeof AppRouteWithChildren
   LoginRoute: typeof LoginRoute
+  MigrationRoute: typeof MigrationRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/migration': {
+      id: '/migration'
+      path: '/migration'
+      fullPath: '/migration'
+      preLoaderRoute: typeof MigrationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/login': {
       id: '/login'
       path: '/login'
@@ -540,6 +560,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AppRoute: AppRouteWithChildren,
   LoginRoute: LoginRoute,
+  MigrationRoute: MigrationRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
