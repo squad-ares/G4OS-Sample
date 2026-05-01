@@ -7,7 +7,9 @@
  * e re-roda o agent com o histórico atualizado. Encerra em `stop` / `max_tokens`
  * / `interrupted` / `error`, ou em `MAX_ITERATIONS` como guarda.
  *
- * Helpers extraídos pra caber no cap 300 LOC/arquivo:
+ * Helpers extraídos pra caber no cap ≤500 LOC/arquivo (CR-18 F-SR3:
+ * comentário antigo mencionava 300 LOC — esse cap é do main process
+ * `apps/desktop/src/main/`, não de packages):
  *  - `tool-execution.ts` — permission broker + execução + emit `tool_use_completed`
  *  - `tool-persist.ts`   — persistência das mensagens assistant + role=tool
  */

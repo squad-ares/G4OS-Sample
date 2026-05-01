@@ -136,6 +136,110 @@ describe('PermissionBroker', () => {
     await expect(broker.respond('nope', 'allow_once')).resolves.toBe(false);
   });
 
+  // CR-18 F-PE1: callback síncrono que respondia imediato pegava `#pending`
+  // vazio (pendência só era criada DEPOIS de `onRequest` retornar). Promise
+  // hangava até o timeout de 5min interno. Agora `#pending` é populado antes
+  // de `onRequest`, e respond síncrono encontra a entrada correta.
+  it('resolves when onRequest synchronously calls respond (F-PE1)', async () => {
+    let capturedRequestId: string | null = null;
+    broker = new PermissionBroker((req) => {
+      capturedRequestId = req.requestId;
+      // Síncrono: simulando test stub ou adapter IPC in-process.
+      void broker.respond(req.requestId, 'allow_once');
+    });
+    const decision = await broker.request(makeInput());
+    expect(decision).toBe('allow_once');
+    expect(capturedRequestId).not.toBeNull();
+    expect(broker.pendingCount).toBe(0);
+  });
+
+  // CR-18 F-PE4: cancel chamado DURANTE o `await store.persist` no
+  // respond('allow_always') não deve afetar a decisão — a pendência já foi
+  // removida de `#pending` antes do await persist (resolve já está
+  // committed para `allow_always`). Sem este test, regressões silenciosas
+  // poderiam reordenar e fazer `cancel(sessionId)` rejeitar a Promise que
+  // já estava resolvendo.
+  it('cancel mid-persist does NOT reject already-resolved promise (F-PE4)', async () => {
+    let resolvePersist: (() => void) | null = null;
+    const persistMock = vi.fn(
+      () =>
+        new Promise<{
+          toolName: string;
+          argsHash: string;
+          argsPreview: string;
+          decidedAt: number;
+        }>((r) => {
+          resolvePersist = () =>
+            r({ toolName: 'read_file', argsHash: 'h', argsPreview: '{}', decidedAt: 1 });
+        }),
+    );
+    const store = makeStore({ persist: persistMock });
+    broker = new PermissionBroker((req) => emitted.push(req), { store });
+    const p = broker.request(makeInput());
+    await new Promise((r) => setImmediate(r));
+    // Inicia respond — está awaiting persist agora.
+    void broker.respond(firstRequestId(emitted), 'allow_always');
+    await new Promise((r) => setImmediate(r));
+    // cancel agora — pending já foi removido antes do await persist.
+    broker.cancel('sess-1');
+    // Persistência completa.
+    resolvePersist?.();
+    // Promise resolveu com a decisão original (não foi rejeitada por cancel).
+    await expect(p).resolves.toBe('allow_always');
+  });
+
+  // CR-18 F-DT-L: tools não-persistíveis (run_bash by default) NÃO podem
+  // ter `allow_always` persistido — attacker que conseguiu uma vez aprovar
+  // `rm -rf $HOME` não pode rodar silencioso em sessões futuras.
+  describe('non-persistable tools (F-DT-L)', () => {
+    it('downgrades allow_always to allow_session for run_bash by default', async () => {
+      const persistMock = vi.fn().mockResolvedValue({
+        toolName: 'run_bash',
+        argsHash: 'h',
+        argsPreview: '{}',
+        decidedAt: 1,
+      });
+      const store = makeStore({ persist: persistMock });
+      broker = new PermissionBroker((req) => emitted.push(req), { store });
+      const p = broker.request(makeInput({ toolName: 'run_bash', input: { cmd: 'rm -rf $HOME' } }));
+      // Store lookup é async → onRequest fires no próximo microtask.
+      await new Promise((r) => setImmediate(r));
+      const ok = await broker.respond(firstRequestId(emitted), 'allow_always');
+      expect(ok).toBe(true);
+      // Caller percebe a decisão efetiva como `allow_session`, não `allow_always`.
+      await expect(p).resolves.toBe('allow_session');
+      // Store.persist NÃO foi chamado.
+      expect(persistMock).not.toHaveBeenCalled();
+    });
+
+    it('persists allow_always for non-listed tools (read_file)', async () => {
+      const persistMock = vi.fn().mockResolvedValue({
+        toolName: 'read_file',
+        argsHash: 'h',
+        argsPreview: '{}',
+        decidedAt: 1,
+      });
+      const store = makeStore({ persist: persistMock });
+      broker = new PermissionBroker((req) => emitted.push(req), { store });
+      const p = broker.request(makeInput());
+      await new Promise((r) => setImmediate(r));
+      await broker.respond(firstRequestId(emitted), 'allow_always');
+      await expect(p).resolves.toBe('allow_always');
+      // Persistência aguarda fsync — flush microtask.
+      await new Promise((r) => setImmediate(r));
+      expect(persistMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('respects custom nonPersistableTools list', async () => {
+      broker = new PermissionBroker((req) => emitted.push(req), {
+        nonPersistableTools: ['custom_dangerous_tool'],
+      });
+      const p = broker.request(makeInput({ toolName: 'custom_dangerous_tool' }));
+      await broker.respond(firstRequestId(emitted), 'allow_always');
+      await expect(p).resolves.toBe('allow_session');
+    });
+  });
+
   it('dispose rejects all pending requests', async () => {
     broker = new PermissionBroker((req) => emitted.push(req));
     const p = broker.request(makeInput());

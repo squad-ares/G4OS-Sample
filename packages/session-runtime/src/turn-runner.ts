@@ -9,10 +9,13 @@
 
 import type { AgentConfig, AgentDoneReason, IAgent } from '@g4os/agents/interface';
 import type { AppError } from '@g4os/kernel/errors';
+import { createLogger } from '@g4os/kernel/logger';
 import type { Message, SessionId } from '@g4os/kernel/types';
 import type { TurnTelemetry } from '@g4os/observability/metrics';
 import { ok, type Result } from 'neverthrow';
 import type { SessionEventBus } from './session-event-bus.ts';
+
+const log = createLogger('session-runtime:turn-runner');
 
 interface UnsubscribableLike {
   unsubscribe(): void;
@@ -120,6 +123,14 @@ export function runAgentIteration(
                   };
               toolUses[idx] = finalEntry;
             } else {
+              // CR-18 F-SR5: branch defensivo — `tool_use_complete` sem
+              // `tool_use_start` precedente cria entrada com `toolName:'unknown'`.
+              // Tecnicamente impossível com providers atuais, mas log.warn
+              // sinaliza regressão de provider sem perder o tool result.
+              log.warn(
+                { toolUseId: event.toolUseId, sessionId, turnId },
+                'tool_use_complete without preceding tool_use_start; toolName=unknown',
+              );
               finalEntry = {
                 toolUseId: event.toolUseId,
                 toolName: 'unknown',

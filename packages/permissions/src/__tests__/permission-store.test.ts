@@ -149,4 +149,46 @@ describe('PermissionStore', () => {
     ).withLock('ws-1', () => new Promise(() => undefined));
     await expect(hung).rejects.toThrow(/lock timeout/);
   });
+
+  // CR-18 F-PE2: argsPreview persistido no JSON nunca pode conter segredo
+  // em texto plano — viola o gateway único do CredentialVault (ADR-0050).
+  describe('previewArgs redaction (F-PE2)', () => {
+    it('redacts values keyed as sensitive identifiers', async () => {
+      const store = new PermissionStore({ resolveWorkspaceRoot: () => root });
+      await store.persist('ws-1', {
+        toolName: 'gmail.send',
+        args: { to: 'foo@example.com', apiKey: 'sk-real-secret-1234567890' },
+      });
+      const list = await store.list('ws-1');
+      expect(list[0]?.argsPreview).toContain('"apiKey":"[REDACTED]"');
+      expect(list[0]?.argsPreview).not.toContain('sk-real-secret-1234567890');
+      // E-mail não-sensível continua presente para auditoria.
+      expect(list[0]?.argsPreview).toContain('foo@example.com');
+    });
+
+    it('redacts values matching token shape even under benign keys', async () => {
+      const store = new PermissionStore({ resolveWorkspaceRoot: () => root });
+      await store.persist('ws-1', {
+        toolName: 'run_bash',
+        args: {
+          cmd: "curl -H 'Authorization: Bearer ghp_AAAAAAAAAAAAAAAAAAAAAAAAAA' https://api.github.com/user",
+        },
+      });
+      const list = await store.list('ws-1');
+      expect(list[0]?.argsPreview).not.toContain('ghp_AAAAAAAAAAAAAAAAAAAAAAAAAA');
+      expect(list[0]?.argsPreview).toContain('[REDACTED]');
+    });
+
+    it('handles nested objects without leaking', async () => {
+      const store = new PermissionStore({ resolveWorkspaceRoot: () => root });
+      await store.persist('ws-1', {
+        toolName: 'oauth.exchange',
+        args: { provider: 'github', credentials: { access_token: 'sk-leak-1234567890abcdef' } },
+      });
+      const list = await store.list('ws-1');
+      expect(list[0]?.argsPreview).not.toContain('sk-leak-1234567890abcdef');
+      expect(list[0]?.argsPreview).toContain('[REDACTED]');
+      expect(list[0]?.argsPreview).toContain('github');
+    });
+  });
 });

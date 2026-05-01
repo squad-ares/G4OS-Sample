@@ -274,8 +274,60 @@ function stableStringify(value: unknown, visited: WeakSet<object> = new WeakSet(
   return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${stableStringify(v, visited)}`).join(',')}}`;
 }
 
+// CR-18 F-PE2: tools managed (Gmail, GitHub, Linear, OAuth flows) e tools
+// arbitrárias (run_bash com env, write_file com .env content) podem incluir
+// segredos no input. Quando user clica "allow_always" o broker persiste o
+// preview no `permissions.json`. Sem redação, tokens vão pra disco em texto
+// plano — vazamento lateral do gateway único `CredentialVault` (ADR-0050).
+//
+// Estratégia: redação dupla. (1) Por chave: substitui valor por `[REDACTED]`
+// quando a key matcha lista de identifiers sensíveis (apiKey, token,
+// password, etc.). (2) Por padrão de valor: matcha tokens conhecidos por
+// shape (sk-, gho_, xoxb-, JWT, Bearer, Basic auth) mesmo em chaves benignas
+// como `cmd` ou `body`.
+const SENSITIVE_KEY_RE =
+  /(?:^|_|-|\.)(?:api[_-]?key|access[_-]?token|refresh[_-]?token|password|passwd|secret|authorization|auth|cookie|session[_-]?id|client[_-]?secret|private[_-]?key|bearer)$/i;
+
+const SECRET_VALUE_PATTERNS: ReadonlyArray<RegExp> = [
+  // Anthropic / OpenAI
+  /\bsk-[A-Za-z0-9_-]{20,}/g,
+  // Google API
+  /\bAIza[A-Za-z0-9_-]{35}/g,
+  // GitHub PAT/OAuth/server-to-server
+  /\bgh[oprsu]_[A-Za-z0-9]{20,}/g,
+  // Slack
+  /\bxox[abprs]-[A-Za-z0-9-]{10,}/g,
+  // JWT (3 segmentos base64url separados por `.`)
+  /\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/g,
+  // Bearer/Basic em headers
+  /\b(?:Bearer|Basic)\s+[A-Za-z0-9._\-+/=]{16,}/gi,
+  // Notion-style opaque
+  /\bsecret_[A-Za-z0-9]{20,}/g,
+];
+
+function redactSecretValueChars(str: string): string {
+  let out = str;
+  for (const re of SECRET_VALUE_PATTERNS) out = out.replace(re, '[REDACTED]');
+  return out;
+}
+
+function redactValue(value: unknown, key?: string): unknown {
+  if (key !== undefined && SENSITIVE_KEY_RE.test(key)) return '[REDACTED]';
+  if (typeof value === 'string') return redactSecretValueChars(value);
+  if (Array.isArray(value)) return value.map((v) => redactValue(v));
+  if (value !== null && typeof value === 'object') {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      out[k] = redactValue(v, k);
+    }
+    return out;
+  }
+  return value;
+}
+
 function previewArgs(input: Readonly<Record<string, unknown>>): string {
-  const raw = JSON.stringify(input);
+  const safe = redactValue(input) as Record<string, unknown>;
+  const raw = JSON.stringify(safe);
   return raw.length <= 200 ? raw : `${raw.slice(0, 197)}...`;
 }
 
