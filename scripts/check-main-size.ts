@@ -191,7 +191,21 @@ import { globSync } from 'glob';
 // type-safety. +`index.ts` (+~25 LOC) wire 4 funções da bootstrap no
 // composition root antes de `whenReady()`. Próxima elevação exige nova
 // extração estrutural OU ADR justificando.
-const MAIN_LIMIT = 10150;
+//
+// 10150 → 10300 — code-review-19 retrofit: o commit `bd20855
+// feat(desktop): Services status screen with real HTTP connectivity probing`
+// adicionou `services/services-prober.ts` (111 LOC) — probe HTTP HEAD com
+// timeout pros endpoints de observability (Sentry DSN, OTLP, metrics
+// scrape) que reporta `reachable/latencyMs/error` real ao usuário em
+// `Settings → Services`, distinguindo "configurado mas inacessível" de
+// "ativo". Sem isso operadores ficavam cegos a configs aceitas mas que
+// não chegavam ao backend. PR original esqueceu de bumpar o teto; gate
+// passou a falhar cumulativamente quando outros pacotes cresceram em
+// ~10 LOC. Total atual: 10246 LOC. Buffer de 54 LOC para ajustes menores
+// até próxima extração estrutural (candidato natural: mover `services-prober.ts`
+// para `@g4os/observability/probe` em refactor futuro — função é
+// observability-agnostic e não tem deps de Electron).
+const MAIN_LIMIT = 10300;
 const FILE_LIMIT = 300;
 
 // Composition roots e agregadores de diagnóstico com teto próprio.
