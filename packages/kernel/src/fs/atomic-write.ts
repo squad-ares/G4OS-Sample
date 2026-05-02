@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import { copyFile, open, rename, unlink } from 'node:fs/promises';
 import { dirname } from 'node:path';
 
@@ -41,7 +42,12 @@ export async function writeAtomic(
   data: string | Uint8Array,
   options?: { readonly mode?: number },
 ): Promise<void> {
-  const tmpPath = `${path}.${process.pid}.${Date.now()}.tmp`;
+  // Sufixo aleatório (8 bytes hex) defende contra colisão teórica entre dois
+  // callers no mesmo PID + mesmo Date.now() (resolução ms). PID sozinho não
+  // basta — chamadas in-process concorrentes ao mesmo target compartilham
+  // process.pid; Date.now() pode colidir em ms quando event loop dispara
+  // múltiplos awaits no mesmo tick. UUID-equivalente em entropia.
+  const tmpPath = `${path}.${process.pid}.${Date.now()}.${randomBytes(8).toString('hex')}.tmp`;
   const mode = options?.mode ?? 0o600;
 
   let fileHandle: Awaited<ReturnType<typeof open>> | null = null;
