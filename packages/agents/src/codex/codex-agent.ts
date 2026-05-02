@@ -127,6 +127,10 @@ export class CodexAgent extends DisposableBase implements IAgent {
       });
   }
 
-  // dispose() é herdado de DisposableBase — executa em LIFO os disposables
-  // registrados no constructor (clear → appServer.dispose → bridge.detach).
+  // dispose() é herdado de DisposableBase — `DisposableStore` itera o `Set`
+  // em ORDEM DE INSERÇÃO (FIFO), então a sequência efetiva é
+  // bridge.detach → appServer.dispose → activeRequests.clear, casando com a
+  // documentação do constructor. CR-22 F-CR22-4: comentário antigo dizia
+  // "LIFO" e listava a ordem invertida — sobreviveu ao fix CR-18 F-AG1 e
+  // induzia leitor a assumir LIFO incorretamente.
 }

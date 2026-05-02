@@ -75,6 +75,17 @@ export const MessageSchema = z.object({
         })
         .optional(),
       durationMs: z.number().int().nonnegative().optional(),
+      // CR-24 F-CR24-1: discriminador para mensagens role='system'.
+      // V1 tinha 4 roles dedicados (`error`/`info`/`warning`/`system`); V2
+      // unifica em role='system' + `systemKind` para preservar o shape
+      // do V1 SystemMessage (variantes visuais) sem inflar a enum de role.
+      // Quando ausente, o renderer trata como `system` neutro.
+      systemKind: z.enum(['error', 'info', 'warning']).optional(),
+      // Código de erro do AgentError ou do AppError que originou a falha.
+      // Persistido só em system messages com `systemKind: 'error'` para
+      // permitir Settings/Repair filtrar histórico por code (`agent.invalid_api_key`,
+      // `agent.rate_limited`, etc.) e renderer diferenciar UX por categoria.
+      errorCode: z.string().optional(),
     })
     .default({}),
 });

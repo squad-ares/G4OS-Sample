@@ -49,6 +49,7 @@ export const enUS = {
   'chat.header.archive': 'Archive session',
   'chat.header.moreActions': 'More actions',
   'chat.header.toggleMetadata': 'Toggle metadata panel',
+  'chat.header.openSessionMenu': 'Open session menu',
   'chat.metadata.title': 'Session details',
   'chat.metadata.ariaLabel': 'Session metadata panel',
   'chat.metadata.close': 'Close panel',
@@ -79,6 +80,11 @@ export const enUS = {
   'chat.actions.copy': 'Copy message',
   'chat.actions.copied': 'Copied',
 
+  'chat.systemMessage.errorTitle': 'Turn failed',
+  'chat.systemMessage.warningTitle': 'Warning',
+  'chat.systemMessage.infoTitle': 'Notice',
+  'chat.systemMessage.retry': 'Retry',
+
   'chat.toolRenderer.result': 'Result',
   'chat.toolRenderer.error': 'Error',
   'chat.toolRenderer.bash.outputSingular': 'Output — 1 line',
@@ -100,10 +106,10 @@ export const enUS = {
   'chat.modelSelector.empty': 'No models found',
 
   'chat.thinkingLevel.ariaLabel': 'Thinking level',
-  'chat.thinkingLevel.minimal': 'Minimal',
   'chat.thinkingLevel.low': 'Low',
-  'chat.thinkingLevel.medium': 'Medium',
+  'chat.thinkingLevel.think': 'Think',
   'chat.thinkingLevel.high': 'High',
+  'chat.thinkingLevel.ultra': 'Ultra',
 
   'chat.permission.title': 'Permission request',
   'chat.permission.description': 'The agent wants to execute',
@@ -698,6 +704,11 @@ export const enUS = {
   'session.action.branch': 'Branch from here',
   'session.action.rename': 'Rename',
   'session.action.labels': 'Labels',
+  'session.action.openInNewWindow': 'Open in new window',
+  'session.deleteDialog.title': 'Move session to trash?',
+  'session.deleteDialog.description':
+    'Session "{{name}}" will be archived as deleted. You can restore it within 30 days before automatic cleanup.',
+  'session.deleteDialog.cancel': 'Cancel',
   'session.rename.prompt': 'Rename session',
   'session.rename.placeholder': 'Session name',
 

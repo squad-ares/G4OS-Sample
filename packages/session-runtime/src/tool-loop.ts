@@ -165,6 +165,11 @@ async function runOneIteration(
         usageInput: state.totalUsageInput,
         usageOutput: state.totalUsageOutput,
         modelId: input.config.modelId,
+        // CR-25 F-CR25-1: forward de thinkingLevel quando configurado pelo
+        // dispatcher. Persistido em metadata para reprodutibilidade do turn.
+        ...(input.config.thinkingLevel === undefined
+          ? {}
+          : { thinkingLevel: input.config.thinkingLevel }),
       },
     );
     if (doneReason === 'error') {
@@ -207,6 +212,14 @@ async function runOneIteration(
       thinkingBuffered: thinkingChunks.join(''),
       toolUses,
       modelId: input.config.modelId,
+      // CR-25 F-CR25-1: usage parcial da iteração + thinking level. O total
+      // acumulado vai na finalize; aqui registramos só o segmento desta
+      // iteração para que cada mensagem tool-use tenha proveniência própria.
+      usageInput: usage.input,
+      usageOutput: usage.output,
+      ...(input.config.thinkingLevel === undefined
+        ? {}
+        : { thinkingLevel: input.config.thinkingLevel }),
     },
   );
   if (assistantPersisted.isErr()) return { kind: 'error', error: assistantPersisted.error };
@@ -228,9 +241,13 @@ async function runOneIteration(
 }
 
 function abortError(sessionId: string, turnId: string, iter: number): AppError {
+  // CR-25 F-CR25-4: marca via `context.aborted: true` para que callers
+  // (turn-dispatcher.persistSystemError) discriminem interrupção deliberada
+  // do usuário sem depender de string match na message. Antes era detectado
+  // via `error.message === 'turn aborted'` — frágil contra refactor futuro.
   return new AppError({
     code: ErrorCode.AGENT_UNAVAILABLE,
     message: 'turn aborted',
-    context: { sessionId, turnId, iter },
+    context: { sessionId, turnId, iter, aborted: true },
   });
 }

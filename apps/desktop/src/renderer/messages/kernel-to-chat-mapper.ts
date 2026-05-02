@@ -9,10 +9,18 @@ import type { Message as KernelMessage } from '@g4os/kernel/types';
  * que o renderer não usa).
  */
 export function kernelMessageToChat(msg: KernelMessage): ChatMessage {
+  // CR-24 F-CR24-1: forward de `metadata.systemKind`/`errorCode` quando
+  // presente (apenas em mensagens role='system' originadas de turn errors).
+  // Sem o forward, o `MessageCard` cai no branch genérico de system e
+  // perde a tinta visual de erro + RetryButton inline.
+  const systemKind = msg.metadata?.systemKind;
+  const errorCode = msg.metadata?.errorCode;
   return {
     id: msg.id,
     role: msg.role,
     content: msg.content,
     createdAt: msg.createdAt,
+    ...(systemKind ? { systemKind } : {}),
+    ...(errorCode ? { errorCode } : {}),
   };
 }

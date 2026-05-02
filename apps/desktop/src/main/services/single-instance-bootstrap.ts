@@ -15,7 +15,7 @@
 
 import { resolve as resolvePath } from 'node:path';
 import type { Logger } from '@g4os/kernel/logger';
-import { isWindows } from '@g4os/platform';
+import { getProtocolName, isWindows } from '@g4os/platform';
 import type { DeepLinkHandler } from '../deep-link-handler.ts';
 import type { ElectronRuntime } from '../electron-runtime.ts';
 
@@ -23,7 +23,13 @@ export interface SingleInstanceContext {
   readonly acquired: boolean;
 }
 
-const PROTOCOL = 'g4os';
+// CR-23 F-CR23-3: PROTOCOL via `getProtocolName()` em `@g4os/platform`.
+// Antes (CR-22 F-CR22-3) o helper local `resolveProtocol` re-derivava inline
+// a regra do FLAVOR — corrigia o bug original de hardcode mas duplicava a
+// lógica que vive em `paths.ts`. Centralizar em `@g4os/platform` evita drift
+// quando um terceiro consumer (auto-update, telemetria) precisar do nome.
+const PROTOCOL = getProtocolName();
+const PROTOCOL_PREFIX = `${PROTOCOL}://`;
 
 /**
  * Tenta adquirir o lock exclusivo da instância. Deve ser chamado ANTES de
@@ -80,7 +86,7 @@ export function wireSecondInstance(
 ): void {
   if (typeof electron.app.on !== 'function') return;
   electron.app.on('second-instance', (_event, argv) => {
-    const url = argv.find((arg) => typeof arg === 'string' && arg.startsWith(`${PROTOCOL}://`));
+    const url = argv.find((arg) => typeof arg === 'string' && arg.startsWith(PROTOCOL_PREFIX));
     if (url) {
       log.info({ url }, 'second-instance deep-link forwarded');
       deepLinks.handle(url);
@@ -98,7 +104,7 @@ export function wireSecondInstance(
  */
 export function consumeBootstrapArgvDeepLink(deepLinks: DeepLinkHandler, log: Logger): void {
   const url = process.argv.find(
-    (arg) => typeof arg === 'string' && arg.startsWith(`${PROTOCOL}://`),
+    (arg) => typeof arg === 'string' && arg.startsWith(PROTOCOL_PREFIX),
   );
   if (url) {
     log.info({ url }, 'bootstrap argv deep-link forwarded');

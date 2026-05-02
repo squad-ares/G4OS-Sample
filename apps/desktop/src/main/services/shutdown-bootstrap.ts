@@ -33,11 +33,17 @@ export interface ShutdownTargets {
 
 export function registerShutdownHandlers(lifecycle: AppLifecycle, targets: ShutdownTargets): void {
   lifecycle.onQuit(() => targets.mountRegistry.dispose());
-  // `drain()` aborta turnos em voo e aguarda quiescer (deadline curto).
-  // Só depois fazemos dispose do agent, pra evitar race entre subscriber e
-  // teardown.
-  lifecycle.onQuit(() => targets.turnDispatcher.drain());
-  lifecycle.onQuit(() => targets.turnDispatcher.dispose());
+  // CR-30 F-CR30-3: drain + dispose num único handler async pra serializar
+  // de fato. `AppLifecycle.shutdown()` usa `Promise.allSettled` (paralelo)
+  // — registrar em handlers separados fazia `dispose()` rodar antes de
+  // `drain()` finalizar a quiescência, abortando agent + AbortControllers
+  // antes de `runToolLoop` flushar a última `message.added` da iteração
+  // tool-use. Mesmo pattern do `backupScheduler` abaixo (drain+dispose
+  // sequencial dentro de uma única closure).
+  lifecycle.onQuit(async () => {
+    await targets.turnDispatcher.drain();
+    targets.turnDispatcher.dispose();
+  });
   lifecycle.onQuit(() => targets.sessionEventBus.dispose());
   lifecycle.onQuit(() => targets.cpuPool.destroy());
   lifecycle.onQuit(() => targets.authRuntime.dispose());

@@ -31,13 +31,14 @@ export const ProjectCreateInputSchema = z.object({
  * injetado pelo Zod em qualquer rename, clobberando projetos
  * `archived` de volta para `active`. Mesma classe de bug do
  * `SessionUpdateSchema`.
+ *
+ * CR-22 F-CR22-6: `slug` foi removido do patch porque o `ProjectsRepository.update`
+ * só auto-deriva slug a partir de `name` (`toSlug(patch.name)`) — nunca
+ * lia `patch.slug`. Schema anterior anunciava o campo mas a impl ignorava
+ * silenciosamente; rename via `name` continua mudando o slug do projeto.
  */
 export const ProjectPatchSchema = z.object({
   name: z.string().min(1).max(200).optional(),
-  slug: z
-    .string()
-    .regex(/^[a-z0-9-]+$/)
-    .optional(),
   description: z.string().optional(),
   status: ProjectStatusSchema.optional(),
   color: z.string().optional(),

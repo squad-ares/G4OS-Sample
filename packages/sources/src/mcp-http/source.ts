@@ -106,8 +106,13 @@ export class McpHttpSource extends DisposableBase implements ISource {
   }
 
   override dispose(): void {
+    // CR-30 F-CR30-7: idempotência defensiva pra suportar double-dispose
+    // (`McpMountRegistry.unmount` chama dispose explicitamente E o store
+    // do registry chama de novo no shutdown). `deactivate` já é
+    // self-guarded (`if (this.client)`), DisposableBase é idempotente,
+    // e o `statusSubject.closed` check segue o pattern do McpStdioSource.
     void this.deactivate();
-    this.statusSubject.complete();
+    if (!this.statusSubject.closed) this.statusSubject.complete();
     super.dispose();
   }
 

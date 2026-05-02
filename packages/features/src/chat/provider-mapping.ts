@@ -7,17 +7,19 @@
  *
  * The catalog's `ModelProvider` is UI-facing. `SessionProvider` is what gets
  * persisted. Connection slug is what the `AgentRegistry` resolves factories by.
+ *
+ * CR-30 F-CR30-10: `SessionProvider → connection slug` é importado do
+ * `@g4os/kernel/types` (`connectionSlugForProvider`). Antes havia uma cópia
+ * literal aqui; cada novo provider exigia editar dois lugares e drift era
+ * inevitável. `SessionProviderKind` virou um type alias re-exportado pra
+ * preservar API pública dos consumidores.
  */
 
+import type { SessionProvider } from '@g4os/kernel/types';
+import { connectionSlugForProvider } from '@g4os/kernel/types';
 import type { ModelProvider } from './model-catalog.ts';
 
-export type SessionProviderKind =
-  | 'claude'
-  | 'openai'
-  | 'openai_compat'
-  | 'gemini'
-  | 'bedrock'
-  | 'codex';
+export type SessionProviderKind = SessionProvider;
 
 export function modelProviderToSession(provider: ModelProvider): SessionProviderKind {
   switch (provider) {
@@ -33,22 +35,9 @@ export function modelProviderToSession(provider: ModelProvider): SessionProvider
 }
 
 export function sessionProviderToConnectionSlug(provider: SessionProviderKind): string {
-  switch (provider) {
-    case 'claude':
-      return 'anthropic-direct';
-    case 'openai':
-      return 'openai-direct';
-    case 'openai_compat':
-      return 'openai-compat';
-    case 'gemini':
-      return 'google-direct';
-    case 'bedrock':
-      return 'bedrock-claude';
-    case 'codex':
-      return 'codex-local';
-  }
+  return connectionSlugForProvider(provider);
 }
 
 export function modelProviderToConnectionSlug(provider: ModelProvider): string {
-  return sessionProviderToConnectionSlug(modelProviderToSession(provider));
+  return connectionSlugForProvider(modelProviderToSession(provider));
 }

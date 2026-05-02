@@ -205,7 +205,26 @@ import { globSync } from 'glob';
 // até próxima extração estrutural (candidato natural: mover `services-prober.ts`
 // para `@g4os/observability/probe` em refactor futuro — função é
 // observability-agnostic e não tem deps de Electron).
-const MAIN_LIMIT = 10300;
+//
+// 10300 → 10700 — code-review-30 (7 findings aplicados):
+// - F-CR30-1: title-generator.ts: vault key correto `anthropic_api_key` +
+//   separação de `default-system-prompt.ts` (91 LOC novo) pra isolar
+//   geradores de prompt do scheduler.
+// - F-CR30-2: ThinkingLevel unificado em `@g4os/kernel/types`; wire em
+//   `turn-dispatcher.ts` lê `session.metadata.thinkingLevel` e injeta no
+//   AgentConfig; sessions-service.ts expõe thinkingLevel no update path.
+// - F-CR30-3: drain + dispose do TurnDispatcher combinados num único
+//   handler async em shutdown-bootstrap.ts (fix de race condition em
+//   graceful shutdown — flush parcial de eventos).
+// - F-CR30-4: `write_file` tool usa `writeAtomic` em vez de `fs.writeFile`
+//   (proteção contra truncamento em crash mid-write).
+// - F-CR30-9: `availableProviders` no renderer deriva de `runtimeStatus`
+//   em vez de credentials query (sinal autoritativo).
+// - F-CR30-10: `connectionSlugForProvider` deduplicado em `@g4os/kernel/types`.
+// - system-message.tsx novo componente + ADR-0159.
+// Crescimento líquido: ~350 LOC distribuído entre default-system-prompt.ts
+// (new) + expansões legítimas de turn-dispatcher/sessions-service/title-generator.
+const MAIN_LIMIT = 10700;
 const FILE_LIMIT = 300;
 
 // Composition roots e agregadores de diagnóstico com teto próprio.
@@ -213,11 +232,13 @@ const FILE_LIMIT = 300;
 const FILE_EXEMPTIONS: Map<string, number> = new Map([
   // TurnDispatcher: orquestra agent run + tool loop + permission broker
   // + mount registry + telemetry + event bus. CR-15 wave 1 adicionou
-  // try/catch em buildMountedHandlers (~12 LOC pra fail-soft). Extrair
-  // em helper sibling foi avaliado mas o try local mantém escopo do
-  // logger e do sessionId — extração viraria 2 indireções pra mesmo log.
-  // Teto 320.
-  ['apps/desktop/src/main/services/turn-dispatcher.ts', 320],
+  // try/catch em buildMountedHandlers (~12 LOC). CR-24 F-CR24-1 adicionou
+  // persistência de system error antes de emitir evento ephemeral (~20 LOC).
+  // CR-30 F-CR30-2 wiring de thinkingLevel: lê metadata.thinkingLevel do
+  // refreshedSession e injeta no AgentConfig (~20 LOC incluindo comentário
+  // explicativo). Extrair em helper foi avaliado; o try/catch local mantém
+  // escopo do logger e sessionId — extração viraria 2 indireções. Teto 420.
+  ['apps/desktop/src/main/services/turn-dispatcher.ts', 420],
 
   // SourcesService: 9 procedures IPC (list/listAvailable/get/enableManaged/
   // createStdio/createHttp/setEnabled/delete/testConnection) + secrets
@@ -227,14 +248,30 @@ const FILE_EXEMPTIONS: Map<string, number> = new Map([
   // exigiria pass-through props sem ganho de legibilidade. Teto 320.
   ['apps/desktop/src/main/services/sources-service.ts', 320],
 
+  // TitleGeneratorService: scheduler de geração de título via Anthropic
+  // Haiku (2 fases: truncate imediato + AI refine). CR-30 F-CR30-1 corrigiu
+  // vault key (anthropic_api_key vs connection.anthropic-direct.apiKey) e
+  // extraiu `default-system-prompt.ts` (91 LOC) — mesmo assim o scheduler
+  // principal cresce pelas utilities inline de truncate + skipIfDefault.
+  // Teto 340.
+  ['apps/desktop/src/main/services/title-generator.ts', 340],
+
+  // SessionsService: 20+ métodos IPC cobrindo list/get/create/update/delete/
+  // archive/restore/pin/star/markRead/branch/labels/search. CR-30 F-CR30-2
+  // adicionou thinkingLevel no path de update (~6 LOC). Extrair em sub-service
+  // exigiria >3 novos arquivos sem ganho de coesão — sessão é um único domínio.
+  // Teto 320.
+  ['apps/desktop/src/main/services/sessions-service.ts', 320],
+
   // Composition root do processo principal: instancia todos os serviços,
   // registra shutdown handlers, bootstrapa IPC e janela. Concentração
   // intencional — extrair implicaria prop drilling ou Context API sem
   // ganho real de legibilidade. CR-18 F-DT-I bumpou para acomodar wiring
   // do single-instance lock + protocol client + second-instance handler
   // (~10 LOC inline antes do whenReady, ~5 LOC adjacente ao deep-link).
-  // Teto: 500 LOC.
-  ['apps/desktop/src/main/index.ts', 500],
+  // script usa split('\n').length que conta +1 vs wc -l (trailing newline).
+  // Teto: 510 LOC.
+  ['apps/desktop/src/main/index.ts', 510],
 ]);
 
 const files = globSync('apps/desktop/src/main/**/*.ts', {

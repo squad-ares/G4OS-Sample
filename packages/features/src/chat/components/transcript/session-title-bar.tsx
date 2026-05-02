@@ -1,10 +1,37 @@
 import { cn, useTranslate } from '@g4os/ui';
-import { type KeyboardEvent, useEffect, useRef, useState } from 'react';
+import { type KeyboardEvent, type ReactNode, useEffect, useRef, useState } from 'react';
 
 export interface SessionTitleBarProps {
   readonly name: string;
   /** Quando provido, click no nome ativa edição inline (Enter salva, Esc cancela). */
   readonly onRename?: (next: string) => void | Promise<void>;
+  /**
+   * CR-28 F-CR28-3 — Slot opcional (entre nome e actions) para chip de
+   * projeto linkado, indicadores de pin/star/unread, etc. Paridade V1
+   * `PanelHeader.badge` que renderizava `ProjectBadge` inline.
+   */
+  readonly projectBadge?: ReactNode;
+  /**
+   * CR-28 F-CR28-1 — Slot opcional (direita) para botão de menu / ações
+   * (pin, star, archive, delete, open in new window). V1 PanelHeader tinha
+   * um chevron+dropdown com 10 ações via `SessionMenu`; V2 expõe via slot
+   * pra que a route monte o menu próprio sem inflar este componente com
+   * lógica IPC. Paridade V1 mantendo chrome leve do ADR-0156.
+   */
+  readonly actions?: ReactNode;
+  /**
+   * CR-28 F-CR28-2 — Quando true, aplica shimmer/pulse no nome — feedback
+   * visual pra usuário durante geração de título (paridade V1
+   * `animate-shimmer-text` em PanelHeader). Set durante o 2º turn quando
+   * AI title refinement está em andamento (~3-8s).
+   */
+  readonly isRegenerating?: boolean;
+  /**
+   * Quando true, remove o `border-b` — útil quando este componente é
+   * seguido de outra strip que já tem border-top (ex.: `SessionActiveBadges`
+   * com `border-b`), evitando 2 borders empilhadas.
+   */
+  readonly noBorderBottom?: boolean;
   readonly className?: string;
 }
 
@@ -12,13 +39,19 @@ export interface SessionTitleBarProps {
  * Strip leve com o nome da sessão acima do transcript. Click ativa edição
  * inline (V1 paridade — o título podia ser editado direto da bar do chat).
  *
- * NÃO contém botões de ação — esses ficam em `SessionActiveBadges` (retry,
- * toggle metadata) e no `SessionMetadataPanel` (rename via Pencil, archive).
- * Esse componente existe pra restaurar a affordance "vejo o nome do chat
- * que estou e edito direto se quiser" sem trazer de volta a bar pesada do
- * antigo `SessionHeader` (ADR-0156).
+ * Slots `projectBadge`/`actions` permitem à route injetar chips/menus
+ * sem voltar à bar pesada do antigo `SessionHeader` (ADR-0156). O componente
+ * permanece sem lógica IPC própria.
  */
-export function SessionTitleBar({ name, onRename, className }: SessionTitleBarProps) {
+export function SessionTitleBar({
+  name,
+  onRename,
+  projectBadge,
+  actions,
+  isRegenerating,
+  noBorderBottom,
+  className,
+}: SessionTitleBarProps) {
   const { t } = useTranslate();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(name);
@@ -63,7 +96,8 @@ export function SessionTitleBar({ name, onRename, className }: SessionTitleBarPr
   return (
     <div
       className={cn(
-        'flex shrink-0 items-center gap-2 border-b border-foreground/6 px-4 py-2',
+        'flex shrink-0 items-center gap-2 px-4 py-2',
+        !noBorderBottom && 'border-b border-foreground/6',
         className,
       )}
     >
@@ -86,12 +120,23 @@ export function SessionTitleBar({ name, onRename, className }: SessionTitleBarPr
           className={cn(
             'min-w-0 flex-1 truncate rounded-md px-2 py-1 text-left text-sm font-medium text-foreground',
             onRename ? 'hover:bg-accent/12 enabled:cursor-text' : 'cursor-default',
+            // CR-28 F-CR28-2: shimmer durante regeneração — paridade V1
+            // `animate-shimmer-text`. Usa `animate-pulse` builtin do Tailwind
+            // sem precisar de keyframe custom.
+            isRegenerating && 'animate-pulse opacity-70',
           )}
           title={onRename ? t('chat.header.clickToRename') : undefined}
+          aria-busy={isRegenerating ? 'true' : 'false'}
         >
           {name}
         </button>
       )}
+      {projectBadge ? (
+        <div className="shrink-0" aria-hidden={false}>
+          {projectBadge}
+        </div>
+      ) : null}
+      {actions ? <div className="shrink-0">{actions}</div> : null}
     </div>
   );
 }

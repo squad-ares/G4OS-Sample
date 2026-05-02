@@ -27,6 +27,7 @@ import { scheduleOrphanTmpCleanup } from './services/cleanup-orphan-tmp-bootstra
 import { CpuPool } from './services/cpu-pool.ts';
 import { createCredentialsService } from './services/credentials-service.ts';
 import { initDatabase } from './services/db-service.ts';
+import { DEFAULT_SYSTEM_PROMPT } from './services/default-system-prompt.ts';
 import { createLabelsService } from './services/labels-service.ts';
 import { SqliteMessagesService } from './services/messages-service.ts';
 import { MigrationServiceImpl } from './services/migration-service.ts';
@@ -241,10 +242,14 @@ export async function bootstrapMain(options: BootstrapOptions = {}): Promise<voi
   const mountRegistry = createMountRegistry();
 
   // TitleGenerator checa session.name contra defaultNames antes de gerar — não sobrescreve nomes manuais.
+  // CR-26 F-CR26-1: bus + drizzle injetados para emitir `session.renamed` após
+  // gravar o título, sincronizando UI sem reload (paridade V1 `title_generated`).
   const titleGenerator = new TitleGeneratorService({
     vault: credentialVault,
     sessionsRepo,
     defaultNames: ['Nova sessão', 'New session'],
+    eventBus: sessionEventBus,
+    drizzle: database.drizzle,
   });
 
   const turnDispatcher = new TurnDispatcher({
@@ -261,6 +266,10 @@ export async function bootstrapMain(options: BootstrapOptions = {}): Promise<voi
     resolveWorkingDirectory: (session) =>
       session?.workingDirectory ?? appPaths.workspace(session?.workspaceId ?? 'default'),
     sessionIntentUpdater: buildIntentUpdater(sessionsRepo),
+    // Default system prompt — sem este wiring, o LLM rodava sem qualquer
+    // identidade/orientation/tools-awareness, gerando respostas genéricas e
+    // pobres em detalhes vs V1. Paridade-lite com `packages/shared/src/prompts/system.ts`.
+    defaults: { systemPrompt: DEFAULT_SYSTEM_PROMPT },
   });
   const sessionsService = createSessionsService({
     db: database.db,

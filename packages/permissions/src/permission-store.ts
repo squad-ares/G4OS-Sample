@@ -249,29 +249,40 @@ function stableStringify(value: unknown, visited: WeakSet<object> = new WeakSet(
   // Rejeita ciclos antes de recursar — sem este guard, args com
   // referência circular (`args.self = args`) faz stack overflow e crash
   // o broker. DoS vector em single tool call malformado.
+  //
+  // CR-27 F-CR27-3: precisamos REMOVER `value` do `visited` ao sair
+  // (DFS clássico white/gray/black). Sem o `visited.delete` no finally, o
+  // set acumula objetos vistos em irmãos, transformando a checagem de ciclo
+  // em rejeição de DAG (referências compartilhadas legítimas como
+  // `{ from: shared, to: shared }`). Caller via tool args reaproveita
+  // structs com frequência — antes virava "circular reference" falso.
   if (visited.has(value as object)) {
     throw new Error('hashArgs: circular reference in tool args');
   }
   visited.add(value as object);
-  if (Array.isArray(value)) {
-    return `[${value.map((item) => stableStringify(item, visited)).join(',')}]`;
+  try {
+    if (Array.isArray(value)) {
+      return `[${value.map((item) => stableStringify(item, visited)).join(',')}]`;
+    }
+    // `Reflect.ownKeys` cobre Symbol keys também — `Object.keys` os
+    // ignora silenciosamente, então duas chamadas com Symbol keys diferentes
+    // produziriam o mesmo hash (colisão). Filtramos Symbols porque tornar
+    // chave-Symbol estável JSON é ambíguo (sem identidade serializável).
+    const allKeys = Reflect.ownKeys(value as object).filter(
+      (k): k is string => typeof k === 'string',
+    );
+    // Ordem ordinal (UTF-16 code units) em vez de `localeCompare`. O
+    // hash de args precisa ser determinístico ENTRE máquinas — `localeCompare`
+    // varia com collation do locale (pt-BR, en-US, etc.), então usuários em
+    // locales diferentes geravam hashes ligeiramente distintos para o mesmo
+    // input. Comparação ordinal é estável em qualquer ambiente.
+    const entries = allKeys
+      .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0))
+      .map((k) => [k, (value as Record<string, unknown>)[k]] as const);
+    return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${stableStringify(v, visited)}`).join(',')}}`;
+  } finally {
+    visited.delete(value as object);
   }
-  // `Reflect.ownKeys` cobre Symbol keys também — `Object.keys` os
-  // ignora silenciosamente, então duas chamadas com Symbol keys diferentes
-  // produziriam o mesmo hash (colisão). Filtramos Symbols porque tornar
-  // chave-Symbol estável JSON é ambíguo (sem identidade serializável).
-  const allKeys = Reflect.ownKeys(value as object).filter(
-    (k): k is string => typeof k === 'string',
-  );
-  // Ordem ordinal (UTF-16 code units) em vez de `localeCompare`. O
-  // hash de args precisa ser determinístico ENTRE máquinas — `localeCompare`
-  // varia com collation do locale (pt-BR, en-US, etc.), então usuários em
-  // locales diferentes geravam hashes ligeiramente distintos para o mesmo
-  // input. Comparação ordinal é estável em qualquer ambiente.
-  const entries = allKeys
-    .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0))
-    .map((k) => [k, (value as Record<string, unknown>)[k]] as const);
-  return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${stableStringify(v, visited)}`).join(',')}}`;
 }
 
 // CR-18 F-PE2: tools managed (Gmail, GitHub, Linear, OAuth flows) e tools

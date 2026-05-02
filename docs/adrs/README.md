@@ -142,6 +142,7 @@ Escreva ADR quando:
 | 0156 | Chat canvas chrome — sem SessionHeader, light chips + metadata panel | Accepted | 2026-05-01 | v1-v2-divergence |
 | 0157 | Creation wizards renderizados como fullscreen splash overlay | Accepted | 2026-05-01 | v1-v2-divergence |
 | 0158 | Single-instance lock + protocol registration | Accepted | 2026-05-01 | code-review-18 |
+| 0159 | System message discriminator + persistência de erros de turn | Accepted | 2026-05-02 | code-review-24 |
 
 ## Status
 

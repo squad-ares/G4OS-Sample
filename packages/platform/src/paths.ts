@@ -1,12 +1,12 @@
 import { join } from 'node:path';
 import envPaths from 'env-paths';
+import { getAppName } from './platform-info.ts';
 
-// Valida FLAVOR para evitar path traversal via env —
-// `G4OS_DISTRIBUTION_FLAVOR='../../../etc'` propagaria para envPaths().
-// Whitelist implícita: regex `/^[a-z0-9-]+$/` aceita só flavors válidos.
-const RAW_FLAVOR = process.env['G4OS_DISTRIBUTION_FLAVOR'] ?? 'public';
-const FLAVOR = /^[a-z0-9-]+$/.test(RAW_FLAVOR) ? RAW_FLAVOR : 'public';
-const APP_NAME = FLAVOR === 'g4' ? 'g4os-internal' : 'g4os';
+// CR-23 F-CR23-3: APP_NAME via `getAppName()` em vez de re-derivar inline.
+// Fonte única de FLAVOR + APP_NAME garante que paths/protocol/auto-update
+// channel/telemetria leiam da mesma regra; antes cada caller copiava o
+// `flavor === 'g4' ? 'g4os-internal' : 'g4os'` ternário, abrindo drift.
+const APP_NAME = getAppName();
 
 // Instância única reaproveitada entre módulos do main
 const paths = envPaths(APP_NAME, { suffix: '' });

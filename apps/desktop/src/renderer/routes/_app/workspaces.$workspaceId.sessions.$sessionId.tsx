@@ -25,7 +25,9 @@ import { ConfirmDestructiveDialog, toast, useTranslate } from '@g4os/ui';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { ProjectBadge } from '../../chat/project-badge.tsx';
 import { formatSendError, handlePermissionRequired } from '../../chat/session-page-helpers.ts';
+import { SessionTitleMenu } from '../../chat/session-title-menu.tsx';
 import { useComposerAffordances } from '../../chat/use-composer-affordances.ts';
 import { useSessionHeader } from '../../chat/use-session-header.ts';
 import { useSessionMetadata } from '../../chat/use-session-metadata.ts';
@@ -85,7 +87,7 @@ function SessionPage() {
     return [...persistedMessages, ghost];
   }, [persistedMessages, streamingTurnId, streamingText]);
 
-  // Persisted session events (message.added, tool.invoked, etc.)
+  // Persisted session events (message.added, tool.invoked, session.renamed, etc.)
   useEffect(() => {
     const sub = trpc.sessions.stream.subscribe(
       { sessionId },
@@ -111,6 +113,18 @@ function SessionPage() {
           }
           if (event.type === 'tool.invoked') {
             setIsStreaming(true);
+          }
+          // CR-26 F-CR26-3: rename eventos vêm tanto do TitleGenerator
+          // (background AI gen) quanto de manual rename via UI. Invalidamos:
+          //   - `['sessions', 'list']` — sub-sidebar / command palette /
+          //     listas filtradas em outras rotas refletem o novo nome.
+          //   - `['sessions', 'get', sessionId]` — header desta sessão e
+          //     `sessionQuery.data.name` na rota detalhe.
+          // Sem invalidar o detail, o header continua com nome antigo até
+          // o usuário recarregar (paridade quebrada com V1 `title_generated`).
+          if (event.type === 'session.renamed') {
+            void invalidateSessions(queryClient);
+            void queryClient.invalidateQueries({ queryKey: ['sessions', 'get', sessionId] });
           }
         },
         onError: (err: unknown) => {
@@ -183,23 +197,45 @@ function SessionPage() {
     placeholderData: (previous) => previous,
   });
 
-  const credentialsQuery = useQuery({
-    queryKey: ['credentials', 'list'],
-    queryFn: () => trpc.credentials.list.query(),
-    staleTime: 10_000,
-  });
-
+  // CR-30 F-CR30-9: providers disponíveis derivam de `runtimeStatus.providers`
+  // (lista autoritativa de factories REGISTRADAS pelo `agents-bootstrap`),
+  // não da presença de credentials no vault. Vault pode ter chave inválida
+  // que sobreviveu a um reload do agent — UI mostraria "Claude disponível"
+  // mas o turn falharia. `runtimeStatus` reflete o resultado de `applyRegistration`,
+  // que é o sinal autoritativo. Mapeamento `'claude'/'openai'/'google'` →
+  // `ModelProvider` ('claude'/'pi-openai'/'pi-google') é local porque o
+  // catalog model-catalog.ts ainda usa o prefixo `pi-` legado.
   const availableProviders = useMemo<readonly ModelProvider[]>(() => {
-    const keys = new Set((credentialsQuery.data ?? []).map((c) => c.key));
+    const kinds = new Set(runtimeStatusQuery.data?.providers ?? []);
     const providers: ModelProvider[] = [];
-    if (keys.has('anthropic_api_key')) providers.push('claude');
-    if (keys.has('openai_api_key')) providers.push('pi-openai');
-    if (keys.has('google_api_key')) providers.push('pi-google');
+    if (kinds.has('claude')) providers.push('claude');
+    if (kinds.has('openai')) providers.push('pi-openai');
+    if (kinds.has('google')) providers.push('pi-google');
     return providers;
-  }, [credentialsQuery.data]);
+  }, [runtimeStatusQuery.data?.providers]);
 
   const currentModelId = sessionQuery.data?.modelId ?? 'claude-sonnet-4-6';
-  const [thinkingLevel, setThinkingLevel] = useState<ThinkingLevel>('medium');
+  // CR-30 F-CR30-2: thinkingLevel é DERIVADO de `session.metadata.thinkingLevel`
+  // (não state local). Antes o `useState('medium')` era valor inicial inválido
+  // (não existe no enum agent) e não persistia em lugar nenhum — UI decorativa.
+  // Default `'think'` cobre o caso de sessões legadas sem metadata.thinkingLevel
+  // (zero-value razoável; o agent usa `none` se o modelo não suporta thinking).
+  const thinkingLevel: ThinkingLevel = sessionQuery.data?.metadata?.thinkingLevel ?? 'think';
+  const handleThinkingLevelChange = useCallback(
+    async (next: ThinkingLevel) => {
+      try {
+        const currentMeta = sessionQuery.data?.metadata ?? { turnCount: 0 };
+        await trpc.sessions.update.mutate({
+          id: sessionId,
+          patch: { metadata: { ...currentMeta, thinkingLevel: next } },
+        });
+        await sessionQuery.refetch();
+      } catch (err) {
+        toast.error(String(err));
+      }
+    },
+    [sessionId, sessionQuery],
+  );
 
   const workspaceQuery = useQuery({
     queryKey: ['workspaces', 'get', workspaceId],
@@ -339,8 +375,12 @@ function SessionPage() {
   });
 
   const callbacks = useMemo<MessageCardCallbacks>(
-    () => ({ onRetry: handleRetryFromMessage }),
-    [handleRetryFromMessage],
+    // CR-24 F-CR24-2: `onRetryLast` é repassado para que o `RetryButton` no
+    // `SystemMessage` (variante error) possa disparar `retryLastTurn`. Sem
+    // isso, falhas de turn ficavam sem retry inline (usuário tinha que
+    // achar o botão "Retry last" no header da sessão, longe do erro).
+    () => ({ onRetry: handleRetryFromMessage, onRetryLast: handleRetryLast }),
+    [handleRetryFromMessage, handleRetryLast],
   );
 
   const { modelLabel, providerLabel, handleRename, handleArchive } = useSessionHeader({
@@ -366,7 +406,36 @@ function SessionPage() {
         <div className="flex min-w-0 flex-1 flex-col">
           {sessionQuery.data ? (
             <>
-              <SessionTitleBar name={sessionQuery.data.name} onRename={handleRename} />
+              <SessionTitleBar
+                name={sessionQuery.data.name}
+                onRename={handleRename}
+                noBorderBottom={true}
+                {...(linkedProject
+                  ? {
+                      projectBadge: <ProjectBadge project={linkedProject} navigate={navigate} />,
+                    }
+                  : {})}
+                actions={
+                  <SessionTitleMenu
+                    session={sessionQuery.data}
+                    onAfterArchive={() =>
+                      void navigate({
+                        to: '/workspaces/$workspaceId/sessions',
+                        params: { workspaceId },
+                      })
+                    }
+                    onAfterDelete={() =>
+                      void navigate({
+                        to: '/workspaces/$workspaceId/sessions',
+                        params: { workspaceId },
+                      })
+                    }
+                  />
+                }
+                {...(isStreaming && chatMessages.filter((m) => m.role === 'user').length === 1
+                  ? { isRegenerating: true }
+                  : {})}
+              />
               <SessionActiveBadges
                 {...(modelLabel ? { modelLabel } : {})}
                 {...(providerLabel ? { providerLabel } : {})}
@@ -425,7 +494,7 @@ function SessionPage() {
                   <ThinkingLevelSelector
                     modelId={currentModelId}
                     value={thinkingLevel}
-                    onChange={setThinkingLevel}
+                    onChange={(next) => void handleThinkingLevelChange(next)}
                   />
                 ),
                 partnersLabel: t('chat.composer.chip.partners'),

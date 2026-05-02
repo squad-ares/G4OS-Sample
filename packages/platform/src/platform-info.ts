@@ -106,3 +106,43 @@ export const getHomeDir = (): string => getPlatformInfo().homeDir;
  * `getHomeDir`: nunca importe `tmpdir` direto fora deste pacote.
  */
 export const getTempDir = (): string => getPlatformInfo().tempDir;
+
+/**
+ * Distribution flavor — derivado de `G4OS_DISTRIBUTION_FLAVOR`.
+ *
+ * Valida com regex `/^[a-z0-9-]+$/` para evitar path traversal via env
+ * (`'../../../etc'` propagaria para `envPaths()` em `paths.ts`); em caso de
+ * input inválido retorna `'public'` (fallback seguro).
+ *
+ * CR-23 F-CR23-3: extraído pra ser fonte única consumida por `paths.ts`
+ * (APP_NAME) e `single-instance-bootstrap` (PROTOCOL). Antes cada caller
+ * re-derivava inline com regex próprio (e às vezes sem regex), abrindo
+ * janela pra drift entre APP_NAME e PROTOCOL.
+ */
+const FLAVOR_PATTERN = /^[a-z0-9-]+$/;
+
+export function getDistributionFlavor(): string {
+  const raw = process.env['G4OS_DISTRIBUTION_FLAVOR'] ?? 'public';
+  return FLAVOR_PATTERN.test(raw) ? raw : 'public';
+}
+
+/**
+ * Nome canônico do app (binário, paths, deep-link protocol). Mantém
+ * a regra v2: `flavor === 'g4'` → `g4os-internal`; qualquer outro → `g4os`.
+ *
+ * Único método autorizado para resolver o nome do app — qualquer consumer
+ * que precise de PROTOCOL (`g4os://`) ou APP_NAME (envPaths) deve passar
+ * por aqui em vez de re-derivar inline.
+ */
+export function getAppName(): string {
+  return getDistributionFlavor() === 'g4' ? 'g4os-internal' : 'g4os';
+}
+
+/**
+ * Scheme do deep-link protocol (sem `:` final). Idêntico a `getAppName()`
+ * por design — quando o protocol diverge do app name (raro, ex.: backwards
+ * compat), atualizar aqui em vez de espalhar.
+ */
+export function getProtocolName(): string {
+  return getAppName();
+}

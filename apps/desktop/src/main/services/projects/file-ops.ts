@@ -1,7 +1,7 @@
 import type { Dirent } from 'node:fs';
 import { existsSync } from 'node:fs';
 import { copyFile, mkdir, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
-import { extname, join, relative, resolve } from 'node:path';
+import { extname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { FsError } from '@g4os/kernel/errors';
 import type { ProjectFile } from '@g4os/kernel/types';
 import { err, ok, type Result } from 'neverthrow';
@@ -150,12 +150,22 @@ async function pruneSnapshots(snapDir: string): Promise<void> {
 }
 
 function safeResolve(rootPath: string, relativePath: string): Result<string, FsError> {
-  const filesDir = join(rootPath, 'files');
-  const abs = resolve(filesDir, relativePath);
-  if (!abs.startsWith(filesDir)) {
+  // CR-27 F-CR27-1: o pattern antigo `abs.startsWith(filesDir)` é vulnerável.
+  // Para `filesDir=/work/files` e `relativePath='../files-other/secret'`,
+  // resolve produz `/work/files-other/secret` e `startsWith('/work/files')`
+  // retorna `true` — guarda burlada (prefix-match sem separador). Também
+  // quebra em Windows (separador `\`). Solução canônica em
+  // `packages/agents/src/tools/shared/path-guard.ts:resolveInside`: usar
+  // `path.relative` e verificar `..`/absoluto. Reimplementado inline aqui
+  // pra preservar o tipo de erro `FsError` (resolveInside retorna ToolFailure).
+  const base = resolve(join(rootPath, 'files'));
+  const target = isAbsolute(relativePath) ? resolve(relativePath) : resolve(base, relativePath);
+  const rel = relative(base, target);
+  const escaped = rel === '..' || rel.startsWith(`..${sep}`) || isAbsolute(rel);
+  if (escaped) {
     return err(FsError.pathTraversal(relativePath));
   }
-  return ok(abs);
+  return ok(target);
 }
 
 function toFsError(relativePath: string, cause: unknown): FsError {

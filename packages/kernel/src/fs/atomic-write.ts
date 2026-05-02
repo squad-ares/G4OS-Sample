@@ -151,8 +151,10 @@ function isUnsupportedDirSyncError(error: unknown): boolean {
  *   - `ENOSPC` → `FsError.diskFull`
  *   - `EACCES` / `EPERM` → `FsError.accessDenied`
  *   - `ENOENT` → `FsError.notFound` (raro — caso target dir não exista)
- *   - outros → genérico `FsError` com `FS_IO_ERROR` (sem factory dedicada
- *     no kernel; usar `code: ErrorCode.UNKNOWN_ERROR` via construtor).
+ *   - outros (EBUSY, EROFS, ENAMETOOLONG, EISDIR, ENOTDIR, ...) →
+ *     `FsError` com `FS_IO_ERROR`. CR-27 F-CR27-4: antes o fallback usava
+ *     `FS_ACCESS_DENIED`, levando UI/Repair a sugerir "verifique permissões"
+ *     mesmo quando a causa raiz era read-only filesystem ou file lock.
  */
 export async function writeAtomicResult(
   path: string,
@@ -170,7 +172,7 @@ export async function writeAtomicResult(
 function mapErrnoToFsError(path: string, cause: unknown): FsError {
   if (typeof cause !== 'object' || cause === null) {
     return new FsError({
-      code: 'fs.access_denied',
+      code: 'fs.io_error',
       message: `writeAtomic failed: ${String(cause)}`,
       context: { path },
       cause,
@@ -186,11 +188,11 @@ function mapErrnoToFsError(path: string, cause: unknown): FsError {
     case 'ENOENT':
       return FsError.notFound(path);
     default:
-      // Sem factory dedicada — preservar code original em context para
-      // diagnóstico via debug-export, mapeia para `accessDenied` como
-      // categoria mais conservadora (caller decide se faz sentido).
+      // CR-27 F-CR27-4: errno genérico (EBUSY, EROFS, ENAMETOOLONG, EISDIR,
+      // ENOTDIR, ...). `FS_IO_ERROR` discrimina IO failure de access denied;
+      // errno original preservado em `context.errno` pra diagnóstico.
       return new FsError({
-        code: 'fs.access_denied',
+        code: 'fs.io_error',
         message: `writeAtomic failed (${typeof code === 'string' ? code : 'unknown'}): ${path}`,
         context: { path, errno: typeof code === 'string' ? code : undefined },
         cause,

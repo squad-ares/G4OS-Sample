@@ -92,8 +92,11 @@ export class ClaudeAgent extends DisposableBase implements IAgent {
     return Promise.resolve(ok(undefined));
   }
 
-  // dispose() herdado de DisposableBase — executa LIFO os disposables
-  // registrados no constructor: abort controllers → clear map → super.
+  // dispose() herdado de DisposableBase — `DisposableStore` itera o `Set` em
+  // ORDEM DE INSERÇÃO (FIFO), então a sequência efetiva é
+  // abort controllers → activeControllers.clear → super.dispose, casando com
+  // a documentação do constructor. CR-22 F-CR22-4: rótulo "LIFO" anterior
+  // contradizia o código (Set é FIFO).
 
   private buildRunnerDeps(): StreamRunnerDeps {
     return {

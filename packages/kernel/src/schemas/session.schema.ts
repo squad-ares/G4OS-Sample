@@ -25,6 +25,18 @@ export const SessionProviderSchema = z.enum([
 
 export type SessionProvider = z.infer<typeof SessionProviderSchema>;
 
+/**
+ * CR-30 F-CR30-2: tipo canônico para nível de raciocínio (extended thinking)
+ * compartilhado entre kernel ↔ agents ↔ features ↔ apps. Antes vivia só em
+ * `@g4os/agents/interface` e tinha um clone divergente em
+ * `@g4os/features/chat/model-catalog.ts` (`'minimal' | 'medium'` que não
+ * existia no domínio agent). Migrar pra kernel resolve o boundary
+ * `features-cant-import-agents-directly` (renderer/features podem ler tipos
+ * canônicos sem cruzar layer) e bloqueia drift em compile-time.
+ */
+export const ThinkingLevelSchema = z.enum(['low', 'think', 'high', 'ultra']);
+export type ThinkingLevel = z.infer<typeof ThinkingLevelSchema>;
+
 export const SessionSchema = z.object({
   id: z.uuid(),
   workspaceId: z.uuid(),
@@ -62,7 +74,7 @@ export const SessionSchema = z.object({
 
   metadata: z
     .object({
-      thinkingLevel: z.enum(['low', 'think', 'high', 'ultra']).optional(),
+      thinkingLevel: ThinkingLevelSchema.optional(),
       titleGeneratedAt: z.number().int().positive().optional(),
       turnCount: z.number().int().nonnegative().default(0),
     })
@@ -97,7 +109,7 @@ export const SessionUpdateSchema = z.object({
   projectId: z.uuid().optional(),
   metadata: z
     .object({
-      thinkingLevel: z.enum(['low', 'think', 'high', 'ultra']).optional(),
+      thinkingLevel: ThinkingLevelSchema.optional(),
       titleGeneratedAt: z.number().int().positive().optional(),
       turnCount: z.number().int().nonnegative().optional(),
     })

@@ -69,6 +69,13 @@ export const ErrorCode = {
   FS_DISK_FULL: 'fs.disk_full',
   FS_PATH_TRAVERSAL: 'fs.path_traversal',
   FS_FILE_TOO_LARGE: 'fs.file_too_large',
+  // CR-27 F-CR27-4: errnos genéricos que não são EACCES/EPERM (locked file
+  // EBUSY, read-only filesystem EROFS, name too long ENAMETOOLONG, EISDIR,
+  // ENOTDIR, etc.). Antes mapeados para FS_ACCESS_DENIED — confundia callers
+  // que sugeriam "verifique permissões" quando o problema era outra classe
+  // de IO. UI/Repair pode discriminar via `code === FS_IO_ERROR` + ler errno
+  // de `context.errno` para mensagem específica.
+  FS_IO_ERROR: 'fs.io_error',
 
   // Generic
   VALIDATION_ERROR: 'validation.error',

@@ -225,9 +225,12 @@ class SqliteProjectsService implements ProjectsServiceContract {
       const targetPath = join(canonicalRoot, entry.slug);
       const moveResult = await legacyImport.moveLegacyProject(entry.path, targetPath);
       if (moveResult.isErr()) {
-        // Mantém comportamento equivalente ao throw anterior — caller
-        // recebe Result<..., AppError> via this.#try wrapper.
-        throw new Error(moveResult.error.message);
+        // CR-21: throw o `AppError` direto preserva typed identity quando
+        // o `#try` wrapper detecta `instanceof AppError` (line 251) e
+        // propaga via `err(error)` em vez de mapear pra `UNKNOWN_ERROR`.
+        // Antes, `throw new Error(moveResult.error.message)` strippava
+        // `code`/`context`/`cause` e o caller via genérico no renderer.
+        throw moveResult.error;
       }
       rootPath = targetPath;
     }

@@ -5,4 +5,5 @@ export type {
   SessionLifecycle,
   SessionProvider,
   SessionStatus,
+  ThinkingLevel,
 } from '../schemas/session.schema.ts';

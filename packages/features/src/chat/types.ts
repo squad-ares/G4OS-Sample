@@ -37,6 +37,12 @@ export interface Message {
   readonly content: ReadonlyArray<ContentBlock>;
   readonly createdAt: number;
   readonly isStreaming?: boolean;
+  // CR-24 F-CR24-1: discriminator para mensagens role='system'. V1 tinha
+  // 4 roles dedicados (`error`/`info`/`warning`/`system`); V2 unifica em
+  // role='system' + `systemKind` para variantes visuais. Preserva o shape
+  // V1 SystemMessage sem inflar a enum de role no schema canônico.
+  readonly systemKind?: 'error' | 'info' | 'warning';
+  readonly errorCode?: string;
 }
 
 export interface Attachment {

@@ -15,8 +15,9 @@
  *
  * Implementação usa o `BrowserWindow` real do `electron` via dynamic
  * import — não passa pelo contrato `ElectronRuntime` (que é minimalista
- * pra testes). Isso é seguro porque o HUD só roda em dev/builds com a
- * flag `G4OS_DEBUG_HUD_ENABLED=1` ligada, nunca em E2E.
+ * pra testes). Isso é seguro porque o HUD só roda quando habilitado via
+ * `PreferencesStore.debug.hud.enabled` (default `true` em dev,
+ * `false` em prod) e nunca em E2E.
  */
 
 import type { IDisposable } from '@g4os/kernel/disposable';

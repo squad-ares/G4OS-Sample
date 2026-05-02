@@ -140,13 +140,18 @@ export function toProjectSlug(name: string): string {
 }
 
 function toSlug(name: string): string {
+  // CR-23 F-CR23-6b: trim de trailing dash APLICADO TAMBÉM após o slice.
+  // Trim inicial cobre o caso de input já terminando em separador; o trim
+  // pós-slice pega o caso de slice(0, 80) cortar exatamente num `-` (slug
+  // entre segmentos), produzindo trailing dash em URL.
   return name
     .toLowerCase()
     .normalize('NFD')
     .replace(/[̀-ͯ]/g, '')
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
-    .slice(0, 80);
+    .slice(0, 80)
+    .replace(/-+$/, '');
 }
 
 function rowToProject(row: ProjectRow): Project {

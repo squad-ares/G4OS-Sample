@@ -54,6 +54,7 @@ export const ptBR = {
   'chat.header.archive': 'Arquivar sessão',
   'chat.header.moreActions': 'Mais ações',
   'chat.header.toggleMetadata': 'Alternar painel de metadados',
+  'chat.header.openSessionMenu': 'Abrir menu da sessão',
   'chat.metadata.title': 'Detalhes da sessão',
   'chat.metadata.ariaLabel': 'Painel de metadados da sessão',
   'chat.metadata.close': 'Fechar painel',
@@ -84,6 +85,11 @@ export const ptBR = {
   'chat.actions.copy': 'Copiar mensagem',
   'chat.actions.copied': 'Copiado',
 
+  'chat.systemMessage.errorTitle': 'Falha no turno',
+  'chat.systemMessage.warningTitle': 'Atenção',
+  'chat.systemMessage.infoTitle': 'Aviso',
+  'chat.systemMessage.retry': 'Tentar novamente',
+
   'chat.toolRenderer.result': 'Resultado',
   'chat.toolRenderer.error': 'Erro',
   'chat.toolRenderer.bash.outputSingular': 'Saída — 1 linha',
@@ -105,10 +111,10 @@ export const ptBR = {
   'chat.modelSelector.empty': 'Nenhum modelo encontrado',
 
   'chat.thinkingLevel.ariaLabel': 'Nível de raciocínio',
-  'chat.thinkingLevel.minimal': 'Mínimo',
   'chat.thinkingLevel.low': 'Baixo',
-  'chat.thinkingLevel.medium': 'Médio',
+  'chat.thinkingLevel.think': 'Pensar',
   'chat.thinkingLevel.high': 'Alto',
+  'chat.thinkingLevel.ultra': 'Ultra',
 
   'chat.permission.title': 'Solicitação de permissão',
   'chat.permission.description': 'O agente quer executar',
@@ -708,6 +714,11 @@ export const ptBR = {
   'session.action.branch': 'Criar branch a partir daqui',
   'session.action.rename': 'Renomear',
   'session.action.labels': 'Rótulos',
+  'session.action.openInNewWindow': 'Abrir em nova janela',
+  'session.deleteDialog.title': 'Mover sessão para a lixeira?',
+  'session.deleteDialog.description':
+    'A sessão "{{name}}" será arquivada como deletada. Você pode restaurá-la dentro de 30 dias antes da limpeza automática.',
+  'session.deleteDialog.cancel': 'Cancelar',
   'session.rename.prompt': 'Renomear sessão',
   'session.rename.placeholder': 'Nome da sessão',
 

@@ -72,7 +72,12 @@ const MigrationExecuteInputSchema = z.object({
 export const migrationRouter = router({
   detect: authed.output(V1InstallSchema.nullable()).query(async ({ ctx }) => {
     const result = await ctx.migration.detect();
-    if (result.isErr()) throw new Error(result.error.message);
+    // CR-21 F-IPC1: `throw result.error` preserva o typed `AppError`
+    // (`errorFormatter` em `trpc-base.ts` anexa `appError.toJSON()`+`errorType`
+    // via `cause instanceof AppError`). `throw new Error(...)` strippava
+    // identidade — mesmo bug fechado em CR-18 F-I1 nas outras 2 procedures
+    // do router; `detect` ficou de fora do patch e regrediu silenciosamente.
+    if (result.isErr()) throw result.error;
     return result.value;
   }),
 

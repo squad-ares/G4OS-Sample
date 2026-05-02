@@ -11,20 +11,7 @@
  */
 
 import type { Session, SessionFilter, SessionId } from '@g4os/kernel/types';
-import {
-  and,
-  asc,
-  desc,
-  eq,
-  gt,
-  inArray,
-  isNotNull,
-  isNull,
-  like,
-  lt,
-  type SQL,
-  sql,
-} from 'drizzle-orm';
+import { and, asc, desc, eq, gt, inArray, isNotNull, isNull, lt, type SQL, sql } from 'drizzle-orm';
 import type { AppDb } from '../drizzle.ts';
 import { sessionLabels, sessions as sessionsTable } from '../schema/index.ts';
 import type { Session as RowSession } from '../schema/sessions.ts';
@@ -183,11 +170,22 @@ export class SessionsRepository {
   }
 
   async markRead(id: SessionId): Promise<void> {
-    await this.db.update(sessionsTable).set({ unread: false }).where(eq(sessionsTable.id, id));
+    // CR-23 F-CR23-6a: atualiza `updatedAt` para que filtros por
+    // `updatedAfter`/`updatedBefore` reflitam mudanças em read/unread state.
+    // Outras mutações (pin/star/archive) já atualizavam — markRead/markUnread
+    // estavam inconsistentes, fazendo "unread→read" parecer não-mutação no
+    // diff de listagem.
+    await this.db
+      .update(sessionsTable)
+      .set({ unread: false, updatedAt: Date.now() })
+      .where(eq(sessionsTable.id, id));
   }
 
   async markUnread(id: SessionId): Promise<void> {
-    await this.db.update(sessionsTable).set({ unread: true }).where(eq(sessionsTable.id, id));
+    await this.db
+      .update(sessionsTable)
+      .set({ unread: true, updatedAt: Date.now() })
+      .where(eq(sessionsTable.id, id));
   }
 
   async hardDelete(id: SessionId): Promise<void> {
@@ -219,10 +217,19 @@ export class SessionsRepository {
 
   async listAncestors(id: SessionId): Promise<readonly Session[]> {
     const out: Session[] = [];
+    // CR-23 F-CR23-2: cycle detection. Sem `visited`, parent chain corrompida
+    // (`A → B → A`) faz loop infinito e satura SQLite WAL — DoS local em dado
+    // mal-formado. Ciclo natural não acontece em uso normal mas pode escapar
+    // de migrações V1→V2 / restore parcial / bug em ponto de mutação fora do
+    // repository. Walker padrão tem guard de visited.
+    const visited = new Set<SessionId>();
     let current = await this.get(id);
+    if (current) visited.add(current.id);
     while (current?.parentId) {
+      if (visited.has(current.parentId)) break;
       const parent = await this.get(current.parentId);
       if (!parent) break;
+      visited.add(parent.id);
       out.push(parent);
       current = parent;
     }
@@ -279,8 +286,17 @@ export class SessionsRepository {
       clauses.push(lt(sessionsTable.updatedAt, filter.updatedBefore));
     }
     if (filter.text !== undefined && filter.text.trim().length > 0) {
-      const pattern = `%${filter.text.trim().replace(/%/g, '\\%')}%`;
-      clauses.push(like(sessionsTable.name, pattern));
+      // CR-23 F-CR23-5: escape `_` (single-char wildcard) e `\` (escape char)
+      // além de `%`. Sem isso, busca por `Project_42` matchava `Project-42`,
+      // `ProjectX42`, etc — falsos positivos silenciosos. Cláusula ESCAPE '\\'
+      // sinaliza que o prefixo `\` desativa o significado especial dos
+      // caracteres seguintes em SQLite LIKE.
+      const escaped = filter.text
+        .trim()
+        .replace(/\\/g, '\\\\')
+        .replace(/%/g, '\\%')
+        .replace(/_/g, '\\_');
+      clauses.push(sql`${sessionsTable.name} LIKE ${`%${escaped}%`} ESCAPE '\\'`);
     }
     return clauses;
   }

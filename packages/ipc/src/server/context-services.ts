@@ -135,7 +135,27 @@ export interface MessagesService {
   list(sessionId: SessionId): Promise<Result<readonly Message[], AppError>>;
   get(id: MessageId): Promise<Result<Message, AppError>>;
   append(
-    input: Pick<Message, 'sessionId' | 'role' | 'content'>,
+    input: Pick<Message, 'sessionId' | 'role' | 'content'> & {
+      /**
+       * CR-25 F-CR25-1: contrato dual.
+       *
+       * - **Server-trusted (runtime de turno):** session-runtime grava
+       *   `modelId`, `usage`, `thinkingLevel`, `durationMs` ao finalizar
+       *   uma iteração de assistant. Sem isso, `messages_index.tokenCount`
+       *   ficava sempre 0 e o `usage-reconcile-worker` não tinha dado.
+       * - **IPC-trusted (router exposto):** `messages-router.ts` filtra o
+       *   input via `MessageSchema.pick({sessionId, role, content})` antes
+       *   de chamar este Service — caller IPC nunca atravessa metadata.
+       *
+       * CR-24 F-CR24-1 inclusos: `systemKind` (variantes visuais de mensagem
+       * `role='system'`) e `errorCode` (correlação com AgentError/AppError
+       * para diferenciar UX por categoria).
+       */
+      readonly metadata?: Pick<
+        NonNullable<Message['metadata']>,
+        'systemKind' | 'errorCode' | 'modelId' | 'usage' | 'thinkingLevel' | 'durationMs'
+      >;
+    },
   ): Promise<Result<MessageAppendResult, AppError>>;
   search(sessionId: SessionId, query: string): Promise<Result<readonly SearchMatch[], AppError>>;
 }

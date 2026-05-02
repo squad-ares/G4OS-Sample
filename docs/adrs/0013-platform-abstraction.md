@@ -264,4 +264,21 @@ export interface ISpawn {
   vez de `process.platform` direto. `@g4os/agents` e `@g4os/sources`
   ganharam `@g4os/platform` como dep para suportar a migração (ver
   ADR-0152).
+- 2026-05-02 (CR-23 F-CR23-3): extensão do princípio para a derivação
+  de `G4OS_DISTRIBUTION_FLAVOR`. Antes a regra `flavor === 'g4' →
+  'g4os-internal'` (else `'g4os'`) estava re-implementada inline em
+  duas posições — `packages/platform/src/paths.ts` (que consumia para
+  `APP_NAME` em `envPaths`) e `apps/desktop/src/main/services/single-instance-bootstrap.ts`
+  (que consumia para `PROTOCOL` no deep-link `setAsDefaultProtocolClient`).
+  Ambos liam `process.env['G4OS_DISTRIBUTION_FLAVOR']` direto e aplicavam
+  a regra com pequenas variações (regex de validação só em paths.ts);
+  CR-22 F-CR22-3 corrigiu o caso bug-óbvio (PROTOCOL hardcoded `'g4os'`
+  no flavor `internal`) mas deixou a duplicação. CR-23 extraiu três
+  helpers em `@g4os/platform/platform-info`:
+  `getDistributionFlavor()` (com regex única `/^[a-z0-9-]+$/` de
+  validação), `getAppName()` e `getProtocolName()`. Consumidores
+  passam a importar — paths.ts e single-instance-bootstrap.ts agora
+  leem da mesma fonte. Princípio idêntico ao `process.platform`
+  centralizado (a única lib a ler env de plataforma é `@g4os/platform`),
+  estendido a env-derived constants de distribuição.
 - (pendente) Aceita pelo time

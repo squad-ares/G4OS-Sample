@@ -65,22 +65,32 @@ export const authRouter = router({
    * Subscription async-generator (tRPC v11) para eventos de re-auth pedidos
    * pelo backend. Renderer subscreve no app shell e mostra toast/redirect
    * quando recebe.
+   *
+   * CR-27 F-CR27-2: padrão idêntico ao `sessions-router-subscriptions.ts`
+   * (CR-25 F-CR25-5) — listener de abort registrado UMA vez fora do loop;
+   * cap de queue previne acúmulo de eventos em backpressure (eventos de
+   * re-auth são raros, mas defensivo). Antes, cada iteração com
+   * `queue.length === 0` adicionava um novo `'abort'` listener ao signal.
    */
   managedLoginRequired: procedure.input(z.void()).subscription(async function* ({ ctx, signal }) {
+    const MAX_QUEUE = 32;
     const queue: { reason: string }[] = [];
     let notify: (() => void) | null = null;
 
     const disposable = ctx.auth.subscribeManagedLoginRequired((event) => {
+      if (queue.length >= MAX_QUEUE) queue.shift();
       queue.push(event);
       notify?.();
     });
+
+    const onAbort = (): void => notify?.();
+    signal?.addEventListener('abort', onAbort, { once: true });
 
     try {
       while (!signal?.aborted) {
         if (queue.length === 0) {
           await new Promise<void>((resolve) => {
             notify = resolve;
-            signal?.addEventListener('abort', () => resolve(), { once: true });
           });
           notify = null;
         }
@@ -90,6 +100,7 @@ export const authRouter = router({
         }
       }
     } finally {
+      signal?.removeEventListener('abort', onAbort);
       disposable.dispose();
     }
   }),

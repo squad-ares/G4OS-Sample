@@ -1,6 +1,7 @@
 import { AgentError } from '@g4os/kernel/errors';
 import { createLogger } from '@g4os/kernel/logger';
 import type { AgentEvent, AgentTurnInput } from '../../interface/agent.ts';
+import { wrapAgentError } from '../../shared/errors/wrap-agent-error.ts';
 import type { ClaudeCreateMessageParams, ClaudeProvider, ClaudeStreamEvent } from '../types.ts';
 import { createEventMapperState, mapStreamEvent } from './event-mapper.ts';
 
@@ -87,53 +88,24 @@ export class StreamRunner {
   }
 }
 
-interface ApiErrorLike {
-  readonly status?: number;
-  readonly message?: string;
-}
-
-function extractApiErrorInfo(cause: unknown): ApiErrorLike | null {
-  if (cause === null || typeof cause !== 'object') return null;
-  const obj = cause as Record<string, unknown>;
-  const status = typeof obj['status'] === 'number' ? obj['status'] : undefined;
-  const message = typeof obj['message'] === 'string' ? obj['message'] : undefined;
-  if (status === undefined && message === undefined) return null;
-  return {
-    ...(status === undefined ? {} : { status }),
-    ...(message === undefined ? {} : { message }),
-  };
-}
-
-function mapApiError(
-  apiError: ApiErrorLike,
-  providerKind: string,
-  cause: unknown,
-): AgentError | null {
-  const { status, message } = apiError;
-  if (status === 401 || status === 403) {
-    return new AgentError({
-      code: 'agent.unavailable',
-      message: 'Invalid API key — please check your Anthropic key in Settings > Agents',
-      context: { provider: providerKind, status },
-      cause,
-    });
-  }
-  if (status === 429) return AgentError.rateLimited(providerKind);
-  if (message && message.trim().length > 0) {
-    return new AgentError({
-      code: 'agent.network',
-      message: status ? `${providerKind} (${status}): ${message}` : message,
-      context: { provider: providerKind, ...(status === undefined ? {} : { status }) },
-      cause,
-    });
-  }
-  return null;
-}
-
+/**
+ * CR-23 F-CR23-4: delega ao `wrapAgentError` shared para paridade com
+ * OpenAI/Google (mesma extração de status `cause.status`/`response.status`/
+ * `statusCode`, mesmo mapping 401/403→invalidApiKey, 429→rateLimited com
+ * `Retry-After` header extraction, 5xx→network, default→unavailable).
+ *
+ * Preserva duas branches específicas do Claude path:
+ *   1. `signal.aborted` → `AgentError.network({reason: 'aborted'})` —
+ *      usuário interrompeu via subscriber.unsubscribe; o status do `cause`
+ *      pode ser irrelevante (ex.: `AbortError` gerado pelo SDK não tem
+ *      status). Precisamos sinalizar abort cedo para o renderer não tratar
+ *      como falha de rede.
+ *   2. `cause instanceof AgentError` → pass-through. Helper interno do
+ *      Claude (ex.: provider compat fallback) já constrói `AgentError`
+ *      tipado; encapsular de novo perderia code semântico.
+ */
 function wrapError(cause: unknown, signal: AbortSignal, providerKind: string): AgentError {
   if (signal.aborted) return AgentError.network(providerKind, { reason: 'aborted' });
   if (cause instanceof AgentError) return cause;
-  const apiError = extractApiErrorInfo(cause);
-  const mapped = apiError ? mapApiError(apiError, providerKind, cause) : null;
-  return mapped ?? AgentError.network(providerKind, cause);
+  return wrapAgentError(cause, providerKind);
 }

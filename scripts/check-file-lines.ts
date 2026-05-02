@@ -30,6 +30,18 @@ const EXEMPTIONS: Set<string> = new Set([
   // Não exposto ao usuário final. Refator em sub-panels exigiria Context
   // API ou prop drilling extenso sem ganho de legibilidade real.
   'apps/desktop/src/renderer/debug-hud/app.tsx',
+
+  // Composition root do main process: instancia todos os serviços, bootstrapa
+  // IPC, janela e lifecycle. Crescimento controlado via `check:main-size`
+  // com FILE_EXEMPTIONS documentadas. `split('\n').length` conta +1 vs wc -l
+  // (trailing newline) — arquivo tem 500 linhas reais.
+  'apps/desktop/src/main/index.ts',
+
+  // Página de sessão ativa: wiring de queries + handlers + composers +
+  // disponibilidade de providers. CR-30 F-CR30-2 (thinkingLevel wire) e
+  // F-CR30-9 (availableProviders de runtimeStatus) cresceram ~40 LOC.
+  // Candidato a extração futura em `use-session-page-state.ts`.
+  'apps/desktop/src/renderer/routes/_app/workspaces.$workspaceId.sessions.$sessionId.tsx',
 ]);
 
 const files = globSync('**/src/**/*.{ts,tsx}', {

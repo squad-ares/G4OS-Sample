@@ -89,7 +89,12 @@ export class SqliteMessagesService implements MessagesServiceContract {
   }
 
   async append(
-    input: Pick<Message, 'sessionId' | 'role' | 'content'>,
+    input: Pick<Message, 'sessionId' | 'role' | 'content'> & {
+      readonly metadata?: Pick<
+        NonNullable<Message['metadata']>,
+        'systemKind' | 'errorCode' | 'modelId' | 'usage' | 'thinkingLevel' | 'durationMs'
+      >;
+    },
   ): Promise<Result<MessageAppendResult, AppError>> {
     try {
       const session = await this.#sessions.get(input.sessionId);
@@ -104,7 +109,12 @@ export class SqliteMessagesService implements MessagesServiceContract {
         attachments: [],
         createdAt: now,
         updatedAt: now,
-        metadata: {},
+        // CR-25 F-CR25-1: pass-through completo do metadata server-trusted.
+        // CR-24 F-CR24-1 cobria só `systemKind`/`errorCode`; rotas internas
+        // do session-runtime agora propagam `modelId`/`usage`/`thinkingLevel`/
+        // `durationMs` para que `messages_index.tokenCount` reflita o turno
+        // e `usage-reconcile-worker` consiga reconciliar contra billing.
+        metadata: input.metadata ?? {},
       };
 
       const sequenceNumber = session.lastEventSequence + 1;

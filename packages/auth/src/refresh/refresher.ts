@@ -4,6 +4,7 @@ import { BehaviorSubject, type Observable } from 'rxjs';
 import {
   AUTH_ACCESS_TOKEN_KEY,
   AUTH_REFRESH_TOKEN_KEY,
+  AUTH_SESSION_META_KEY,
   type AuthTokenStore,
   type SupabaseAuthPort,
 } from '../types.ts';
@@ -248,7 +249,40 @@ export class SessionRefresher extends DisposableBase {
         return;
       }
     }
+    // CR-22 F-CR22-1: também atualiza o `AUTH_SESSION_META_KEY` JSON com o novo
+    // expiresAt. Sem isso, a meta persistida fica congelada no expiry do
+    // login original; `ManagedLoginService.restore()` lê esse campo no boot e
+    // força re-login mesmo com access token válido em disco. Read-modify-write
+    // preserva `userId`/`email` da meta original.
+    if (typeof data.session.expires_at === 'number') {
+      await this.persistMetaExpiry(data.session.expires_at * 1000);
+    }
     await this.scheduleNext();
+  }
+
+  private async persistMetaExpiry(newExpiresAt: number): Promise<void> {
+    const metaResult = await this.tokenStore.get(AUTH_SESSION_META_KEY);
+    if (metaResult.isErr() || metaResult.value === '') return;
+    let parsed: Record<string, unknown>;
+    try {
+      const raw = JSON.parse(metaResult.value) as unknown;
+      if (raw === null || typeof raw !== 'object') return;
+      parsed = raw as Record<string, unknown>;
+    } catch (err) {
+      log.warn(
+        { err: err instanceof Error ? err.message : String(err) },
+        'session meta JSON corrupted during refresh; skipping expiry update',
+      );
+      return;
+    }
+    parsed['expiresAt'] = newExpiresAt;
+    const metaSet = await this.tokenStore.set(AUTH_SESSION_META_KEY, JSON.stringify(parsed));
+    if (metaSet.isErr()) {
+      log.warn(
+        { err: metaSet.error.message },
+        'failed to persist refreshed session meta expiresAt; restore() may force reauth on next start',
+      );
+    }
   }
 
   private cancelPending(): void {
