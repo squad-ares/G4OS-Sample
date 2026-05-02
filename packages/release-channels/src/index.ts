@@ -161,6 +161,13 @@ export const DEFAULT_ROLLOUT_SCHEDULE: readonly RolloutEntry[] = [
 /**
  * Percent permitido em `now` dado uma schedule. `releaseStartedAt` e `now`
  * são epochs em ms. Retorna 0 antes do início, 100 depois do último entry.
+ *
+ * Schedule pode chegar desordenada (input externo via
+ * `parseRolloutSchedule` — Zod schema não enforça ordem). Em vez de exigir
+ * sort do caller, trackeamos o entry com `atHour` máximo que ainda satisfaz
+ * `atHour <= elapsedHours` em uma passada O(n). Iteração ingênua que só
+ * sobrescreve `result` pegava o último entry da iteração quando schedule
+ * não estava sorted, devolvendo percent errado.
  */
 export function rolloutPercentAt(
   schedule: readonly RolloutEntry[],
@@ -171,8 +178,12 @@ export function rolloutPercentAt(
   const elapsedHours = (now - releaseStartedAt) / 3_600_000;
   if (elapsedHours < 0) return 0;
   let result = 0;
+  let bestAtHour = -1;
   for (const entry of schedule) {
-    if (entry.atHour <= elapsedHours) result = entry.percent;
+    if (entry.atHour <= elapsedHours && entry.atHour > bestAtHour) {
+      result = entry.percent;
+      bestAtHour = entry.atHour;
+    }
   }
   return result;
 }
@@ -186,8 +197,12 @@ export interface ChannelMeta {
  * Resolve URL do feed por canal. Convenção:
  * `s3://g4os-releases/<channel>/latest.yml`. Customizar via env override
  * em outro lugar — aqui só a default.
+ *
+ * Trailing slash normalization: regex `/\/+$/` remove TODOS os trailing
+ * slashes. `slice(-1)` removia só um — input malformado tipo
+ * `s3://bucket//` virava `s3://bucket/<channel>/...` (ainda com `//`).
  */
 export function feedUrlForChannel(base: string, channel: ReleaseChannel): string {
-  const trimmed = base.endsWith('/') ? base.slice(0, -1) : base;
+  const trimmed = base.replace(/\/+$/, '');
   return `${trimmed}/${channel}/latest.yml`;
 }
