@@ -484,4 +484,24 @@ export interface IpcContext {
   readonly preferences: PreferencesService;
   readonly migration: MigrationService;
   readonly backup: BackupService;
+  /**
+   * Probe ativo dos endpoints de observability (Sentry/OTel/metrics). Faz
+   * HTTP HEAD com timeout — `configured` reflete env var, `reachable`
+   * reflete conectividade real.
+   */
+  readonly servicesStatus: () => Promise<ServicesStatusMap>;
+}
+
+export interface ServiceStatus {
+  readonly configured: boolean;
+  readonly reachable: boolean | null;
+  readonly latencyMs: number | null;
+  readonly error: string | null;
+  readonly endpoint: string | null;
+}
+
+export interface ServicesStatusMap {
+  readonly sentry: ServiceStatus;
+  readonly otel: ServiceStatus;
+  readonly metricsServer: ServiceStatus;
 }

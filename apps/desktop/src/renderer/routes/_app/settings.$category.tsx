@@ -27,6 +27,7 @@ import {
   PermissionsCategoryContainer,
   PreferencesCategoryContainer,
   RepairCategoryContainer,
+  ServicesCategoryContainer,
   SupportCategoryContainer,
   TagsCategoryContainer,
   WorkspaceCategoryContainer,
@@ -79,6 +80,8 @@ function CategoryContent({ category }: { readonly category: SettingsCategory }) 
       return <BackupCategoryContainer />;
     case 'support':
       return <SupportCategoryContainer />;
+    case 'services':
+      return <ServicesCategoryContainer />;
     default:
       return <CategoryPlaceholder category={category} />;
   }

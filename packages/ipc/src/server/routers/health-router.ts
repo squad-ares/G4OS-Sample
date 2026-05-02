@@ -8,6 +8,20 @@ const HealthVersionOutput = z.object({
   startedAt: z.number().int().positive(),
 });
 
+const ServiceStatusOutput = z.object({
+  configured: z.boolean(),
+  reachable: z.boolean().nullable(),
+  latencyMs: z.number().nullable(),
+  error: z.string().nullable(),
+  endpoint: z.string().nullable(),
+});
+
+const ServicesStatusOutput = z.object({
+  sentry: ServiceStatusOutput,
+  otel: ServiceStatusOutput,
+  metricsServer: ServiceStatusOutput,
+});
+
 export const healthRouter = router({
   ping: procedure.output(HealthPingOutput).query(() => 'ok' as const),
 
@@ -15,4 +29,6 @@ export const healthRouter = router({
     version: process.env['npm_package_version'] ?? '0.0.0',
     startedAt: Date.now(),
   })),
+
+  servicesStatus: procedure.output(ServicesStatusOutput).query(({ ctx }) => ctx.servicesStatus()),
 });

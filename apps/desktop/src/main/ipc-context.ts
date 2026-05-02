@@ -16,6 +16,7 @@ import {
   type PreferencesService,
   type ProjectsService,
   type SchedulerService,
+  type ServicesStatusMap,
   type SessionsService,
   type SourcesService,
   type UpdatesService,
@@ -29,6 +30,7 @@ export interface CreateContextInput {
   readonly event?: IpcInvokeEventLike;
   readonly services?: IpcServiceOverrides;
   readonly traceparent?: string;
+  readonly servicesStatus?: () => Promise<ServicesStatusMap>;
 }
 
 export interface IpcServiceOverrides {
@@ -83,11 +85,25 @@ export async function createContext(input: CreateContextInput = {}): Promise<Ipc
 
   const sessionResult = await services.auth.getMe();
 
+  const noopServiceStatus = {
+    configured: false,
+    reachable: null,
+    latencyMs: null,
+    error: null,
+    endpoint: null,
+  } as const;
+  const noopStatus: ServicesStatusMap = {
+    sentry: noopServiceStatus,
+    otel: noopServiceStatus,
+    metricsServer: noopServiceStatus,
+  };
+
   return {
     ...(input.event ? { event: input.event } : {}),
     ...(sessionResult.isOk() ? { session: sessionResult.value } : {}),
     ...(input.traceparent ? { traceparent: input.traceparent } : {}),
     traceId: `trace_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`,
+    servicesStatus: input.servicesStatus ?? (() => Promise.resolve(noopStatus)),
     ...services,
   };
 }

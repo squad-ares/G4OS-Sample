@@ -22,6 +22,14 @@
  * listeners em hot-reload do renderer é tolerável (some no full reload).
  */
 
+// `@sentry/electron/preload` instala `window.__SENTRY_IPC__` via contextBridge,
+// habilitando `IPCMode.Classic` (canal Electron IPC nativo). Sem isso, o
+// renderer cai no fallback Protocol → fetch `sentry-ipc://...`, que falha com
+// "URL scheme 'sentry-ipc' is not supported" porque o scheme não foi
+// registrado como privileged. Import precisa rodar no preload (contexto
+// isolado com acesso a contextBridge), antes do bundle do renderer.
+import '@sentry/electron/preload';
+
 import { contextBridge, ipcRenderer } from 'electron';
 
 const CHANNEL = 'electron-trpc';

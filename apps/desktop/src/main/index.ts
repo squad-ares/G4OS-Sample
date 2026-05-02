@@ -444,6 +444,7 @@ export async function bootstrapMain(options: BootstrapOptions = {}): Promise<voi
       }),
       backup: createBackupService({ scheduler: backupScheduler }),
     },
+    servicesStatus: () => observability.probeServicesStatus(),
   });
   await windowManager.load(mainWindow, { url: rendererUrl, openDevTools: isDev });
 

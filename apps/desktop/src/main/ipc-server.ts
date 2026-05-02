@@ -5,6 +5,7 @@ import {
   handleIpcRequest,
   type IpcInvokeEventLike,
   type IpcReplyEventLike,
+  type ServicesStatusMap,
 } from '@g4os/ipc/server';
 import { createLogger } from '@g4os/kernel/logger';
 import { createContext, type IpcServiceOverrides } from './ipc-context.ts';
@@ -21,6 +22,7 @@ export interface IpcServerWindow {
 export interface CreateIpcServerOptions {
   readonly windows: readonly IpcServerWindow[];
   readonly services?: IpcServiceOverrides;
+  readonly servicesStatus?: () => Promise<ServicesStatusMap>;
   /**
    * Hook opcional pra registrar cleanup em janelas criadas após o boot
    * (multi-window via `WindowsService.openWorkspaceWindow`, deep-link,
@@ -39,6 +41,7 @@ export async function createIpcServer(options: CreateIpcServerOptions): Promise<
       createContext({
         event: ev as IpcInvokeEventLike,
         ...(options.services ? { services: options.services } : {}),
+        ...(options.servicesStatus ? { servicesStatus: options.servicesStatus } : {}),
         ...(opts?.traceparent ? { traceparent: opts.traceparent } : {}),
       }),
     ).catch((err: unknown) => {

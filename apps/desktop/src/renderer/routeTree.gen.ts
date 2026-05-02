@@ -23,6 +23,7 @@ import { Route as AppConnectionsRouteImport } from './routes/_app/connections'
 import { Route as AppAutomationsRouteImport } from './routes/_app/automations'
 import { Route as AppWorkspacesIndexRouteImport } from './routes/_app/workspaces.index'
 import { Route as AppSettingsIndexRouteImport } from './routes/_app/settings.index'
+import { Route as AppProjectsIndexRouteImport } from './routes/_app/projects.index'
 import { Route as AppNewsIndexRouteImport } from './routes/_app/news.index'
 import { Route as AppWorkspacesNewRouteImport } from './routes/_app/workspaces.new'
 import { Route as AppSettingsCategoryRouteImport } from './routes/_app/settings.$category'
@@ -103,6 +104,11 @@ const AppSettingsIndexRoute = AppSettingsIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppSettingsRoute,
 } as any)
+const AppProjectsIndexRoute = AppProjectsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppProjectsRoute,
+} as any)
 const AppNewsIndexRoute = AppNewsIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -176,6 +182,7 @@ export interface FileRoutesByFullPath {
   '/settings/$category': typeof AppSettingsCategoryRoute
   '/workspaces/new': typeof AppWorkspacesNewRoute
   '/news/': typeof AppNewsIndexRoute
+  '/projects/': typeof AppProjectsIndexRoute
   '/settings/': typeof AppSettingsIndexRoute
   '/workspaces/': typeof AppWorkspacesIndexRoute
   '/workspaces/$workspaceId/settings': typeof AppWorkspacesWorkspaceIdSettingsRoute
@@ -191,13 +198,13 @@ export interface FileRoutesByTo {
   '/connections': typeof AppConnectionsRoute
   '/marketplace': typeof AppMarketplaceRoute
   '/onboarding': typeof AppOnboardingRoute
-  '/projects': typeof AppProjectsRouteWithChildren
   '/news/$newsId': typeof AppNewsNewsIdRoute
   '/projects/$projectId': typeof AppProjectsProjectIdRoute
   '/projects/new': typeof AppProjectsNewRoute
   '/settings/$category': typeof AppSettingsCategoryRoute
   '/workspaces/new': typeof AppWorkspacesNewRoute
   '/news': typeof AppNewsIndexRoute
+  '/projects': typeof AppProjectsIndexRoute
   '/settings': typeof AppSettingsIndexRoute
   '/workspaces': typeof AppWorkspacesIndexRoute
   '/workspaces/$workspaceId/settings': typeof AppWorkspacesWorkspaceIdSettingsRoute
@@ -225,6 +232,7 @@ export interface FileRoutesById {
   '/_app/settings/$category': typeof AppSettingsCategoryRoute
   '/_app/workspaces/new': typeof AppWorkspacesNewRoute
   '/_app/news/': typeof AppNewsIndexRoute
+  '/_app/projects/': typeof AppProjectsIndexRoute
   '/_app/settings/': typeof AppSettingsIndexRoute
   '/_app/workspaces/': typeof AppWorkspacesIndexRoute
   '/_app/workspaces/$workspaceId/settings': typeof AppWorkspacesWorkspaceIdSettingsRoute
@@ -252,6 +260,7 @@ export interface FileRouteTypes {
     | '/settings/$category'
     | '/workspaces/new'
     | '/news/'
+    | '/projects/'
     | '/settings/'
     | '/workspaces/'
     | '/workspaces/$workspaceId/settings'
@@ -267,13 +276,13 @@ export interface FileRouteTypes {
     | '/connections'
     | '/marketplace'
     | '/onboarding'
-    | '/projects'
     | '/news/$newsId'
     | '/projects/$projectId'
     | '/projects/new'
     | '/settings/$category'
     | '/workspaces/new'
     | '/news'
+    | '/projects'
     | '/settings'
     | '/workspaces'
     | '/workspaces/$workspaceId/settings'
@@ -300,6 +309,7 @@ export interface FileRouteTypes {
     | '/_app/settings/$category'
     | '/_app/workspaces/new'
     | '/_app/news/'
+    | '/_app/projects/'
     | '/_app/settings/'
     | '/_app/workspaces/'
     | '/_app/workspaces/$workspaceId/settings'
@@ -415,6 +425,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSettingsIndexRouteImport
       parentRoute: typeof AppSettingsRoute
     }
+    '/_app/projects/': {
+      id: '/_app/projects/'
+      path: '/'
+      fullPath: '/projects/'
+      preLoaderRoute: typeof AppProjectsIndexRouteImport
+      parentRoute: typeof AppProjectsRoute
+    }
     '/_app/news/': {
       id: '/_app/news/'
       path: '/'
@@ -504,11 +521,13 @@ const AppNewsRouteWithChildren =
 interface AppProjectsRouteChildren {
   AppProjectsProjectIdRoute: typeof AppProjectsProjectIdRoute
   AppProjectsNewRoute: typeof AppProjectsNewRoute
+  AppProjectsIndexRoute: typeof AppProjectsIndexRoute
 }
 
 const AppProjectsRouteChildren: AppProjectsRouteChildren = {
   AppProjectsProjectIdRoute: AppProjectsProjectIdRoute,
   AppProjectsNewRoute: AppProjectsNewRoute,
+  AppProjectsIndexRoute: AppProjectsIndexRoute,
 }
 
 const AppProjectsRouteWithChildren = AppProjectsRoute._addFileChildren(

@@ -279,6 +279,16 @@ export function createTestCaller(
       delete: async () =>
         err(new AppError({ code: ErrorCode.UNKNOWN_ERROR, message: 'backup.delete stub' })),
     },
+    servicesStatus: () => {
+      const noop = {
+        configured: false,
+        reachable: null,
+        latencyMs: null,
+        error: null,
+        endpoint: null,
+      } as const;
+      return Promise.resolve({ sentry: noop, otel: noop, metricsServer: noop });
+    },
     ...overrides,
   };
   return appRouter.createCaller(ctx);

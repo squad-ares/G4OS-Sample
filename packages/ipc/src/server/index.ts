@@ -32,6 +32,8 @@ export type {
   RuntimeIntegrityFailure,
   RuntimeIntegrityReport,
   SchedulerService,
+  ServiceStatus,
+  ServicesStatusMap,
   SessionListPage,
   SessionsService,
   SourcesService,

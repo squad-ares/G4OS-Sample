@@ -26,6 +26,7 @@ import {
   SlidersHorizontal,
   Tag,
   Type,
+  Wifi,
   Wrench,
   Zap,
 } from 'lucide-react';
@@ -44,7 +45,8 @@ export type SettingsCategoryId =
   | 'repair'
   | 'shortcuts'
   | 'preferences'
-  | 'support';
+  | 'support'
+  | 'services';
 
 export type SettingsCategoryStatus = 'ready' | 'planned';
 
@@ -180,6 +182,14 @@ export const SETTINGS_CATEGORIES: readonly SettingsCategory[] = [
     icon: LifeBuoy,
     labelKey: 'settings.category.support.label',
     descriptionKey: 'settings.category.support.description',
+    status: 'ready',
+    persistence: 'none',
+  },
+  {
+    id: 'services',
+    icon: Wifi,
+    labelKey: 'settings.category.services.label',
+    descriptionKey: 'settings.category.services.description',
     status: 'ready',
     persistence: 'none',
   },

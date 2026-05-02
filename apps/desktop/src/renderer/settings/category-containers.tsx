@@ -10,6 +10,7 @@ export { BackupCategoryContainer } from './containers/backup.tsx';
 export { PermissionsCategoryContainer } from './containers/permissions.tsx';
 export { PreferencesCategoryContainer } from './containers/preferences.tsx';
 export { RepairCategoryContainer } from './containers/repair.tsx';
+export { ServicesCategoryContainer } from './containers/services.tsx';
 export { SupportCategoryContainer } from './containers/support.tsx';
 export { TagsCategoryContainer } from './containers/tags.tsx';
 export { WorkspaceCategoryContainer } from './containers/workspace.tsx';

@@ -42,6 +42,11 @@ export {
   RepairCategory,
   type RepairCategoryProps,
 } from './components/repair-category.tsx';
+export {
+  type ServiceStatusItem,
+  ServicesCategory,
+  type ServicesCategoryProps,
+} from './components/services-category.tsx';
 export { SettingsPanel, type SettingsPanelProps } from './components/settings-panel.tsx';
 export {
   type SupportAppInfoView,

@@ -24,6 +24,7 @@ import { initTelemetry, type TelemetryHandle } from '@g4os/observability/sdk';
 import { initSentry, type SentryHandle } from '@g4os/observability/sentry';
 import { readRuntimeEnv } from '../runtime-env.ts';
 import { startMetricsScrapeServer } from './metrics-scrape-server.ts';
+import { probeServices, type ServicesStatusMap } from './services-prober.ts';
 
 const log = createLogger('observability-runtime');
 
@@ -45,6 +46,12 @@ export interface ObservabilityRuntime {
    * `snapshot()` para visualizar.
    */
   readonly listenerDetector: ListenerLeakDetector;
+  /**
+   * Probe ativo de conectividade. Faz HTTP HEAD com timeout de 3s contra
+   * cada endpoint configurado e retorna `configured` + `reachable` +
+   * latência. Sem cache — chamador controla freshness.
+   */
+  probeServicesStatus(): Promise<ServicesStatusMap>;
   dispose(): Promise<void>;
 }
 
@@ -93,13 +100,15 @@ export async function createObservabilityRuntime(
   const listenerDetector = new ListenerLeakDetector();
 
   // Expõe /metrics no formato Prometheus para scrape local quando OTel está ativo.
-  const metricsServer: Server | null = otlpEndpoint ? startMetricsScrapeServer() : null;
+  const metricsPort = 9464;
+  const metricsServer: Server | null = otlpEndpoint ? startMetricsScrapeServer(metricsPort) : null;
+  const metricsUrl = metricsServer ? `http://localhost:${metricsPort}/metrics` : undefined;
 
   log.info(
     {
       otel: Boolean(otlpEndpoint),
       sentry: Boolean(sentryDsn),
-      metricsPort: metricsServer ? 9464 : null,
+      metricsPort: metricsServer ? metricsPort : null,
     },
     'observability runtime inicializado',
   );
@@ -109,6 +118,12 @@ export async function createObservabilityRuntime(
     sentry,
     memory,
     listenerDetector,
+    probeServicesStatus: () =>
+      probeServices({
+        sentryDsn,
+        otlpEndpoint,
+        metricsUrl,
+      }),
     dispose: async () => {
       metricsServer?.close();
       memory.dispose();
