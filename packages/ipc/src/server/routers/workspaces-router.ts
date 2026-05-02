@@ -12,11 +12,14 @@ const WorkspaceSetupNeedsSchema = z.object({
 });
 
 export const workspacesRouter = router({
-  list: authed.output(WorkspacesListOutput).query(async ({ ctx }) => {
-    const result = await ctx.workspaces.list();
-    if (result.isErr()) throw result.error;
-    return [...result.value];
-  }),
+  list: authed
+    .input(z.void())
+    .output(WorkspacesListOutput)
+    .query(async ({ ctx }) => {
+      const result = await ctx.workspaces.list();
+      if (result.isErr()) throw result.error;
+      return [...result.value];
+    }),
 
   get: authed
     .input(z.object({ id: WorkspaceIdSchema }))

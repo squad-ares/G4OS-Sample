@@ -115,7 +115,7 @@ function createMessagesMock(): MessagesService {
 
 function createVoiceMock(): VoiceService {
   return {
-    transcribe: () => Promise.reject(notImplemented('voice.transcribe')),
+    transcribe: async () => err(notImplemented('voice.transcribe')),
   };
 }
 

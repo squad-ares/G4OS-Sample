@@ -13,11 +13,14 @@ const ManagedLoginRequiredEventSchema = z.object({
 });
 
 export const authRouter = router({
-  getMe: authed.output(IpcSessionSchema).query(async ({ ctx }) => {
-    const result = await ctx.auth.getMe();
-    if (result.isErr()) throw result.error;
-    return result.value;
-  }),
+  getMe: authed
+    .input(z.void())
+    .output(IpcSessionSchema)
+    .query(async ({ ctx }) => {
+      const result = await ctx.auth.getMe();
+      if (result.isErr()) throw result.error;
+      return result.value;
+    }),
 
   sendOtp: procedure
     .input(z.object({ email: z.email() }))
@@ -36,10 +39,13 @@ export const authRouter = router({
       return result.value;
     }),
 
-  signOut: authed.output(z.void()).mutation(async ({ ctx }) => {
-    const result = await ctx.auth.signOut();
-    if (result.isErr()) throw result.error;
-  }),
+  signOut: authed
+    .input(z.void())
+    .output(z.void())
+    .mutation(async ({ ctx }) => {
+      const result = await ctx.auth.signOut();
+      if (result.isErr()) throw result.error;
+    }),
 
   /**
    * Reset destrutivo. Aceita só com confirmação explícita no input para

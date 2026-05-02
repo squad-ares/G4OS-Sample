@@ -29,7 +29,8 @@ export const voiceRouter = router({
           cause,
         });
       }
-      const text = await ctx.voice.transcribe(buf, input.mimeType);
-      return { text };
+      const result = await ctx.voice.transcribe(buf, input.mimeType);
+      if (result.isErr()) throw result.error;
+      return { text: result.value };
     }),
 });

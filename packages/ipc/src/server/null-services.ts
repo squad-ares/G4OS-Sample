@@ -170,7 +170,7 @@ export function createNullServices(): NullServices {
       check: async () => err(notImplemented('updates.check')),
     },
     voice: {
-      transcribe: () => Promise.reject(notImplemented('voice.transcribe')),
+      transcribe: async () => err(notImplemented('voice.transcribe')),
     },
     windows: {
       openWorkspaceWindow: async () => err(notImplemented('windows.openWorkspaceWindow')),

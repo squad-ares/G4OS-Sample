@@ -23,12 +23,21 @@ const ServicesStatusOutput = z.object({
 });
 
 export const healthRouter = router({
-  ping: procedure.output(HealthPingOutput).query(() => 'ok' as const),
+  ping: procedure
+    .input(z.void())
+    .output(HealthPingOutput)
+    .query(() => 'ok' as const),
 
-  version: procedure.output(HealthVersionOutput).query(() => ({
-    version: process.env['npm_package_version'] ?? '0.0.0',
-    startedAt: Date.now(),
-  })),
+  version: procedure
+    .input(z.void())
+    .output(HealthVersionOutput)
+    .query(() => ({
+      version: process.env['npm_package_version'] ?? '0.0.0',
+      startedAt: Date.now(),
+    })),
 
-  servicesStatus: procedure.output(ServicesStatusOutput).query(({ ctx }) => ctx.servicesStatus()),
+  servicesStatus: procedure
+    .input(z.void())
+    .output(ServicesStatusOutput)
+    .query(({ ctx }) => ctx.servicesStatus()),
 });
