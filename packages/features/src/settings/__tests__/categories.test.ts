@@ -8,8 +8,8 @@ import {
 } from '../categories.ts';
 
 describe('settings / categories', () => {
-  it('exporta 14 categorias (12 da paridade V1 + support + backup)', () => {
-    expect(SETTINGS_CATEGORIES).toHaveLength(14);
+  it('exporta 15 categorias (12 da paridade V1 + support + backup + services)', () => {
+    expect(SETTINGS_CATEGORIES).toHaveLength(15);
   });
 
   it('ids são únicos', () => {
@@ -67,6 +67,7 @@ describe('settings / categories', () => {
       'permissions',
       'preferences',
       'repair',
+      'services',
       'shortcuts',
       'support',
       'tags',
