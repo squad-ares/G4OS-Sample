@@ -206,6 +206,32 @@ import { globSync } from 'glob';
 // para `@g4os/observability/probe` em refactor futuro — função é
 // observability-agnostic e não tem deps de Electron).
 //
+// 11050 → 11100 — code-review-31 (12 findings aplicados em HUD):
+// - `debug-hud/state.ts` ganhou Zod schema (HudPersistedStateSchema) +
+//   trocou `writeFile` por `writeAtomic` (ADR-0050) (~15 LOC).
+// - `debug-hud/index.ts` ganhou IPC `get-app-meta` + safeParse no
+//   `save-config` (~12 LOC).
+// - `services/debug-hud-actions-bootstrap.ts` extraiu strings hardcoded
+//   em constantes documentadas (~5 LOC).
+// - `window-manager.ts` ganhou `getMain()` documentado (~10 LOC).
+// Total líquido: ~50 LOC. CR31 fixes refletem disciplina arquitetural
+// (Zod, atomic write, type safety) que justifica o crescimento.
+//
+// 10700 → 11050 — debug HUD UX evolution (Fase 1+2+3 ações):
+// - `debug-hud/actions.ts` novo (~166 LOC): handlers puros das ações
+//   diagnósticas (force-gc, cancel-turn, cancel-all-turns, reset-listeners,
+//   clear-logs, export-diagnostic, reload-renderer) com `ActionResult`
+//   tipado.
+// - `services/debug-hud-actions-bootstrap.ts` novo (~102 LOC): closures
+//   que dependem do composition root (Electron dialog, exportDebugInfo,
+//   appPaths) — mantém `debug-hud/` com baixa dep.
+// - `debug-hud/index.ts` (+~38 LOC): IPC handlers `debug-hud:action:*` +
+//   ACTIONS array + cleanup no dispose.
+// - `debug-hud/aggregator.ts` (+~9 LOC): `clearLogBuffer()` pra ação
+//   clear-logs.
+// - `main/index.ts` wiring (+~10 LOC): `createDebugHudActionsBootstrap`
+//   + injeção de `turnDispatcher`/`reloadMainWindow`/`exportDiagnostic`.
+//
 // 10300 → 10700 — code-review-30 (7 findings aplicados):
 // - F-CR30-1: title-generator.ts: vault key correto `anthropic_api_key` +
 //   separação de `default-system-prompt.ts` (91 LOC novo) pra isolar
@@ -224,7 +250,7 @@ import { globSync } from 'glob';
 // - system-message.tsx novo componente + ADR-0159.
 // Crescimento líquido: ~350 LOC distribuído entre default-system-prompt.ts
 // (new) + expansões legítimas de turn-dispatcher/sessions-service/title-generator.
-const MAIN_LIMIT = 10700;
+const MAIN_LIMIT = 11100;
 const FILE_LIMIT = 300;
 
 // Composition roots e agregadores de diagnóstico com teto próprio.
@@ -266,12 +292,13 @@ const FILE_EXEMPTIONS: Map<string, number> = new Map([
   // Composition root do processo principal: instancia todos os serviços,
   // registra shutdown handlers, bootstrapa IPC e janela. Concentração
   // intencional — extrair implicaria prop drilling ou Context API sem
-  // ganho real de legibilidade. CR-18 F-DT-I bumpou para acomodar wiring
-  // do single-instance lock + protocol client + second-instance handler
-  // (~10 LOC inline antes do whenReady, ~5 LOC adjacente ao deep-link).
+  // ganho real de legibilidade. Bumps cumulativos: CR-18 F-DT-I
+  // (single-instance lock + protocol client), debug HUD UX evolution
+  // (createDebugHudActionsBootstrap + injeção de turnDispatcher/
+  // reloadMainWindow/exportDiagnostic). Próximo bump exige extração.
   // script usa split('\n').length que conta +1 vs wc -l (trailing newline).
-  // Teto: 510 LOC.
-  ['apps/desktop/src/main/index.ts', 510],
+  // Teto: 520 LOC.
+  ['apps/desktop/src/main/index.ts', 520],
 ]);
 
 const files = globSync('apps/desktop/src/main/**/*.ts', {

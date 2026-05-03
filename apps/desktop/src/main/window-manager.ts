@@ -136,6 +136,23 @@ export class WindowManager extends DisposableBase {
   }
 
   /**
+   * Retorna a janela principal — primeira janela criada pelo bootstrap.
+   * F-CR31-7: callers que querem "a main" devem usar este método em vez
+   * de `list()[0]` — o array `list()` contém qualquer janela criada via
+   * `create()` (incluindo workspace/multi-window), e a ordem não é
+   * garantida em cenários de boot com deep-link concorrente.
+   *
+   * Implementação atual: retorna a primeira do `Set` (preserva ordem de
+   * inserção em JS), o que coincide com a main em prática. Tornar isso
+   * explícito via método dedicado evita drift e documenta a intenção.
+   */
+  getMain(): BrowserWindowInstance | undefined {
+    const iter = this.windows.values();
+    const first = iter.next();
+    return first.done ? undefined : first.value;
+  }
+
+  /**
    * Inscreve um listener disparado a cada janela criada (após o
    * `createWindow` ter populado `windows`). Usado pelo IPC server pra
    * registrar cleanup de subscriptions órfãs em `did-start-navigation` /

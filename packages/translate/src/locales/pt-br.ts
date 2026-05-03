@@ -1314,4 +1314,291 @@ export const ptBR = {
   'markdown.pdf.renderError': 'Erro ao renderizar PDF',
   'markdown.pdf.previewUnavailable': 'Pré-visualização indisponível neste build',
   'markdown.pdf.openExternal': 'Abrir',
+
+  // Debug HUD ---------------------------------------------------------------
+  'debugHud.app.title': 'G4 OS · Diagnóstico',
+  'debugHud.app.waiting': 'Aguardando primeiro tick do diagnóstico…',
+  'debugHud.header.alertsOne': '{count} alerta',
+  'debugHud.header.alertsMany': '{count} alertas',
+  'debugHud.header.uptime': 'ativo há {duration}',
+  'debugHud.header.releaseMemory': 'Liberar memória',
+  'debugHud.header.reload': 'Recarregar',
+  'debugHud.header.report': 'Reportar problema',
+  'debugHud.header.tooltip.releaseMemory':
+    'Pede ao app pra liberar memória não usada agora (requer --expose-gc)',
+  'debugHud.header.tooltip.reload':
+    'Recarrega a janela principal do app — você perde o que estava digitando',
+  'debugHud.header.tooltip.report': 'Gera diagnóstico técnico e prepara um relatório pro suporte',
+
+  'debugHud.tab.overview': 'Visão Geral',
+  'debugHud.tab.memory': 'Memória',
+  'debugHud.tab.ipc': 'IPC & Sessões',
+  'debugHud.tab.logs': 'Logs',
+  'debugHud.tab.vault': 'Vault',
+
+  'debugHud.healthLabel.healthy': 'Saudável',
+  'debugHud.healthLabel.attention': 'Atenção',
+  'debugHud.healthLabel.critical': 'Crítico',
+  'debugHud.healthScore.aria': 'Saúde do sistema: {value} de 100, {label}',
+
+  'debugHud.glossary.memoryRss.title': 'Memória total (RSS)',
+  'debugHud.glossary.memoryRss.description':
+    'Espaço total que o app ocupa no computador, incluindo código, dados e cache. Pense como o tamanho do app na memória RAM.',
+  'debugHud.glossary.memoryHeapUsed.title': 'Memória JavaScript em uso',
+  'debugHud.glossary.memoryHeapUsed.description':
+    'Quanto da memória reservada pra JavaScript está sendo usado agora. Subir e descer é normal — o coletor de lixo libera periodicamente.',
+  'debugHud.glossary.memoryHeapTotal.title': 'Memória JavaScript reservada',
+  'debugHud.glossary.memoryHeapTotal.description':
+    'Quanto o JavaScript reservou pra usar. Pode crescer conforme o app precisa.',
+  'debugHud.glossary.memoryExternal.title': 'Memória externa',
+  'debugHud.glossary.memoryExternal.description':
+    'Memória usada por componentes nativos (banco de dados, arquivos, rede). Não é controlada pelo coletor de lixo do JavaScript.',
+  'debugHud.glossary.memoryGrowth.title': 'Crescimento de memória',
+  'debugHud.glossary.memoryGrowth.description':
+    'Quanto de memória nova o app está consumindo por minuto. Crescer um pouco é normal; crescer rápido sem parar pode indicar vazamento.',
+  'debugHud.glossary.sessionsActive.title': 'Conversas ativas',
+  'debugHud.glossary.sessionsActive.description':
+    'Conversas com IA em andamento agora. Cada uma processa mensagens, ferramentas e respostas. Se ficar muito tempo aqui, pode estar travada.',
+  'debugHud.glossary.sessionsUptime.title': 'Tempo de execução',
+  'debugHud.glossary.sessionsUptime.description':
+    'Há quanto tempo o app está aberto sem reiniciar.',
+  'debugHud.glossary.sessionsTurnDuration.title': 'Duração da conversa',
+  'debugHud.glossary.sessionsTurnDuration.description':
+    'Tempo desde que esta conversa começou. Conversas longas com IA são normais; mais de 1 minuto sem resposta pode ter travado.',
+  'debugHud.glossary.listenersTotal.title': 'Notificações ativas',
+  'debugHud.glossary.listenersTotal.description':
+    'Notificações internas que diferentes partes do app ficam esperando (cliques, mudanças, eventos). Normal ter algumas dezenas; centenas podem indicar problema.',
+  'debugHud.glossary.listenersStale.title': 'Notificações pendentes',
+  'debugHud.glossary.listenersStale.description':
+    'Notificações que deveriam ter sido encerradas mas continuam ativas há mais de 1 minuto. Costuma indicar bug em código que esquece de limpar.',
+  'debugHud.glossary.ipcReqPerSec.title': 'Operações por segundo',
+  'debugHud.glossary.ipcReqPerSec.description':
+    'Quantas operações internas o app está processando agora (cliques, salvamentos, buscas).',
+  'debugHud.glossary.ipcP50.title': 'Tempo médio',
+  'debugHud.glossary.ipcP50.description':
+    'Metade das operações terminam neste tempo ou menos. Bom indicador de velocidade típica.',
+  'debugHud.glossary.ipcP95.title': 'Tempo do percentil 95',
+  'debugHud.glossary.ipcP95.description':
+    '95% das operações terminam neste tempo ou menos. Se for muito alto, significa que algumas operações estão lentas e travando o app.',
+  'debugHud.glossary.ipcErrorRate.title': 'Taxa de erro',
+  'debugHud.glossary.ipcErrorRate.description':
+    'Porcentagem de operações que falharam. Acima de 5% costuma indicar problema (API key inválida, rede instável, bug recente).',
+  'debugHud.glossary.ipcErrorCount.title': 'Total de erros',
+  'debugHud.glossary.ipcErrorCount.description':
+    'Quantas operações falharam desde o início. Erros são esperados em pequena quantidade.',
+  'debugHud.glossary.ipcProcedures.title': 'Operações mais usadas',
+  'debugHud.glossary.ipcProcedures.description':
+    'Quais operações internas o app mais executa. Útil pra investigar lentidão — operações com p95 alto + muitas chamadas são as primeiras a otimizar.',
+  'debugHud.glossary.vaultOps.title': 'Acessos ao cofre/min',
+  'debugHud.glossary.vaultOps.description':
+    'Quantas vezes o app leu ou gravou no cofre de credenciais (API keys, tokens) no último minuto.',
+  'debugHud.glossary.vaultErrors.title': 'Erros do cofre/min',
+  'debugHud.glossary.vaultErrors.description':
+    'Erros ao acessar o cofre. Pode indicar API key inválida ou problema no armazenamento seguro do sistema.',
+  'debugHud.glossary.vaultErrorRate.title': 'Taxa de erro do cofre',
+  'debugHud.glossary.vaultErrorRate.description':
+    'Porcentagem dos acessos ao cofre que falharam. Acima de 5% sugere verificar suas chaves nas Configurações.',
+  'debugHud.glossary.logsRecent.title': 'Mensagens recentes',
+  'debugHud.glossary.logsRecent.description':
+    'Últimas linhas que o app escreveu no log. Útil pra entender o que aconteceu antes de um problema.',
+  'debugHud.glossary.logsTotalSeen.title': 'Total de mensagens',
+  'debugHud.glossary.logsTotalSeen.description':
+    'Quantas mensagens foram registradas desde que o app abriu.',
+  'debugHud.glossary.healthScore.title': 'Saúde do sistema',
+  'debugHud.glossary.healthScore.description':
+    'Indicador geral de 0 a 100 baseado em alertas ativos. 100 = tudo ok; abaixo de 70 = vale dar uma olhada; abaixo de 40 = precisa de atenção.',
+
+  'debugHud.insight.memoryGrowthCritical.title': 'Memória crescendo rápido ({growth} MB/min)',
+  'debugHud.insight.memoryGrowthCritical.description':
+    'A memória do app está aumentando consistentemente. Pode ser um vazamento. Recarregar a janela libera estado preso sem fechar o app.',
+  'debugHud.insight.memoryGrowthCritical.action': 'Recarregar janela',
+  'debugHud.insight.memoryGrowthWarn.title': 'Memória subindo ({growth} MB/min)',
+  'debugHud.insight.memoryGrowthWarn.description':
+    'Crescimento moderado. Pode ser uso normal em sessão longa. Forçar GC confirma se é vazamento (memória cai) ou uso real (não cai).',
+  'debugHud.insight.memoryGrowthWarn.action': 'Forçar GC',
+  'debugHud.insight.memoryRssCritical.title': 'Uso de memória muito alto ({rss} MB)',
+  'debugHud.insight.memoryRssCritical.description':
+    'O app está consumindo muita memória do sistema. Considere recarregar a janela. Se persistir, exporte o diagnóstico para investigação.',
+  'debugHud.insight.memoryRssCritical.action': 'Exportar diagnóstico',
+  'debugHud.insight.memoryRssWarn.title': 'Memória elevada ({rss} MB)',
+  'debugHud.insight.memoryRssWarn.description':
+    'Consumo acima do esperado para uso normal. Sessões longas com muitas mensagens chegam a esse patamar; recarregar a janela ajuda.',
+  'debugHud.insight.listenersStale.title': '{count} listeners ficaram pendurados',
+  'debugHud.insight.listenersStale.description':
+    'Eventos que deveriam ter sido liberados após uso (listeners stale). Costuma ser bug em código que registra handler mas esquece de remover. Reciclar limpa o estado e mostra se voltam.',
+  'debugHud.insight.listenersStale.action': 'Reciclar detector',
+  'debugHud.insight.listenersManyCritical.title': 'Muitos listeners ativos ({total})',
+  'debugHud.insight.listenersManyCritical.description':
+    'Volume alto de event listeners — pode degradar performance e sinalizar acúmulo. Exporte o diagnóstico para análise detalhada.',
+  'debugHud.insight.listenersManyCritical.action': 'Exportar diagnóstico',
+  'debugHud.insight.listenersManyWarn.title': 'Listeners acima do normal ({total})',
+  'debugHud.insight.listenersManyWarn.description':
+    'Volume moderado de event listeners. Comum em sessões com muitos painéis abertos.',
+  'debugHud.insight.ipcErrorRate.title': '{pct}% das chamadas internas estão falhando',
+  'debugHud.insight.ipcErrorRate.description':
+    'Procedures do main process retornando erro com frequência. Pode indicar bug recente ou serviço externo (API key, banco) instável. Veja a tab IPC para os procedures mais afetados.',
+  'debugHud.insight.ipcLatencyCritical.title': 'Operações lentas (p95 {p95}ms)',
+  'debugHud.insight.ipcLatencyCritical.description':
+    '95% das chamadas estão demorando mais que o esperado. Turno em vôo pode estar congelado, ou IO de disco/rede travado.',
+  'debugHud.insight.ipcLatencyWarn.title': 'Latência alta (p95 {p95}ms)',
+  'debugHud.insight.ipcLatencyWarn.description':
+    'Algumas operações estão lentas. Veja a tab IPC para identificar quais.',
+  'debugHud.insight.vaultErrors.title': 'Erros de credenciais ({count} no último minuto)',
+  'debugHud.insight.vaultErrors.description':
+    'O cofre de credenciais (API keys, tokens OAuth) está reportando erros. Verifique em Configurações > Chaves se as chaves estão válidas.',
+  'debugHud.insight.turnsStuck.title': '{count} turno(s) ativo(s) há mais de 1 minuto',
+  'debugHud.insight.turnsStuck.description':
+    'Turnos podem estar congelados aguardando resposta do agente ou de uma ferramenta. Você pode cancelá-los na tab de IPC/Sessões.',
+  'debugHud.insight.turnsStuck.action': 'Cancelar todos',
+
+  'debugHud.logCategory.all.label': 'Todas',
+  'debugHud.logCategory.all.description': 'Sem filtro — todas as mensagens.',
+  'debugHud.logCategory.normal.label': 'Atividade normal',
+  'debugHud.logCategory.normal.description': 'Operações comuns do app — útil pra entender o fluxo.',
+  'debugHud.logCategory.warnings.label': 'Avisos',
+  'debugHud.logCategory.warnings.description': 'Situações inesperadas que não interromperam o app.',
+  'debugHud.logCategory.errors.label': 'Erros',
+  'debugHud.logCategory.errors.description': 'Falhas que impediram alguma operação. Investigar.',
+  'debugHud.logCategory.agents.label': 'IA & Agentes',
+  'debugHud.logCategory.agents.description':
+    'Atividade dos modelos de IA, ferramentas e conversas.',
+  'debugHud.logCategory.data.label': 'Dados & Credenciais',
+  'debugHud.logCategory.data.description': 'Acesso ao banco, cofre de credenciais e arquivos.',
+
+  'debugHud.tabOverview.cardMemory.title': 'Memória do app',
+  'debugHud.tabOverview.cardMemory.subtitle': 'Quanto o app está usando da memória do computador',
+  'debugHud.tabOverview.cardMemory.hint':
+    'Subir é normal durante uso. Se passar de 1.5 GB ou crescer rápido sem parar, pode haver vazamento — recarregue a janela.',
+  'debugHud.tabOverview.cardSessions.title': 'Conversas ativas',
+  'debugHud.tabOverview.cardSessions.subtitle': 'Conversas com IA em andamento',
+  'debugHud.tabOverview.cardSessions.empty': 'Nenhuma conversa em execução agora.',
+  'debugHud.tabOverview.cardSessions.othersCount': '+{count} outras…',
+  'debugHud.tabOverview.cardSessions.hint':
+    'Se uma conversa ficar muito tempo aqui sem terminar, pode estar travada.',
+  'debugHud.tabOverview.cardListeners.title': 'Notificações internas',
+  'debugHud.tabOverview.cardListeners.subtitle': 'Subscrições ativas no app',
+  'debugHud.tabOverview.cardListeners.staleSummary': '{count} pendurada(s) há ≥60s',
+  'debugHud.tabOverview.cardListeners.activeSummary': '{count} ativas',
+  'debugHud.tabOverview.cardListeners.totalLabel': 'Total',
+  'debugHud.tabOverview.cardListeners.hint':
+    'Normal ter algumas dezenas. Centenas ou pendentes podem indicar bug.',
+  'debugHud.tabOverview.cardIpc.title': 'Operações internas',
+  'debugHud.tabOverview.cardIpc.subtitle': 'Comunicação entre as partes do app',
+  'debugHud.tabOverview.cardIpc.responseTime': 'Tempo de resposta (p95)',
+  'debugHud.tabOverview.cardIpc.opsPerSec': 'op/s',
+  'debugHud.tabOverview.cardIpc.errors': 'erros',
+  'debugHud.tabOverview.cardIpc.hint':
+    'Tempo alto = app lento. Erros frequentes podem indicar problema de rede ou API.',
+  'debugHud.tabOverview.viewDetails': 'Detalhes →',
+
+  'debugHud.tabMemory.history.title': 'Histórico de memória (5 minutos)',
+  'debugHud.tabMemory.history.growth': 'Crescimento médio: {value} MB por minuto',
+  'debugHud.tabMemory.history.stable': 'Estável ou liberando memória',
+  'debugHud.tabMemory.releaseMemory': 'Liberar memória',
+  'debugHud.tabMemory.reload': 'Recarregar',
+  'debugHud.tabMemory.thresholdLabel': 'Memória total no sistema',
+  'debugHud.tabMemory.thresholdDescription': 'Bom até ~800 MB · Atenção até 1.5 GB · Crítico acima',
+  'debugHud.tabMemory.processes.title': 'Processos ativos',
+  'debugHud.tabMemory.processes.subtitle': 'V2 roda tudo no processo principal (ADR-0145)',
+  'debugHud.tabMemory.processes.uptime': 'ativo há {duration}',
+
+  'debugHud.tabIpc.procedures.title': 'Operações internas',
+  'debugHud.tabIpc.procedures.subtitle': '{rate} por segundo · {total} no total',
+  'debugHud.tabIpc.procedures.empty': 'Aguardando primeiras chamadas…',
+  'debugHud.tabIpc.procedures.tableProcedure': 'procedure',
+  'debugHud.tabIpc.procedures.tableCalls': 'chamadas',
+  'debugHud.tabIpc.procedures.tableP95': 'p95',
+  'debugHud.tabIpc.procedures.tableErrors': 'erros',
+  'debugHud.tabIpc.procedures.metricP50': 'Tempo médio (p50)',
+  'debugHud.tabIpc.procedures.metricP95': 'Tempo p95',
+  'debugHud.tabIpc.procedures.metricErrors': 'Erros',
+  'debugHud.tabIpc.procedures.metricRate': 'Taxa de erro',
+  'debugHud.tabIpc.activeTurns.title': 'Turnos em vôo',
+  'debugHud.tabIpc.activeTurns.subtitle': '{count} ativo(s)',
+  'debugHud.tabIpc.activeTurns.empty': 'Nenhum turno ativo no momento.',
+  'debugHud.tabIpc.activeTurns.cancelAll': 'Cancelar todos',
+  'debugHud.tabIpc.activeTurns.cancel': 'Cancelar',
+  'debugHud.tabIpc.activeTurns.startedAgo': 'turn {turnId}… · iniciado há {duration}',
+  'debugHud.tabIpc.listeners.title': 'Event Listeners',
+  'debugHud.tabIpc.listeners.subtitle': '{total} ativos · {stale} pendurados',
+  'debugHud.tabIpc.listeners.recycle': 'Reciclar',
+  'debugHud.tabIpc.listeners.empty':
+    'Sem listeners rastreados — instrumente subsystems com listenerDetector.track().',
+
+  'debugHud.tabLogs.search.placeholder': 'Buscar por componente ou mensagem…',
+  'debugHud.tabLogs.search.clear': 'Limpar busca',
+  'debugHud.tabLogs.clearHistory': 'Limpar histórico',
+  'debugHud.tabLogs.clearHistory.tooltip':
+    'Limpa apenas o histórico exibido (arquivos no disco não são afetados)',
+  'debugHud.tabLogs.summary': '{seen} mensagens registradas no total · buffer: 1000 linhas',
+  'debugHud.tabLogs.selectCategory': 'Selecione uma categoria pra filtrar.',
+  'debugHud.tabLogs.empty.waiting': 'Aguardando primeiras mensagens…',
+  'debugHud.tabLogs.empty.waitingHint': 'Subsystems escrevem aqui assim que começam a operar.',
+  'debugHud.tabLogs.empty.noMatch': 'Nenhuma mensagem nesta categoria.',
+  'debugHud.tabLogs.empty.clearFilters': 'Limpar filtros',
+
+  'debugHud.tabVault.title': 'Cofre de credenciais',
+  'debugHud.tabVault.subtitle': 'Onde ficam guardadas suas chaves de API e tokens · janela de 60s',
+  'debugHud.tabVault.metric.opsPerMin': 'Acessos no minuto',
+  'debugHud.tabVault.metric.errorsPerMin': 'Erros no minuto',
+  'debugHud.tabVault.metric.errorRate': 'Taxa de erro',
+  'debugHud.tabVault.lastActivity': 'Última atividade',
+  'debugHud.tabVault.noActivity': 'Sem atividade registrada ainda.',
+  'debugHud.tabVault.recentErrors.title': 'Erros recentes',
+  'debugHud.tabVault.recentErrors.subtitle': '{count} de {max} (últimos)',
+  'debugHud.tabVault.recentErrors.empty': 'Nenhum erro recente. Vault operando normalmente.',
+
+  'debugHud.report.title': 'Reportar problema',
+  'debugHud.report.description':
+    'Gere um diagnóstico, descreva o problema e copie o relatório pra mandar pro suporte.',
+  'debugHud.report.descLabel': 'O que aconteceu?',
+  'debugHud.report.descPlaceholder':
+    'Ex: Ao enviar mensagem para o agente, a tela travou e não recebi resposta…',
+  'debugHud.report.charCount': '{count} caracteres',
+  'debugHud.report.diagTitle': 'Diagnóstico técnico',
+  'debugHud.report.diagDesc': 'ZIP com logs, métricas e info do sistema (sem dados sensíveis).',
+  'debugHud.report.diagButton.generate': 'Gerar diagnóstico',
+  'debugHud.report.diagButton.regenerate': 'Regerar',
+  'debugHud.report.diagButton.generating': 'Gerando…',
+  'debugHud.report.diagSuccess': 'Diagnóstico salvo. Caminho copiado pro relatório.',
+  'debugHud.report.diagFail': 'Falha ao exportar diagnóstico.',
+  'debugHud.report.copyError': 'Não foi possível copiar — selecione e copie manualmente.',
+  'debugHud.report.previewLabel': 'Pré-visualização do relatório',
+  'debugHud.report.close': 'Fechar',
+  'debugHud.report.copyAll': 'Copiar tudo',
+  'debugHud.report.copied': 'Copiado!',
+  'debugHud.report.template.problemTitle': '## Problema reportado',
+  'debugHud.report.template.placeholder': '[descreva aqui o que aconteceu]',
+  'debugHud.report.template.techInfoTitle': '## Informações técnicas',
+  'debugHud.report.template.appVersion': '- Versão do app: {value}',
+  'debugHud.report.template.platform': '- Plataforma: {value}',
+  'debugHud.report.template.date': '- Data: {value}',
+  'debugHud.report.template.diagAttached': '- Diagnóstico anexo: {path}',
+  'debugHud.report.dialogTitle': 'Exportar diagnóstico',
+  'debugHud.report.dialogCanceled': 'Cancelado pelo usuário.',
+
+  'debugHud.logDetail.title': 'Detalhes do log',
+  'debugHud.logDetail.message': 'Mensagem',
+  'debugHud.logDetail.context': 'Contexto',
+
+  'debugHud.memorySparkline.collecting': 'Coletando…',
+  'debugHud.memorySparkline.aria': 'Histórico de uso de memória heap',
+
+  'debugHud.action.success.gc': 'Garbage collector executado.',
+  'debugHud.action.error.gcMissing':
+    'Node não foi iniciado com --expose-gc. Reinicie o app com a flag.',
+  'debugHud.action.error.sessionRequired': 'sessionId obrigatório.',
+  'debugHud.action.success.cancelTurn': 'Conversa {sessionId}… cancelada.',
+  'debugHud.action.error.cancelTurn': 'Falha ao cancelar conversa.',
+  'debugHud.action.success.cancelAllNone': 'Nenhuma conversa ativa para cancelar.',
+  'debugHud.action.success.cancelAllOk': '{count} conversa(s) cancelada(s).',
+  'debugHud.action.error.cancelAllPartial': '{ok} ok, {failed} falharam.',
+  'debugHud.action.error.resetListenersUnsupported':
+    'Reset direto não é suportado. O detector mantém WeakRef e libera automaticamente quando o GC roda — tente "Liberar memória" pra forçar.',
+  'debugHud.action.success.clearLogs':
+    'Buffer do HUD limpo (arquivos persistidos não foram tocados).',
+  'debugHud.action.success.exportDiagnostic': 'Diagnóstico exportado.',
+  'debugHud.action.success.reloadRenderer': 'Janela principal recarregada.',
+  'debugHud.action.error.unknownAction': 'Ação desconhecida: {action}',
+  'debugHud.action.error.unavailable': 'Ação "{action}" indisponível neste contexto.',
 } satisfies Record<TranslationKey, string>;

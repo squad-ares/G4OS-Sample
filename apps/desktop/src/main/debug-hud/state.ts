@@ -6,36 +6,45 @@
  *   - opacity
  *   - cards (ordem + visibility) — preenchido conforme cards sao adicionados
  *
+ * Validação via Zod (F-CR31-4/F-CR31-6) — payload do IPC + JSON do disco
+ * passam por `safeParse` antes de virar `HudPersistedState`. Persistência
+ * via `writeAtomic` (F-CR31-5/ADR-0050) — write→fsync→rename evita
+ * arquivo parcial em crash mid-write.
+ *
  * Falha de leitura/escrita é best-effort: HUD continua funcional com
  * defaults; apenas perde a config persistida na sessao.
  */
 
 import { existsSync } from 'node:fs';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
+import { writeAtomic } from '@g4os/kernel/fs';
 import { createLogger } from '@g4os/kernel/logger';
 import { getAppPaths } from '@g4os/platform';
+import { z } from 'zod';
 
 const log = createLogger('debug-hud-state');
 const FILE_NAME = 'debug-hud.json';
 
-export interface HudWindowBounds {
-  readonly x: number;
-  readonly y: number;
-  readonly width: number;
-  readonly height: number;
-}
+const HudWindowBoundsSchema = z.object({
+  x: z.number(),
+  y: z.number(),
+  width: z.number().positive(),
+  height: z.number().positive(),
+});
 
-export interface HudCardEntry {
-  readonly id: string;
-  readonly visible: boolean;
-}
+const HudCardEntrySchema = z.object({
+  id: z.string().min(1),
+  visible: z.boolean(),
+});
 
-export interface HudPersistedState {
-  readonly bounds: HudWindowBounds;
-  readonly opacity: number;
-  readonly cards: readonly HudCardEntry[];
-}
+export const HudPersistedStateSchema = z.object({
+  bounds: HudWindowBoundsSchema,
+  opacity: z.number().min(0).max(1),
+  cards: z.array(HudCardEntrySchema),
+});
+
+export type HudPersistedState = z.infer<typeof HudPersistedStateSchema>;
 
 export const HUD_DEFAULT_STATE: HudPersistedState = {
   bounds: { x: 50, y: 50, width: 380, height: 600 },
@@ -52,12 +61,15 @@ export async function loadHudState(): Promise<HudPersistedState> {
   if (!existsSync(path)) return HUD_DEFAULT_STATE;
   try {
     const raw = await readFile(path, 'utf-8');
-    const parsed = JSON.parse(raw) as Partial<HudPersistedState>;
-    return {
-      bounds: parsed.bounds ?? HUD_DEFAULT_STATE.bounds,
-      opacity: parsed.opacity ?? HUD_DEFAULT_STATE.opacity,
-      cards: parsed.cards ?? HUD_DEFAULT_STATE.cards,
-    };
+    const parsed = HudPersistedStateSchema.safeParse(JSON.parse(raw));
+    if (!parsed.success) {
+      log.warn(
+        { path, issues: parsed.error.format() },
+        'invalid debug-hud.json schema; using defaults',
+      );
+      return HUD_DEFAULT_STATE;
+    }
+    return parsed.data;
   } catch (cause) {
     log.warn({ err: cause, path }, 'failed to load debug-hud.json; using defaults');
     return HUD_DEFAULT_STATE;
@@ -68,7 +80,7 @@ export async function saveHudState(state: HudPersistedState): Promise<void> {
   const path = filePath();
   try {
     await mkdir(dirname(path), { recursive: true });
-    await writeFile(path, `${JSON.stringify(state, null, 2)}\n`, 'utf-8');
+    await writeAtomic(path, `${JSON.stringify(state, null, 2)}\n`);
   } catch (cause) {
     log.warn({ err: cause, path }, 'failed to persist debug-hud.json');
   }
