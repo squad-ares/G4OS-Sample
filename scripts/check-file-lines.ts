@@ -25,12 +25,6 @@ const EXEMPTIONS: Set<string> = new Set([
   // ADR-0151: exceção formal com teto 600 LOC e plano de retirada.
   'apps/desktop/src/renderer/routes/_app.tsx',
 
-  // Debug HUD renderer concentra 7 snapshot panels + wiring de IPC +
-  // chart/sparkline helpers num único arquivo de diagnóstico interno.
-  // Não exposto ao usuário final. Refator em sub-panels exigiria Context
-  // API ou prop drilling extenso sem ganho de legibilidade real.
-  'apps/desktop/src/renderer/debug-hud/app.tsx',
-
   // Composition root do main process: instancia todos os serviços, bootstrapa
   // IPC, janela e lifecycle. Crescimento controlado via `check:main-size`
   // com FILE_EXEMPTIONS documentadas. `split('\n').length` conta +1 vs wc -l

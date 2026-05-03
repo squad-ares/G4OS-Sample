@@ -116,6 +116,15 @@ export class DebugHudAggregator extends DisposableBase {
     super.dispose();
   }
 
+  /**
+   * Esvazia o ring buffer de logs do HUD. Não toca em arquivos
+   * persistidos (`app.log` / `error.log` via pino-roll seguem intactos).
+   * O contador `logsTotalSeen` é mantido pra preservar a métrica histórica.
+   */
+  clearLogBuffer(): void {
+    this.logRing.length = 0;
+  }
+
   private start(): void {
     this.logUnsubscribe = logStream.subscribe((line) => {
       this.logsTotalSeen += 1;

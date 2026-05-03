@@ -2,6 +2,8 @@
 // `springTransition` no barrel — eram exportados nos arquivos mas o barrel
 // só re-exportava os primitivos básicos. Sem barrel entry, knip flagava
 // como dead code (false positive — consumidores faziam path import).
+
+export type { TranslationKey } from '@g4os/translate';
 export {
   Avatar,
   AvatarFallback,

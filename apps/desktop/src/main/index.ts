@@ -27,6 +27,7 @@ import { scheduleOrphanTmpCleanup } from './services/cleanup-orphan-tmp-bootstra
 import { CpuPool } from './services/cpu-pool.ts';
 import { createCredentialsService } from './services/credentials-service.ts';
 import { initDatabase } from './services/db-service.ts';
+import { createDebugHudActionsBootstrap } from './services/debug-hud-actions-bootstrap.ts';
 import { DEFAULT_SYSTEM_PROMPT } from './services/default-system-prompt.ts';
 import { createLabelsService } from './services/labels-service.ts';
 import { SqliteMessagesService } from './services/messages-service.ts';
@@ -322,6 +323,14 @@ export async function bootstrapMain(options: BootstrapOptions = {}): Promise<voi
     defaultDebugHudEnabled: !electron.app.isPackaged,
   });
   const initialHudEnabled = await preferencesStore.getDebugHudEnabled();
+  const debugHudActionsBootstrap = createDebugHudActionsBootstrap({
+    electron,
+    windowManager,
+    logsDir: appPaths.logs,
+    crashesDir: join(appPaths.state, 'crashes'),
+    appVersion: electron.app.getVersion(),
+    ...(process.versions.electron ? { electronVersion: process.versions.electron } : {}),
+  });
   let debugHud: DebugHudRuntime | null = null;
   try {
     debugHud = await createDebugHudRuntime({
@@ -330,6 +339,9 @@ export async function bootstrapMain(options: BootstrapOptions = {}): Promise<voi
       initialEnabled: initialHudEnabled,
       listenerDetector: observability.listenerDetector,
       activeTurnsProvider: turnDispatcher,
+      turnDispatcher,
+      reloadMainWindow: debugHudActionsBootstrap.reloadMainWindow,
+      exportDiagnostic: debugHudActionsBootstrap.exportDiagnostic,
       // HUD window não passa pelo WindowManager.createWindow, então o
       // `onWindowCreated` listener do windowManager não dispara aqui.
       // Hook explícito wireia cleanup de IPC subscriptions órfãs em

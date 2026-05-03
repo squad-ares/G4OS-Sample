@@ -53,6 +53,7 @@
     "@supabase/supabase-js": "2.52.1",
     "@tanstack/react-query": "5.99.2",
     "@tanstack/react-router": "catalog:",
+    "@tanstack/react-virtual": "3.13.24",
     "@trpc/client": "catalog:",
     "@trpc/react-query": "catalog:",
     "archiver": "catalog:",
