@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as MigrationRouteImport } from './routes/migration'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as IndexRouteImport } from './routes/index'
@@ -22,9 +23,11 @@ import { Route as AppConnectionsRouteImport } from './routes/_app/connections'
 import { Route as AppAutomationsRouteImport } from './routes/_app/automations'
 import { Route as AppWorkspacesIndexRouteImport } from './routes/_app/workspaces.index'
 import { Route as AppSettingsIndexRouteImport } from './routes/_app/settings.index'
+import { Route as AppProjectsIndexRouteImport } from './routes/_app/projects.index'
 import { Route as AppNewsIndexRouteImport } from './routes/_app/news.index'
 import { Route as AppWorkspacesNewRouteImport } from './routes/_app/workspaces.new'
 import { Route as AppSettingsCategoryRouteImport } from './routes/_app/settings.$category'
+import { Route as AppProjectsNewRouteImport } from './routes/_app/projects.new'
 import { Route as AppProjectsProjectIdRouteImport } from './routes/_app/projects.$projectId'
 import { Route as AppNewsNewsIdRouteImport } from './routes/_app/news.$newsId'
 import { Route as AppWorkspacesWorkspaceIdIndexRouteImport } from './routes/_app/workspaces.$workspaceId.index'
@@ -32,6 +35,11 @@ import { Route as AppWorkspacesWorkspaceIdSettingsRouteImport } from './routes/_
 import { Route as AppWorkspacesWorkspaceIdSessionsIndexRouteImport } from './routes/_app/workspaces.$workspaceId.sessions.index'
 import { Route as AppWorkspacesWorkspaceIdSessionsSessionIdRouteImport } from './routes/_app/workspaces.$workspaceId.sessions.$sessionId'
 
+const MigrationRoute = MigrationRouteImport.update({
+  id: '/migration',
+  path: '/migration',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
@@ -96,6 +104,11 @@ const AppSettingsIndexRoute = AppSettingsIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppSettingsRoute,
 } as any)
+const AppProjectsIndexRoute = AppProjectsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppProjectsRoute,
+} as any)
 const AppNewsIndexRoute = AppNewsIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -110,6 +123,11 @@ const AppSettingsCategoryRoute = AppSettingsCategoryRouteImport.update({
   id: '/$category',
   path: '/$category',
   getParentRoute: () => AppSettingsRoute,
+} as any)
+const AppProjectsNewRoute = AppProjectsNewRouteImport.update({
+  id: '/new',
+  path: '/new',
+  getParentRoute: () => AppProjectsRoute,
 } as any)
 const AppProjectsProjectIdRoute = AppProjectsProjectIdRouteImport.update({
   id: '/$projectId',
@@ -149,6 +167,7 @@ const AppWorkspacesWorkspaceIdSessionsSessionIdRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/migration': typeof MigrationRoute
   '/automations': typeof AppAutomationsRoute
   '/connections': typeof AppConnectionsRoute
   '/marketplace': typeof AppMarketplaceRoute
@@ -159,9 +178,11 @@ export interface FileRoutesByFullPath {
   '/workspaces': typeof AppWorkspacesRouteWithChildren
   '/news/$newsId': typeof AppNewsNewsIdRoute
   '/projects/$projectId': typeof AppProjectsProjectIdRoute
+  '/projects/new': typeof AppProjectsNewRoute
   '/settings/$category': typeof AppSettingsCategoryRoute
   '/workspaces/new': typeof AppWorkspacesNewRoute
   '/news/': typeof AppNewsIndexRoute
+  '/projects/': typeof AppProjectsIndexRoute
   '/settings/': typeof AppSettingsIndexRoute
   '/workspaces/': typeof AppWorkspacesIndexRoute
   '/workspaces/$workspaceId/settings': typeof AppWorkspacesWorkspaceIdSettingsRoute
@@ -172,16 +193,18 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/migration': typeof MigrationRoute
   '/automations': typeof AppAutomationsRoute
   '/connections': typeof AppConnectionsRoute
   '/marketplace': typeof AppMarketplaceRoute
   '/onboarding': typeof AppOnboardingRoute
-  '/projects': typeof AppProjectsRouteWithChildren
   '/news/$newsId': typeof AppNewsNewsIdRoute
   '/projects/$projectId': typeof AppProjectsProjectIdRoute
+  '/projects/new': typeof AppProjectsNewRoute
   '/settings/$category': typeof AppSettingsCategoryRoute
   '/workspaces/new': typeof AppWorkspacesNewRoute
   '/news': typeof AppNewsIndexRoute
+  '/projects': typeof AppProjectsIndexRoute
   '/settings': typeof AppSettingsIndexRoute
   '/workspaces': typeof AppWorkspacesIndexRoute
   '/workspaces/$workspaceId/settings': typeof AppWorkspacesWorkspaceIdSettingsRoute
@@ -194,6 +217,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_app': typeof AppRouteWithChildren
   '/login': typeof LoginRoute
+  '/migration': typeof MigrationRoute
   '/_app/automations': typeof AppAutomationsRoute
   '/_app/connections': typeof AppConnectionsRoute
   '/_app/marketplace': typeof AppMarketplaceRoute
@@ -204,9 +228,11 @@ export interface FileRoutesById {
   '/_app/workspaces': typeof AppWorkspacesRouteWithChildren
   '/_app/news/$newsId': typeof AppNewsNewsIdRoute
   '/_app/projects/$projectId': typeof AppProjectsProjectIdRoute
+  '/_app/projects/new': typeof AppProjectsNewRoute
   '/_app/settings/$category': typeof AppSettingsCategoryRoute
   '/_app/workspaces/new': typeof AppWorkspacesNewRoute
   '/_app/news/': typeof AppNewsIndexRoute
+  '/_app/projects/': typeof AppProjectsIndexRoute
   '/_app/settings/': typeof AppSettingsIndexRoute
   '/_app/workspaces/': typeof AppWorkspacesIndexRoute
   '/_app/workspaces/$workspaceId/settings': typeof AppWorkspacesWorkspaceIdSettingsRoute
@@ -219,6 +245,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/login'
+    | '/migration'
     | '/automations'
     | '/connections'
     | '/marketplace'
@@ -229,9 +256,11 @@ export interface FileRouteTypes {
     | '/workspaces'
     | '/news/$newsId'
     | '/projects/$projectId'
+    | '/projects/new'
     | '/settings/$category'
     | '/workspaces/new'
     | '/news/'
+    | '/projects/'
     | '/settings/'
     | '/workspaces/'
     | '/workspaces/$workspaceId/settings'
@@ -242,16 +271,18 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/login'
+    | '/migration'
     | '/automations'
     | '/connections'
     | '/marketplace'
     | '/onboarding'
-    | '/projects'
     | '/news/$newsId'
     | '/projects/$projectId'
+    | '/projects/new'
     | '/settings/$category'
     | '/workspaces/new'
     | '/news'
+    | '/projects'
     | '/settings'
     | '/workspaces'
     | '/workspaces/$workspaceId/settings'
@@ -263,6 +294,7 @@ export interface FileRouteTypes {
     | '/'
     | '/_app'
     | '/login'
+    | '/migration'
     | '/_app/automations'
     | '/_app/connections'
     | '/_app/marketplace'
@@ -273,9 +305,11 @@ export interface FileRouteTypes {
     | '/_app/workspaces'
     | '/_app/news/$newsId'
     | '/_app/projects/$projectId'
+    | '/_app/projects/new'
     | '/_app/settings/$category'
     | '/_app/workspaces/new'
     | '/_app/news/'
+    | '/_app/projects/'
     | '/_app/settings/'
     | '/_app/workspaces/'
     | '/_app/workspaces/$workspaceId/settings'
@@ -288,10 +322,18 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AppRoute: typeof AppRouteWithChildren
   LoginRoute: typeof LoginRoute
+  MigrationRoute: typeof MigrationRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/migration': {
+      id: '/migration'
+      path: '/migration'
+      fullPath: '/migration'
+      preLoaderRoute: typeof MigrationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/login': {
       id: '/login'
       path: '/login'
@@ -383,6 +425,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSettingsIndexRouteImport
       parentRoute: typeof AppSettingsRoute
     }
+    '/_app/projects/': {
+      id: '/_app/projects/'
+      path: '/'
+      fullPath: '/projects/'
+      preLoaderRoute: typeof AppProjectsIndexRouteImport
+      parentRoute: typeof AppProjectsRoute
+    }
     '/_app/news/': {
       id: '/_app/news/'
       path: '/'
@@ -403,6 +452,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/settings/$category'
       preLoaderRoute: typeof AppSettingsCategoryRouteImport
       parentRoute: typeof AppSettingsRoute
+    }
+    '/_app/projects/new': {
+      id: '/_app/projects/new'
+      path: '/new'
+      fullPath: '/projects/new'
+      preLoaderRoute: typeof AppProjectsNewRouteImport
+      parentRoute: typeof AppProjectsRoute
     }
     '/_app/projects/$projectId': {
       id: '/_app/projects/$projectId'
@@ -464,10 +520,14 @@ const AppNewsRouteWithChildren =
 
 interface AppProjectsRouteChildren {
   AppProjectsProjectIdRoute: typeof AppProjectsProjectIdRoute
+  AppProjectsNewRoute: typeof AppProjectsNewRoute
+  AppProjectsIndexRoute: typeof AppProjectsIndexRoute
 }
 
 const AppProjectsRouteChildren: AppProjectsRouteChildren = {
   AppProjectsProjectIdRoute: AppProjectsProjectIdRoute,
+  AppProjectsNewRoute: AppProjectsNewRoute,
+  AppProjectsIndexRoute: AppProjectsIndexRoute,
 }
 
 const AppProjectsRouteWithChildren = AppProjectsRoute._addFileChildren(
@@ -540,6 +600,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AppRoute: AppRouteWithChildren,
   LoginRoute: LoginRoute,
+  MigrationRoute: MigrationRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

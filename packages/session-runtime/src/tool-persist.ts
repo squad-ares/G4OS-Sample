@@ -3,6 +3,7 @@
  * de tool-use. Isolado pra manter `tool-loop.ts` abaixo do cap de 300 LOC.
  */
 
+import type { ThinkingLevel } from '@g4os/agents/interface';
 import type { MessagesService } from '@g4os/ipc/server';
 import { AppError, ErrorCode } from '@g4os/kernel/errors';
 import type { ContentBlock, Message, SessionId } from '@g4os/kernel/types';
@@ -25,6 +26,10 @@ export async function persistAssistantToolTurn(
     readonly thinkingBuffered: string;
     readonly toolUses: readonly CapturedToolUse[];
     readonly modelId: string;
+    /** CR-25 F-CR25-1: usage parcial da iteração, persistido em metadata. */
+    readonly usageInput?: number;
+    readonly usageOutput?: number;
+    readonly thinkingLevel?: ThinkingLevel;
   },
 ): Promise<Result<Message, AppError>> {
   const content: ContentBlock[] = [];
@@ -51,10 +56,25 @@ export async function persistAssistantToolTurn(
       }),
     );
   }
+
+  // CR-25 F-CR25-1: assistant-com-tool_use também precisa carregar provenance.
+  // Sem isso, mensagens de turnos com tool use ficavam com `tokenCount: 0` no
+  // index e nenhuma referência ao modelo que originou os blocks.
+  const usage =
+    input.usageInput !== undefined && input.usageOutput !== undefined
+      ? { inputTokens: input.usageInput, outputTokens: input.usageOutput }
+      : undefined;
+  const metadata: Pick<NonNullable<Message['metadata']>, 'modelId' | 'usage' | 'thinkingLevel'> = {
+    modelId: input.modelId,
+    ...(usage === undefined ? {} : { usage }),
+    ...(input.thinkingLevel === undefined ? {} : { thinkingLevel: input.thinkingLevel }),
+  };
+
   const append = await deps.messages.append({
     sessionId: input.sessionId,
     role: 'assistant',
     content,
+    metadata,
   });
   if (append.isErr()) return err(append.error);
   deps.eventBus.emit(input.sessionId, buildMessageAddedEvent(append.value));

@@ -1,9 +1,7 @@
 import type { SourceConfigView } from '@g4os/kernel/types';
 import { cn, useTranslate } from '@g4os/ui';
-import { ChevronDown, Folder, LayoutGrid, Users } from 'lucide-react';
 import {
   type KeyboardEvent as ReactKeyboardEvent,
-  type ReactNode,
   useCallback,
   useId,
   useMemo,
@@ -12,35 +10,26 @@ import {
 } from 'react';
 import { useComposerState } from '../../hooks/use-composer-state.ts';
 import { type MentionTrigger, useMentionTypeahead } from '../../hooks/use-mention-typeahead.ts';
+import { useSlashTypeahead } from '../../hooks/use-slash-typeahead.ts';
 import type { Attachment } from '../../types.ts';
-import { AttachmentList, DropZone, PaperclipButton } from './attachments/index.ts';
+import { AttachmentList, DropZone } from './attachments/index.ts';
+import { ComposerActionBar, type ComposerAffordances } from './composer-action-bar.tsx';
 import { ComposerTextarea, type ComposerTextareaRef } from './composer-textarea.tsx';
 import type { DraftStore } from './draft-persistence.ts';
 import { MentionPicker } from './mention-picker.tsx';
-import { SendButton } from './send-button.tsx';
+import {
+  DEFAULT_SLASH_COMMANDS,
+  SlashCommandPicker,
+  type SlashCommandSpec,
+} from './slash-command-picker.tsx';
 import type { ComposerSubmitMode } from './submit-mode.ts';
-import { VoiceButton } from './voice-button.tsx';
 
 export interface ComposerSendPayload {
   readonly text: string;
   readonly attachments: ReadonlyArray<Attachment>;
 }
 
-export interface ComposerAffordances {
-  readonly sourceLabel?: string;
-  readonly onOpenSourcePicker?: () => void;
-  readonly sourcePicker?: ReactNode;
-  readonly workingDirLabel?: string;
-  readonly onOpenWorkingDir?: () => void;
-  readonly workingDirPicker?: ReactNode;
-  readonly modeLabel?: string;
-  readonly onOpenModePicker?: () => void;
-  readonly modelSelector?: ReactNode;
-  readonly thinkingSelector?: ReactNode;
-  readonly partnersLabel?: string;
-  readonly onOpenPartners?: () => void;
-  readonly extras?: ReactNode;
-}
+export type { ComposerAffordances } from './composer-action-bar.tsx';
 
 /**
  * Composer principal do chat. Combina draft persistence, attachment list,
@@ -81,6 +70,12 @@ export interface ComposerProps {
    * via `SourceIntentDetector`.
    */
   readonly mentionSources?: readonly SourceConfigView[];
+  /**
+   * Slash commands oferecidos quando o user digita `/` na primeira
+   * posição do textarea. Default = `DEFAULT_SLASH_COMMANDS` (4 comandos
+   * essenciais). Passe `[]` pra desabilitar.
+   */
+  readonly slashCommands?: readonly SlashCommandSpec[];
 }
 
 export function Composer({
@@ -97,6 +92,7 @@ export function Composer({
   transcribe,
   affordances,
   mentionSources,
+  slashCommands = DEFAULT_SLASH_COMMANDS,
 }: ComposerProps) {
   const { t } = useTranslate();
   const textareaRef = useRef<ComposerTextareaRef | null>(null);
@@ -114,27 +110,45 @@ export function Composer({
     textareaRef: elementRef,
   });
   const mentionActive = Boolean(mentionSources && mention.trigger);
+
+  const slash = useSlashTypeahead({
+    value: text,
+    onChange: setText,
+    textareaRef: elementRef,
+  });
+  const slashActive = Boolean(slashCommands.length > 0 && slash.trigger);
   // Id de listbox gerado aqui (e injetado no MentionPicker) para
   // garantir que `aria-controls` aponte para o id real do popover.
   // Composer injeta via prop; picker usava `useId()` interno antes →
   // mismatch silencioso quebrava ARIA combobox (multi-window unsafe).
   const mentionListboxId = useId();
+  const slashListboxId = useId();
+  // ARIA combobox aponta pra qualquer popover ativo. Slash tem precedência
+  // sobre mention quando ambos pudessem coexistir (slash só dispara em
+  // pos 0, então conflito real é raro).
+  const activeListboxId = slashActive
+    ? slashListboxId
+    : mentionActive
+      ? mentionListboxId
+      : undefined;
   const comboboxAriaProps = {
     role: 'combobox' as const,
-    ariaExpanded: mentionActive,
-    ariaControls: mentionActive ? mentionListboxId : undefined,
+    ariaExpanded: slashActive || mentionActive,
+    ariaControls: activeListboxId,
     ariaAutoComplete: 'list' as const,
   };
 
+  const mentionKeyHandlerRef = useRef<((event: ReactKeyboardEvent) => boolean) | null>(null);
+  const slashKeyHandlerRef = useRef<((event: ReactKeyboardEvent) => boolean) | null>(null);
+
   const handleCaptureKeyDown = useCallback(
     (event: ReactKeyboardEvent<HTMLTextAreaElement>): boolean => {
-      if (!mentionActive) return false;
-      return mentionKeyHandlerRef.current?.(event) ?? false;
+      if (slashActive) return slashKeyHandlerRef.current?.(event) ?? false;
+      if (mentionActive) return mentionKeyHandlerRef.current?.(event) ?? false;
+      return false;
     },
-    [mentionActive],
+    [mentionActive, slashActive],
   );
-
-  const mentionKeyHandlerRef = useRef<((event: ReactKeyboardEvent) => boolean) | null>(null);
 
   const registerMentionKeyHandler = useCallback(
     (handler: (event: ReactKeyboardEvent) => boolean) => {
@@ -148,11 +162,27 @@ export function Composer({
     [],
   );
 
+  const registerSlashKeyHandler = useCallback((handler: (event: ReactKeyboardEvent) => boolean) => {
+    slashKeyHandlerRef.current = handler;
+    return () => {
+      if (slashKeyHandlerRef.current === handler) {
+        slashKeyHandlerRef.current = null;
+      }
+    };
+  }, []);
+
   const handleMentionSelect = useCallback(
     (slug: string) => {
       mention.replaceWith(`[source:${slug}]`);
     },
     [mention],
+  );
+
+  const handleSlashSelect = useCallback(
+    (command: string) => {
+      slash.replaceWith(command);
+    },
+    [slash],
   );
 
   const mentionTriggerForUi = useMemo<MentionTrigger | null>(
@@ -194,10 +224,10 @@ export function Composer({
     >
       <div
         className={cn(
-          // Paridade V1 (`FreeFormInput`): container com border-radius e
-          // shadow `middle` (mais presente que o `minimal` anterior),
-          // ring-foreground quando focused para destaque consistente.
-          'flex w-full flex-col rounded-[18px] border border-foreground/10 bg-background shadow-middle transition-colors focus-within:border-foreground/30',
+          // Paridade V1 (`InputContainer.tsx:280`): rounded-[14px] (input
+          // tem radius menor que bubble, que é 18px), shadow-middle, e
+          // ring sutil ao focar em vez de mudar cor do border.
+          'flex w-full flex-col rounded-[14px] border border-foreground/10 bg-background shadow-middle transition-all focus-within:ring-1 focus-within:ring-foreground/[0.12]',
           disabled && 'opacity-70',
           className,
         )}
@@ -233,7 +263,7 @@ export function Composer({
             // referencia o id do listbox dentro do MentionPicker.
             {...comboboxAriaProps}
           />
-          {mentionActive && mentionSources && mentionTriggerForUi && (
+          {mentionActive && mentionSources && mentionTriggerForUi && !slashActive && (
             <MentionPicker
               sources={mentionSources}
               query={mentionTriggerForUi.query}
@@ -241,6 +271,16 @@ export function Composer({
               onCancel={mention.cancel}
               registerKeyHandler={registerMentionKeyHandler}
               listboxId={mentionListboxId}
+            />
+          )}
+          {slashActive && slash.trigger && (
+            <SlashCommandPicker
+              commands={slashCommands}
+              query={slash.trigger.query}
+              onSelect={handleSlashSelect}
+              onCancel={slash.cancel}
+              registerKeyHandler={registerSlashKeyHandler}
+              listboxId={slashListboxId}
             />
           )}
         </div>
@@ -259,197 +299,5 @@ export function Composer({
         />
       </div>
     </DropZone>
-  );
-}
-
-interface ComposerActionBarProps {
-  readonly attachments: readonly Attachment[];
-  readonly onAttach: (files: Attachment[]) => void;
-  readonly onAttachError: (error: string | null) => void;
-  readonly onSubmit: () => void;
-  readonly canSend: boolean;
-  readonly disabled?: boolean;
-  readonly isProcessing?: boolean;
-  readonly onStop?: () => void;
-  readonly affordances?: ComposerAffordances;
-  readonly transcribe?: (audio: Uint8Array, mimeType: string) => Promise<string>;
-  readonly onTranscript?: (transcript: string) => void;
-}
-
-function ComposerActionBar({
-  attachments,
-  onAttach,
-  onAttachError,
-  onSubmit,
-  canSend,
-  disabled,
-  isProcessing,
-  onStop,
-  affordances,
-  transcribe,
-  onTranscript,
-}: ComposerActionBarProps) {
-  return (
-    <div className="flex items-center justify-between gap-2 border-t border-foreground/[0.05] px-2.5 py-2">
-      <LeftActionGroup
-        attachments={attachments}
-        onAttach={onAttach}
-        onAttachError={onAttachError}
-        {...(disabled ? { disabled } : {})}
-        {...(affordances ? { affordances } : {})}
-      />
-      <RightActionGroup
-        onSubmit={onSubmit}
-        canSend={canSend}
-        {...(disabled ? { disabled } : {})}
-        {...(isProcessing ? { isProcessing: true } : {})}
-        {...(onStop ? { onStop } : {})}
-        {...(affordances ? { affordances } : {})}
-        {...(transcribe && onTranscript ? { transcribe, onTranscript } : {})}
-      />
-    </div>
-  );
-}
-
-function LeftActionGroup({
-  attachments,
-  onAttach,
-  onAttachError,
-  disabled,
-  affordances,
-}: {
-  readonly attachments: readonly Attachment[];
-  readonly onAttach: (files: Attachment[]) => void;
-  readonly onAttachError: (error: string | null) => void;
-  readonly disabled?: boolean;
-  readonly affordances?: ComposerAffordances;
-}) {
-  const { t } = useTranslate();
-  return (
-    <div className="flex items-center gap-1">
-      <PaperclipButton
-        existing={attachments}
-        onAttach={onAttach}
-        onError={onAttachError}
-        {...(disabled ? { disabled } : {})}
-      />
-      {affordances?.sourcePicker ??
-        (affordances?.onOpenSourcePicker ? (
-          <ComposerChipButton
-            icon={<LayoutGrid className="size-3.5" aria-hidden={true} />}
-            label={affordances.sourceLabel ?? t('chat.composer.chip.source')}
-            onClick={affordances.onOpenSourcePicker}
-            {...(disabled ? { disabled } : {})}
-          />
-        ) : null)}
-      {affordances?.workingDirPicker ??
-        (affordances?.onOpenWorkingDir ? (
-          <ComposerChipButton
-            icon={<Folder className="size-3.5" aria-hidden={true} />}
-            label={affordances.workingDirLabel ?? 'main'}
-            onClick={affordances.onOpenWorkingDir}
-            {...(disabled ? { disabled } : {})}
-          />
-        ) : null)}
-      {affordances?.extras}
-    </div>
-  );
-}
-
-function RightActionGroup({
-  onSubmit,
-  canSend,
-  disabled,
-  isProcessing,
-  onStop,
-  affordances,
-  transcribe,
-  onTranscript,
-}: {
-  readonly onSubmit: () => void;
-  readonly canSend: boolean;
-  readonly disabled?: boolean;
-  readonly isProcessing?: boolean;
-  readonly onStop?: () => void;
-  readonly affordances?: ComposerAffordances;
-  readonly transcribe?: (audio: Uint8Array, mimeType: string) => Promise<string>;
-  readonly onTranscript?: (transcript: string) => void;
-}) {
-  return (
-    <div className="flex items-center gap-1">
-      <RightActionPickers
-        {...(affordances ? { affordances } : {})}
-        {...(disabled ? { disabled } : {})}
-      />
-      {transcribe && onTranscript ? (
-        <VoiceButton
-          transcribe={transcribe}
-          onTranscript={onTranscript}
-          {...(disabled ? { disabled } : {})}
-        />
-      ) : null}
-      <SendButton
-        onSend={onSubmit}
-        {...(onStop ? { onStop } : {})}
-        disabled={!canSend}
-        {...(isProcessing ? { isProcessing: true } : {})}
-      />
-    </div>
-  );
-}
-
-function RightActionPickers({
-  affordances,
-  disabled,
-}: {
-  readonly affordances?: ComposerAffordances;
-  readonly disabled?: boolean;
-}) {
-  const { t } = useTranslate();
-  const showModeFallback = !affordances?.modelSelector && affordances?.onOpenModePicker;
-  return (
-    <>
-      {affordances?.modelSelector ?? null}
-      {affordances?.thinkingSelector ?? null}
-      {showModeFallback ? (
-        <ComposerChipButton
-          label={affordances?.modeLabel ?? t('chat.composer.chip.mode')}
-          onClick={affordances?.onOpenModePicker ?? (() => undefined)}
-          trailing={<ChevronDown className="size-3 opacity-60" aria-hidden={true} />}
-          {...(disabled ? { disabled } : {})}
-        />
-      ) : null}
-      {affordances?.onOpenPartners ? (
-        <ComposerChipButton
-          icon={<Users className="size-3.5" aria-hidden={true} />}
-          label={affordances.partnersLabel ?? t('chat.composer.chip.partners')}
-          onClick={affordances.onOpenPartners}
-          {...(disabled ? { disabled } : {})}
-        />
-      ) : null}
-    </>
-  );
-}
-
-interface ComposerChipButtonProps {
-  readonly label: string;
-  readonly onClick: () => void;
-  readonly icon?: ReactNode;
-  readonly trailing?: ReactNode;
-  readonly disabled?: boolean;
-}
-
-function ComposerChipButton({ label, onClick, icon, trailing, disabled }: ComposerChipButtonProps) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      className="flex h-7 items-center gap-1.5 rounded-full border border-foreground/10 bg-foreground/[0.03] px-2.5 text-[11px] font-medium text-foreground/80 transition-colors enabled:hover:border-foreground/20 enabled:hover:bg-accent/12 enabled:hover:text-foreground disabled:opacity-50"
-    >
-      {icon}
-      <span className="truncate">{label}</span>
-      {trailing}
-    </button>
   );
 }

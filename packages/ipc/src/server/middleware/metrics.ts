@@ -33,13 +33,23 @@ export function setIpcMetricsRecorder(cb: IpcMetricsRecorder | null): void {
 export const withMetrics = middleware(async ({ path, type, next }) => {
   if (recorder === null) return next();
   const start = performance.now();
-  const result = await next();
-  recorder({
-    ts: Date.now(),
-    path,
-    type,
-    durationMs: performance.now() - start,
-    ok: result.ok,
-  });
-  return result;
+  // try/finally garante que sample é registrado mesmo quando a procedure
+  // lança (TRPCError, throw result.error). Sem isso, erros em massa
+  // (rate limit, auth fail) somem das métricas — duration e ok-rate
+  // ficam sistematicamente subestimados (F-CR38-4, ADR-0064).
+  let result: Awaited<ReturnType<typeof next>>;
+  let ok = false;
+  try {
+    result = await next();
+    ok = result.ok;
+    return result;
+  } finally {
+    recorder({
+      ts: Date.now(),
+      path,
+      type,
+      durationMs: performance.now() - start,
+      ok,
+    });
+  }
 });

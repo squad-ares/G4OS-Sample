@@ -4,7 +4,9 @@ export {
   buildAuthUrl,
   createFetchTokenExchanger,
   type PerformOAuthInput,
+  type PerformOAuthLoopbackInput,
   performOAuth,
+  performOAuthLoopback,
 } from './flow.ts';
 export { type LoopbackServer, startLoopbackServer } from './loopback.ts';
 export { generatePkce, generateState, type PkcePair } from './pkce.ts';

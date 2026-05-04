@@ -4,13 +4,17 @@
  * globalSearch.
  */
 
+import { ErrorCode } from '@g4os/kernel/errors';
 import { GlobalSearchResultSchema, SessionIdSchema, WorkspaceIdSchema } from '@g4os/kernel/schemas';
 import { z } from 'zod';
 import { authed } from '../middleware/authed.ts';
+import { rateLimit } from '../middleware/rate-limit.ts';
 import { router } from '../trpc.ts';
 
 export const sessionsRuntimeRouter = router({
+  // 30 buscas por minuto — FTS5 em sessões grandes pode ser lento.
   globalSearch: authed
+    .use(rateLimit({ windowMs: 60_000, max: 30 }))
     // Cap em query — buscas reais ficam bem abaixo de 8000 chars,
     // mas sem `.max()` um caller hostil/buggy podia mandar payload de
     // MB e travar o FTS engine.
@@ -52,7 +56,12 @@ export const sessionsRuntimeRouter = router({
     .output(z.void())
     .mutation(async ({ input, ctx }) => {
       const result = await ctx.sessions.stopTurn(input.id);
-      if (result.isErr()) throw result.error;
+      // F-CR46-9: `interrupt()` retorna SESSION_NOT_FOUND quando não há turn
+      // ativo — race entre done event chegando ao renderer e clique do user.
+      // Tratado como benign no-op aqui: o turn já terminou, nada a fazer.
+      if (result.isErr() && result.error.code !== ErrorCode.SESSION_NOT_FOUND) {
+        throw result.error;
+      }
     }),
 
   respondPermission: authed

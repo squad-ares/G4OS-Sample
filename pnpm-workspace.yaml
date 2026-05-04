@@ -7,6 +7,15 @@ packages:
   - "packages/platform/*"
 
 catalog:
+  # Usado em bridge-mcp-server, session-mcp-server, sources/mcp-stdio, apps/desktop (mount-bootstrap).
+  # Centralizado aqui (ADR-0153) pra evitar drift de versões entre os 4 pontos de uso.
+  "@modelcontextprotocol/sdk": "1.16.0"
+  "@opentelemetry/api": "1.9.0"
+  "@opentelemetry/exporter-trace-otlp-http": "0.215.0"
+  "@opentelemetry/resources": "2.7.0"
+  "@opentelemetry/sdk-node": "0.215.0"
+  "@opentelemetry/sdk-trace-base": "2.7.0"
+  "@sentry/electron": "5.10.0"
   "@types/archiver": "7.0.0"
   "@types/node": "25.6.0"
   "@types/react": "^19.2.14"

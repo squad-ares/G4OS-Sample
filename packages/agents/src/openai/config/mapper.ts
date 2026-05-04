@@ -23,6 +23,9 @@ export function mapConfig(
     model: config.modelId,
     messages: chatMessages,
     stream: true,
+    // ADR-0074 / F-CR31-6: habilita usage no chunk final para rastreamento
+    // de tokens via evento 'usage'. Siblings Claude e Google já emitem.
+    stream_options: { include_usage: true },
     ...(config.maxTokens === undefined ? {} : { max_tokens: config.maxTokens }),
     ...(config.temperature === undefined ? {} : { temperature: config.temperature }),
     ...(config.tools === undefined || config.tools.length === 0

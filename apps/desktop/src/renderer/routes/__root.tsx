@@ -5,6 +5,8 @@ import { invalidateAuth, setAuthUnauthenticated } from '../auth/auth-store.ts';
 import { queryClient } from '../ipc/query-client.ts';
 import { trpc } from '../ipc/trpc-client.ts';
 import type { RouterContext } from '../router-context.ts';
+import { useDeepLinkNavigation } from '../shortcuts/use-deep-link-navigation.ts';
+import { useGlobalNewTurnShortcut } from '../shortcuts/use-global-new-turn.ts';
 
 function NotFound() {
   const { t } = useTranslate();
@@ -67,6 +69,8 @@ function ManagedLoginRequiredListener() {
 }
 
 function RootLayout() {
+  useGlobalNewTurnShortcut();
+  useDeepLinkNavigation();
   return (
     <>
       <ManagedLoginRequiredListener />

@@ -1,4 +1,4 @@
-import type { SourceConfigView } from '@g4os/kernel/types';
+import type { SourceCategory, SourceConfigView, SourceKind } from '@g4os/kernel/types';
 import type { TranslationKey } from '@g4os/translate';
 import { Button, ConfirmDestructiveDialog, useTranslate } from '@g4os/ui';
 import {
@@ -12,6 +12,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
+import { HighlightedTitle } from '../../shell/index.ts';
 import { SourceGlyph } from './source-glyph.tsx';
 
 export interface SourceCardProps {
@@ -21,6 +22,8 @@ export interface SourceCardProps {
   readonly onTest?: () => void;
   readonly testing?: boolean;
   readonly disabled?: boolean;
+  /** CR-18 F-F5: query opcional para search-inline highlight no displayName. */
+  readonly searchQuery?: string;
 }
 
 export function SourceCard({
@@ -30,6 +33,7 @@ export function SourceCard({
   onTest,
   testing,
   disabled,
+  searchQuery,
 }: SourceCardProps): ReactNode {
   const { t } = useTranslate();
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -51,7 +55,13 @@ export function SourceCard({
           </div>
           <div className="min-w-0 flex-1 pt-0.5">
             <div className="flex items-center gap-2">
-              <span className="truncate text-sm font-semibold">{source.displayName}</span>
+              <span className="truncate text-sm font-semibold">
+                {searchQuery ? (
+                  <HighlightedTitle text={source.displayName} query={searchQuery} />
+                ) : (
+                  source.displayName
+                )}
+              </span>
               <StatusBadge status={source.status} enabled={source.enabled} t={t} />
             </div>
             <p className="mt-0.5 truncate font-mono text-[10px] text-muted-foreground">
@@ -162,15 +172,47 @@ function StatusBadge({
     <span
       className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${colorMap[status] ?? colorMap.disconnected}`}
     >
-      {t(`sources.status.${status}` as TranslationKey)}
+      {t(SOURCE_STATUS_KEYS[status] ?? SOURCE_STATUS_KEYS.disconnected)}
     </span>
   );
 }
 
+/**
+ * CR-37 F-CR37-16/17: mapas tipados eliminam `as TranslationKey` e garantem
+ * que novas variantes de kind/category/status sejam checadas em compile-time.
+ */
+const SOURCE_STATUS_KEYS: Record<SourceConfigView['status'], TranslationKey> = {
+  connected: 'sources.status.connected',
+  disconnected: 'sources.status.disconnected',
+  connecting: 'sources.status.connecting',
+  needs_auth: 'sources.status.needs_auth',
+  error: 'sources.status.error',
+};
+
+const SOURCE_KIND_KEYS: Record<SourceKind, TranslationKey> = {
+  managed: 'sources.kind.managed',
+  'mcp-stdio': 'sources.kind.mcp-stdio',
+  'mcp-http': 'sources.kind.mcp-http',
+  api: 'sources.kind.api',
+  filesystem: 'sources.kind.filesystem',
+};
+
+const SOURCE_CATEGORY_KEYS: Record<SourceCategory, TranslationKey> = {
+  google: 'sources.category.google',
+  microsoft: 'sources.category.microsoft',
+  slack: 'sources.category.slack',
+  dev: 'sources.category.dev',
+  storage: 'sources.category.storage',
+  crm: 'sources.category.crm',
+  pm: 'sources.category.pm',
+  other: 'sources.category.other',
+};
+
 function KindBadge({ kind }: { readonly kind: SourceConfigView['kind'] }): ReactNode {
+  const { t } = useTranslate();
   return (
     <span className="rounded-full bg-foreground/5 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-      {kind}
+      {t(SOURCE_KIND_KEYS[kind])}
     </span>
   );
 }
@@ -180,9 +222,10 @@ function CategoryBadge({
 }: {
   readonly category: SourceConfigView['category'];
 }): ReactNode {
+  const { t } = useTranslate();
   return (
     <span className="rounded-full bg-foreground/5 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-      {category}
+      {t(SOURCE_CATEGORY_KEYS[category])}
     </span>
   );
 }

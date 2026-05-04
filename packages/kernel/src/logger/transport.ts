@@ -58,7 +58,14 @@ export function createProductionTransport(options: ProductionTransportOptions): 
 }
 
 export function createProductionLogger(options: ProductionTransportOptions): Logger {
-  const transport = pinoTransport(createProductionTransport(options) as never);
+  const multiTransport = createProductionTransport(options);
+  const pinoTargets: Array<{ target: string; level: Level; options: Record<string, unknown> }> =
+    multiTransport.targets.map((t) => ({
+      target: t.target,
+      level: t.level,
+      options: t.options,
+    }));
+  const transport = pinoTransport({ targets: pinoTargets });
   const inner = pino(
     {
       level: options.level ?? 'info',

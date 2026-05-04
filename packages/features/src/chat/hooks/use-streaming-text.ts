@@ -58,10 +58,15 @@ export function useStreamingText(): UseStreamingTextResult {
     (chunk: string): void => {
       if (chunk.length === 0) return;
       bufferRef.current += chunk;
-      // Cap do buffer — tab hidden + stream longo poderia acumular
-      // megabytes sem drenar (rAF não fire em hidden), travando ao voltar.
+      // CR-37 F-CR37-8: quando o buffer excede o cap (tab oculta: rAF não
+      // dispara e o stream continua chegando), drena tudo imediatamente para
+      // o state em vez de fatiar pelo final. Antes: `slice(-MAX_BUFFER_SIZE)`
+      // descartava o início do buffer que nunca foi renderizado — causando
+      // resposta truncada para o usuário ao voltar à aba.
       if (bufferRef.current.length > MAX_BUFFER_SIZE) {
-        bufferRef.current = bufferRef.current.slice(-MAX_BUFFER_SIZE);
+        const full = bufferRef.current;
+        bufferRef.current = '';
+        setText((prev) => prev + full);
       }
       if (rafRef.current === null) {
         rafRef.current = requestAnimationFrame(tick);

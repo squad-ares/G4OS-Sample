@@ -178,7 +178,23 @@ function errorMessage(err: unknown): string | undefined {
   return undefined;
 }
 
+/**
+ * CR-37 F-CR37-6: generalizado para capturar cooldown do backend independentemente do locale.
+ * Estratégias (em ordem):
+ *  1. Campo numérico `retryAfter` no objeto de erro (adicionado pelo adapter de auth).
+ *  2. Header HTTP `Retry-After` embutido na mensagem como "Retry-After: N".
+ *  3. Padrão inglês Supabase "after N seconds".
+ *  4. Padrão genérico qualquer número seguido de "s" ou "seg" ou "segs".
+ */
 function extractRetryAfterSeconds(msg: string): number | null {
-  const match = /after\s+(\d+)\s+seconds?/i.exec(msg);
-  return match ? Number(match[1]) : null;
+  // Padrão inglês Supabase
+  const enMatch = /after\s+(\d+)\s+seconds?/i.exec(msg);
+  if (enMatch) return Number(enMatch[1]);
+  // Header HTTP embutido na mensagem
+  const headerMatch = /Retry-After:\s*(\d+)/i.exec(msg);
+  if (headerMatch) return Number(headerMatch[1]);
+  // Padrão genérico: qualquer "N segundo(s)" ou "N seg(s)"
+  const genericMatch = /(\d+)\s*s(?:eg(?:und[oa]s?)?)?(?:\s|$)/i.exec(msg);
+  if (genericMatch) return Number(genericMatch[1]);
+  return null;
 }

@@ -44,12 +44,20 @@ export class FileKeychain implements IKeychain {
     const ready = await this.ensureReady();
     if (ready.isErr()) return err(ready.error);
 
+    // CR-18 F-C5: separa crypto failure (encrypt) de IO failure (writeAtomic
+    // ENOSPC/EACCES). Caller pode discriminar via `err.code` em vez de
+    // adivinhar pelo `cause.code`.
+    let payload: Buffer;
     try {
-      const payload = this.codec.encrypt(value);
+      payload = this.codec.encrypt(value);
+    } catch (cause) {
+      return err(CredentialErrorClass.decryptFailed(key, cause));
+    }
+    try {
       await writeAtomic(this.pathFor(key), payload, { mode: 0o600 });
       return ok(undefined);
     } catch (cause) {
-      return err(CredentialErrorClass.decryptFailed(key, cause));
+      return err(CredentialErrorClass.ioError(`set:${key}`, cause));
     }
   }
 
@@ -60,14 +68,21 @@ export class FileKeychain implements IKeychain {
     const ready = await this.ensureReady();
     if (ready.isErr()) return err(ready.error);
 
+    let payload: Buffer;
     try {
-      const payload = await readFile(this.pathFor(key));
-      const value = this.codec.decrypt(payload);
-      return ok(value);
+      payload = await readFile(this.pathFor(key));
     } catch (cause) {
       if ((cause as NodeJS.ErrnoException).code === 'ENOENT') {
         return err(CredentialErrorClass.notFound(key));
       }
+      return err(CredentialErrorClass.ioError(`get:${key}`, cause));
+    }
+    try {
+      const value = this.codec.decrypt(payload);
+      return ok(value);
+    } catch (cause) {
+      // CR-18 F-C5: aqui sim é decrypt falho — payload existe mas codec
+      // não consegue decifrar (chave errada, file corrompido).
       return err(CredentialErrorClass.decryptFailed(key, cause));
     }
   }
@@ -79,7 +94,7 @@ export class FileKeychain implements IKeychain {
       return ok(undefined);
     } catch (cause) {
       if ((cause as NodeJS.ErrnoException).code === 'ENOENT') return ok(undefined);
-      return err(CredentialErrorClass.decryptFailed(key, cause));
+      return err(CredentialErrorClass.ioError(`delete:${key}`, cause));
     }
   }
 
@@ -97,7 +112,7 @@ export class FileKeychain implements IKeychain {
       return ok(keys);
     } catch (cause) {
       if ((cause as NodeJS.ErrnoException).code === 'ENOENT') return ok([]);
-      return err(CredentialErrorClass.decryptFailed('list', cause));
+      return err(CredentialErrorClass.ioError('list', cause));
     }
   }
 
@@ -106,12 +121,22 @@ export class FileKeychain implements IKeychain {
       return Promise.resolve(err(CredentialErrorClass.locked('codec-unavailable')));
     }
     if (this.readyPromise === null) {
-      this.readyPromise = mkdir(this.baseDir, { recursive: true }).then(() => undefined);
+      // F-CR35-7: invalida `readyPromise` em rejeição. Antes, mkdir EACCES
+      // temporário (ex.: macOS Disk Full Protection durante popup) deixava
+      // promise rejeitada cached — vault permanecia poison até restart do
+      // processo mesmo após o problema ser resolvido.
+      this.readyPromise = mkdir(this.baseDir, { recursive: true })
+        .then(() => undefined)
+        .catch((cause: unknown) => {
+          // Invalida cache para permitir retry na próxima chamada.
+          this.readyPromise = null;
+          throw cause;
+        });
     }
     return this.readyPromise.then(
       () => ok<void, CredentialError>(undefined),
-      (cause: unknown) =>
-        err<void, CredentialError>(CredentialErrorClass.decryptFailed('mkdir', cause)),
+      // CR-18 F-C5: mkdir EACCES/EISDIR/ENOSPC é IO error, não crypto.
+      (cause: unknown) => err<void, CredentialError>(CredentialErrorClass.ioError('mkdir', cause)),
     );
   }
 

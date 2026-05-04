@@ -40,11 +40,25 @@ export type PermissionConfig = z.infer<typeof PermissionConfigSchema>;
 /**
  * Decisões persistidas de tool use (`allow_always`). Separado de `PermissionRule`
  * (modelagem estática V1 não-adotada). Chave de match: `(toolName, argsHash)`.
+ *
+ * CR-42 F-CR42-3: caps adicionados para alinhar com o boundary IPC
+ * (`permissions-router.ts`). Sem `.max()`, um `permissions.json` corrompido
+ * ou adulterado podia injetar strings de 100MB no memory map do broker.
+ * `argsHash` restrito a hex `[a-f0-9]` com comprimento 32 (legacy) ou 64
+ * (SHA-256 full) — qualquer outro valor é corrupção e deve ser rejeitado na
+ * leitura via `ToolPermissionsFileSchema.parse`.
  */
 export const ToolPermissionDecisionSchema = z.object({
-  toolName: z.string().min(1),
-  argsHash: z.string().min(1),
-  argsPreview: z.string(),
+  toolName: z.string().min(1).max(256),
+  argsHash: z
+    .string()
+    .min(32)
+    .max(64)
+    .regex(/^[a-f0-9]+$/)
+    .refine((h) => h.length === 32 || h.length === 64, {
+      message: 'argsHash deve ter 32 (legacy) ou 64 (SHA-256) caracteres hex',
+    }),
+  argsPreview: z.string().max(256),
   decidedAt: z.number().int().positive(),
 });
 export type ToolPermissionDecision = z.infer<typeof ToolPermissionDecisionSchema>;

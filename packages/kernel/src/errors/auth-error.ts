@@ -53,4 +53,18 @@ export class AuthError extends AppError {
       message: 'Auth service has been disposed',
     });
   }
+
+  /**
+   * CR-18 F-AU3: chamada `requestOtp`/`submitOtp` durante outro flow em
+   * curso (verifying/bootstrapping/requesting_otp). Discriminado de
+   * `disposed()` para que a UI distinga "tente novamente em alguns
+   * segundos" (flow_in_progress) de "serviço foi destruído" (disposed).
+   */
+  static flowInProgress(currentKind: string): AuthError {
+    return new AuthError({
+      code: ErrorCode.AUTH_FLOW_IN_PROGRESS,
+      message: `Auth flow already in progress (${currentKind})`,
+      context: { currentKind },
+    });
+  }
 }

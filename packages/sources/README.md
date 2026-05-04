@@ -25,6 +25,20 @@ Camada de Sources/MCP do G4 OS v2. Fornece um contrato `ISource` unificado para 
 - **Política de runtime mode** — MCP stdio tem default `protected` (subprocess isolado); cai para `compat` (host) em Windows ou quando a source exige browser-auth. Ver `resolveRuntimeMode`.
 - **Reconnect** — MCP HTTP usa `skip(1)` no reconnect para ignorar o replay do BehaviorSubject, depois backoff exponencial. `needs_auth` nunca é auto-retriado.
 
+## Módulos implementados mas não wired no desktop (FOLLOWUP-OUTLIER-12)
+
+Os módulos abaixo estão completos, testados e exportados, mas o `apps/desktop` ainda não instancia nem registra no composition root:
+
+| Módulo | Status | Próximo passo |
+|---|---|---|
+| `@g4os/sources/oauth` (`OAuthCallbackHandler`, `performOAuth`, `createFetchTokenExchanger`) | Implementado + 36 testes | Registrar handler no protocolo `g4os://oauth/callback` em `apps/desktop/src/main/index.ts` |
+| `@g4os/sources/managed` (`ManagedConnectorBase`, `TokenStore`) | Implementado + 9 testes | Criar connectors concretos (Gmail, GitHub, etc.) com `OAuthConfig` e `TokenStore` real via `CredentialVault` |
+| `@g4os/sources/lifecycle` (`SourceLifecycleManager`, `SourceIntentDetector`) | Implementado + testes | Wire `SourceLifecycleManager.planTurn` no `TurnDispatcher` (hoje usa `planTurn` pura de `@g4os/sources/planner`) |
+| `@g4os/sources/interface` (`SourceRegistry`) | Implementado | Wire global registry no `apps/desktop` para managed connectors (MCP stdio já usa `McpMountRegistry` diretamente) |
+| `@g4os/sources/mcp-http` (`withReconnect`) | Implementado + testado | Wire em `createMcpHttpFactory` no composition root do desktop |
+
+Rastreado em: `FOLLOWUP-OUTLIER-12` / ADRs 0084, 0085, 0086.
+
 ## Como adicionar uma source nova
 
 1. Implemente `ISource` (estendendo `DisposableBase`).

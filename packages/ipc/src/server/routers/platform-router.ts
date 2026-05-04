@@ -4,8 +4,9 @@ import type { OpenDialogOptions, SaveDialogOptions } from '../context.ts';
 import { procedure, router } from '../trpc.ts';
 
 const FilterSchema = z.object({
-  name: z.string(),
-  extensions: z.array(z.string()),
+  // Caps defensivos — nomes de filtro e extensões ficam bem abaixo destes limites.
+  name: z.string().max(128),
+  extensions: z.array(z.string().max(32)).max(50),
 });
 
 const SaveDialogInputSchema = z.object({

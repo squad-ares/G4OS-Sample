@@ -19,13 +19,19 @@ const TooltipContent = React.forwardRef<
         // de alto contraste). Em dark mode o default era praticamente branco
         // sólido contra fundo escuro, criando moldura agressiva. /8 dá
         // separação visual sem competir com o conteúdo.
-        'z-50 overflow-hidden rounded-md border border-foreground/8 bg-popover px-3 py-1.5 text-xs text-popover-foreground shadow-md animate-in fade-in-0 zoom-in-95',
+        // z-tooltip (55) fica acima de dropdown/popover (40) mas não requer
+        // estar sobre modal (50) — tooltip sobre dialog é raro e geralmente
+        // não desejado. Token semântico garante que a hierarquia se ajusta
+        // quando --z-modal mudar. ADR-0108.
+        'z-tooltip overflow-hidden rounded-md border border-foreground/8 bg-popover px-3 py-1.5 text-xs text-popover-foreground shadow-md animate-in fade-in-0 zoom-in-95',
         className,
       )}
       {...props}
     />
   </TooltipPrimitive.Portal>
 ));
-TooltipContent.displayName = TooltipPrimitive.Content.displayName;
+// Literal em vez de delegado (F-CR49-21) — React DevTools mostra
+// 'TooltipContent' em vez do nome interno Radix 'Tooltip.Content'.
+TooltipContent.displayName = 'TooltipContent';
 
 export { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger };

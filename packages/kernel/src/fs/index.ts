@@ -1,1 +1,1 @@
-export { writeAtomic } from './atomic-write.ts';
+export { writeAtomic, writeAtomicResult } from './atomic-write.ts';

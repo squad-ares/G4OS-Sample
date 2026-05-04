@@ -26,12 +26,23 @@ function truncateCauseChain(
   }
   seen.add(cause);
   const inner = (cause as { cause?: unknown }).cause;
-  if (inner !== undefined) {
-    // A recursão deve atribuir o resultado de volta — sem isso cadeias profundas
-    // no nível interno passavam intactas pelo cap.
-    (cause as { cause?: unknown }).cause = truncateCauseChain(inner, seen, depth + 1);
+  if (inner === undefined) return cause;
+  // Força leitura do `stack` antes do clone: o V8 define `stack` como
+  // getter lazy own-property — se não for lida antes, `getOwnPropertyDescriptor`
+  // retorna `undefined` e o clone perde o stack trace.
+  void (cause as { stack?: unknown }).stack;
+  // Clonamos preservando o protótipo (`instanceof CustomError` continua valendo) e
+  // substituímos `cause` no clone — nunca mutamos o input. Caller pode reter referência
+  // para o original; mutar quebraria cadeias compartilhadas (Sentry breadcrumb capture,
+  // retry logic, error-bus) e, numa 2ª passada, faria `seen` retornar `circular` por
+  // falsa positiva.
+  const clone = Object.create(Object.getPrototypeOf(cause));
+  for (const key of Reflect.ownKeys(cause)) {
+    const descriptor = Object.getOwnPropertyDescriptor(cause, key);
+    if (descriptor) Object.defineProperty(clone, key, descriptor);
   }
-  return cause;
+  (clone as { cause?: unknown }).cause = truncateCauseChain(inner, seen, depth + 1);
+  return clone;
 }
 
 export class AppError extends Error {

@@ -1,5 +1,6 @@
 import { err, ok, type Result } from 'neverthrow';
 import type { OAuthCallbackHandler } from './callback-handler.ts';
+import { type LoopbackServer, startLoopbackServer } from './loopback.ts';
 import { generatePkce, generateState, type PkcePair } from './pkce.ts';
 import { type OAuthConfig, OAuthError, type OAuthTokens, type TokenExchanger } from './types.ts';
 
@@ -52,6 +53,15 @@ export async function performOAuth(
   const callback = await waiting;
   if (callback.isErr()) return err(callback.error);
 
+  // RFC 6749 §4.1.2.1: verificar `error` antes de `code`. IdPs retornam
+  // `error=access_denied&error_description=...` no redirect — sem este check
+  // o chamador vê "missing authorization code" em vez da razão real.
+  const providerError = callback.value.get('error');
+  if (providerError) {
+    const description = callback.value.get('error_description') ?? undefined;
+    return err(OAuthError.providerDenied(providerError, description));
+  }
+
   const code = callback.value.get('code');
   if (!code) return err(OAuthError.noCode());
 
@@ -63,6 +73,101 @@ export async function performOAuth(
     codeVerifier: pkce.verifier,
     config: input.config,
   });
+}
+
+export interface PerformOAuthLoopbackInput {
+  /**
+   * Config OAuth SEM o `redirectUri` final — o loopback server bind a uma
+   * porta dinâmica (`port: 0` por default) e o helper recompõe a URL.
+   * Caller passa só os campos do provider (clientId, endpoints, scopes).
+   */
+  readonly config: Omit<OAuthConfig, 'redirectUri'>;
+  readonly exchanger: TokenExchanger;
+  readonly openBrowser: (url: string) => void | Promise<void>;
+  /** Path do callback no loopback. Default `/callback`. */
+  readonly callbackPath?: string;
+  /** Porta fixa opcional. Default 0 (ephemeral). */
+  readonly port?: number;
+  /** Timeout total (loopback wait + token exchange). Default 5min. */
+  readonly timeoutMs?: number;
+}
+
+/**
+ * CR-18 F-S3: helper completo que SOLUCIONA o gap da `performOAuth` pura
+ * com loopback. O bug original: caller que chamava `startLoopbackServer({port:0})`
+ * + `buildAuthUrl({config: {redirectUri: 'http://127.0.0.1:???'}})` tinha
+ * que conhecer a porta antes do bind — impossível com porta dinâmica.
+ * Resultado: IdP redirecionava para porta fixa errada, flow travava até
+ * timeout.
+ *
+ * Este helper:
+ *   1. Inicia o loopback server (porta dinâmica por default).
+ *   2. Lê `server.url` (com porta real) e injeta como `redirectUri`.
+ *   3. Adapta `LoopbackServer.wait()` em `OAuthCallbackHandler.waitFor()`.
+ *   4. Chama `performOAuth` com a config completa.
+ *   5. Garante `server.close()` no finally.
+ */
+export async function performOAuthLoopback(
+  input: PerformOAuthLoopbackInput,
+): Promise<Result<OAuthTokens, OAuthError>> {
+  const callbackPath = input.callbackPath ?? '/callback';
+  const port = input.port ?? 0;
+  const timeoutMs = input.timeoutMs;
+
+  let server: LoopbackServer;
+  try {
+    server = await startLoopbackServer({
+      port,
+      pathname: callbackPath,
+      ...(timeoutMs === undefined ? {} : { timeoutMs }),
+      autoClose: true,
+    });
+  } catch (cause) {
+    return err(
+      OAuthError.exchangeFailed(
+        `loopback server failed to bind: ${cause instanceof Error ? cause.message : String(cause)}`,
+      ),
+    );
+  }
+
+  try {
+    const fullConfig: OAuthConfig = {
+      ...input.config,
+      redirectUri: server.url,
+    };
+    const pkce = generatePkce();
+    const state = generateState();
+    const authUrl = buildAuthUrl({ config: fullConfig, state, pkce });
+    await input.openBrowser(authUrl);
+    let params: URLSearchParams;
+    try {
+      params = await server.wait();
+    } catch (cause) {
+      return err(
+        OAuthError.exchangeFailed(
+          `loopback wait failed: ${cause instanceof Error ? cause.message : String(cause)}`,
+        ),
+      );
+    }
+    // RFC 6749 §4.1.2.1: mesma verificação do `performOAuth` — IdP pode
+    // redirecionar com `error=access_denied` para o loopback server.
+    const providerError = params.get('error');
+    if (providerError) {
+      const description = params.get('error_description') ?? undefined;
+      return err(OAuthError.providerDenied(providerError, description));
+    }
+    const code = params.get('code');
+    if (!code) return err(OAuthError.noCode());
+    const returnedState = params.get('state');
+    if (returnedState !== state) return err(OAuthError.stateMismatch());
+    return await input.exchanger.exchange({
+      code,
+      codeVerifier: pkce.verifier,
+      config: fullConfig,
+    });
+  } finally {
+    await server.close().catch(() => undefined);
+  }
 }
 
 interface TokenPayload {

@@ -1,5 +1,6 @@
 import { writeFileSync } from 'node:fs';
 import { createLogger } from '@g4os/kernel/logger';
+import { getSystemTmpDir } from '@g4os/platform';
 
 const log = createLogger('main');
 
@@ -40,11 +41,10 @@ async function showFatalDialog(err: unknown): Promise<void> {
   }
 }
 
-// Logger pre-pino em $TMPDIR/g4os-{label}.log
+// Logger pre-pino em tmpdir/g4os-{label}.log
 function writeStartupCrashLog(label: string, err: unknown): void {
   try {
-    // biome-ignore lint/style/noProcessEnv: composition root
-    const tmp = process.env['TMPDIR'] ?? '/tmp';
+    const tmp = getSystemTmpDir();
     const msg =
       err instanceof Error ? `${err.name}: ${err.message}\n${err.stack ?? ''}` : String(err);
     writeFileSync(`${tmp}/g4os-${label}.log`, `[${new Date().toISOString()}] ${msg}\n`, {

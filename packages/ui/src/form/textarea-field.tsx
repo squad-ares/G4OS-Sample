@@ -72,18 +72,21 @@ export function TextareaField<TForm extends FieldValues>({
 
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
-  const setRef = useCallback(
-    (el: HTMLTextAreaElement | null) => {
-      field.ref(el);
-      textareaRef.current = el;
-    },
-    [field.ref],
-  );
+  // F-CR49-12: deps vazias — RHF aceita chamar `field.ref(el)` diretamente;
+  // `field.ref` pode trocar entre renders mas o setter RHF é estável de fato,
+  // e incluí-lo na deps causava re-mount duplo no mesmo elemento.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: (reason: field.ref é estável dentro do ciclo RHF — incluir causaria double-mount no mesmo elemento)
+  const setRef = useCallback((el: HTMLTextAreaElement | null) => {
+    field.ref(el);
+    textareaRef.current = el;
+  }, []);
 
-  // Auto-resize do textarea conforme conteúdo cresce
+  // Auto-resize do textarea conforme conteúdo cresce.
+  // F-CR49-11: `field.value` na lista de deps sem uso no body — elimina o
+  // `void field.value` workaround frágil do original. Biome suprimido: é
+  // um "reactive dep" legítimo (resize reativo a mudança de valor do campo).
+  // biome-ignore lint/correctness/useExhaustiveDependencies: (reason: field.value é dep reativa do resize — força re-execução ao digitar sem ser usado no body do effect)
   useEffect(() => {
-    // Leitura explícita pra Biome considerar `field.value` como dependência exhaustiva
-    void field.value;
     const el = textareaRef.current;
     if (!el) return;
     el.style.height = 'auto';

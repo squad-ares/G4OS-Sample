@@ -145,19 +145,44 @@ export function createAuthRuntime(options: AuthRuntimeOptions): AuthRuntime {
   const managedLogin = new ManagedLoginService({ supabase, tokenStore });
   const refresher = new SessionRefresher({ supabase, tokenStore });
 
+  // F-CR32-4: `onPostVerify` era `refresher.refreshNow()` — disparava refresh
+  // imediato logo após submitOtp, mas o `state$.subscribe(authenticated→start)`
+  // abaixo já agenda o próximo refresh com o buffer de 5min correto (ADR-0094).
+  // `refreshNow` cancelava o timer recém-criado e rodava Supabase de novo,
+  // desperdiçando quota e rotacionando o refresh-token single-use desnecessariamente.
+  // `start()` é idempotente (noop se já `running`); `state$` dispara antes do
+  // retorno do submitOtp, então `start()` aqui é no-op mas inofensivo.
   const service = createAuthServiceFromManagedLogin(
     managedLogin,
     async () => {
-      await refresher.refreshNow();
+      await refresher.start();
     },
     reauthHub,
     options.performWipe,
   );
 
   // Start refresher automaticamente quando uma sessão for persistida.
+  // F-CR32-2: stop() chamado em logout para que re-login (authenticated de
+  // novo) re-arme o schedule. Sem stop(), `running` fica true após o
+  // primeiro start() e o guard no início de start() bloqueia o re-arm.
   const subscription = managedLogin.state$.subscribe((state) => {
     if (state.kind === 'authenticated') {
       void refresher.start();
+    } else if (state.kind === 'idle') {
+      // idle = logout. Para o schedule para que o próximo login re-arme.
+      refresher.stop();
+    }
+  });
+
+  // F-CR51-3: conecta reauth_required do refresher ao hub de notificação.
+  // Sem este wire, token expirado em background não notifica o renderer —
+  // usuário permanece em estado authenticated falso até hit-401 manual.
+  // ADR-0094: refresher emite reauth_required quando refresh falha ou
+  // token é muito curto-vivido; reauthHub.notify() dispara
+  // `auth.managedLoginRequired` via IPC para o renderer exibir modal.
+  const reauthSubscription = refresher.state$.subscribe((state) => {
+    if (state.kind === 'reauth_required') {
+      reauthHub.notify(state.reason);
     }
   });
 
@@ -176,6 +201,7 @@ export function createAuthRuntime(options: AuthRuntimeOptions): AuthRuntime {
     notifyManagedLoginRequired: (reason) => reauthHub.notify(reason),
     dispose: () => {
       subscription.unsubscribe();
+      reauthSubscription.unsubscribe();
       refresher.dispose();
       managedLogin.dispose();
     },
@@ -203,10 +229,12 @@ function buildMockAuthRuntime(
   const tokenStore: AuthTokenStore = createSeededTokenStore(seed);
   const managedLogin = new ManagedLoginService({ supabase, tokenStore });
   const refresher = new SessionRefresher({ supabase, tokenStore });
+  // F-CR32-4 (mock path): mesma correção — onPostVerify usa start() em vez de
+  // refreshNow() para não disparar refresh imediato desnecessário.
   const service = createAuthServiceFromManagedLogin(
     managedLogin,
     async () => {
-      await refresher.refreshNow();
+      await refresher.start();
     },
     reauthHub,
     performWipe,

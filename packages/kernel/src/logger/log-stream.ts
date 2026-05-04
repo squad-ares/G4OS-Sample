@@ -86,7 +86,13 @@ const SCRUB_MAX_DEPTH = 4;
 /**
  * Scrub recursivo limitado a `SCRUB_MAX_DEPTH` níveis. Mantém shape
  * geral do contexto mas substitui valores em chaves sensíveis por
- * `[REDACTED]`. O loop não copia primitivos — só objetos com matches.
+ * `[REDACTED]`. O loop não copia primitivos — só objetos/arrays com matches.
+ *
+ * CR-22 F-CR22-5: o branch original ignorava `Array.isArray(value)`, deixando
+ * arrays passarem cru. Logs no shape `{ items: [{accessToken: 'xxx'}] }`
+ * vazavam para subscribers do `LogStream` (Debug HUD) sem redação. Agora
+ * arrays também recursam — cada item é scrubbed por `scrubItem` (que cobre
+ * objetos e arrays aninhados).
  */
 function scrubLogCtx(ctx: Readonly<Record<string, unknown>>, depth = 0): Record<string, unknown> {
   if (depth >= SCRUB_MAX_DEPTH) return { ...ctx };
@@ -96,11 +102,14 @@ function scrubLogCtx(ctx: Readonly<Record<string, unknown>>, depth = 0): Record<
       out[key] = REDACT_CENSOR;
       continue;
     }
-    if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
-      out[key] = scrubLogCtx(value as Record<string, unknown>, depth + 1);
-    } else {
-      out[key] = value;
-    }
+    out[key] = scrubItem(value, depth + 1);
   }
   return out;
+}
+
+function scrubItem(value: unknown, depth: number): unknown {
+  if (depth >= SCRUB_MAX_DEPTH) return value;
+  if (value === null || typeof value !== 'object') return value;
+  if (Array.isArray(value)) return value.map((item) => scrubItem(item, depth + 1));
+  return scrubLogCtx(value as Record<string, unknown>, depth);
 }

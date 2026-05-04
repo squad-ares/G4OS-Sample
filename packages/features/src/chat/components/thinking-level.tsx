@@ -10,11 +10,15 @@ import {
 import type { ThinkingLevel } from '../model-catalog.ts';
 import { findModel } from '../model-catalog.ts';
 
+// CR-30 F-CR30-2: keys alinhadas com `ThinkingLevel` do `@g4os/agents/interface`
+// (`'low' | 'think' | 'high' | 'ultra'`). Antes existiam keys "minimal"/"medium"
+// do enum UI legacy que nunca chegavam no agent (level-resolver mapearia para
+// `none`).
 const LABEL_KEYS: Record<ThinkingLevel, TranslationKey> = {
-  minimal: 'chat.thinkingLevel.minimal',
   low: 'chat.thinkingLevel.low',
-  medium: 'chat.thinkingLevel.medium',
+  think: 'chat.thinkingLevel.think',
   high: 'chat.thinkingLevel.high',
+  ultra: 'chat.thinkingLevel.ultra',
 };
 
 interface ThinkingLevelSelectorProps {

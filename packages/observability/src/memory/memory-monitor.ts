@@ -63,6 +63,16 @@ export class MemoryMonitor extends DisposableBase {
 
   start(): void {
     if (this.timer) return;
+    // CR-18 F-O2: guard contra `start()` em instância já disposed.
+    // Sem isso, o `setInterval` rodava antes do `_register(toDisposable(...))`
+    // disparar `Error("DisposableStore already disposed")` — timer ficava
+    // órfão chamando `sampleOnce()` indefinidamente. `.unref()` mitigava o
+    // shutdown do process mas o callback continuava rodando, podendo
+    // disparar `onThresholdExceeded` em monitor morto.
+    if (this._disposed) {
+      this.log.warn('MemoryMonitor.start() called after dispose; no-op');
+      return;
+    }
     // `.unref()` é chained mas se timer não for `Timeout` (runtime
     // exótico, edge worker), `.unref()` retorna undefined → erro silencioso.
     // Detectar e logar pra operador investigar.
@@ -85,6 +95,19 @@ export class MemoryMonitor extends DisposableBase {
   }
 
   sampleOnce(): MemorySample {
+    // Guard: interval pode ter entrado no callback ANTES do clearInterval
+    // executar em dispose(). Sem check, onThresholdExceeded + onSample
+    // executariam em monitor descartado (ADR-0012).
+    if (this._disposed) {
+      return {
+        timestamp: this.now(),
+        rssBytes: 0,
+        heapUsedBytes: 0,
+        heapTotalBytes: 0,
+        externalBytes: 0,
+        arrayBuffersBytes: 0,
+      };
+    }
     const usage = this.memoryUsage();
     const sample: MemorySample = {
       timestamp: this.now(),
@@ -95,8 +118,8 @@ export class MemoryMonitor extends DisposableBase {
       arrayBuffersBytes: usage.arrayBuffers,
     };
     this.recordSample(sample);
-    this.checkThresholds(sample);
-    this.onSample?.(sample);
+    if (!this._disposed) this.checkThresholds(sample);
+    if (!this._disposed) this.onSample?.(sample);
     return sample;
   }
 
@@ -153,9 +176,26 @@ export function auditProcessListeners(
   const result: ListenerAuditResult[] = [];
   for (const event of events) {
     const count = process.listenerCount(event);
-    if (count > threshold) {
+    if (count >= threshold) {
       result.push({ target: 'process', event, count });
     }
   }
   return result;
+}
+
+/**
+ * CR-18 F-O3: variante "snapshot" do `auditProcessListeners` — devolve a
+ * contagem completa de TODOS os events listados, não apenas os que
+ * cruzaram o threshold. Útil para o Debug HUD diagnosticar listener creep
+ * antes de cruzar o limiar (early-warning) e para `exportDebugInfo`
+ * capturar o estado atual sem perder dados sub-threshold.
+ */
+export function snapshotProcessListeners(
+  events: readonly string[] = ['uncaughtException', 'unhandledRejection', 'SIGTERM', 'SIGINT'],
+): ListenerAuditResult[] {
+  return events.map((event) => ({
+    target: 'process',
+    event,
+    count: process.listenerCount(event),
+  }));
 }

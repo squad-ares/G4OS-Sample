@@ -45,7 +45,12 @@ export async function sendOtp(
   return ok(undefined);
 }
 
-const INVALID_TOKEN_HINTS = ['invalid', 'expired', 'not found', 'otp'];
+// CR-18 F-AU4: hint `'otp'` casava qualquer mensagem do Supabase contendo
+// a palavra OTP, inclusive "OTP service unavailable" ou "OTP rate limit
+// exceeded" — disparava segunda tentativa com `type:'signup'`, mascarando
+// erro real e queimando rate-limit. ADR-0091 sugere `/invalid|expired|token/i`;
+// mantemos a especificidade no nível dos hints para maior controle.
+const INVALID_TOKEN_HINTS = ['invalid', 'expired', 'not found', 'token'];
 
 function looksLikeInvalidOtp(message: string): boolean {
   const lower = message.toLowerCase();

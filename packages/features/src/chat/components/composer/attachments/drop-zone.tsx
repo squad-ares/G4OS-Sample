@@ -19,7 +19,8 @@ export function DropZone({ existing, onAttach, onError, children, disabled }: Dr
     const arr = Array.from(files);
     const err = validateAttachments(arr, existing);
     if (err) {
-      onError?.(err);
+      // CR-37 F-CR37-2: traduz a mensagem de erro usando a chave discriminada.
+      onError?.(t(err.key, err.params as Record<string, string | number>));
       return;
     }
     const attachments = await filesToAttachments(arr);

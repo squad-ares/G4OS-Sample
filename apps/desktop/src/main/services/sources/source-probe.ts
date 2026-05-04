@@ -73,6 +73,13 @@ async function probeHttp(url: string, fetchFn: typeof fetch = fetch): Promise<So
   try {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), HTTP_PROBE_TIMEOUT_MS);
+    // CR-34 F-CR34-3: unref para não travar graceful shutdown do Electron
+    // (deadline 5s, ADR-0032). HTTP_PROBE_TIMEOUT_MS coincide com a deadline:
+    // probe iniciado no Settings → testConnection imediatamente antes do quit
+    // segura o event loop por até 5s sem unref. `clearTimeout` no finally
+    // cobre o caminho normal; unref é defesa-em-profundidade simétrica com
+    // oauth/loopback:117 e oauth/callback-handler:68.
+    timer.unref?.();
     try {
       const res = await fetchFn(url, { method: 'HEAD', signal: controller.signal });
       if (res.status === 401 || res.status === 403) return 'needs_auth';

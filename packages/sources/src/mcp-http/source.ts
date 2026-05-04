@@ -9,7 +9,12 @@ import type {
   ToolDefinition,
   ToolResult,
 } from '../interface/source.ts';
-import type { McpHttpClient, McpHttpClientFactory, McpHttpConfig } from './types.ts';
+import type {
+  McpHttpAuthResolver,
+  McpHttpClient,
+  McpHttpClientFactory,
+  McpHttpConfig,
+} from './types.ts';
 
 export class McpHttpSource extends DisposableBase implements ISource {
   readonly kind: SourceKind = 'mcp-http';
@@ -21,6 +26,7 @@ export class McpHttpSource extends DisposableBase implements ISource {
   constructor(
     private readonly config: McpHttpConfig,
     private readonly clientFactory: McpHttpClientFactory,
+    private readonly authResolver?: McpHttpAuthResolver,
   ) {
     super();
     this.slug = config.slug;
@@ -36,7 +42,17 @@ export class McpHttpSource extends DisposableBase implements ISource {
 
   async activate(): Promise<Result<void, SourceError>> {
     this.statusSubject.next('connecting');
-    const client = this.clientFactory.create(this.config);
+    // CR-18 F-S1: resolve `authCredentialKey` (se presente) → header
+    // `Authorization: Bearer <token>`. Sem o resolver wired, fields config
+    // legacy sem auth seguem funcionando; com chave ausente do vault,
+    // emitimos `needs_auth` para a UI mostrar fluxo de re-auth.
+    const resolved = await this.resolveAuthHeaders();
+    if (resolved.isErr()) return err(resolved.error);
+    const effectiveConfig: McpHttpConfig = {
+      ...this.config,
+      headers: { ...(this.config.headers ?? {}), ...resolved.value },
+    };
+    const client = this.clientFactory.create(effectiveConfig);
     const result = await client.connect();
     if (result.isErr()) {
       await client.close().catch(() => undefined);
@@ -49,8 +65,16 @@ export class McpHttpSource extends DisposableBase implements ISource {
       return err(SourceError.incompatible(this.slug, `http activation failed: ${e.message}`));
     }
 
-    client.onClose(() => this.statusSubject.next('disconnected'));
+    // ADR-0012: os callbacks abaixo podem disparar após `dispose()` (ex.: close
+    // do cliente durante `deactivate` que acontece no shutdown). Guards
+    // defensivos evitam emitir em subject já completado, o que geraria
+    // ObjectUnsubscribedError no RxJS e logs de erro enganosos.
+    client.onClose(() => {
+      if (this._disposed || this.statusSubject.closed) return;
+      this.statusSubject.next('disconnected');
+    });
     client.onError((e) => {
+      if (this._disposed || this.statusSubject.closed) return;
       if (isHttpAuthError(e)) this.statusSubject.next('needs_auth');
       else this.statusSubject.next('error');
     });
@@ -90,9 +114,42 @@ export class McpHttpSource extends DisposableBase implements ISource {
   }
 
   override dispose(): void {
+    // CR-30 F-CR30-7: idempotência defensiva pra suportar double-dispose
+    // (`McpMountRegistry.unmount` chama dispose explicitamente E o store
+    // do registry chama de novo no shutdown). `deactivate` já é
+    // self-guarded (`if (this.client)`), DisposableBase é idempotente,
+    // e o `statusSubject.closed` check segue o pattern do McpStdioSource.
     void this.deactivate();
-    this.statusSubject.complete();
+    if (!this.statusSubject.closed) this.statusSubject.complete();
     super.dispose();
+  }
+
+  private async resolveAuthHeaders(): Promise<Result<Record<string, string>, SourceError>> {
+    // Sem credential key: respeita configs legacy sem auth, ou que usam
+    // `authToken` plaintext (deprecated mas suportado em runtime).
+    if (!this.config.authCredentialKey) {
+      if (this.config.authToken) {
+        return ok({ Authorization: `Bearer ${this.config.authToken}` });
+      }
+      return ok({});
+    }
+    if (!this.authResolver) {
+      // Caller esqueceu de injetar o resolver. Fail fast com `incompatible`
+      // — esse caminho indica config drift (slug declarado authCredentialKey
+      // mas factory criada sem resolver), não problema de runtime do user.
+      return err(
+        SourceError.incompatible(
+          this.slug,
+          'authCredentialKey set but no authResolver injected in factory options',
+        ),
+      );
+    }
+    const token = await this.authResolver(this.config.authCredentialKey);
+    if (!token) {
+      this.statusSubject.next('needs_auth');
+      return err(SourceError.authRequired(this.slug));
+    }
+    return ok({ Authorization: `Bearer ${token}` });
   }
 }
 

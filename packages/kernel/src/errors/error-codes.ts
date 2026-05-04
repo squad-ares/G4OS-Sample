@@ -11,6 +11,12 @@ export const ErrorCode = {
   CREDENTIAL_EXPIRED: 'credential.expired',
   CREDENTIAL_INVALID_KEY: 'credential.invalid_key',
   CREDENTIAL_INVALID_VALUE: 'credential.invalid_value',
+  // CR-18 F-C5: discriminado de `DECRYPT_FAILED` — erros de IO em
+  // FileKeychain (mkdir EACCES, writeAtomic ENOSPC, readdir fail) NÃO
+  // significam que a chave está corrompida criptograficamente. Caller que
+  // faz `switch (err.code)` confundia IO com chave corrupta e rodava
+  // fluxo de repair errado.
+  CREDENTIAL_IO_ERROR: 'credential.io_error',
 
   // Autenticação
   AUTH_NOT_AUTHENTICATED: 'auth.not_authenticated',
@@ -19,6 +25,11 @@ export const ErrorCode = {
   AUTH_ENTITLEMENT_REQUIRED: 'auth.entitlement_required',
   AUTH_BOOTSTRAP_FAILED: 'auth.bootstrap_failed',
   AUTH_DISPOSED: 'auth.disposed',
+  // CR-18 F-AU3: discriminado de `AUTH_DISPOSED` — flow conflict (chamada
+  // requestOtp/submitOtp durante verifying/bootstrapping/requesting_otp)
+  // não significa que o serviço está disposed. Caller que tratava por
+  // `code === AUTH_DISPOSED` disparava shutdown indevido.
+  AUTH_FLOW_IN_PROGRESS: 'auth.flow_in_progress',
 
   // IPC
   IPC_HANDLER_NOT_FOUND: 'ipc.handler_not_found',
@@ -58,11 +69,33 @@ export const ErrorCode = {
   FS_DISK_FULL: 'fs.disk_full',
   FS_PATH_TRAVERSAL: 'fs.path_traversal',
   FS_FILE_TOO_LARGE: 'fs.file_too_large',
+  // CR-27 F-CR27-4: errnos genéricos que não são EACCES/EPERM (locked file
+  // EBUSY, read-only filesystem EROFS, name too long ENAMETOOLONG, EISDIR,
+  // ENOTDIR, etc.). Antes mapeados para FS_ACCESS_DENIED — confundia callers
+  // que sugeriam "verifique permissões" quando o problema era outra classe
+  // de IO. UI/Repair pode discriminar via `code === FS_IO_ERROR` + ler errno
+  // de `context.errno` para mensagem específica.
+  FS_IO_ERROR: 'fs.io_error',
+
+  // Migration V1 → V2 (F-CR40-3)
+  MIGRATION_ALREADY_DONE: 'migration.already_done',
+  MIGRATION_LOCK_FAILED: 'migration.lock_failed',
+  MIGRATION_BACKUP_FAILED: 'migration.backup_failed',
+  MIGRATION_STEP_FAILED: 'migration.step_failed',
+  MIGRATION_ROLLBACK_FAILED: 'migration.rollback_failed',
+  MIGRATION_V1_CORRUPTED: 'migration.v1_corrupted',
+  MIGRATION_INVALID_SOURCE: 'migration.invalid_source',
+  MIGRATION_PARTIAL_FAILURE: 'migration.partial_failure',
 
   // Generic
   VALIDATION_ERROR: 'validation.error',
   NETWORK_ERROR: 'network.error',
   UNKNOWN_ERROR: 'unknown.error',
+  // Funcionalidade desabilitada ou skeleton ainda não promovido.
+  // Distinto de UNKNOWN_ERROR (bug inesperado) — este código sinaliza estado
+  // esperado de "feature off". Callers devem exibir UI degradada, não disparar
+  // Sentry. Exemplo: bridge-mcp-server skeleton, usage-reconcile-worker gated.
+  FEATURE_DISABLED: 'feature.disabled',
 } as const;
 
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];

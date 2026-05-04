@@ -5,6 +5,7 @@ import {
   handleIpcRequest,
   type IpcInvokeEventLike,
   type IpcReplyEventLike,
+  type ServicesStatusMap,
 } from '@g4os/ipc/server';
 import { createLogger } from '@g4os/kernel/logger';
 import { createContext, type IpcServiceOverrides } from './ipc-context.ts';
@@ -21,6 +22,14 @@ export interface IpcServerWindow {
 export interface CreateIpcServerOptions {
   readonly windows: readonly IpcServerWindow[];
   readonly services?: IpcServiceOverrides;
+  readonly servicesStatus?: () => Promise<ServicesStatusMap>;
+  /**
+   * Hook opcional pra registrar cleanup em janelas criadas após o boot
+   * (multi-window via `WindowsService.openWorkspaceWindow`, deep-link,
+   * debug-hud). Sem ele, só janelas em `windows` no boot têm cleanup;
+   * subsequentes vazariam subscriptions ao recarregar.
+   */
+  readonly onWindowCreated?: (listener: (window: IpcServerWindow) => void) => void;
 }
 
 export async function createIpcServer(options: CreateIpcServerOptions): Promise<void> {
@@ -28,10 +37,12 @@ export async function createIpcServer(options: CreateIpcServerOptions): Promise<
   if (!ipcMain) return;
 
   ipcMain.on(ELECTRON_TRPC_CHANNEL, (event: IpcReplyEventLike, request: ETRPCRequest) => {
-    void handleIpcRequest(event, request, (ev) =>
+    void handleIpcRequest(event, request, (ev, opts) =>
       createContext({
         event: ev as IpcInvokeEventLike,
         ...(options.services ? { services: options.services } : {}),
+        ...(options.servicesStatus ? { servicesStatus: options.servicesStatus } : {}),
+        ...(opts?.traceparent ? { traceparent: opts.traceparent } : {}),
       }),
     ).catch((err: unknown) => {
       log.error({ err }, 'unhandled IPC request error');
@@ -44,13 +55,15 @@ export async function createIpcServer(options: CreateIpcServerOptions): Promise<
   // tentando emitir para um sender que já dropou os listeners. Hook no
   // `did-start-navigation` pega o caso comum (Cmd+R, electron-vite HMR,
   // navigation programática); fallback em `destroyed` cobre window close.
-  for (const window of options.windows) {
+  const wireCleanup = (window: IpcServerWindow): void => {
     const wc = window.webContents;
-    if (typeof wc.on !== 'function') continue;
+    if (typeof wc.on !== 'function') return;
     const senderId = wc.id;
     wc.on('did-start-navigation', () => cleanupSubscriptionsForSender(senderId));
     wc.on('destroyed', () => cleanupSubscriptionsForSender(senderId));
-  }
+  };
+  for (const window of options.windows) wireCleanup(window);
+  options.onWindowCreated?.(wireCleanup);
 }
 
 interface ElectronIpcMain {

@@ -1,5 +1,11 @@
-import { ToolDefinitionSchema } from '@g4os/kernel/schemas';
+import { ThinkingLevelSchema, ToolDefinitionSchema } from '@g4os/kernel/schemas';
 import { z } from 'zod';
+
+// CR-30 F-CR30-2: `ThinkingLevelSchema` re-exporta do `@g4os/kernel/schemas`
+// para preservar API pública dos consumers que importam de
+// `@g4os/agents/interface` (validation runtime). Antes existia um clone aqui;
+// movido pra kernel como fonte canônica compartilhada com kernel/features/apps.
+export { ThinkingLevelSchema };
 
 export const AgentFamilySchema = z.enum([
   'anthropic',
@@ -8,8 +14,6 @@ export const AgentFamilySchema = z.enum([
   'google',
   'bedrock',
 ]);
-
-export const ThinkingLevelSchema = z.enum(['low', 'think', 'high', 'ultra']);
 
 export const AgentCapabilitiesSchema = z.object({
   family: AgentFamilySchema,

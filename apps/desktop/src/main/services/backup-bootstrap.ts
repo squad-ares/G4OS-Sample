@@ -3,6 +3,11 @@
  * é leve (apenas refs Drizzle); storage usa diretório default
  * (`<appPaths.data>/attachments`). Scheduler roda 24h com retenção
  * 7/4/3 conforme ADR-0045.
+ *
+ * Retorna `attachmentGateway` separadamente pra que o composition root
+ * wireie um `startAttachmentsGcScheduler` independente — backup
+ * scheduler em si NÃO chama `gateway.gc()` pra evitar coupling de
+ * períodos.
  */
 
 import type { AppDb } from '@g4os/data';
@@ -14,13 +19,19 @@ export interface BackupBootstrapOptions {
   readonly appVersion: string;
 }
 
-export function createBackupScheduler(options: BackupBootstrapOptions): BackupScheduler {
+export interface BackupBootstrapResult {
+  readonly scheduler: BackupScheduler;
+  readonly attachmentGateway: AttachmentGateway;
+}
+
+export function createBackupScheduler(options: BackupBootstrapOptions): BackupBootstrapResult {
   const attachmentStorage = new AttachmentStorage();
   const attachmentGateway = new AttachmentGateway(options.drizzle, attachmentStorage);
-  return new BackupScheduler({
+  const scheduler = new BackupScheduler({
     db: options.drizzle,
     storage: attachmentStorage,
     gateway: attachmentGateway,
     appVersion: options.appVersion,
   });
+  return { scheduler, attachmentGateway };
 }

@@ -2,7 +2,8 @@ import { mkdtemp, readdir, readFile, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { writeAtomic } from '../fs/atomic-write.ts';
+import { FsError } from '../errors/fs-error.ts';
+import { writeAtomic, writeAtomicResult } from '../fs/atomic-write.ts';
 
 let dir: string;
 
@@ -66,5 +67,26 @@ describe('writeAtomic', () => {
     // Parent dir doesn't exist; nothing to list, but tmp from this path should not exist.
     const entries = await readdir(dir);
     expect(entries.find((e) => e.includes('.tmp'))).toBeUndefined();
+  });
+});
+
+// CR-18 F-K2: variante Result captura errno e retorna FsError tipado em
+// vez de propagar exception genérica.
+describe('writeAtomicResult', () => {
+  it('returns ok on success', async () => {
+    const path = join(dir, 'ok.json');
+    const result = await writeAtomicResult(path, 'value');
+    expect(result.isOk()).toBe(true);
+  });
+
+  it('maps ENOENT to FsError.notFound', async () => {
+    const path = join(dir, 'subdir', 'nope.json');
+    const result = await writeAtomicResult(path, 'data');
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error).toBeInstanceOf(FsError);
+      // ENOENT no Linux/macOS quando parent dir não existe.
+      expect(['fs.not_found', 'fs.access_denied']).toContain(result.error.code);
+    }
   });
 });

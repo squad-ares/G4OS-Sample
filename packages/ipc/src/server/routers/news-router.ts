@@ -14,7 +14,7 @@ export const newsRouter = router({
     }),
 
   get: authed
-    .input(z.object({ id: z.string().min(1) }))
+    .input(z.object({ id: z.string().min(1).max(256) }))
     .output(NewsItemSchema.nullable())
     .query(async ({ ctx, input }) => {
       const result = await ctx.news.get(input.id);

@@ -65,11 +65,26 @@ export const SourceCatalogItemSchema = z.object({
   slug: z.string().min(1).max(100),
   kind: SourceKindSchema,
   displayName: z.string().min(1).max(200),
-  description: z.string().max(500),
+  /**
+   * CR-18 F-S2: ficou opcional. Antes era obrigatório E `descriptionKey`
+   * também existia — duplicação que travava a string em pt-BR (catálogo
+   * estático com hardcoded em UI viola CLAUDE.md "Padrões obrigatórios →
+   * i18n via labelKey"). Renderer deve preferir `descriptionKey` via
+   * `t()`; `description` segue como fallback retrocompatível.
+   */
+  description: z.string().max(500).optional(),
   descriptionKey: z.string().max(200).optional(),
   category: SourceCategorySchema,
   authKind: SourceAuthKindSchema,
+  /**
+   * URL absoluta do ícone. Para seeds onde a UI prefere identificador local
+   * (mapeamento client-side por `slug`/`category`), `iconName` é a alternativa
+   * — se ambos forem omitidos, o renderer usa fallback `<SourceGlyph>` por
+   * categoria. CR-18 F-S4: `iconUrl` continua opcional; seeds atuais não
+   * trazem nem CDN URL nem name (UI depende de fallback consistente).
+   */
   iconUrl: z.string().url().optional(),
+  iconName: z.string().min(1).max(50).optional(),
   /** Se já existe uma source habilitada com esse slug no workspace. */
   isInstalled: z.boolean(),
 });

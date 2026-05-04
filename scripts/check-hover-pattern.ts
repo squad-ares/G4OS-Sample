@@ -12,6 +12,7 @@ import { globSync } from 'glob';
 
 const SCAN_GLOBS = [
   'packages/features/src/**/*.{ts,tsx}',
+  'packages/ui/src/**/*.{ts,tsx}',
   'apps/desktop/src/renderer/**/*.{ts,tsx}',
 ];
 

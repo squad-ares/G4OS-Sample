@@ -60,6 +60,12 @@ export class OAuthCallbackHandler extends DisposableBase {
           entry.reject(OAuthError.timeout());
         }
       }, timeoutMs);
+      // CR-33 F-CR33-8: unref para não travar graceful shutdown do Electron
+      // (deadline 5s, ADR-0032). `dispose()` já limpa via `clearTimeout`, mas
+      // se o chain de dispose for esquecido (futuro refactor), unref é defesa
+      // — `app.quit()` durante OAuth pendente não fica preso 5min até o
+      // timeout natural. Simétrico com `loopback.ts:117` que já faz unref.
+      timer.unref?.();
 
       this.pending.set(state, {
         resolve: (params) => resolve(ok(params)),

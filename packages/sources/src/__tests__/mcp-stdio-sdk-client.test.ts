@@ -9,7 +9,8 @@ import type { McpStdioConfig } from '../mcp-stdio/types.ts';
 function makeConfig(): McpStdioConfig {
   return {
     slug: 'fake',
-    metadata: { provider: 'test', category: 'other', displayName: 'Fake' },
+    // Fixture alinhada com SourceMetadata: slug + requiresAuth obrigatórios.
+    metadata: { slug: 'fake', displayName: 'Fake', category: 'other', requiresAuth: false },
     command: 'node',
     args: ['server.js'],
   };

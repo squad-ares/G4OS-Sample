@@ -95,19 +95,44 @@ describe('MemoryMonitor', () => {
     mon.start();
     mon.dispose();
   });
+
+  // F-CR41-2: após dispose, sampleOnce() retorna sample vazio sem invocar callbacks.
+  it('sampleOnce() no-ops after dispose (F-CR41-2)', () => {
+    const events: string[] = [];
+    const mon = new MemoryMonitor({
+      thresholds: { rssBytes: 1 },
+      memoryUsage: fakeUsage({ rss: 9_999_999 }),
+      onThresholdExceeded: (reason) => events.push(reason),
+    });
+    mon.dispose();
+    const sample = mon.sampleOnce();
+    // Callback não deve ter sido chamado
+    expect(events).toHaveLength(0);
+    // Sample retornado deve ser vazio (zeros)
+    expect(sample.rssBytes).toBe(0);
+  });
 });
 
 describe('auditProcessListeners', () => {
-  it('returns only events whose count exceeds the threshold', () => {
+  it('returns events whose count meets or exceeds the threshold (>=)', () => {
     const handler = (): void => undefined;
-    for (let i = 0; i < 6; i++) process.on('uncaughtException', handler);
+    // Adicionar exatamente (threshold) handlers — deve aparecer (>=, não >)
+    const initialCount = process.listenerCount('uncaughtException');
+    const toAdd = Math.max(0, 5 - initialCount);
+    for (let i = 0; i < toAdd; i++) process.on('uncaughtException', handler);
     try {
       const result = auditProcessListeners(['uncaughtException'], 5);
-      expect(result).toHaveLength(1);
-      expect(result[0]?.event).toBe('uncaughtException');
-      expect(result[0]?.count).toBeGreaterThan(5);
+      // Pelo menos 5 listeners → aparece no resultado
+      expect(result.some((r) => r.event === 'uncaughtException')).toBe(true);
+      expect(result[0]?.count).toBeGreaterThanOrEqual(5);
     } finally {
-      for (let i = 0; i < 6; i++) process.off('uncaughtException', handler);
+      for (let i = 0; i < toAdd; i++) process.off('uncaughtException', handler);
     }
+  });
+
+  it('omits events below threshold', () => {
+    // Com threshold=9999 nenhum evento deve aparecer
+    const result = auditProcessListeners(['uncaughtException'], 9999);
+    expect(result).toHaveLength(0);
   });
 });

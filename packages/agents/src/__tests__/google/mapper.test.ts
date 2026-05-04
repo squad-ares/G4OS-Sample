@@ -116,16 +116,23 @@ describe('google/config/mapper', () => {
     });
 
     it('maps tool results into role=user functionResponse with FNV-1a safe name', () => {
-      const msg = makeMsg('tool', [
+      // ADR-0075 / F-CR31-4: toolName é resolvido via mapa toolUseId→toolName
+      // construído da assistant message anterior — passar apenas a mensagem
+      // tool sem contexto devolvia 'unknown'. O teste precisa incluir a
+      // mensagem assistant com o tool_use correspondente.
+      const assistantMsg = makeMsg('assistant', [
+        { type: 'tool_use', toolUseId: 'tu1', toolName: 'bash', input: { cmd: 'ls' } },
+      ]);
+      const toolMsg = makeMsg('tool', [
         { type: 'tool_result', toolUseId: 'tu1', content: 'bin', isError: false },
       ]);
-      (msg as unknown as { toolName: string }).toolName = 'bash';
 
-      const result = mapMessagesToGemini([msg]);
+      const result = mapMessagesToGemini([assistantMsg, toolMsg]);
       const expectedName = toGeminiSafeToolName('bash');
 
-      expect(result[0]?.role).toBe('user');
-      expect(result[0]?.parts).toEqual([
+      // índice 1 = role=user com o functionResponse (índice 0 é o model turn)
+      expect(result[1]?.role).toBe('user');
+      expect(result[1]?.parts).toEqual([
         { functionResponse: { name: expectedName, response: { result: 'bin' } } },
       ]);
     });

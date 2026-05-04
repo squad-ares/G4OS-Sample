@@ -1,5 +1,6 @@
 import { Button } from '@g4os/ui';
 import { ArrowRight, FolderKanban, Sparkles, Zap } from 'lucide-react';
+import type { ReactNode } from 'react';
 
 export interface WorkspaceLandingChip {
   readonly label: string;
@@ -10,7 +11,12 @@ export interface WorkspaceLandingCanvasProps {
   readonly eyebrow: string;
   readonly title: string;
   readonly description: string;
-  readonly brandMark: string;
+  /**
+   * Conteúdo do bloco de marca no hero — pode ser string (caractere/texto)
+   * ou ReactNode pra passar `<G4OSSymbol />` direto e manter brand identity
+   * em paridade com `SessionsStartCanvas` da V1.
+   */
+  readonly brandMark: ReactNode;
 
   readonly primaryActionLabel: string;
   readonly onPrimaryAction: () => void;
@@ -72,7 +78,7 @@ export function WorkspaceLandingCanvas({
         <div className="flex w-full max-w-5xl flex-col gap-6">
           <div className="rounded-[24px] bg-background/90 p-8 shadow-middle backdrop-blur-sm">
             <div className="mb-6 flex items-center gap-4">
-              <div className="flex h-14 w-14 items-center justify-center rounded-[18px] bg-foreground text-[20px] font-semibold text-background shadow-minimal">
+              <div className="flex h-14 w-14 items-center justify-center rounded-[18px] bg-foreground text-[20px] font-semibold text-accent shadow-minimal [&>svg]:h-8 [&>svg]:w-8">
                 {brandMark}
               </div>
               <div>

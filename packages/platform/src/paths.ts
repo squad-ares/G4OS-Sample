@@ -1,32 +1,50 @@
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import envPaths from 'env-paths';
+import { getAppName } from './platform-info.ts';
 
-// Valida FLAVOR para evitar path traversal via env —
-// `G4OS_DISTRIBUTION_FLAVOR='../../../etc'` propagaria para envPaths().
-// Whitelist implícita: regex `/^[a-z0-9-]+$/` aceita só flavors válidos.
-const RAW_FLAVOR = process.env['G4OS_DISTRIBUTION_FLAVOR'] ?? 'public';
-const FLAVOR = /^[a-z0-9-]+$/.test(RAW_FLAVOR) ? RAW_FLAVOR : 'public';
-const APP_NAME = FLAVOR === 'g4' ? 'g4os-internal' : 'g4os';
+// CR-43 F-CR43-5: lazy-init do singleton de paths. Antes `getAppName()` e
+// `envPaths()` rodavam no load-time do módulo — se `G4OS_DISTRIBUTION_FLAVOR`
+// fosse setado depois do primeiro `import '@g4os/platform'` (ex.: após
+// dotenv.config() no preflight, ou em workers Vitest que reutilizam módulos),
+// o paths ficava travado com o valor do env no momento do import. Agora a
+// inicialização ocorre na primeira chamada a `getAppPaths()`, garantindo que
+// qualquer setter de env anterior é observado. Mesmo padrão que `_platformInfo`
+// em `platform-info.ts`.
+let _paths: ReturnType<typeof envPaths> | null = null;
 
-// Instância única reaproveitada entre módulos do main
-const paths = envPaths(APP_NAME, { suffix: '' });
+function ensurePaths(): ReturnType<typeof envPaths> {
+  if (!_paths) {
+    // CR-23 F-CR23-3: APP_NAME via `getAppName()` — fonte única de FLAVOR+NAME.
+    _paths = envPaths(getAppName(), { suffix: '' });
+  }
+  return _paths;
+}
 
+/**
+ * Paths resolvidos via `env-paths` — localização varia por SO:
+ *   Linux:   ~/.config/g4os/ (config), ~/.local/share/g4os/ (data)
+ *   macOS:   ~/Library/Application Support/g4os/ (config e data)
+ *   Windows: %APPDATA%/g4os/Config/ (config), %LOCALAPPDATA%/g4os/Data/ (data)
+ *
+ * Nunca hardcode esses paths — use `getAppPaths()` em todos os consumidores.
+ */
 export interface AppPaths {
-  /** ~/.config/g4os */
+  /** Diretório de configuração da aplicação (env-paths config). */
   config: string;
-  /** ~/.local/share/g4os */
+  /** Diretório de dados persistentes (env-paths data). */
   data: string;
-  /** ~/.cache/g4os */
+  /** Diretório de cache descartável (env-paths cache). */
   cache: string;
-  /** ~/.local/state/g4os */
+  /** Diretório de estado de runtime (subdir de data — XDG_STATE_HOME emulado). */
   state: string;
-  /** ~/.g4os/credentials.enc */
+  /** Arquivo de credenciais cifrado (dentro de data). */
   credentialsFile: string;
-  /** ~/.g4os/workspaces/<id>/ */
+  /** Diretório raiz do workspace `id` (dentro de data/workspaces). */
   workspace(id: string): string;
-  /** ~/.g4os/workspaces/<id>/sessions/<sessionId>/ */
+  /** Diretório da sessão `sessionId` dentro do workspace `workspaceId`. */
   session(workspaceId: string, sessionId: string): string;
-  /** ~/.g4os/logs/ */
+  /** Diretório de logs (env-paths log). */
   logs: string;
 }
 
@@ -42,7 +60,16 @@ function assertSafeId(id: string, kind: 'workspace' | 'session'): string {
   return id;
 }
 
+/**
+ * Diretório temporário do sistema operacional (cross-platform).
+ * Usar em vez de `os.tmpdir()` diretamente (ADR-0013).
+ */
+export function getSystemTmpDir(): string {
+  return tmpdir();
+}
+
 export function getAppPaths(): AppPaths {
+  const paths = ensurePaths();
   return Object.freeze({
     config: paths.config,
     data: paths.data,

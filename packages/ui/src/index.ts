@@ -1,6 +1,23 @@
-export { Avatar, AvatarFallback, AvatarImage } from './components/avatar.tsx';
+// CR-18 F-U4: re-export `CrossfadeAvatar`, `AnimatedCollapsibleContent` e
+// `springTransition` no barrel — eram exportados nos arquivos mas o barrel
+// só re-exportava os primitivos básicos. Sem barrel entry, knip flagava
+// como dead code (false positive — consumidores faziam path import).
+
+export type { TranslationKey } from '@g4os/translate';
+export {
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+  CrossfadeAvatar,
+} from './components/avatar.tsx';
 export { Button, type ButtonProps, buttonVariants } from './components/button.tsx';
-export { Collapsible, CollapsibleContent, CollapsibleTrigger } from './components/collapsible.tsx';
+export {
+  AnimatedCollapsibleContent,
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+  springTransition,
+} from './components/collapsible.tsx';
 export {
   Command,
   CommandDialog,
@@ -72,6 +89,7 @@ export {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from './components/dropdown-menu.tsx';
+export { G4OSSymbol, type G4OSSymbolProps } from './components/g4os-symbol.tsx';
 export { Input } from './components/input.tsx';
 export { Label } from './components/label.tsx';
 export { LanguageSwitcher, type LanguageSwitcherProps } from './components/language-switcher.tsx';

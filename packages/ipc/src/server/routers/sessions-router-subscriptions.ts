@@ -38,12 +38,20 @@ export const sessionsSubscriptionsRouter = router({
       notify?.();
     });
 
+    // CR-25 F-CR25-5: registrar o listener de abort UMA vez fora do loop.
+    // Antes, cada iteração com `queue.length === 0` fazia
+    // `signal.addEventListener('abort', ...)`, acumulando closures que só
+    // eram coletadas quando o signal abortasse de fato. Em sessões longas
+    // com cadência irregular (várias pausas/retomadas), o signal acumulava
+    // centenas de listeners + closures retidas por iteração.
+    const onAbort = (): void => notify?.();
+    signal?.addEventListener('abort', onAbort, { once: true });
+
     try {
       while (!signal?.aborted) {
         if (queue.length === 0) {
           await new Promise<void>((resolve) => {
             notify = resolve;
-            signal?.addEventListener('abort', () => resolve(), { once: true });
           });
           notify = null;
         }
@@ -53,6 +61,7 @@ export const sessionsSubscriptionsRouter = router({
         }
       }
     } finally {
+      signal?.removeEventListener('abort', onAbort);
       disposable.dispose();
     }
   }),
@@ -79,12 +88,15 @@ export const sessionsSubscriptionsRouter = router({
       notify?.();
     });
 
+    // CR-25 F-CR25-5: idem `stream` — listener de abort registrado uma vez.
+    const onAbort = (): void => notify?.();
+    signal?.addEventListener('abort', onAbort, { once: true });
+
     try {
       while (!signal?.aborted) {
         if (queue.length === 0) {
           await new Promise<void>((resolve) => {
             notify = resolve;
-            signal?.addEventListener('abort', () => resolve(), { once: true });
           });
           notify = null;
         }
@@ -94,6 +106,7 @@ export const sessionsSubscriptionsRouter = router({
         }
       }
     } finally {
+      signal?.removeEventListener('abort', onAbort);
       disposable.dispose();
     }
   }),

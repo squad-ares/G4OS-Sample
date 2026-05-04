@@ -14,8 +14,9 @@ function makeSource(slug: string, opts: { hangActivate?: boolean; hangList?: boo
   return {
     slug,
     kind: 'mcp-stdio',
-    metadata: { displayName: slug, description: '', category: 'tool' },
-    status$: new BehaviorSubject({ kind: 'idle' as const }),
+    // Fixture alinhada com SourceMetadata: category ∈ SourceCategory, requiresAuth obrigatório.
+    metadata: { slug, displayName: slug, category: 'dev', requiresAuth: false },
+    status$: new BehaviorSubject<import('../interface/source.ts').SourceStatus>('disconnected'),
     activate: () =>
       opts.hangActivate
         ? new Promise(() => undefined) // nunca resolve
@@ -25,7 +26,7 @@ function makeSource(slug: string, opts: { hangActivate?: boolean; hangList?: boo
       opts.hangList
         ? new Promise(() => undefined)
         : Promise.resolve(ok([] as readonly ToolDefinition[])),
-    callTool: () => new BehaviorSubject({ kind: 'done', content: [] } as never),
+    callTool: () => new BehaviorSubject({ content: [], isError: false } as never),
     dispose: () => undefined,
   };
 }

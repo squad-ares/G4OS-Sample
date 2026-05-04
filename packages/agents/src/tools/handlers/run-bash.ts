@@ -85,6 +85,18 @@ function runOnce(
     });
     let stdout = '';
     let stderr = '';
+    // CR-37 F-CR37-1: contadores de byte explícitos. `stdout.length` é JS
+    // string length (UTF-16 code units) e NÃO é equivalente a byte count em
+    // UTF-8 — para CJK Han (3 bytes/char), emoji (4 bytes via surrogate
+    // pair) e acentos latim-1 (2 bytes/char), comparar `stdout.length +
+    // chunk.byteLength` contra `MAX_OUTPUT_BYTES` (em bytes) bypassa o cap
+    // em 2-4×, e o `subarray(0, MAX_OUTPUT_BYTES - stdout.length)` corta o
+    // chunk numa posição de byte arbitrária que pode cair mid-multibyte e
+    // produzir `�` na conversão `toString('utf8')`. Mesmo padrão do
+    // `Buffer.byteLength` em `file-ops.ts:103` (CR-35 F-CR35-1) e
+    // `write-file.ts:43`. Acumulamos byte count separado.
+    let stdoutBytes = 0;
+    let stderrBytes = 0;
     let truncatedStdout = false;
     let truncatedStderr = false;
     let timedOut = false;
@@ -94,6 +106,14 @@ function runOnce(
       timedOut = true;
       child.kill('SIGTERM');
     }, timeoutMs);
+    // CR-35 F-CR35-2: unref pra não travar graceful shutdown caso o SIGTERM
+    // não consiga matar o subprocess imediatamente (zombie, syscall bloqueada,
+    // signal mask). Sem unref, `app.exit(0)` da AppLifecycle ainda força quit
+    // em 5s, mas o draining percebido pelo usuário pode chegar a `timeoutMs`
+    // (até 2 min worst case). Mesmo padrão dos siblings em `tool-execution.ts:220`,
+    // `source-probe.ts:82` (CR-34 F-CR34-3), `oauth/callback-handler.ts:68`,
+    // `oauth/loopback.ts:117`, `permission-broker.ts:188`.
+    timer.unref?.();
 
     const onAbort = (): void => {
       child.kill('SIGTERM');
@@ -101,19 +121,31 @@ function runOnce(
     signal.addEventListener('abort', onAbort, { once: true });
 
     child.stdout?.on('data', (chunk: Buffer) => {
-      if (stdout.length + chunk.byteLength > MAX_OUTPUT_BYTES) {
-        stdout += chunk.subarray(0, MAX_OUTPUT_BYTES - stdout.length).toString('utf8');
+      if (stdoutBytes + chunk.byteLength > MAX_OUTPUT_BYTES) {
+        const room = Math.max(0, MAX_OUTPUT_BYTES - stdoutBytes);
+        if (room > 0) {
+          const slice = chunk.subarray(0, room);
+          stdout += slice.toString('utf8');
+          stdoutBytes += slice.byteLength;
+        }
         truncatedStdout = true;
       } else {
         stdout += chunk.toString('utf8');
+        stdoutBytes += chunk.byteLength;
       }
     });
     child.stderr?.on('data', (chunk: Buffer) => {
-      if (stderr.length + chunk.byteLength > MAX_OUTPUT_BYTES) {
-        stderr += chunk.subarray(0, MAX_OUTPUT_BYTES - stderr.length).toString('utf8');
+      if (stderrBytes + chunk.byteLength > MAX_OUTPUT_BYTES) {
+        const room = Math.max(0, MAX_OUTPUT_BYTES - stderrBytes);
+        if (room > 0) {
+          const slice = chunk.subarray(0, room);
+          stderr += slice.toString('utf8');
+          stderrBytes += slice.byteLength;
+        }
         truncatedStderr = true;
       } else {
         stderr += chunk.toString('utf8');
+        stderrBytes += chunk.byteLength;
       }
     });
 

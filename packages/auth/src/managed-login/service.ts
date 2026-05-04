@@ -96,9 +96,19 @@ export class ManagedLoginService extends DisposableBase {
     // (UI deveria desabilitar botão durante esses estados). Rejeitar
     // explicitamente evita transitions inválidas que mascarem o bug.
     const current = this.subject.value;
-    if (current.kind === 'verifying' || current.kind === 'requesting_otp') {
+    // F-CR32-5: incluir `bootstrapping` no guard. Bootstrap em vôo é estado
+    // inválido para iniciar novo OTP — FSM corrompida se bootstrap.run()
+    // concluir e sobrescrever o estado `requesting_otp`/`awaiting_otp` novo.
+    if (
+      current.kind === 'verifying' ||
+      current.kind === 'requesting_otp' ||
+      current.kind === 'bootstrapping'
+    ) {
       log.warn({ from: current.kind }, 'requestOtp ignored: another OTP flow in progress');
-      return err(AuthError.disposed());
+      // CR-18 F-AU3: era `AuthError.disposed()` — caller checando
+      // `code === AUTH_DISPOSED` disparava shutdown indevido. `flowInProgress`
+      // discrimina: "tente de novo" vs "serviço destruído".
+      return err(AuthError.flowInProgress(current.kind));
     }
     // Sanitiza `previous` para nunca aninhar error → error → error.
     // Se o estado atual já é error, o "anterior" lógico é o `previous` dele
@@ -131,7 +141,8 @@ export class ManagedLoginService extends DisposableBase {
       currentSubmit.kind === 'requesting_otp'
     ) {
       log.warn({ from: currentSubmit.kind }, 'submitOtp ignored: another auth flow in progress');
-      return err(AuthError.disposed());
+      // CR-18 F-AU3: ver requestOtp acima.
+      return err(AuthError.flowInProgress(currentSubmit.kind));
     }
     const previous = sanitizePrevious(this.subject.value);
     this.setState({ kind: 'verifying', email });
@@ -169,6 +180,10 @@ export class ManagedLoginService extends DisposableBase {
   }
 
   async logout(): Promise<void> {
+    // F-CR32-9: early-return pós-dispose (ADR-0012). Tokens já devem ter sido
+    // deletados no fluxo normal de shutdown; operar num vault prestes a
+    // fechar é desnecessário e pode mascarar erros de teardown.
+    if (this._disposed) return;
     // Paralelizar deletes via Promise.allSettled. Sequencial era
     // problemático: se primeiro falhasse, segundo nunca rodava → tokens
     // órfãos. Agora todos rodam, partial failure só é logada — state
@@ -200,13 +215,32 @@ export class ManagedLoginService extends DisposableBase {
    * idêntico para o caller.
    */
   async restore(): Promise<boolean> {
+    // F-CR32-9: early-return pós-dispose (ADR-0012). Race em quit imediato
+    // após init — `setState` em subject completed seria no-op mas a I/O
+    // aconteceria à toa, podendo gravar lixo num vault em teardown.
+    if (this._disposed) return false;
     const accessResult = await this.tokenStore.get(AUTH_ACCESS_TOKEN_KEY);
     if (accessResult.isErr()) return false;
     if (accessResult.value === '') return false;
     const metaResult = await this.tokenStore.get(AUTH_SESSION_META_KEY);
     if (metaResult.isErr()) return false;
     const meta = parseMeta(metaResult.value);
-    if (!meta) return false;
+    if (!meta) {
+      // CR-18 F-AU5: meta corrompida (JSON malformado, schema antigo
+      // incompatível, dados truncados) ficava persistida indefinidamente —
+      // todo restore subsequente falhava igual sem self-healing. User
+      // precisava wipe manual. Best-effort delete do meta key para que o
+      // próximo login reconstrua o slot do zero.
+      log.warn('persisted session meta is corrupt; clearing for self-healing');
+      const deleteResult = await this.tokenStore.delete(AUTH_SESSION_META_KEY);
+      if (deleteResult.isErr()) {
+        log.warn(
+          { err: deleteResult.error.message },
+          'failed to delete corrupt session meta; user may need wipe',
+        );
+      }
+      return false;
+    }
 
     if (meta.expiresAt !== undefined && meta.expiresAt <= Date.now() + RESTORE_EXPIRY_BUFFER_MS) {
       log.info(
@@ -309,7 +343,11 @@ function parseMeta(raw: string): PersistedSessionMeta | null {
     const userId = record['userId'];
     const email = record['email'];
     const expiresAt = record['expiresAt'];
-    if (typeof userId !== 'string' || typeof email !== 'string') return null;
+    // F-CR32-11: strings vazias passam em `typeof x === 'string'` mas são
+    // inválidas — restore() construiria AuthSession com userId/email vazios,
+    // transitando para `authenticated` sem identidade real.
+    if (typeof userId !== 'string' || userId.length === 0) return null;
+    if (typeof email !== 'string' || email.length === 0) return null;
     return {
       userId,
       email,

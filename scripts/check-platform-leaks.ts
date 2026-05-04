@@ -20,6 +20,23 @@ const FORBIDDEN_PATTERNS: ReadonlyArray<{ pattern: RegExp; description: string }
   { pattern: /\bos\.tmpdir\(\)/, description: 'os.tmpdir()' },
 ];
 
+// CR-18 F-P2: o regex de member-access (`os.homedir()`) perdia named imports
+// (`import { homedir } from 'node:os'`). Scan separado pega o import statement
+// e detecta os símbolos sensíveis nos braces. Lista cobre symbols que ADR-0013
+// considera "platform identity" — o que muda por user/OS e deve passar pelo
+// `@g4os/platform`. Hardware counts (`cpus`, `networkInterfaces`, `totalmem`,
+// `freemem`) ficam de fora propositalmente — não são "platform leaks", são
+// recursos do host.
+const FORBIDDEN_IMPORT_SYMBOLS = new Set([
+  'homedir',
+  'tmpdir',
+  'platform',
+  'arch',
+  'hostname',
+  'userInfo',
+]);
+const IMPORT_FROM_OS = /^\s*import\s+(?:type\s+)?\{([^}]+)\}\s+from\s+['"](?:node:)?os['"]/;
+
 const files = globSync('{packages,apps}/**/src/**/*.{ts,tsx}', {
   ignore: ['**/node_modules/**', '**/dist/**', '**/__tests__/**', '**/*.test.ts', '**/*.spec.ts'],
 });
@@ -71,6 +88,26 @@ for (const file of files) {
           pattern: description,
           snippet: raw.trim().slice(0, 120),
         });
+      }
+    }
+    // Detecta named imports de `node:os` / `os` com símbolos sensíveis.
+    const importMatch = IMPORT_FROM_OS.exec(raw);
+    if (importMatch) {
+      const namedList = (importMatch[1] ?? '').split(',');
+      for (const named of namedList) {
+        // Suporta `homedir` e `homedir as foo`.
+        const symbol = named
+          .trim()
+          .split(/\s+as\s+/)[0]
+          ?.trim();
+        if (symbol && FORBIDDEN_IMPORT_SYMBOLS.has(symbol)) {
+          violations.push({
+            file,
+            line: i + 1,
+            pattern: `import { ${symbol} } from 'node:os'`,
+            snippet: raw.trim().slice(0, 120),
+          });
+        }
       }
     }
   }

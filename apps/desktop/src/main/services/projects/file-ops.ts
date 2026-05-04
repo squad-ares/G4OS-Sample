@@ -1,8 +1,9 @@
 import type { Dirent } from 'node:fs';
 import { existsSync } from 'node:fs';
-import { copyFile, mkdir, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
-import { extname, join, relative, resolve } from 'node:path';
+import { copyFile, mkdir, readdir, readFile, rm, stat } from 'node:fs/promises';
+import { extname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { FsError } from '@g4os/kernel/errors';
+import { writeAtomic } from '@g4os/kernel/fs';
 import type { ProjectFile } from '@g4os/kernel/types';
 import { err, ok, type Result } from 'neverthrow';
 
@@ -92,15 +93,28 @@ export async function saveFile(
   relativePath: string,
   content: string,
 ): Promise<Result<void, FsError>> {
-  if (content.length > MAX_UPLOAD_BYTES) {
-    return err(FsError.fileTooLarge(relativePath, content.length, MAX_UPLOAD_BYTES));
+  // CR-35 F-CR35-1: byte-cap real via `Buffer.byteLength` em vez de
+  // `content.length` (code units UTF-16). Para conteúdo multi-byte (CJK 3
+  // bytes/char, emoji 4 bytes/char) a versão antiga deixava passar arquivos
+  // ~3-4x maiores que o nome da constante (`MAX_UPLOAD_BYTES`) sugere, e
+  // divergia do sibling `packages/agents/src/tools/handlers/write-file.ts:43`
+  // que já usava `Buffer.byteLength`. `FsError.fileTooLarge` agora reporta o
+  // byte real, alinhando com o `s.size` que aparece no disco.
+  const bytes = Buffer.byteLength(content, 'utf8');
+  if (bytes > MAX_UPLOAD_BYTES) {
+    return err(FsError.fileTooLarge(relativePath, bytes, MAX_UPLOAD_BYTES));
   }
   const resolved = safeResolve(rootPath, relativePath);
   if (resolved.isErr()) return err(resolved.error);
   try {
     await snapshotIfExists(rootPath, relativePath, resolved.value);
     await mkdir(join(resolved.value, '..'), { recursive: true });
-    await writeFile(resolved.value, content, 'utf-8');
+    // CR-33 F-CR33-1: write user-facing do file editor (UI projects/files-panel)
+    // pelo `writeAtomic` (`tmp → fsync → rename → fsync(dir)`). `writeFile` cru
+    // deixava o arquivo no disco truncado em crash mid-write — `snapshotIfExists`
+    // preserva o backup mas o consumer subsequente (re-abrir tab, `read_file`
+    // tool, IDE externo) lia parcial. ADR-0050 propagado ao file editor de projeto.
+    await writeAtomic(resolved.value, content);
     return ok(undefined);
   } catch (cause) {
     return err(toFsError(relativePath, cause));
@@ -150,12 +164,22 @@ async function pruneSnapshots(snapDir: string): Promise<void> {
 }
 
 function safeResolve(rootPath: string, relativePath: string): Result<string, FsError> {
-  const filesDir = join(rootPath, 'files');
-  const abs = resolve(filesDir, relativePath);
-  if (!abs.startsWith(filesDir)) {
+  // CR-27 F-CR27-1: o pattern antigo `abs.startsWith(filesDir)` é vulnerável.
+  // Para `filesDir=/work/files` e `relativePath='../files-other/secret'`,
+  // resolve produz `/work/files-other/secret` e `startsWith('/work/files')`
+  // retorna `true` — guarda burlada (prefix-match sem separador). Também
+  // quebra em Windows (separador `\`). Solução canônica em
+  // `packages/agents/src/tools/shared/path-guard.ts:resolveInside`: usar
+  // `path.relative` e verificar `..`/absoluto. Reimplementado inline aqui
+  // pra preservar o tipo de erro `FsError` (resolveInside retorna ToolFailure).
+  const base = resolve(join(rootPath, 'files'));
+  const target = isAbsolute(relativePath) ? resolve(relativePath) : resolve(base, relativePath);
+  const rel = relative(base, target);
+  const escaped = rel === '..' || rel.startsWith(`..${sep}`) || isAbsolute(rel);
+  if (escaped) {
     return err(FsError.pathTraversal(relativePath));
   }
-  return ok(abs);
+  return ok(target);
 }
 
 function toFsError(relativePath: string, cause: unknown): FsError {

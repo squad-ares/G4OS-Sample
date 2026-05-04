@@ -55,11 +55,11 @@ describe('DisposableStore', () => {
     expect(() => store.dispose()).toThrow('solo');
   });
 
-  it('auto-disposes and throws when adding to disposed store', () => {
+  it('auto-disposes and returns (no throw) when adding to disposed store', () => {
     const store = new DisposableStore();
     store.dispose();
     const dispose = vi.fn();
-    expect(() => store.add(toDisposable(dispose))).toThrow();
+    expect(() => store.add(toDisposable(dispose))).not.toThrow();
     expect(dispose).toHaveBeenCalledOnce();
   });
 

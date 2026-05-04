@@ -1,5 +1,5 @@
-import { cn, useTranslate } from '@g4os/ui';
-import { Cpu, FolderOpen, Plug } from 'lucide-react';
+import { Button, cn, useTranslate } from '@g4os/ui';
+import { Cpu, FolderOpen, PanelRight, Plug, RotateCcw } from 'lucide-react';
 
 export interface SessionActiveBadgesProps {
   readonly modelLabel?: string | null;
@@ -10,14 +10,21 @@ export interface SessionActiveBadgesProps {
   readonly onOpenModelPicker?: () => void;
   readonly onOpenWorkingDirPicker?: () => void;
   readonly onOpenSourcePicker?: () => void;
+  readonly onRetryLast?: () => void;
+  readonly onToggleMetadata?: () => void;
+  readonly metadataOpen?: boolean;
   readonly className?: string;
 }
 
 /**
- * Linha de chips ativos abaixo do `SessionHeader` mostrando estado da
- * sessão sem ocupar o transcript: modelo + provider, diretório de
- * trabalho, contagem de sources ativas. Cada chip é clicável e abre o
- * picker correspondente quando a callback é provida.
+ * Linha única de chrome para a sessão: chips de modelo / wd / sources
+ * (clicáveis pra abrir os pickers correspondentes) + ações leves no fim
+ * (retry-last, toggle metadata). Substitui o antigo `SessionHeader` que
+ * renderizava bar dedicada com nome editável + 4 botões — paridade V1
+ * deixa o canvas máximo, sem chrome competindo com a shell topbar.
+ *
+ * Nome da sessão fica no sub-sidebar (item ativo) e no `SessionMetadataPanel`
+ * (rename via Pencil). Archive vive no metadata panel também.
  */
 export function SessionActiveBadges({
   modelLabel,
@@ -28,14 +35,18 @@ export function SessionActiveBadges({
   onOpenModelPicker,
   onOpenWorkingDirPicker,
   onOpenSourcePicker,
+  onRetryLast,
+  onToggleMetadata,
+  metadataOpen,
   className,
 }: SessionActiveBadgesProps) {
   const { t } = useTranslate();
   const hasModel = Boolean(modelLabel);
   const hasDir = Boolean(workingDirectory);
   const hasSources = (enabledSourceCount ?? 0) > 0;
+  const hasActions = Boolean(onRetryLast || onToggleMetadata);
 
-  if (!hasModel && !hasDir && !hasSources) return null;
+  if (!hasModel && !hasDir && !hasSources && !hasActions) return null;
 
   const wd = workingDirectory ? lastSegment(workingDirectory) : null;
   const enabled = enabledSourceCount ?? 0;
@@ -51,32 +62,64 @@ export function SessionActiveBadges({
   return (
     <div
       className={cn(
-        'flex shrink-0 flex-wrap items-center gap-1.5 border-b border-foreground/8 px-4 py-1.5',
+        'flex shrink-0 items-center gap-1.5 border-b border-foreground/8 px-4 py-1.5',
         className,
       )}
     >
-      {hasModel ? (
-        <Chip
-          icon={<Cpu className="size-3" aria-hidden={true} />}
-          label={providerLabel ? `${providerLabel} · ${modelLabel}` : (modelLabel as string)}
-          onClick={onOpenModelPicker}
-        />
-      ) : null}
-      {hasDir && wd ? (
-        <Chip
-          icon={<FolderOpen className="size-3" aria-hidden={true} />}
-          label={wd}
-          title={workingDirectory ?? undefined}
-          onClick={onOpenWorkingDirPicker}
-          mono={true}
-        />
-      ) : null}
-      {hasSources ? (
-        <Chip
-          icon={<Plug className="size-3" aria-hidden={true} />}
-          label={sourceLine}
-          onClick={onOpenSourcePicker}
-        />
+      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
+        {hasModel ? (
+          <Chip
+            icon={<Cpu className="size-3" aria-hidden={true} />}
+            label={providerLabel ? `${providerLabel} · ${modelLabel}` : (modelLabel as string)}
+            onClick={onOpenModelPicker}
+          />
+        ) : null}
+        {hasDir && wd ? (
+          <Chip
+            icon={<FolderOpen className="size-3" aria-hidden={true} />}
+            label={wd}
+            title={workingDirectory ?? undefined}
+            onClick={onOpenWorkingDirPicker}
+            mono={true}
+          />
+        ) : null}
+        {hasSources ? (
+          <Chip
+            icon={<Plug className="size-3" aria-hidden={true} />}
+            label={sourceLine}
+            onClick={onOpenSourcePicker}
+          />
+        ) : null}
+      </div>
+
+      {hasActions ? (
+        <div className="flex shrink-0 items-center gap-0.5">
+          {onRetryLast ? (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onRetryLast}
+              aria-label={t('chat.header.retryLast')}
+              title={t('chat.header.retryLast')}
+              className="size-6"
+            >
+              <RotateCcw className="size-3" aria-hidden={true} />
+            </Button>
+          ) : null}
+          {onToggleMetadata ? (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onToggleMetadata}
+              aria-label={t('chat.header.toggleMetadata')}
+              aria-pressed={metadataOpen ? 'true' : 'false'}
+              title={t('chat.header.toggleMetadata')}
+              className={cn('size-6', metadataOpen && 'bg-foreground/[0.08] text-foreground')}
+            >
+              <PanelRight className="size-3" aria-hidden={true} />
+            </Button>
+          ) : null}
+        </div>
       ) : null}
     </div>
   );

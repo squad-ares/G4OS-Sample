@@ -15,7 +15,7 @@ import type {
   SessionFilter as KernelSessionFilter,
   Session,
 } from '@g4os/kernel/types';
-import { toast } from '@g4os/ui';
+import { toast, useTranslate } from '@g4os/ui';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useCallback, useMemo, useState } from 'react';
 import { queryClient } from '../ipc/query-client.ts';
@@ -49,6 +49,7 @@ export interface SessionsPageState {
 }
 
 export function useSessionsPage(workspaceId: string): SessionsPageState {
+  const { t } = useTranslate();
   const [filters, setFilters] = useState<SessionFilters>(DEFAULT_SESSION_FILTERS);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -130,7 +131,11 @@ export function useSessionsPage(workspaceId: string): SessionsPageState {
     setSearchQuery,
     createSession: async (name) => {
       try {
-        const session = await createMutation.mutateAsync(name ?? 'Nova sessão');
+        // CR-25 F-CR25-2: fallback i18n. Antes era hardcoded `'Nova sessão'`,
+        // quebrando paridade com en-US (sessões apareciam com nome pt-BR pra
+        // usuário inglês) e violando "Padrões obrigatórios → labelKey via t()"
+        // do CLAUDE.md.
+        const session = await createMutation.mutateAsync(name ?? t('session.new.defaultName'));
         return session as Session;
       } catch (error) {
         toast.error(String(error));

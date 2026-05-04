@@ -23,7 +23,9 @@ export type OAuthErrorCode =
   | 'state_mismatch'
   | 'callback_timeout'
   | 'exchange_failed'
-  | 'pending_not_found';
+  | 'pending_not_found'
+  /** RFC 6749 §4.1.2.1 — IdP retornou `error=access_denied` ou similar. */
+  | 'provider_denied';
 
 export class OAuthError extends Error {
   readonly code: OAuthErrorCode;
@@ -54,6 +56,12 @@ export class OAuthError extends Error {
 
   static pendingNotFound(): OAuthError {
     return new OAuthError('pending_not_found', 'No pending OAuth flow matched state');
+  }
+
+  /** RFC 6749 §4.1.2.1 — IdP rejeitou com `error` explícito no redirect. */
+  static providerDenied(error: string, description?: string): OAuthError {
+    const detail = description ? `${error}: ${description}` : error;
+    return new OAuthError('provider_denied', `OAuth provider denied: ${detail}`);
   }
 }
 

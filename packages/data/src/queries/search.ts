@@ -20,6 +20,12 @@ const SNIPPET_TOKENS = 32;
 
 export interface SearchOptions {
   readonly limit?: number;
+  /**
+   * F-CR36-9: se `true`, inclui sessões deletadas/arquivadas nos resultados.
+   * Default `false` — defesa em profundidade: sessão soft-deleted não deve
+   * aparecer na busca mesmo se o caller não filtrar antes.
+   */
+  readonly includeDeleted?: boolean;
 }
 
 export function searchMessages(
@@ -31,26 +37,39 @@ export function searchMessages(
   const trimmed = query.trim();
   if (trimmed.length === 0) return [];
   const limit = options.limit ?? DEFAULT_LIMIT;
+  const includeDeleted = options.includeDeleted ?? false;
 
   try {
-    return searchMessagesFts(db, sessionId, trimmed, limit);
+    return searchMessagesFts(db, sessionId, trimmed, limit, includeDeleted);
   } catch {
-    return searchMessagesLike(db, sessionId, trimmed, limit);
+    return searchMessagesLike(db, sessionId, trimmed, limit, includeDeleted);
   }
 }
 
-function searchMessagesFts(db: Db, sessionId: string, query: string, limit: number): SearchMatch[] {
-  const stmt = db.prepare(
-    `SELECT mi.id AS message_id,
+function searchMessagesFts(
+  db: Db,
+  sessionId: string,
+  query: string,
+  limit: number,
+  includeDeleted: boolean,
+): SearchMatch[] {
+  // F-CR36-9: JOIN sessions + filtro por status='active' quando includeDeleted=false.
+  const statusFilter = includeDeleted ? '' : `AND s.status = 'active'`;
+  // F-CR36-7: cachedPrepare evita re-parse do SQL por keystroke em search-as-you-type.
+  // O SQL varia apenas em `statusFilter` e `LIMIT` (ambos staticamente interpolados),
+  // portanto a chave de cache é o SQL literal — queries diferentes = slots diferentes.
+  const sql = `SELECT mi.id AS message_id,
             mi.sequence AS sequence,
             snippet(messages_fts, 0, '<mark>', '</mark>', '...', ${SNIPPET_TOKENS}) AS snippet
        FROM messages_fts
        JOIN messages_index AS mi ON mi.rowid = messages_fts.rowid
+       JOIN sessions AS s ON s.id = mi.session_id
       WHERE mi.session_id = ?
         AND messages_fts MATCH ?
+        ${statusFilter}
       ORDER BY mi.sequence ASC
-      LIMIT ${limit}`,
-  );
+      LIMIT ${limit}`;
+  const stmt = db.cachedPrepare(sql);
   const rows = stmt.all(sessionId, toFtsPhrase(query)) as unknown as readonly Row[];
   return rows.map(toSearchMatch);
 }
@@ -60,17 +79,22 @@ function searchMessagesLike(
   sessionId: string,
   query: string,
   limit: number,
+  includeDeleted: boolean,
 ): SearchMatch[] {
-  const stmt = db.prepare(
-    `SELECT id AS message_id,
-            sequence AS sequence,
-            substr(content_preview, 1, 200) AS snippet
-       FROM messages_index
-      WHERE session_id = ?
-        AND content_preview LIKE ? ESCAPE '\\'
-      ORDER BY sequence ASC
-      LIMIT ${limit}`,
-  );
+  // F-CR36-9: JOIN sessions + filtro por status='active' quando includeDeleted=false.
+  const statusFilter = includeDeleted ? '' : `AND s.status = 'active'`;
+  // F-CR36-7: cachedPrepare — mesmo argumento do FTS acima.
+  const sql = `SELECT mi.id AS message_id,
+            mi.sequence AS sequence,
+            substr(mi.content_preview, 1, 200) AS snippet
+       FROM messages_index AS mi
+       JOIN sessions AS s ON s.id = mi.session_id
+      WHERE mi.session_id = ?
+        AND mi.content_preview LIKE ? ESCAPE '\\'
+        ${statusFilter}
+      ORDER BY mi.sequence ASC
+      LIMIT ${limit}`;
+  const stmt = db.cachedPrepare(sql);
   const rows = stmt.all(sessionId, toLikePattern(query)) as unknown as readonly Row[];
   return rows.map(toSearchMatch);
 }

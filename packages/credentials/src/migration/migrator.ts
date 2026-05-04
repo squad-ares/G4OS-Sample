@@ -11,17 +11,22 @@
  * associados são migrados como `<key>.refresh_token`.
  */
 
-import { existsSync } from 'node:fs';
-import { mkdir, writeFile } from 'node:fs/promises';
-import { homedir } from 'node:os';
+import { mkdir, stat } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
+import { writeAtomic } from '@g4os/kernel/fs';
 import { createLogger } from '@g4os/kernel/logger';
+import { getHomeDir } from '@g4os/platform';
 import type { CredentialVault } from '../vault.ts';
 import { readV1Credentials, type V1Credentials } from './v1-reader.ts';
 
 const log = createLogger('credentials-migration');
 
-const KEY_SAFE_PATTERN = /[^a-z0-9._-]/gi;
+// CR-18 F-C1: o flag `i` preservava uppercase no replace, mas `vault.set`
+// usa `KEY_PATTERN = /^[a-z0-9._-]+$/` (sem `i`, intencional anti-homoglyph)
+// que rejeita uppercase com `invalidKey`. Resultado: keys V1 com letras
+// maiúsculas (ex.: "OpenAI-Key", "GitHub_Token") falhavam silenciosamente
+// no migrator. Sanitização correta: lowercase → strip → cap.
+const KEY_SAFE_PATTERN = /[^a-z0-9._-]/g;
 const KEY_MAX_LENGTH = 100;
 
 export interface MigrateOptions {
@@ -54,9 +59,18 @@ type EntryOutcome =
 export async function migrateV1ToV2(options: MigrateOptions): Promise<MigrationReport> {
   const v1Path = options.v1Path ?? defaultV1Path();
 
-  if (!existsSync(v1Path)) {
-    log.info({ v1Path }, 'no v1 credentials file — skipping migration');
-    return emptyReport();
+  // F-CR35-10: trocar existsSync (sync FS no main thread) por stat async.
+  // Evita congelar o event loop; ENOENT é o sinal de ausência.
+  try {
+    await stat(v1Path);
+  } catch (cause) {
+    if ((cause as NodeJS.ErrnoException).code === 'ENOENT') {
+      log.info({ v1Path }, 'no v1 credentials file — skipping migration');
+      return emptyReport();
+    }
+    // Erro de FS que não seja ENOENT (EACCES, etc.) — trata como falha de leitura.
+    log.error({ err: cause }, 'failed to stat v1 credentials path');
+    return { ...emptyReport(), errors: [describeError('stat-v1', cause)] };
   }
 
   let v1Creds: V1Credentials;
@@ -131,10 +145,13 @@ export async function migrateV1ToV2(options: MigrateOptions): Promise<MigrationR
   if (options.reportPath) {
     try {
       await mkdir(dirname(options.reportPath), { recursive: true });
-      await writeFile(
+      // CR-32 F-CR32-4: writeAtomic — crash mid-write deixaria JSON parcial
+      // corrompido, e operador subsequente esperando inspecionar o report
+      // ("user reportou key X faltando — qual foi o resultado real?") teria
+      // que descartar o arquivo. Padrão ADR-0050 propagado ao auditing.
+      await writeAtomic(
         options.reportPath,
         `${JSON.stringify({ ...report, completedAt: new Date().toISOString() }, null, 2)}\n`,
-        'utf-8',
       );
     } catch (err) {
       log.warn({ err, reportPath: options.reportPath }, 'failed to persist migration report');
@@ -200,7 +217,7 @@ async function migrateRefreshToken(
 }
 
 function defaultV1Path(): string {
-  return join(homedir(), '.g4os', 'credentials.enc');
+  return join(getHomeDir(), '.g4os', 'credentials.enc');
 }
 
 function emptyReport(): MigrationReport {
@@ -208,7 +225,7 @@ function emptyReport(): MigrationReport {
 }
 
 function sanitizeKey(raw: string): string {
-  return raw.replace(KEY_SAFE_PATTERN, '_').slice(0, KEY_MAX_LENGTH);
+  return raw.toLowerCase().replace(KEY_SAFE_PATTERN, '_').slice(0, KEY_MAX_LENGTH);
 }
 
 function describeError(key: string, cause: unknown): string {

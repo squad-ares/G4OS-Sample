@@ -118,11 +118,20 @@ export class PermissionStore {
       const argsHash = hashArgs(input);
       const legacyHash = argsHash.slice(0, 32);
       const file = await this.readFile(workspaceId);
-      return (
-        file.decisions.find(
-          (d) => d.toolName === toolName && (d.argsHash === argsHash || d.argsHash === legacyHash),
-        ) ?? null
+      const match = file.decisions.find(
+        (d) => d.toolName === toolName && (d.argsHash === argsHash || d.argsHash === legacyHash),
       );
+      if (!match) return null;
+      // CR-42 F-CR42-9: distinguir match por hash completo (64) de match por
+      // hash legacy (32). Log info permite rastrear quando deprecar suporte
+      // ao formato antigo (zero hits por N dias = remover).
+      if (match.argsHash === legacyHash && match.argsHash !== argsHash) {
+        log.info(
+          { workspaceId, toolName, legacyHash, fullHash: argsHash },
+          'permission auto-resolved via legacy (32-char) hash match',
+        );
+      }
+      return match;
     });
   }
 
@@ -194,30 +203,74 @@ export class PermissionStore {
 
   private async readFile(workspaceId: string): Promise<ToolPermissionsFile> {
     const path = this.path(workspaceId);
+    let raw: string;
     try {
-      const raw = await readFile(path, 'utf8');
-      return ToolPermissionsFileSchema.parse(JSON.parse(raw));
+      raw = await readFile(path, 'utf8');
     } catch (err) {
       if (isNotFound(err)) return { version: 1, decisions: [] };
-      // Distinguir parse failure (corruption) de IO error e
-      // PRESERVAR o arquivo corrompido como `.corrupt.<ts>` antes de tratar
-      // como vazio. Sem isso, o próximo `persist()` sobrescrevia silentemente
-      // — operador perdia dados sem rastreabilidade. Operação é best-effort:
-      // se o rename falhar (disk-full?), seguimos com warn.
-      const corruptPath = `${path}.corrupt.${Date.now()}`;
-      try {
-        await rename(path, corruptPath);
-        log.warn(
-          { err, workspaceId, corruptPath },
-          'permissions.json parse failed; corrupt file preserved as .corrupt.<ts>',
-        );
-      } catch (renameErr) {
-        log.warn(
-          { err, renameErr, workspaceId },
-          'failed to backup corrupt permissions.json; treating as empty',
-        );
-      }
+      // IO error (permissão, FS corrompido) — trata como vazio com warn.
+      log.warn({ err, workspaceId }, 'permissions.json IO error; treating as empty');
       return { version: 1, decisions: [] };
+    }
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      // JSON malformado — isso é corrupção real (não downgrade de versão).
+      await this.#backupCorrupt(path, workspaceId, 'JSON parse error');
+      return { version: 1, decisions: [] };
+    }
+
+    // CR-42 F-CR42-4: antes de tentar `ToolPermissionsFileSchema.parse`
+    // (que falha com `z.literal(1)` para version > 1), checar a versão
+    // primeiro. Versão desconhecida = build downgrade do canary para stable —
+    // NÃO mover para `.corrupt` (seria perda de dados silenciosa). Retornar
+    // vazio e aguardar o usuário retornar ao build novo, ou o próximo migration
+    // handler quando version > 1 for introduzido.
+    const rawVersion =
+      typeof parsed === 'object' &&
+      parsed !== null &&
+      'version' in parsed &&
+      typeof (parsed as Record<string, unknown>)['version'] === 'number'
+        ? (parsed as Record<string, unknown>)['version']
+        : undefined;
+
+    if (rawVersion !== undefined && rawVersion !== 1) {
+      log.warn(
+        { workspaceId, version: rawVersion },
+        'permissions.json version desconhecida (provável build downgrade); ' +
+          'tratando como vazio para não perder decisões',
+      );
+      return { version: 1, decisions: [] };
+    }
+
+    const result = ToolPermissionsFileSchema.safeParse(parsed);
+    if (result.success) return result.data;
+
+    // Falha de schema com version===1 = corrupção real — preservar como .corrupt.
+    await this.#backupCorrupt(path, workspaceId, result.error.message);
+    return { version: 1, decisions: [] };
+  }
+
+  async #backupCorrupt(path: string, workspaceId: string, reason: string): Promise<void> {
+    // Distinguir parse failure (corruption) de IO error e PRESERVAR o arquivo
+    // corrompido como `.corrupt.<ts>` antes de tratar como vazio. Sem isso,
+    // o próximo `persist()` sobrescrevia silentemente — operador perdia dados
+    // sem rastreabilidade. Operação é best-effort: se o rename falhar
+    // (disk-full?), seguimos com warn.
+    const corruptPath = `${path}.corrupt.${Date.now()}`;
+    try {
+      await rename(path, corruptPath);
+      log.warn(
+        { workspaceId, corruptPath, reason },
+        'permissions.json corrompido; arquivo preservado como .corrupt.<ts>',
+      );
+    } catch (renameErr) {
+      log.warn(
+        { renameErr, workspaceId, reason },
+        'failed to backup corrupt permissions.json; treating as empty',
+      );
     }
   }
 
@@ -249,34 +302,116 @@ function stableStringify(value: unknown, visited: WeakSet<object> = new WeakSet(
   // Rejeita ciclos antes de recursar — sem este guard, args com
   // referência circular (`args.self = args`) faz stack overflow e crash
   // o broker. DoS vector em single tool call malformado.
+  //
+  // CR-27 F-CR27-3: precisamos REMOVER `value` do `visited` ao sair
+  // (DFS clássico white/gray/black). Sem o `visited.delete` no finally, o
+  // set acumula objetos vistos em irmãos, transformando a checagem de ciclo
+  // em rejeição de DAG (referências compartilhadas legítimas como
+  // `{ from: shared, to: shared }`). Caller via tool args reaproveita
+  // structs com frequência — antes virava "circular reference" falso.
   if (visited.has(value as object)) {
     throw new Error('hashArgs: circular reference in tool args');
   }
   visited.add(value as object);
-  if (Array.isArray(value)) {
-    return `[${value.map((item) => stableStringify(item, visited)).join(',')}]`;
+  try {
+    if (Array.isArray(value)) {
+      return `[${value.map((item) => stableStringify(item, visited)).join(',')}]`;
+    }
+    // `Reflect.ownKeys` cobre Symbol keys também — `Object.keys` os
+    // ignora silenciosamente, então duas chamadas com Symbol keys diferentes
+    // produziriam o mesmo hash (colisão). Filtramos Symbols porque tornar
+    // chave-Symbol estável JSON é ambíguo (sem identidade serializável).
+    const allKeys = Reflect.ownKeys(value as object).filter(
+      (k): k is string => typeof k === 'string',
+    );
+    // Ordem ordinal (UTF-16 code units) em vez de `localeCompare`. O
+    // hash de args precisa ser determinístico ENTRE máquinas — `localeCompare`
+    // varia com collation do locale (pt-BR, en-US, etc.), então usuários em
+    // locales diferentes geravam hashes ligeiramente distintos para o mesmo
+    // input. Comparação ordinal é estável em qualquer ambiente.
+    const entries = allKeys
+      .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0))
+      .map((k) => [k, (value as Record<string, unknown>)[k]] as const);
+    return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${stableStringify(v, visited)}`).join(',')}}`;
+  } finally {
+    visited.delete(value as object);
   }
-  // `Reflect.ownKeys` cobre Symbol keys também — `Object.keys` os
-  // ignora silenciosamente, então duas chamadas com Symbol keys diferentes
-  // produziriam o mesmo hash (colisão). Filtramos Symbols porque tornar
-  // chave-Symbol estável JSON é ambíguo (sem identidade serializável).
-  const allKeys = Reflect.ownKeys(value as object).filter(
-    (k): k is string => typeof k === 'string',
-  );
-  // Ordem ordinal (UTF-16 code units) em vez de `localeCompare`. O
-  // hash de args precisa ser determinístico ENTRE máquinas — `localeCompare`
-  // varia com collation do locale (pt-BR, en-US, etc.), então usuários em
-  // locales diferentes geravam hashes ligeiramente distintos para o mesmo
-  // input. Comparação ordinal é estável em qualquer ambiente.
-  const entries = allKeys
-    .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0))
-    .map((k) => [k, (value as Record<string, unknown>)[k]] as const);
-  return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${stableStringify(v, visited)}`).join(',')}}`;
+}
+
+// CR-18 F-PE2: tools managed (Gmail, GitHub, Linear, OAuth flows) e tools
+// arbitrárias (run_bash com env, write_file com .env content) podem incluir
+// segredos no input. Quando user clica "allow_always" o broker persiste o
+// preview no `permissions.json`. Sem redação, tokens vão pra disco em texto
+// plano — vazamento lateral do gateway único `CredentialVault` (ADR-0050).
+//
+// Estratégia: redação dupla. (1) Por chave: substitui valor por `[REDACTED]`
+// quando a key matcha lista de identifiers sensíveis (apiKey, token,
+// password, etc.). (2) Por padrão de valor: matcha tokens conhecidos por
+// shape (sk-, gho_, xoxb-, JWT, Bearer, Basic auth) mesmo em chaves benignas
+// como `cmd` ou `body`.
+//
+// CR-42 F-CR42-8: SENSITIVE_KEY_RE relaxada para aceitar prefixos camelCase
+// (ex.: `myApiKey`, `userApiKey`). Antes `(?:^|_|-|\.)` exigia separador
+// antes de `apiKey`, falhando em chaves camelCase (boundary `[A-Z]` agora
+// aceito). SECRET_VALUE_PATTERNS expandido: AWS, Stripe, Sendgrid, Discord.
+const SENSITIVE_KEY_RE =
+  /(?:^|[_\-.A-Z])(?:api[_-]?key|access[_-]?token|refresh[_-]?token|password|passwd|secret|authorization|auth|cookie|session[_-]?id|client[_-]?secret|private[_-]?key|bearer)$/i;
+
+const SECRET_VALUE_PATTERNS: ReadonlyArray<RegExp> = [
+  // Anthropic / OpenAI
+  /\bsk-[A-Za-z0-9_-]{20,}/g,
+  // Google API
+  /\bAIza[A-Za-z0-9_-]{35}/g,
+  // GitHub PAT/OAuth/server-to-server
+  /\bgh[oprsu]_[A-Za-z0-9]{20,}/g,
+  // Slack
+  /\bxox[abprs]-[A-Za-z0-9-]{10,}/g,
+  // JWT (3 segmentos base64url separados por `.`)
+  /\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/g,
+  // Bearer/Basic em headers
+  /\b(?:Bearer|Basic)\s+[A-Za-z0-9._\-+/=]{16,}/gi,
+  // Notion-style opaque
+  /\bsecret_[A-Za-z0-9]{20,}/g,
+  // AWS access key ID
+  /\bAKIA[A-Z0-9]{16}\b/g,
+  // AWS secret access key (heurística de comprimento + charset)
+  /\b[A-Za-z0-9/+=]{40}\b/g,
+  // Discord bot token
+  /\b[MN][A-Za-z\d]{23}\.[A-Za-z0-9_-]{6}\.[A-Za-z0-9_-]{27}\b/g,
+  // Stripe live keys
+  /\bsk_live_[A-Za-z0-9]{24,}/g,
+  /\bpk_live_[A-Za-z0-9]{24,}/g,
+  // Sendgrid
+  /\bSG\.[A-Za-z0-9_-]{22}\.[A-Za-z0-9_-]{43}/g,
+];
+
+function redactSecretValueChars(str: string): string {
+  let out = str;
+  for (const re of SECRET_VALUE_PATTERNS) out = out.replace(re, '[REDACTED]');
+  return out;
 }
 
 function previewArgs(input: Readonly<Record<string, unknown>>): string {
-  const raw = JSON.stringify(input);
-  return raw.length <= 200 ? raw : `${raw.slice(0, 197)}...`;
+  // CR-42 F-CR42-10: truncar ANTES de redatar. Antes: `redactValue(input)` recursava
+  // o objeto inteiro (potencialmente MBs), serializava, depois truncava a 200 chars.
+  // Para um `write_file` com 5MB body isso alocava 5MB por request de permissão.
+  //
+  // Estratégia: (1) redação rasa por CHAVE no nível top-level (evita expor
+  // valores de campos como `password`, `apiKey` sem recursão cara), (2) serializar,
+  // (3) truncar a 1024 chars, (4) aplicar redação por padrão de valor na string.
+  const shallowRedacted: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(input)) {
+    shallowRedacted[k] = SENSITIVE_KEY_RE.test(k) ? '[REDACTED]' : v;
+  }
+  let raw: string;
+  try {
+    raw = JSON.stringify(shallowRedacted);
+  } catch {
+    raw = '{}';
+  }
+  const truncated = raw.length <= 1024 ? raw : `${raw.slice(0, 1021)}...`;
+  const redacted = redactSecretValueChars(truncated);
+  return redacted.length <= 256 ? redacted : `${redacted.slice(0, 253)}...`;
 }
 
 function isNotFound(err: unknown): boolean {

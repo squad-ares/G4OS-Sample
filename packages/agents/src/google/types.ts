@@ -20,6 +20,9 @@ export interface GeminiStreamParams {
   readonly tools?: readonly GeminiTool[];
   readonly thinkingConfig?: GeminiThinkingConfig;
   readonly strategy?: GeminiTurnStrategy;
+  // ADR-0075 / F-CR31-8: temperature propagado do AgentConfig.
+  // SDK @google/genai aceita generationConfig.temperature.
+  readonly temperature?: number;
 }
 
 export interface GeminiContent {

@@ -1,0 +1,202 @@
+{
+  "uid": "g4os-rollout",
+  "title": "G4OS Rollout",
+  "description": "Crash-free, adoption, active users por canal+versão; signal pra promote/rollback",
+  "tags": ["g4os", "release", "rollout"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "1m",
+  "time": { "from": "now-7d", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "service",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "query": "label_values(g4os_app_boot_total, service)",
+        "current": { "text": "g4os-desktop", "value": "g4os-desktop" },
+        "multi": true,
+        "includeAll": true
+      },
+      {
+        "name": "env",
+        "type": "custom",
+        "query": "dev,staging,prod",
+        "current": { "text": "prod", "value": "prod" },
+        "multi": true,
+        "includeAll": true
+      },
+      {
+        "name": "channel",
+        "type": "custom",
+        "query": "canary,beta,stable",
+        "current": { "text": "All", "value": "$__all" },
+        "multi": true,
+        "includeAll": true
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Crash-free rate (24h)",
+      "gridPos": { "x": 0, "y": 0, "w": 6, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 0.99 },
+              { "color": "green", "value": 0.995 }
+            ]
+          }
+        }
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"] }
+      },
+      "targets": [
+        {
+          "expr": "1 - (sum(rate(g4os_app_crashes_total{service=~\"$service\",channel=~\"$channel\"}[24h])) / clamp_min(sum(rate(g4os_app_boot_total{service=~\"$service\",channel=~\"$channel\"}[24h])), 1))",
+          "legendFormat": "crash-free"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Active users (24h)",
+      "gridPos": { "x": 6, "y": 0, "w": 6, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"] }
+      },
+      "targets": [
+        {
+          "expr": "count(count by(distinct_id) (g4os_app_boot_total{service=~\"$service\",channel=~\"$channel\"}))",
+          "legendFormat": "users"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Versions in fleet",
+      "gridPos": { "x": 12, "y": 0, "w": 6, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"] }
+      },
+      "targets": [
+        {
+          "expr": "count(count by(version) (g4os_app_boot_total{service=~\"$service\",channel=~\"$channel\"}))",
+          "legendFormat": "versions"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Feedback score",
+      "gridPos": { "x": 18, "y": 0, "w": 6, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 3.5 },
+              { "color": "green", "value": 4.0 }
+            ]
+          },
+          "max": 5,
+          "min": 0
+        }
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"] }
+      },
+      "targets": [
+        {
+          "expr": "avg(g4os_user_feedback_score{service=~\"$service\",channel=~\"$channel\"})",
+          "legendFormat": "score"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "Crash-free rate por canal",
+      "gridPos": { "x": 0, "y": 4, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "percentunit", "max": 1 } },
+      "targets": [
+        {
+          "expr": "1 - (sum by(channel) (rate(g4os_app_crashes_total{service=~\"$service\"}[1h])) / clamp_min(sum by(channel) (rate(g4os_app_boot_total{service=~\"$service\"}[1h])), 1))",
+          "legendFormat": "{{channel}}"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "Adoption curve por versão",
+      "gridPos": { "x": 12, "y": 4, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "count by(version) (count by(version, distinct_id) (g4os_app_boot_total{service=~\"$service\",channel=~\"$channel\"}))",
+          "legendFormat": "{{version}}"
+        }
+      ]
+    },
+    {
+      "id": 20,
+      "type": "timeseries",
+      "title": "Active users por canal",
+      "gridPos": { "x": 0, "y": 12, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "count by(channel) (count by(channel, distinct_id) (g4os_app_boot_total{service=~\"$service\"}))",
+          "legendFormat": "{{channel}}"
+        }
+      ]
+    },
+    {
+      "id": 21,
+      "type": "timeseries",
+      "title": "Update download rate por canal",
+      "gridPos": { "x": 12, "y": 12, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "sum by(channel) (rate(g4os_app_update_downloaded_total{service=~\"$service\"}[1h]))",
+          "legendFormat": "{{channel}}"
+        }
+      ]
+    }
+  ]
+}

@@ -14,7 +14,16 @@ export interface GenAIProviderOptions {
 
 export interface GoogleGenAISdkLike {
   generateContentStream(params: GoogleStreamRequest): Promise<AsyncIterable<GoogleStreamChunk>>;
-  generateContent(params: GoogleStreamRequest): Promise<{ text?: string }>;
+  /**
+   * CR-18 F-AG4: aceita `signal` opcional para cancelar a chamada do
+   * classifier antes do round-trip HTTP completar. Sem isso, abort
+   * mid-flight só era detectado APÓS a resposta voltar — usuário cancelava
+   * o turn, classifier seguia rodando até timeout do provider.
+   */
+  generateContent(
+    params: GoogleStreamRequest,
+    options?: { signal?: AbortSignal },
+  ): Promise<{ text?: string }>;
 }
 
 interface GoogleStreamRequest {
@@ -24,6 +33,9 @@ interface GoogleStreamRequest {
     systemInstruction?: string;
     tools?: unknown[];
     thinkingConfig?: unknown;
+    // ADR-0075 / F-CR31-8: @google/genai aceita temperature em
+    // generationConfig — passado diretamente no config do request.
+    temperature?: number;
   };
 }
 
@@ -64,11 +76,17 @@ export class GenAIProvider implements GeminiProvider {
     signal: AbortSignal,
   ): Promise<GeminiTurnStrategy> {
     const sdk = await this.resolveSdk();
-    const response = await sdk.generateContent({
-      model: modelId.replace(/^pi\//, ''),
-      contents: [{ role: 'user', parts: [{ text }] }],
-      config: { systemInstruction: CLASSIFIER_SYSTEM_PROMPT },
-    });
+    // CR-18 F-AG4: passa o signal para o SDK — provider que suporta
+    // cancela na rede; o que não suporta apenas ignora o option (Gemini
+    // SDK em adapter NodeHttp não cancela, mas opt-in está no contrato).
+    const response = await sdk.generateContent(
+      {
+        model: modelId.replace(/^pi\//, ''),
+        contents: [{ role: 'user', parts: [{ text }] }],
+        config: { systemInstruction: CLASSIFIER_SYSTEM_PROMPT },
+      },
+      { signal },
+    );
 
     if (signal.aborted) throw AgentError.network('google', { reason: 'aborted' });
 
@@ -118,6 +136,7 @@ function buildRequest(params: GeminiStreamParams): GoogleStreamRequest {
       ...(params.systemInstruction ? { systemInstruction: params.systemInstruction } : {}),
       ...(params.tools && params.tools.length > 0 ? { tools: params.tools as unknown[] } : {}),
       ...(params.thinkingConfig ? { thinkingConfig: params.thinkingConfig } : {}),
+      ...(params.temperature === undefined ? {} : { temperature: params.temperature }),
     },
   };
 }

@@ -101,6 +101,9 @@ jobs:
       - name: Check package exports
         run: pnpm check:exports
 
+      - name: Check i18n hardcoded strings
+        run: pnpm check:i18n
+
   # Job 5: Unit tests (matrix de plataforma)
   test:
     name: Test (${{ matrix.os }})

@@ -7,6 +7,8 @@
   "scripts": {
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed",
+    "memlab:hud": "G4OS_E2E_MEMLAB=1 G4OS_E2E=1 playwright test memory-cycle",
+    "memlab:hud:baseline": "G4OS_E2E_MEMLAB=1 G4OS_E2E=1 G4OS_MEMLAB_BASELINE=1 playwright test memory-cycle",
     "lint": "biome check tests",
     "typecheck": "tsc --noEmit --project tsconfig.json"
   },

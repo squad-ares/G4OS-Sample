@@ -53,6 +53,10 @@ export {
   type SessionsPanelSessionItem,
   type SessionsSubTab,
 } from './components/sub-sidebar/sessions-panel.tsx';
+// CR-18 F-F5: re-export HighlightedTitle como utilitário horizontal pra
+// projects/sources cards usarem search inline highlight (CLAUDE.md "Search
+// inline em listas") sem duplicar implementação.
+export { HighlightedTitle } from './components/sub-sidebar/sessions-panel-states.tsx';
 export {
   SourcesPanel,
   type SourcesPanelProps,

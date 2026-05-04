@@ -1,3 +1,11 @@
+/**
+ * Registry de renderers de ferramentas.
+ *
+ * CR-37 F-CR37-10: usamos Map<name, ToolRenderer> com checagem de duplicata
+ * para garantir idempotência. Registros via side-effect import (HMR ou
+ * múltiplas importações em tests) não duplicam entradas.
+ * `clearRegistryForTests()` expõe limpeza controlada para vitest.
+ */
 import type { ComponentType } from 'react';
 
 export interface ToolRendererComponent {
@@ -11,12 +19,21 @@ export interface ToolRenderer {
   readonly Component: ComponentType<ToolRendererComponent>;
 }
 
-const renderers: ToolRenderer[] = [];
+const rendererMap = new Map<string, ToolRenderer>();
 
 export function registerToolRenderer(renderer: ToolRenderer): void {
-  renderers.push(renderer);
+  if (rendererMap.has(renderer.name)) return;
+  rendererMap.set(renderer.name, renderer);
 }
 
 export function resolveToolRenderer(toolName: string, result: unknown): ToolRenderer | undefined {
-  return renderers.find((r) => r.canRender(toolName, result));
+  for (const renderer of rendererMap.values()) {
+    if (renderer.canRender(toolName, result)) return renderer;
+  }
+  return undefined;
+}
+
+/** Apenas para testes — limpa o registry entre arquivos de teste. */
+export function clearRegistryForTests(): void {
+  rendererMap.clear();
 }

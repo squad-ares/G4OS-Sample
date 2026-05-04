@@ -29,10 +29,17 @@ export function bindToAbort(disposable: IDisposable, signal: AbortSignal): IDisp
     disposable.dispose();
     return disposable;
   }
-  const onAbort = () => disposable.dispose();
+  let disposed = false;
+  const onAbort = () => {
+    if (disposed) return;
+    disposed = true;
+    disposable.dispose();
+  };
   signal.addEventListener('abort', onAbort, { once: true });
   return toDisposable(() => {
     signal.removeEventListener('abort', onAbort);
+    if (disposed) return;
+    disposed = true;
     disposable.dispose();
   });
 }

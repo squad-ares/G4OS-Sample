@@ -2,6 +2,12 @@ import { z } from 'zod';
 
 export const ProjectIdSchema = z.uuid();
 
+/**
+ * Schema canônico para IDs de tarefa de projeto. Routers devem importar daqui
+ * em vez de redeclarar `z.uuid()` inline (ADR-0020 — single source of truth).
+ */
+export const ProjectTaskIdSchema = z.uuid();
+
 export const ProjectStatusSchema = z.enum(['active', 'archived']);
 
 export const ProjectSchema = z.object({
@@ -31,13 +37,14 @@ export const ProjectCreateInputSchema = z.object({
  * injetado pelo Zod em qualquer rename, clobberando projetos
  * `archived` de volta para `active`. Mesma classe de bug do
  * `SessionUpdateSchema`.
+ *
+ * CR-22 F-CR22-6: `slug` foi removido do patch porque o `ProjectsRepository.update`
+ * só auto-deriva slug a partir de `name` (`toSlug(patch.name)`) — nunca
+ * lia `patch.slug`. Schema anterior anunciava o campo mas a impl ignorava
+ * silenciosamente; rename via `name` continua mudando o slug do projeto.
  */
 export const ProjectPatchSchema = z.object({
   name: z.string().min(1).max(200).optional(),
-  slug: z
-    .string()
-    .regex(/^[a-z0-9-]+$/)
-    .optional(),
   description: z.string().optional(),
   status: ProjectStatusSchema.optional(),
   color: z.string().optional(),
@@ -106,9 +113,22 @@ export const ProjectFileSchema = z.object({
 
 export const LegacyProjectSchema = z.object({
   path: z.string(),
-  name: z.string(),
-  slug: z.string(),
+  name: z.string().max(200),
+  slug: z.string().max(100),
   existingId: z.string().optional(),
-  description: z.string().optional(),
+  description: z.string().max(1000).optional(),
   inCanonicalRoot: z.boolean(),
 });
+
+export const LegacyImportDecisionSchema = z.enum(['import', 'keep', 'skip']);
+export type LegacyImportDecision = z.infer<typeof LegacyImportDecisionSchema>;
+
+export const LegacyImportEntrySchema = z.object({
+  path: z.string(),
+  name: z.string().max(200),
+  slug: z.string().max(100),
+  existingId: z.string().optional(),
+  description: z.string().max(1000).optional(),
+  decision: LegacyImportDecisionSchema,
+});
+export type LegacyImportEntry = z.infer<typeof LegacyImportEntrySchema>;

@@ -61,6 +61,25 @@ export class CredentialError extends AppError {
       context: { reason },
     });
   }
+
+  /**
+   * CR-18 F-C5: erro de IO em backend file-based (FileKeychain) — mkdir
+   * EACCES, writeAtomic ENOSPC, readdir fail. Discriminado de
+   * `decryptFailed` para que callers façam fluxo de repair correto
+   * (retry com cooldown vs. wipe + restore).
+   */
+  static ioError(op: string, cause: unknown): CredentialError {
+    return new CredentialError({
+      code: ErrorCode.CREDENTIAL_IO_ERROR,
+      message: `Credential IO error during ${op}`,
+      context: { op },
+      cause,
+    });
+  }
 }
 
-export type CredentialInvalidValueReason = 'empty' | 'too_long';
+export type CredentialInvalidValueReason =
+  | 'empty'
+  | 'too_long'
+  | 'too_many_tags'
+  | 'tag_length_out_of_range';

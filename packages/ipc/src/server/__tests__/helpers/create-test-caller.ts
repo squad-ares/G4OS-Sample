@@ -115,7 +115,7 @@ function createMessagesMock(): MessagesService {
 
 function createVoiceMock(): VoiceService {
   return {
-    transcribe: () => Promise.reject(notImplemented('voice.transcribe')),
+    transcribe: async () => err(notImplemented('voice.transcribe')),
   };
 }
 
@@ -265,6 +265,30 @@ export function createTestCaller(
     workspaceTransfer: createWorkspaceTransferMock(),
     labels: createLabelsMock(),
     preferences: createPreferencesMock(),
+    migration: {
+      detect: async () => ok(null),
+      plan: async () =>
+        err(new AppError({ code: ErrorCode.UNKNOWN_ERROR, message: 'migration.plan stub' })),
+      execute: async () =>
+        err(new AppError({ code: ErrorCode.UNKNOWN_ERROR, message: 'migration.execute stub' })),
+    },
+    backup: {
+      list: async () => ok([]),
+      runNow: async () =>
+        err(new AppError({ code: ErrorCode.UNKNOWN_ERROR, message: 'backup.runNow stub' })),
+      delete: async () =>
+        err(new AppError({ code: ErrorCode.UNKNOWN_ERROR, message: 'backup.delete stub' })),
+    },
+    servicesStatus: () => {
+      const noop = {
+        configured: false,
+        reachable: null,
+        latencyMs: null,
+        error: null,
+        endpoint: null,
+      } as const;
+      return Promise.resolve({ sentry: noop, otel: noop, metricsServer: noop });
+    },
     ...overrides,
   };
   return appRouter.createCaller(ctx);

@@ -12,6 +12,14 @@
  *       Persistência da config de cards (ordem, visibility, opacity)
  *       em `~/.config/g4os/debug-hud.json`.
  *
+ *   - `invoke(action, payload?)`
+ *       Dispara uma das ações diagnósticas/destrutivas registradas em
+ *       `main/debug-hud/index.ts` (`force-gc`, `cancel-turn`,
+ *       `cancel-all-turns`, `reset-listeners`, `clear-logs`,
+ *       `export-diagnostic`, `reload-renderer`). Retorna
+ *       `{ ok: boolean, message?, path? }` para o renderer mostrar
+ *       feedback inline.
+ *
  * Sandbox + contextIsolation: este preload é CJS puro, sem Node além
  * de `electron`.
  */
@@ -30,4 +38,9 @@ contextBridge.exposeInMainWorld('debugHud', {
   loadConfig: (): Promise<unknown> => ipcRenderer.invoke('debug-hud:load-config'),
   saveConfig: (config: unknown): Promise<void> =>
     ipcRenderer.invoke('debug-hud:save-config', config),
+  invoke: (action: string, payload?: unknown): Promise<unknown> =>
+    ipcRenderer.invoke(`debug-hud:action:${action}`, payload),
+  // F-CR31-11: leitura de metadata (versão, plataforma) — fora do
+  // namespace `:action:` porque não é destrutivo.
+  getAppMeta: (): Promise<unknown> => ipcRenderer.invoke('debug-hud:get-app-meta'),
 });

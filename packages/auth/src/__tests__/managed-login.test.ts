@@ -150,7 +150,10 @@ describe('ManagedLoginService', () => {
       // Primeiro está em `requesting_otp` neste ponto.
       const secondResult = await service.requestOtp('b@c.com');
       expect(secondResult.isErr()).toBe(true);
-      if (secondResult.isErr()) expect(secondResult.error.code).toBe('auth.disposed');
+      // CR-18 F-AU3: agora `flow_in_progress`, não `disposed` (era código
+      // misleading que disparava shutdown indevido em callers checando
+      // `code === AUTH_DISPOSED`).
+      if (secondResult.isErr()) expect(secondResult.error.code).toBe('auth.flow_in_progress');
       expect(slowSignIn).toHaveBeenCalledTimes(1);
 
       resolveSignIn?.();

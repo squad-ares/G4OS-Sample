@@ -1,4 +1,5 @@
 import type { VoiceService } from '@g4os/ipc/server';
+import { type AppError, ErrorCode, type Result, toResult } from '@g4os/kernel/errors';
 import { createLogger } from '@g4os/kernel/logger';
 
 const log = createLogger('transcription');
@@ -33,7 +34,11 @@ export class TranscriptionService implements VoiceService {
     this.#deps = deps;
   }
 
-  async transcribe(audioBuffer: Buffer, mimeType: string): Promise<string> {
+  async transcribe(audioBuffer: Buffer, mimeType: string): Promise<Result<string, AppError>> {
+    return await toResult(this.#transcribe(audioBuffer, mimeType), ErrorCode.NETWORK_ERROR);
+  }
+
+  async #transcribe(audioBuffer: Buffer, mimeType: string): Promise<string> {
     const openAIKey = await this.#deps.getOpenAIKey();
     if (openAIKey) {
       try {

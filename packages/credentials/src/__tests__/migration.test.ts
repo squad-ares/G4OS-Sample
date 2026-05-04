@@ -99,4 +99,29 @@ describe('migrateV1ToV2', () => {
     expect(report.migrated).toBe(50);
     expect(report.failed).toBe(0);
   });
+
+  // CR-18 F-C1: keys com uppercase (ex.: "OpenAI-Key") sanitizavam para "OpenAI-Key"
+  // (regex preservava maiúsculas via flag `i`), mas o vault.set rejeitava com
+  // `invalidKey` porque seu KEY_PATTERN é case-sensitive lowercase. Resultado:
+  // credenciais V1 com nome em CamelCase falhavam silenciosamente.
+  it('migrates keys with uppercase letters (CR-18 F-C1 regression)', async () => {
+    await writeV1Blob(v1Path, {
+      'OpenAI-Key': { value: 'sk-uppercase' },
+      GitHub_Token: { value: 'ghp_uppercase' },
+    });
+    const vault = new CredentialVault(new InMemoryKeychain());
+
+    const report = await migrateV1ToV2({ vault, masterKey: MASTER_KEY, v1Path });
+    expect(report.found).toBe(2);
+    expect(report.migrated).toBe(2);
+    expect(report.failed).toBe(0);
+
+    const openai = await vault.get('openai-key');
+    expect(openai.isOk()).toBe(true);
+    if (openai.isOk()) expect(openai.value).toBe('sk-uppercase');
+
+    const github = await vault.get('github_token');
+    expect(github.isOk()).toBe(true);
+    if (github.isOk()) expect(github.value).toBe('ghp_uppercase');
+  });
 });

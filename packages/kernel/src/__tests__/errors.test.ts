@@ -28,6 +28,83 @@ describe('AppError', () => {
     const err = new AppError({ code: ErrorCode.UNKNOWN_ERROR, message: 'x' });
     expect(Object.isFrozen(err.context)).toBe(true);
   });
+
+  it('does not mutate the cause chain of the input', () => {
+    const inner = new Error('inner');
+    const middle = new Error('middle', { cause: inner });
+    const outer = new Error('outer', { cause: middle });
+    new AppError({ code: ErrorCode.UNKNOWN_ERROR, message: 'x', cause: outer });
+    // Cadeia original preservada — caller pode reusar.
+    expect((outer as { cause?: unknown }).cause).toBe(middle);
+    expect((middle as { cause?: unknown }).cause).toBe(inner);
+  });
+
+  it('truncates cause chain past max depth without mutating input', () => {
+    // Constrói cadeia de 15 níveis (cap é 10).
+    let chain: Error = new Error('leaf');
+    const original = chain;
+    for (let i = 0; i < 14; i++) chain = new Error(`level-${i}`, { cause: chain });
+    const err = new AppError({ code: ErrorCode.UNKNOWN_ERROR, message: 'x', cause: chain });
+    // Original ileso.
+    expect(chain.cause).toBeDefined();
+    // Cause cloned do err atinge o sentinel em algum nível ≤10.
+    let cur: unknown = err.cause;
+    let depth = 0;
+    while (cur && typeof cur === 'object' && 'cause' in cur && (cur as { cause?: unknown }).cause) {
+      cur = (cur as { cause?: unknown }).cause;
+      depth++;
+      if (depth > 12) break;
+    }
+    expect(depth).toBeLessThanOrEqual(11);
+    // Original `chain` ainda alcança `original` por 14 saltos.
+    let origCur: unknown = chain;
+    let origDepth = 0;
+    while (
+      origCur &&
+      typeof origCur === 'object' &&
+      'cause' in origCur &&
+      (origCur as { cause?: unknown }).cause
+    ) {
+      origCur = (origCur as { cause?: unknown }).cause;
+      origDepth++;
+      if (origDepth > 20) break;
+    }
+    expect(origCur).toBe(original);
+  });
+
+  it('detects circular cause chain and substitutes sentinel in clone (input untouched)', () => {
+    const a = new Error('a') as Error & { cause?: unknown };
+    const b = new Error('b') as Error & { cause?: unknown };
+    a.cause = b;
+    b.cause = a;
+    const err = new AppError({ code: ErrorCode.UNKNOWN_ERROR, message: 'x', cause: a });
+    // Original cycle preservada.
+    expect(a.cause).toBe(b);
+    expect(b.cause).toBe(a);
+    // Clone recebe sentinel (via toString do Error sentinela).
+    let cur: unknown = err.cause;
+    let depth = 0;
+    let sawSentinel = false;
+    while (cur && typeof cur === 'object' && depth < 5) {
+      const message = (cur as Error).message;
+      if (message?.includes('circular cause chain detected')) sawSentinel = true;
+      cur = (cur as { cause?: unknown }).cause;
+      depth++;
+    }
+    expect(sawSentinel).toBe(true);
+  });
+
+  it('preserves prototype chain on cloned cause (instanceof works)', () => {
+    class CustomError extends Error {
+      readonly tag = 'custom' as const;
+    }
+    const inner = new Error('inner');
+    const custom = new CustomError('custom-msg');
+    (custom as Error & { cause?: unknown }).cause = inner;
+    const err = new AppError({ code: ErrorCode.UNKNOWN_ERROR, message: 'x', cause: custom });
+    expect(err.cause).toBeInstanceOf(CustomError);
+    expect((err.cause as CustomError).tag).toBe('custom');
+  });
 });
 
 describe('CredentialError', () => {

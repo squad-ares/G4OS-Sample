@@ -12,11 +12,14 @@ const WorkspaceSetupNeedsSchema = z.object({
 });
 
 export const workspacesRouter = router({
-  list: authed.output(WorkspacesListOutput).query(async ({ ctx }) => {
-    const result = await ctx.workspaces.list();
-    if (result.isErr()) throw result.error;
-    return [...result.value];
-  }),
+  list: authed
+    .input(z.void())
+    .output(WorkspacesListOutput)
+    .query(async ({ ctx }) => {
+      const result = await ctx.workspaces.list();
+      if (result.isErr()) throw result.error;
+      return [...result.value];
+    }),
 
   get: authed
     .input(z.object({ id: WorkspaceIdSchema }))
@@ -56,8 +59,7 @@ export const workspacesRouter = router({
     )
     .output(z.void())
     .mutation(async ({ input, ctx }) => {
-      const patch = input.patch as Parameters<typeof ctx.workspaces.update>[1];
-      const result = await ctx.workspaces.update(input.id, patch);
+      const result = await ctx.workspaces.update(input.id, input.patch);
       if (result.isErr()) throw result.error;
     }),
 

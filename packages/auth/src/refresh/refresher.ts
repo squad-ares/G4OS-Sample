@@ -4,6 +4,7 @@ import { BehaviorSubject, type Observable } from 'rxjs';
 import {
   AUTH_ACCESS_TOKEN_KEY,
   AUTH_REFRESH_TOKEN_KEY,
+  AUTH_SESSION_META_KEY,
   type AuthTokenStore,
   type SupabaseAuthPort,
 } from '../types.ts';
@@ -28,6 +29,14 @@ export interface SessionRefresherOptions {
 
 const DEFAULT_BUFFER_MS = 5 * 60 * 1000;
 const DEFAULT_MIN_DELAY_MS = 1000;
+/**
+ * Máximo de schedules consecutivos no piso `minDelayMs` antes de bailar para
+ * `reauth_required`. CR-18 F-AU2: backend devolvendo tokens cronicamente
+ * curtos faria o refresher martelar a 1Hz. 3 retries permite caminho
+ * saudável (token expirado → refresh imediato → token novo de 1h) mas barra
+ * o loop quando o backend está degradado.
+ */
+const MAX_TIGHT_SCHEDULES = 3;
 
 export class SessionRefresher extends DisposableBase {
   private readonly subject = new BehaviorSubject<RefresherState>({ kind: 'idle' });
@@ -38,7 +47,12 @@ export class SessionRefresher extends DisposableBase {
   private readonly bufferMs: number;
   private readonly minDelayMs: number;
   private pending: { cancel: () => void } | null = null;
-  private started = false;
+  /**
+   * F-CR32-2: substituir flag booleana definitiva por estado cíclico que
+   * permite stop() + start() repetido (ex: logout → relogin). `running`
+   * controla se há schedule em curso; `stop()` limpa e reseta.
+   */
+  private running = false;
   /**
    * Coalesce concorrentes. `refreshNow()` + tick agendado
    * podiam executar `refresh()` em paralelo, ambos escrevendo ao
@@ -48,6 +62,14 @@ export class SessionRefresher extends DisposableBase {
    * compartilha a mesma promise.
    */
   private inflight: Promise<void> | null = null;
+  /**
+   * CR-18 F-AU2: contador de schedules consecutivas que caem no piso
+   * `minDelayMs` (token já dentro do buffer ou past-expiry quando agendou).
+   * Backend que devolve tokens com `expires_at` curto cronicamente faria
+   * o refresher martelar a 1Hz. Após N=3 caps consecutivos emitimos
+   * `reauth_required` em vez de continuar agendando.
+   */
+  private tightScheduleCount = 0;
 
   constructor(options: SessionRefresherOptions) {
     super();
@@ -73,12 +95,30 @@ export class SessionRefresher extends DisposableBase {
   }
 
   async start(): Promise<void> {
-    if (this.started) return;
-    this.started = true;
+    // F-CR32-1: guard dispose; F-CR32-2: usa `running` reiniciável.
+    if (this._disposed) return;
+    if (this.running) return;
+    this.running = true;
     await this.scheduleNext();
   }
 
+  /**
+   * Para o schedule sem descartar o refresher. Permite ciclo stop/start
+   * para logout → relogin sem precisar recriar a instância.
+   * F-CR32-2: expõe stop() público para wiring no consumer.
+   */
+  stop(): void {
+    this.cancelPending();
+    this.running = false;
+    this.tightScheduleCount = 0;
+    if (!this._disposed) {
+      this.subject.next({ kind: 'idle' });
+    }
+  }
+
   async refreshNow(): Promise<void> {
+    // F-CR32-1: guard dispose.
+    if (this._disposed) return;
     this.cancelPending();
     if (this.inflight) {
       // Já há refresh em vôo (do tick agendado ou outro refreshNow).
@@ -90,6 +130,8 @@ export class SessionRefresher extends DisposableBase {
   }
 
   private async scheduleNext(): Promise<void> {
+    // F-CR32-1: guard dispose após qualquer await.
+    if (this._disposed) return;
     this.cancelPending();
     const list = await this.tokenStore.list();
     if (list.isErr()) {
@@ -124,10 +166,35 @@ export class SessionRefresher extends DisposableBase {
       this.subject.next({ kind: 'reauth_required', reason: 'invalid_expiry' });
       return;
     }
-    const delay = Math.max(this.minDelayMs, expiresAt - this.nowFn() - this.bufferMs);
+    const rawDelay = expiresAt - this.nowFn() - this.bufferMs;
+    const delay = Math.max(this.minDelayMs, rawDelay);
     if (!Number.isFinite(delay)) {
       this.subject.next({ kind: 'reauth_required', reason: 'invalid_expiry' });
       return;
+    }
+    // CR-18 F-AU2: token chegou no piso minDelayMs porque já está dentro do
+    // buffer (rawDelay ≤ minDelayMs). Primeira vez é OK — refresh imediato
+    // é o caminho saudável quando token está expirado. Mas se isso se
+    // repete N vezes consecutivas após refresh bem-sucedido, o backend
+    // está devolvendo tokens curtos cronicamente — bail para `reauth_required`.
+    if (rawDelay <= this.minDelayMs) {
+      this.tightScheduleCount += 1;
+      if (this.tightScheduleCount >= MAX_TIGHT_SCHEDULES) {
+        log.warn(
+          {
+            expiresAt,
+            now: this.nowFn(),
+            bufferMs: this.bufferMs,
+            consecutiveTight: this.tightScheduleCount,
+          },
+          'refresher detected sustained near-expiry tokens; requiring reauth instead of tight-loop',
+        );
+        this.tightScheduleCount = 0;
+        this.subject.next({ kind: 'reauth_required', reason: 'token_too_short_lived' });
+        return;
+      }
+    } else {
+      this.tightScheduleCount = 0;
     }
     const fireAt = this.nowFn() + delay;
     this.subject.next({ kind: 'scheduled', fireAt });
@@ -157,33 +224,112 @@ export class SessionRefresher extends DisposableBase {
   }
 
   private async runRefresh(): Promise<void> {
+    // F-CR32-1: guard dispose no início.
+    if (this._disposed) return;
     this.subject.next({ kind: 'refreshing' });
     const refreshToken = await this.tokenStore.get(AUTH_REFRESH_TOKEN_KEY);
     if (refreshToken.isErr() || !refreshToken.value) {
+      // F-CR32-12: zerar contador em todos os ramos reauth_required.
+      this.tightScheduleCount = 0;
       this.subject.next({ kind: 'reauth_required', reason: 'no_refresh_token' });
       return;
     }
     const { data, error } = await this.supabase.refreshSession({
       refreshToken: refreshToken.value,
     });
+    // F-CR32-1: descartar resultado se dispose() ocorreu durante o await.
+    if (this._disposed) return;
     if (error || !data.session) {
+      // F-CR32-12: zerar contador em todos os ramos reauth_required.
+      this.tightScheduleCount = 0;
       this.subject.next({
         kind: 'reauth_required',
         reason: error?.message ?? 'refresh_failed',
       });
       return;
     }
-    await this.tokenStore.set(
+    // F-CR32-3: verificar atomicamente se o access-token ainda existe antes de
+    // gravar o novo. Race: logout() deleta os tokens enquanto
+    // supabase.refreshSession estava em vôo — sucesso do Supabase não deve
+    // reescrever tokens num vault já limpo pelo logout.
+    const existingAccess = await this.tokenStore.get(AUTH_ACCESS_TOKEN_KEY);
+    if (existingAccess.isErr() || existingAccess.value === '') {
+      log.info('access token cleared during refresh (logout race); discarding refreshed tokens');
+      this.subject.next({ kind: 'idle' });
+      return;
+    }
+    // CR-18 F-AU1: descartar o `Result` dos tokenStore.set silencia disk
+    // full / IO error e leva o refresher a `scheduleNext` referenciando
+    // estado inconsistente (ou loopa tentando salvar em vão). Sinalizamos
+    // `reauth_required` reason=`token_persist_failed` quando qualquer write
+    // falha — usuário precisa relogar pra recriar o slot do zero.
+    const accessSet = await this.tokenStore.set(
       AUTH_ACCESS_TOKEN_KEY,
       data.session.access_token,
       typeof data.session.expires_at === 'number'
         ? { expiresAt: data.session.expires_at * 1000 }
         : undefined,
     );
+    if (accessSet.isErr()) {
+      log.warn(
+        { err: accessSet.error.message },
+        'failed to persist refreshed access token; requiring reauth',
+      );
+      // F-CR32-12: zerar contador em todos os ramos reauth_required.
+      this.tightScheduleCount = 0;
+      this.subject.next({ kind: 'reauth_required', reason: 'token_persist_failed' });
+      return;
+    }
     if (data.session.refresh_token) {
-      await this.tokenStore.set(AUTH_REFRESH_TOKEN_KEY, data.session.refresh_token);
+      const refreshSet = await this.tokenStore.set(
+        AUTH_REFRESH_TOKEN_KEY,
+        data.session.refresh_token,
+      );
+      if (refreshSet.isErr()) {
+        log.warn(
+          { err: refreshSet.error.message },
+          'failed to persist refreshed refresh token; requiring reauth',
+        );
+        // F-CR32-12: zerar contador em todos os ramos reauth_required.
+        this.tightScheduleCount = 0;
+        this.subject.next({ kind: 'reauth_required', reason: 'token_persist_failed' });
+        return;
+      }
+    }
+    // CR-22 F-CR22-1: também atualiza o `AUTH_SESSION_META_KEY` JSON com o novo
+    // expiresAt. Sem isso, a meta persistida fica congelada no expiry do
+    // login original; `ManagedLoginService.restore()` lê esse campo no boot e
+    // força re-login mesmo com access token válido em disco. Read-modify-write
+    // preserva `userId`/`email` da meta original.
+    if (typeof data.session.expires_at === 'number') {
+      await this.persistMetaExpiry(data.session.expires_at * 1000);
     }
     await this.scheduleNext();
+  }
+
+  private async persistMetaExpiry(newExpiresAt: number): Promise<void> {
+    const metaResult = await this.tokenStore.get(AUTH_SESSION_META_KEY);
+    if (metaResult.isErr() || metaResult.value === '') return;
+    let parsed: Record<string, unknown>;
+    try {
+      const raw = JSON.parse(metaResult.value) as unknown;
+      if (raw === null || typeof raw !== 'object') return;
+      parsed = raw as Record<string, unknown>;
+    } catch (err) {
+      log.warn(
+        { err: err instanceof Error ? err.message : String(err) },
+        'session meta JSON corrupted during refresh; skipping expiry update',
+      );
+      return;
+    }
+    parsed['expiresAt'] = newExpiresAt;
+    const metaSet = await this.tokenStore.set(AUTH_SESSION_META_KEY, JSON.stringify(parsed));
+    if (metaSet.isErr()) {
+      log.warn(
+        { err: metaSet.error.message },
+        'failed to persist refreshed session meta expiresAt; restore() may force reauth on next start',
+      );
+    }
   }
 
   private cancelPending(): void {
@@ -199,6 +345,7 @@ export class SessionRefresher extends DisposableBase {
       return;
     }
     this.cancelPending();
+    this.running = false;
     this.subject.next({ kind: 'disabled' });
     this.subject.complete();
     super.dispose();

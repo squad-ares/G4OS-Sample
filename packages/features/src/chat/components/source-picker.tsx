@@ -4,6 +4,23 @@ import { Button, Popover, PopoverContent, PopoverTrigger, useTranslate } from '@
 import { Check, ChevronDown, LayoutGrid, Plug2 } from 'lucide-react';
 import { type ReactNode, useMemo, useState } from 'react';
 
+/** CR-37 F-CR37-17: mapas tipados eliminam `as TranslationKey` em site-call. */
+const PICKER_KIND_KEYS: Record<SourceKind, TranslationKey> = {
+  managed: 'chat.sourcePicker.kind.managed',
+  'mcp-http': 'chat.sourcePicker.kind.mcp-http',
+  'mcp-stdio': 'chat.sourcePicker.kind.mcp-stdio',
+  api: 'chat.sourcePicker.kind.api',
+  filesystem: 'chat.sourcePicker.kind.filesystem',
+};
+
+const PICKER_STATUS_KEYS: Record<SourceConfigView['status'], TranslationKey> = {
+  connected: 'sources.status.connected',
+  disconnected: 'sources.status.disconnected',
+  connecting: 'sources.status.connecting',
+  needs_auth: 'sources.status.needs_auth',
+  error: 'sources.status.error',
+};
+
 export interface SourcePickerProps {
   readonly sources: readonly SourceConfigView[];
   readonly enabledSlugs: readonly string[];
@@ -87,7 +104,7 @@ export function SourcePicker({
               {grouped.map(({ kind, items }) => (
                 <li key={kind} className="flex flex-col">
                   <span className="px-3 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                    {t(`chat.sourcePicker.kind.${kind}` as TranslationKey)}
+                    {t(PICKER_KIND_KEYS[kind])}
                   </span>
                   <ul>
                     {items.map((source) => (
@@ -166,7 +183,7 @@ function StatusBadge({ status }: { readonly status: SourceConfigView['status'] }
           : 'text-muted-foreground';
   return (
     <span className={`text-[9px] uppercase tracking-wider ${cls}`}>
-      {t(`sources.status.${status}` as TranslationKey)}
+      {t(PICKER_STATUS_KEYS[status])}
     </span>
   );
 }

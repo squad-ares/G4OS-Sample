@@ -66,7 +66,19 @@ function makeHandler(
     definition,
     async execute(input, ctx): Promise<ToolHandlerResult> {
       try {
-        const result = await firstValueFrom(source.callTool(originalName, input, ctx.signal));
+        // ADR-0011: `firstValueFrom` lança `EmptyError` se o Observable
+        // completar sem emitir — comportamento válido em implementações
+        // alternativas de McpClient (test doubles, future SSE wrapping).
+        // `defaultValue` transforma em ToolResult de erro com mensagem clara
+        // em vez de "no elements in sequence" que confunde debug do usuário.
+        const emptyResult: import('../interface/source.ts').ToolResult = {
+          content: 'Sem resposta do servidor MCP (Observable vazio)',
+          isError: true,
+          metadata: { reason: 'empty_observable' },
+        };
+        const result = await firstValueFrom(source.callTool(originalName, input, ctx.signal), {
+          defaultValue: emptyResult,
+        });
         if (result.isError) {
           return err({
             code: `tool.${namespacedName}.runtime_error`,

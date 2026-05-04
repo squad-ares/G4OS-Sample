@@ -1,4 +1,4 @@
-export type { RotatedCredential, RotationHandler } from './handler.ts';
+export type { RotatedCredential, RotationContext, RotationHandler } from './handler.ts';
 export {
   OAuthRotationError,
   type OAuthRotationFailure,

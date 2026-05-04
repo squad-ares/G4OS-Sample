@@ -1,10 +1,12 @@
 import { agentsRouter } from './routers/agents-router.ts';
 import { authRouter } from './routers/auth-router.ts';
+import { backupRouter } from './routers/backup-router.ts';
 import { credentialsRouter } from './routers/credentials-router.ts';
 import { healthRouter } from './routers/health-router.ts';
 import { labelsRouter } from './routers/labels-router.ts';
 import { marketplaceRouter } from './routers/marketplace-router.ts';
 import { messagesRouter } from './routers/messages-router.ts';
+import { migrationRouter } from './routers/migration-router.ts';
 import { newsRouter } from './routers/news-router.ts';
 import { permissionsRouter } from './routers/permissions-router.ts';
 import { platformRouter } from './routers/platform-router.ts';
@@ -25,12 +27,14 @@ export const appRouter = router({
   workspaces: workspacesRouter,
   sessions: sessionsRouter,
   messages: messagesRouter,
+  migration: migrationRouter,
   projects: projectsRouter,
   credentials: credentialsRouter,
   permissions: permissionsRouter,
   sources: sourcesRouter,
   agents: agentsRouter,
   auth: authRouter,
+  backup: backupRouter,
   marketplace: marketplaceRouter,
   news: newsRouter,
   platform: platformRouter,

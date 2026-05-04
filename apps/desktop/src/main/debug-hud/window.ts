@@ -15,8 +15,9 @@
  *
  * Implementação usa o `BrowserWindow` real do `electron` via dynamic
  * import — não passa pelo contrato `ElectronRuntime` (que é minimalista
- * pra testes). Isso é seguro porque o HUD só roda em dev/builds com a
- * flag `G4OS_DEBUG_HUD_ENABLED=1` ligada, nunca em E2E.
+ * pra testes). Isso é seguro porque o HUD só roda quando habilitado via
+ * `PreferencesStore.debug.hud.enabled` (default `true` em dev,
+ * `false` em prod) e nunca em E2E.
  */
 
 import type { IDisposable } from '@g4os/kernel/disposable';
@@ -32,6 +33,16 @@ export interface DebugHudWindowOptions {
   readonly preloadPath: string;
   readonly rendererUrl: string;
   readonly aggregator: DebugHudAggregator;
+  /**
+   * Hook disparado a cada `open()` com o webContents do HUD recém-criado.
+   * IPC bootstrap usa pra registrar `cleanupSubscriptionsForSender` em
+   * `did-start-navigation` / `destroyed` — sem isso, subscriptions órfãs
+   * vazam ao recarregar/fechar o HUD.
+   */
+  readonly onWebContentsCreated?: (webContents: {
+    id: number;
+    on: (event: string, listener: () => void) => void;
+  }) => void;
 }
 
 export class DebugHudWindow implements IDisposable {
@@ -84,6 +95,15 @@ export class DebugHudWindow implements IDisposable {
     });
     this.window = w;
     w.setOpacity(this.state.opacity);
+
+    // Notifica composition root que webContents existe — usado pelo IPC
+    // bootstrap pra registrar `cleanupSubscriptionsForSender` em
+    // `did-start-navigation`/`destroyed`. HUD não passa pelo
+    // WindowManager.createWindow, então o `onWindowCreated` listener
+    // do windowManager NÃO dispara aqui — esse hook supre.
+    this.options.onWebContentsCreated?.(
+      w.webContents as unknown as { id: number; on: (event: string, listener: () => void) => void },
+    );
 
     w.on('move', () => void this.persistBounds());
     w.on('resize', () => void this.persistBounds());

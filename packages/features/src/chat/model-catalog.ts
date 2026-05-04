@@ -1,8 +1,22 @@
-// TODO!: Revisar, talvez esse conteúdo deva ficar em agents
+// CR-30 F-CR30-2: `ThinkingLevel` re-exporta do `@g4os/kernel/types` —
+// fonte canônica usada pelo `level-resolver`, schemas Zod e TurnDispatcher.
+// Antes existia um enum local divergente (`'minimal' | 'low' | 'medium' | 'high'`)
+// que nunca chegava no agent: o `useState` no renderer não persistia em
+// `session.metadata.thinkingLevel` nem injetava em `AgentConfig.thinkingLevel`.
+// Pior, os valores divergiam (UI `medium` vs agent `think`, UI `minimal` sem
+// equivalente, agent `ultra` sem equivalente UI), então mesmo se houvesse wire
+// o `OPENAI_MAP`/`GOOGLE_MAP`/`ANTHROPIC_MAP` retornaria `none` silencioso.
+// Unificando, o controle vira efetivo: troca de `think`→`high` injeta o
+// `budgetTokens`/`reasoningEffort`/`thinkingBudget` esperado.
+//
+// Importar de `@g4os/kernel` (não `@g4os/agents/interface`) preserva o
+// boundary `features-cant-import-agents-directly` — features acessa o tipo
+// via kernel sem cruzar layer.
 
+import type { ThinkingLevel } from '@g4os/kernel/types';
 import type { TranslationKey } from '@g4os/translate';
 
-export type ThinkingLevel = 'minimal' | 'low' | 'medium' | 'high';
+export type { ThinkingLevel };
 export type ModelProvider = 'claude' | 'codex' | 'pi-google' | 'pi-openai';
 
 export interface ModelSpec {
@@ -22,7 +36,7 @@ export const MODELS: ReadonlyArray<ModelSpec> = [
     provider: 'claude',
     family: 'claude-4',
     supportsThinking: true,
-    thinkingLevels: ['low', 'medium', 'high'],
+    thinkingLevels: ['low', 'think', 'high', 'ultra'],
     contextWindow: 200_000,
   },
   {
@@ -31,7 +45,7 @@ export const MODELS: ReadonlyArray<ModelSpec> = [
     provider: 'claude',
     family: 'claude-4',
     supportsThinking: true,
-    thinkingLevels: ['low', 'medium', 'high'],
+    thinkingLevels: ['low', 'think', 'high', 'ultra'],
     contextWindow: 200_000,
   },
   {

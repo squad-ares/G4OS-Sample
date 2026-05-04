@@ -12,6 +12,7 @@
  *  - cobertura foca em estrutura semântica — não pixel-perfect visual
  */
 
+import { TranslateProvider } from '@g4os/ui';
 import { customBlockRegistry, MarkdownRenderer } from '@g4os/ui/markdown';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -84,12 +85,18 @@ describe('legacy transcript parity — custom block fallback rule', () => {
 describe('legacy transcript parity — tool results', () => {
   for (const fixture of TOOL_RESULT_FIXTURES) {
     it(`renders ${fixture.id} — ${fixture.description}`, () => {
+      // CR-18 F-F1: tool renderers agora usam `t()` para summary/error.
+      // Wrap com TranslateProvider em locale fixo (en-US) para snapshot
+      // determinístico — sem provider, useTranslate cai no fallback que
+      // ecoa a chave (vê-se `chat.toolRenderer.error` em vez de `Error`).
       const html = renderToStaticMarkup(
-        <FallbackRenderer
-          result={fixture.result}
-          toolUseId="toolu_fixture"
-          toolName={fixture.toolName}
-        />,
+        <TranslateProvider defaultLocale="en-US">
+          <FallbackRenderer
+            result={fixture.result}
+            toolUseId="toolu_fixture"
+            toolName={fixture.toolName}
+          />
+        </TranslateProvider>,
       );
       expect(html).toMatchSnapshot();
     });

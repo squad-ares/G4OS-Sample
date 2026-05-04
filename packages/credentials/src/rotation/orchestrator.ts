@@ -98,7 +98,11 @@ export class RotationOrchestrator extends DisposableBase {
     if (current.isErr()) return false;
 
     try {
-      const rotated = await handler.rotate(current.value);
+      const rotated = await handler.rotate({
+        key,
+        currentValue: current.value,
+        vault: this.vault,
+      });
       // Grava novo valor + novo expiresAt na meta da MESMA key. Antes
       // tinha um `set(<key>.expires_at, ...)` paralelo que deixava a
       // meta da key principal com expiry vencido → próximo scan

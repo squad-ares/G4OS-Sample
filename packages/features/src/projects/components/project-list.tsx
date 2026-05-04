@@ -11,7 +11,20 @@ export interface ProjectListProps {
   readonly projects: readonly ProjectListItem[];
   readonly loading?: boolean;
   readonly onOpen?: (id: string) => void;
+  /**
+   * Submit handler do form de criação. Quando provido SEM `onNavigateToCreate`,
+   * o list ainda mostra o modal legado pra criar. Quando `onNavigateToCreate`
+   * está provido, este callback fica disponível para a página
+   * `/projects/new` chamar — o modal não é mais montado.
+   */
   readonly onCreate?: (input: ProjectCreateInput) => Promise<void>;
+  /**
+   * Caminho canônico (ADR-0150 + ADR-0157): clicar "Novo" navega para uma
+   * page dedicada com fullscreen overlay em vez de abrir modal. Quando
+   * provido, o modal legacy não é montado. Caller decide a rota
+   * (tipicamente `/projects/new` ou `/workspaces/$id/projects/new`).
+   */
+  readonly onNavigateToCreate?: () => void;
   readonly onArchive?: (id: string) => void;
   readonly onDelete?: (id: string) => void;
   readonly onImportLegacy?: () => void;
@@ -23,6 +36,7 @@ export function ProjectList({
   loading,
   onOpen,
   onCreate,
+  onNavigateToCreate,
   onArchive,
   onDelete,
   onImportLegacy,
@@ -30,6 +44,11 @@ export function ProjectList({
   const { t } = useTranslate();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [query, setQuery] = useState('');
+
+  // V1 paridade: page > modal pra criação (ADR-0150). Quando o caller
+  // provê navegação dedicada, o button apenas navega; senão cai no
+  // modal legacy.
+  const handleCreateClick = onNavigateToCreate ?? (() => setDialogOpen(true));
   const filteredProjects = useMemo(() => {
     const normalized = query.trim().toLowerCase();
     if (!normalized) return projects;
@@ -50,24 +69,37 @@ export function ProjectList({
     );
   }
 
+  // V1 paridade (apps/electron/CLAUDE.md): Importar+Novo como row 2-col
+  // full-width quando ambas existem, ou single-col quando só uma. Search
+  // fica em row separada. Garante que ações primárias têm igual peso visual.
+  const showImport = Boolean(onImportLegacy);
+  const showCreate = Boolean(onCreate);
+  const headerCols = showImport && showCreate ? 'grid-cols-2' : 'grid-cols-1';
+
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3">
         <h2 className="text-base font-semibold">{t('project.list.title')}</h2>
-        <div className="flex items-center gap-2">
-          {onImportLegacy ? (
-            <Button size="sm" variant="outline" onClick={onImportLegacy} className="gap-1.5">
-              <FolderOpen className="h-4 w-4" aria-hidden={true} />
-              {t('project.list.importLegacy')}
-            </Button>
-          ) : null}
-          {onCreate ? (
-            <Button size="sm" onClick={() => setDialogOpen(true)} className="gap-1.5">
-              <Plus className="h-4 w-4" aria-hidden={true} />
-              {t('project.list.createNew')}
-            </Button>
-          ) : null}
-        </div>
+        {showImport || showCreate ? (
+          <div className={`grid gap-2 ${headerCols}`}>
+            {onImportLegacy ? (
+              <Button
+                variant="outline"
+                onClick={onImportLegacy}
+                className="w-full justify-center gap-1.5"
+              >
+                <FolderOpen className="h-4 w-4" aria-hidden={true} />
+                {t('project.list.importLegacy')}
+              </Button>
+            ) : null}
+            {onCreate ? (
+              <Button onClick={handleCreateClick} className="w-full justify-center gap-1.5">
+                <Plus className="h-4 w-4" aria-hidden={true} />
+                {t('project.list.createNew')}
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
       </div>
 
       <div className="relative">
@@ -96,7 +128,7 @@ export function ProjectList({
           </div>
           <div className="flex flex-wrap items-center justify-center gap-2">
             {onCreate ? (
-              <Button onClick={() => setDialogOpen(true)}>
+              <Button onClick={handleCreateClick}>
                 <Sparkles className="mr-1.5 h-4 w-4" aria-hidden={true} />
                 {t('project.list.createFirst')}
               </Button>
@@ -119,6 +151,7 @@ export function ProjectList({
             <ProjectCard
               key={p.id}
               project={p}
+              searchQuery={query}
               {...(onOpen ? { onOpen } : {})}
               {...(onArchive ? { onArchive } : {})}
               {...(onDelete ? { onDelete } : {})}
@@ -127,7 +160,7 @@ export function ProjectList({
         </div>
       )}
 
-      {onCreate ? (
+      {onCreate && !onNavigateToCreate ? (
         <CreateProjectDialog
           workspaceId={workspaceId}
           open={dialogOpen}

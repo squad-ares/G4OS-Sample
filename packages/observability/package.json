@@ -34,11 +34,15 @@
     "./ipc": {
       "types": "./src/ipc/index.ts",
       "import": "./src/ipc/index.ts"
+    },
+    "./posthog": {
+      "types": "./src/posthog/index.ts",
+      "import": "./src/posthog/index.ts"
     }
   },
   "dependencies": {
     "@g4os/kernel": "workspace:*",
-    "@opentelemetry/api": "1.9.0",
+    "@opentelemetry/api": "catalog:",
     "archiver": "catalog:",
     "prom-client": "15.1.3"
   },
@@ -50,10 +54,12 @@
     "vitest": "catalog:"
   },
   "optionalDependencies": {
-    "@opentelemetry/exporter-trace-otlp-http": "0.215.0",
-    "@opentelemetry/resources": "2.7.0",
-    "@opentelemetry/sdk-node": "0.215.0",
-    "@opentelemetry/sdk-trace-base": "2.7.0"
+    "@opentelemetry/exporter-trace-otlp-http": "catalog:",
+    "@opentelemetry/resources": "catalog:",
+    "@opentelemetry/sdk-node": "catalog:",
+    "@opentelemetry/sdk-trace-base": "catalog:",
+    "@sentry/electron": "catalog:",
+    "@sentry/node": "8.34.0"
   },
   "scripts": {
     "build": "tsup",

@@ -16,7 +16,11 @@ describe('locale parity (pt-BR vs en-US)', () => {
   });
 
   it('placeholder tokens match between locales for keys with {{token}}', () => {
-    const re = /\{\{(\w+)\}\}/gu;
+    // CR-18 F-T2: regex alinhada com `PLACEHOLDER_RE` em translate.ts —
+    // a versão antiga `/\{\{(\w+)\}\}/gu` parava no primeiro `.` e perdia
+    // dot-paths nested (`{{user.name}}`). O dict atual não usa nested,
+    // mas o teste agora cobre futuro drift.
+    const re = /\{\{([a-zA-Z_$][a-zA-Z0-9_$.]*)\}\}/gu;
     const drift: Array<{ key: string; pt: string[]; en: string[] }> = [];
     for (const [key, ptValue] of Object.entries(dictionaries['pt-BR'])) {
       const enValue = dictionaries['en-US'][key as TranslationKey];
@@ -27,6 +31,23 @@ describe('locale parity (pt-BR vs en-US)', () => {
       }
     }
     expect(drift).toEqual([]);
+  });
+
+  it('no single-brace tokens exist in any locale (CR-48 F-1 regression)', () => {
+    // Garante que templates usem {{token}} e nunca {token} — single-brace
+    // não é casado por PLACEHOLDER_RE e nunca é substituído em runtime.
+    // Regex negativa: casa {token} sem ser precedido/seguido por outra brace.
+    const singleBraceRe = /(?<!\{)\{([a-zA-Z_][a-zA-Z0-9_]*)\}(?!\})/g;
+    const violations: Array<{ locale: string; key: string; value: string }> = [];
+    for (const [locale, dict] of Object.entries(dictionaries)) {
+      for (const [key, value] of Object.entries(dict)) {
+        if (singleBraceRe.test(value)) {
+          violations.push({ locale, key, value });
+        }
+        singleBraceRe.lastIndex = 0;
+      }
+    }
+    expect(violations).toEqual([]);
   });
 });
 

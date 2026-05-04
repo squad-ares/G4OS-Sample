@@ -6,6 +6,21 @@ export interface BridgeMcpOptions {
   readonly logger?: Logger;
 }
 
+/**
+ * Handle client-side do bridge MCP.
+ *
+ * Mapeamento com `BridgeMcpServerHandle` (packages/bridge-mcp-server):
+ *   - `url`        → mesmo campo; string compatível com `BridgeMcpUrl`
+ *   - `attachedAt` → campo exclusivo do client-side para telemetria de latência de attach
+ *   - `dispose`    → pertence ao server-side (lifecycle do process/socket);
+ *                    o connector usa `detach()` para desapontar o handle local.
+ *
+ * Os dois tipos são estruturalmente compatíveis em `url`. Ao promover o
+ * skeleton, `attach()` deve receber `handle: BridgeMcpServerHandle` retornado
+ * por `startBridgeMcpServer()` e copiar `{ url: handle.url, attachedAt: Date.now() }`.
+ * Não importar `BridgeMcpServerHandle` diretamente aqui — agents não pode depender
+ * de bridge-mcp-server (boundary `agents-layering` + `bridge-mcp-server-isolated`).
+ */
 export interface BridgeMcpHandle {
   readonly url: string;
   readonly attachedAt: number;

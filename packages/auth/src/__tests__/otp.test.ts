@@ -89,4 +89,30 @@ describe('verifyOtp', () => {
     const result = await verifyOtp(port, 'a@b.com', '123456');
     expect(result.isErr()).toBe(true);
   });
+
+  // CR-18 F-AU4: hint `'otp'` casava "OTP service unavailable" / "OTP rate
+  // limit" e disparava fallback signup, mascarando erro real e queimando
+  // rate-limit. Hint trocado por `'token'`.
+  it('does NOT retry on non-token errors (rate limit, network unreachable)', async () => {
+    const port = makePort({
+      verifyOtp: vi.fn(() =>
+        Promise.resolve({ data: {}, error: { message: 'OTP rate limit exceeded' } }),
+      ),
+    });
+    const result = await verifyOtp(port, 'a@b.com', '123456');
+    expect(result.isErr()).toBe(true);
+    // Apenas UMA tentativa — rate limit não dispara fallback signup.
+    expect(port.verifyOtp).toHaveBeenCalledTimes(1);
+  });
+
+  it('does NOT retry on bare network error message', async () => {
+    const port = makePort({
+      verifyOtp: vi.fn(() =>
+        Promise.resolve({ data: {}, error: { message: 'Network unreachable' } }),
+      ),
+    });
+    const result = await verifyOtp(port, 'a@b.com', '123456');
+    expect(result.isErr()).toBe(true);
+    expect(port.verifyOtp).toHaveBeenCalledTimes(1);
+  });
 });

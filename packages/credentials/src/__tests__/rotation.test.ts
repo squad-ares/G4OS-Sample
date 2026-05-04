@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { InMemoryKeychain } from '../backends/index.ts';
 import type { RotatedCredential, RotationHandler } from '../rotation/handler.ts';
+import { OAuthRotationError, OAuthRotationHandler } from '../rotation/oauth-handler.ts';
 import { RotationOrchestrator } from '../rotation/orchestrator.ts';
 import { CredentialVault } from '../vault.ts';
 
@@ -101,5 +102,70 @@ describe('RotationOrchestrator', () => {
     const disposable = orchestrator.start();
     expect(typeof disposable.dispose).toBe('function');
     orchestrator.dispose();
+  });
+
+  // CR-18 F-C2: handler antigo recebia `currentValue` como suposto refresh
+  // token, mas o orchestrator passava o access token. POST → invalid_grant.
+  // Agora handler resolve via `<key>.refresh_token`.
+  describe('OAuthRotationHandler (F-C2)', () => {
+    it('resolves refresh token from <key>.refresh_token slot', async () => {
+      const vault = new CredentialVault(new InMemoryKeychain());
+      const now = Date.now();
+      await vault.set('oauth.google', 'old-access', { expiresAt: now + 60_000 });
+      await vault.set('oauth.google.refresh_token', 'real-refresh-1', {});
+
+      let receivedRefresh: string | null = null;
+      const fetchImpl: typeof fetch = (_url, init) => {
+        const body = (init?.body ?? '').toString();
+        const params = new URLSearchParams(body);
+        receivedRefresh = params.get('refresh_token');
+        return Promise.resolve(
+          new Response(JSON.stringify({ access_token: 'new-access', expires_in: 3600 }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+        );
+      };
+
+      const handler = new OAuthRotationHandler({
+        tokenUrl: 'https://oauth.example/token',
+        clientId: 'cid',
+        fetchImpl,
+      });
+
+      const orchestrator = new RotationOrchestrator({
+        vault,
+        handlers: [handler],
+        bufferMs: 5 * 60_000,
+      });
+
+      const ok = await orchestrator.rotateIfExpiring('oauth.google');
+      expect(ok).toBe(true);
+      expect(receivedRefresh).toBe('real-refresh-1');
+
+      const access = await vault.get('oauth.google');
+      expect(access.isOk() && access.value === 'new-access').toBe(true);
+    });
+
+    it('throws refresh_token_missing when slot absent', async () => {
+      const vault = new CredentialVault(new InMemoryKeychain());
+      const handler = new OAuthRotationHandler({
+        tokenUrl: 'https://oauth.example/token',
+        // Provider nunca chamado — falha antes do fetch.
+        fetchImpl: () => Promise.reject(new Error('should not fetch')),
+      });
+      // Chama rotate diretamente (não via orchestrator) para isolar o caminho.
+      await expect(
+        handler.rotate({ key: 'oauth.google', currentValue: 'access', vault }),
+      ).rejects.toMatchObject({
+        kind: 'refresh_token_missing',
+      });
+      // Sanity check do tipo de erro.
+      try {
+        await handler.rotate({ key: 'oauth.google', currentValue: 'access', vault });
+      } catch (err) {
+        expect(err).toBeInstanceOf(OAuthRotationError);
+      }
+    });
   });
 });

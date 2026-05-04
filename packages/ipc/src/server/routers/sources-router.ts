@@ -6,12 +6,11 @@ import {
   SourceConfigViewSchema,
   SourceIdSchema,
   SourceStatusSchema,
+  WorkspaceIdSchema,
 } from '@g4os/kernel/schemas';
 import { z } from 'zod';
 import { authed } from '../middleware/authed.ts';
 import { router } from '../trpc.ts';
-
-const WorkspaceIdSchema = z.uuid();
 
 export const sourcesRouter = router({
   list: authed

@@ -48,12 +48,27 @@ export interface ExecuteToolUsesCtx {
   readonly toolTimeoutMs?: number;
 }
 
+/**
+ * CR-18 F-SR4: tools são executadas em SERIAL (não em `Promise.all`).
+ * Decisão deliberada — paralelização exigiria UI multi-modal (permission
+ * modal por tool simultâneo) e o ganho de latência só compensa quando o
+ * agent emite N tools puramente independentes (read-only, mesma sandbox).
+ * Custos: 4× read-file = 4×60s timeout pior caso vs ~60s paralelo. Caso
+ * tools cheguem a justificar (telemetria mostrando p95 > 30s consistente),
+ * abrir ADR para introduzir um modo opt-in `parallelGroup` no `ToolCatalog`.
+ */
 export async function executeToolUses(
   deps: ExecuteToolUsesDeps,
   ctx: ExecuteToolUsesCtx,
 ): Promise<readonly ToolOutcome[]> {
   const outcomes: ToolOutcome[] = [];
   for (const use of ctx.toolUses) {
+    // CR-18 F-SR1: abort entre iterações. Sem essa guarda, agent emitia 4
+    // tool_uses, user cancelava após 1º terminar, e os demais com permission
+    // `allow_session` cacheada executavam até o fim mesmo com
+    // `ctx.signal.aborted === true`. Outcome ainda era persistido como
+    // role=tool, contaminando o event log.
+    if (ctx.signal.aborted) break;
     const outcome = await executeSingleTool(deps, {
       sessionId: ctx.sessionId,
       turnId: ctx.turnId,
@@ -156,8 +171,13 @@ async function executeSingleToolInternal(
     const message = error instanceof Error ? error.message : String(error);
     // Em abort, cancela explicitamente a request no broker para liberar
     // o pending Map. Sem isso, a entry persistia até o timeout interno.
+    // CR-18 F-SR2: usar `cancelPendingForSession` em vez de `cancel` —
+    // `cancel` esvaziava `#sessionAllow`, perdendo decisões `allow_session`
+    // anteriores do mesmo turn (user precisava reaprovar tudo na próxima
+    // tool). `cancelPendingForSession` só rejeita pendências, preserva o
+    // cache de decisões.
     if (ctx.signal.aborted) {
-      deps.permissionBroker.cancel(ctx.sessionId);
+      deps.permissionBroker.cancelPendingForSession(ctx.sessionId);
     }
     log.warn({ err: message, toolUseId: use.toolUseId }, 'permission request failed');
     return {
@@ -201,6 +221,7 @@ async function executeSingleToolInternal(
   const composite = AbortSignal.any([ctx.signal, timeoutController.signal]);
 
   let handlerResult: ToolHandlerResult;
+  let timedOut = false;
   try {
     handlerResult = await handler.execute(use.input, {
       sessionId: ctx.sessionId,
@@ -209,11 +230,21 @@ async function executeSingleToolInternal(
       workingDirectory: ctx.workingDirectory,
       signal: composite,
     });
+    // Captura o estado de timeout ANTES de abortar o controller no finally.
+    // Sem isso, `timeoutController.signal.aborted` seria sempre true após
+    // o finally (F-CR46-3), impossibilitando distinguir timeout real de
+    // cleanup normal.
+    timedOut = timeoutController.signal.aborted && !ctx.signal.aborted;
   } finally {
     clearTimeout(timeoutHandle);
+    // F-CR46-3: aborta o timeoutController para liberar o listener que
+    // `AbortSignal.any` registrou em `ctx.signal`. Sem isso, cada tool
+    // execution acumula um listener no signal de turno — 10 tool uses = 10
+    // listeners. `timeoutController.abort()` no-op se já abortado (idempotente).
+    timeoutController.abort();
   }
 
-  if (timeoutController.signal.aborted && !ctx.signal.aborted) {
+  if (timedOut) {
     log.warn({ toolName: use.toolName, timeoutMs }, 'tool handler timed out');
     return {
       toolUseId: use.toolUseId,

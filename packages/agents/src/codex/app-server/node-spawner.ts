@@ -16,6 +16,15 @@ export class NodeSubprocessSpawner implements SubprocessSpawner {
 
 export function wrapChildProcess(child: ChildProcess, command: string): Subprocess {
   child.stdout?.setEncoding('utf8');
+  // ADR-0072: stderr nunca drenado → buffer enche (~64 KB) e subprocess
+  // bloqueia em write(2) indefinidamente. Drena para log.debug para
+  // preservar visibilidade de warnings sem bloquear o turn.
+  if (child.stderr) {
+    child.stderr.setEncoding('utf8');
+    child.stderr.on('data', (chunk: string) => {
+      log.debug({ chunk: chunk.slice(0, 500) }, 'codex stderr');
+    });
+  }
   const exit = new Promise<SubprocessExit>((resolve, reject) => {
     child.on('exit', (code, signal) => {
       resolve({ code, signal });

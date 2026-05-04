@@ -62,6 +62,7 @@
     "node": ">=24.0.0"
   },
   "dependencies": {
+    "@g4os/codex-types": "workspace:*",
     "@g4os/kernel": "workspace:*",
     "@g4os/platform": "workspace:*",
     "neverthrow": "catalog:",

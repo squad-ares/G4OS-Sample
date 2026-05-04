@@ -78,7 +78,31 @@ async function* adaptChatStream(
 
 function* translateRawChunk(raw: unknown): Iterable<OpenAIStreamChunk> {
   if (typeof raw !== 'object' || raw === null) return;
-  const choice = (raw as { choices?: readonly unknown[] }).choices?.[0];
+  const obj = raw as {
+    choices?: readonly unknown[];
+    usage?: {
+      prompt_tokens?: number;
+      completion_tokens?: number;
+      prompt_tokens_details?: { cached_tokens?: number };
+    };
+  };
+
+  // ADR-0074 / F-CR31-6: chunk final com stream_options.include_usage=true
+  // traz usage no nível do objeto (choices pode ser vazio nesse chunk).
+  if (obj.usage) {
+    const u = obj.usage;
+    const inputTokens = u.prompt_tokens ?? 0;
+    const outputTokens = u.completion_tokens ?? 0;
+    const cacheRead = u.prompt_tokens_details?.cached_tokens;
+    yield {
+      type: 'usage',
+      input: inputTokens,
+      output: outputTokens,
+      ...(cacheRead === undefined ? {} : { cacheRead }),
+    };
+  }
+
+  const choice = obj.choices?.[0];
   if (typeof choice !== 'object' || choice === null) return;
   const { delta, finish_reason: finishReason } = choice as {
     delta?: {
@@ -96,10 +120,17 @@ function* translateRawChunk(raw: unknown): Iterable<OpenAIStreamChunk> {
   if (delta) yield* processDelta(delta);
 
   if (typeof finishReason === 'string') {
-    yield {
-      type: 'done',
-      finishReason: finishReason === 'length' || finishReason === 'stop' ? finishReason : 'stop',
-    };
+    // ADR-0074: preservar finish_reason original para o OpenAIEventMapper
+    // coercir corretamente. Silenciar 'tool_calls' → 'stop' fazia o
+    // runToolLoop jamais detectar tool use e abandonar a chamada de função.
+    const mapped: 'stop' | 'length' | 'tool_calls' | 'content_filter' =
+      finishReason === 'stop' ||
+      finishReason === 'length' ||
+      finishReason === 'tool_calls' ||
+      finishReason === 'content_filter'
+        ? (finishReason as 'stop' | 'length' | 'tool_calls' | 'content_filter')
+        : 'stop';
+    yield { type: 'done', finishReason: mapped };
   }
 }
 

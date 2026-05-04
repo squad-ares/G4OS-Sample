@@ -1,5 +1,6 @@
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir } from 'node:fs/promises';
 import { dirname } from 'node:path';
+import { writeAtomic } from '@g4os/kernel/fs';
 import { err, ok, type Result } from 'neverthrow';
 import { resolveInside } from '../shared/path-guard.ts';
 import type { ToolFailure, ToolHandler, ToolHandlerResult } from '../types.ts';
@@ -52,7 +53,23 @@ export const writeFileHandler: ToolHandler = {
       if (parsedValue.createParents === true) {
         await mkdir(dirname(target), { recursive: true });
       }
-      await writeFile(target, parsedValue.content, { encoding: 'utf8', signal: ctx.signal });
+      // CR-30 F-CR30-4: writeAtomic (`tmp → fsync → rename → fsync(dir)`)
+      // protege contra crash mid-write deixando arquivo do usuário
+      // truncado. CLAUDE.md "writeAtomic substitui o padrão inseguro
+      // fs.writeFile" se aplica também a tools — `write_file` reescreve
+      // arquivos do projeto do usuário; trabalho perdido é mais visível
+      // que credencial corrompida.
+      //
+      // AbortSignal não é honrado por writeAtomic (escrita sub-1ms em SSD
+      // cobre o gap). Caller que precisar cancelar usa o signal externo
+      // pra impedir chamadas subsequentes — race-window aqui é negligível.
+      if (ctx.signal.aborted) {
+        return err({
+          code: 'tool.write_file.aborted',
+          message: 'write aborted before start',
+        });
+      }
+      await writeAtomic(target, parsedValue.content);
       return ok({
         output: `wrote ${bytes} bytes to ${target}`,
         metadata: { path: target, bytes },

@@ -134,10 +134,19 @@ export function formatPlanForPrompt(plan: SourcePlan): string {
       .join(', ');
     parts.push(`Available sources: ${listed}.`);
   }
-  const pending = all.filter((s) => s.status !== 'connected').map((s) => s.slug);
-  if (pending.length > 0) {
+  // ADR-0083: distingue `connecting` (transitório — não requer ação do usuário)
+  // de `disconnected`/`error`/`needs_auth` (requerem ação). Instruir o agent
+  // a "ask user to authorize" durante um reconnect transiente é enganoso.
+  const reconnecting = all.filter((s) => s.status === 'connecting').map((s) => s.slug);
+  if (reconnecting.length > 0) {
+    parts.push(`Reconnecting (will be available shortly): ${reconnecting.join(', ')}.`);
+  }
+  const needsAction = all
+    .filter((s) => s.status !== 'connected' && s.status !== 'connecting')
+    .map((s) => s.slug);
+  if (needsAction.length > 0) {
     parts.push(
-      `Not connected (use activate_sources or ask user to authorize): ${pending.join(', ')}.`,
+      `Not connected (use activate_sources or ask user to authorize): ${needsAction.join(', ')}.`,
     );
   }
   if (plan.rejected.length > 0) {

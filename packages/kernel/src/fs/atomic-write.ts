@@ -1,6 +1,12 @@
+import { randomBytes as randomBytesCallback } from 'node:crypto';
 import { copyFile, open, rename, unlink } from 'node:fs/promises';
 import { dirname } from 'node:path';
+import { promisify } from 'node:util';
 
+const randomBytesAsync = promisify(randomBytesCallback);
+
+import { err, ok, type Result } from 'neverthrow';
+import { FsError } from '../errors/fs-error.ts';
 import { createLogger } from '../logger/index.ts';
 
 const log = createLogger('fs:atomic-write');
@@ -39,7 +45,13 @@ export async function writeAtomic(
   data: string | Uint8Array,
   options?: { readonly mode?: number },
 ): Promise<void> {
-  const tmpPath = `${path}.${process.pid}.${Date.now()}.tmp`;
+  // Sufixo aleatório (8 bytes hex) defende contra colisão teórica entre dois
+  // callers no mesmo PID + mesmo Date.now() (resolução ms). PID sozinho não
+  // basta — chamadas in-process concorrentes ao mesmo target compartilham
+  // process.pid; Date.now() pode colidir em ms quando event loop dispara
+  // múltiplos awaits no mesmo tick. UUID-equivalente em entropia.
+  const randomSuffix = (await randomBytesAsync(8)).toString('hex');
+  const tmpPath = `${path}.${process.pid}.${Date.now()}.${randomSuffix}.tmp`;
   const mode = options?.mode ?? 0o600;
 
   let fileHandle: Awaited<ReturnType<typeof open>> | null = null;
@@ -130,4 +142,64 @@ function isUnsupportedDirSyncError(error: unknown): boolean {
     code === 'EACCES' ||
     code === 'EINVAL'
   );
+}
+
+/**
+ * Variante Result do `writeAtomic`. CR-18 F-K2: callers eram forçados a
+ * `try/catch` genérico, perdendo o tipo do erro. As factories
+ * `FsError.diskFull/accessDenied/notFound` já existiam mas não eram usadas
+ * por escrita atômica — agora errno do node é mapeado para `FsError.*`
+ * tipado, propagado via `Result`.
+ *
+ * Erros conhecidos:
+ *   - `ENOSPC` → `FsError.diskFull`
+ *   - `EACCES` / `EPERM` → `FsError.accessDenied`
+ *   - `ENOENT` → `FsError.notFound` (raro — caso target dir não exista)
+ *   - outros (EBUSY, EROFS, ENAMETOOLONG, EISDIR, ENOTDIR, ...) →
+ *     `FsError` com `FS_IO_ERROR`. CR-27 F-CR27-4: antes o fallback usava
+ *     `FS_ACCESS_DENIED`, levando UI/Repair a sugerir "verifique permissões"
+ *     mesmo quando a causa raiz era read-only filesystem ou file lock.
+ */
+export async function writeAtomicResult(
+  path: string,
+  data: string | Uint8Array,
+  options?: { readonly mode?: number },
+): Promise<Result<void, FsError>> {
+  try {
+    await writeAtomic(path, data, options);
+    return ok(undefined);
+  } catch (cause) {
+    return err(mapErrnoToFsError(path, cause));
+  }
+}
+
+function mapErrnoToFsError(path: string, cause: unknown): FsError {
+  if (typeof cause !== 'object' || cause === null) {
+    return new FsError({
+      code: 'fs.io_error',
+      message: `writeAtomic failed: ${String(cause)}`,
+      context: { path },
+      cause,
+    });
+  }
+  const code = (cause as { code?: unknown }).code;
+  switch (code) {
+    case 'ENOSPC':
+      return FsError.diskFull(path);
+    case 'EACCES':
+    case 'EPERM':
+      return FsError.accessDenied(path);
+    case 'ENOENT':
+      return FsError.notFound(path);
+    default:
+      // CR-27 F-CR27-4: errno genérico (EBUSY, EROFS, ENAMETOOLONG, EISDIR,
+      // ENOTDIR, ...). `FS_IO_ERROR` discrimina IO failure de access denied;
+      // errno original preservado em `context.errno` pra diagnóstico.
+      return new FsError({
+        code: 'fs.io_error',
+        message: `writeAtomic failed (${typeof code === 'string' ? code : 'unknown'}): ${path}`,
+        context: { path, errno: typeof code === 'string' ? code : undefined },
+        cause,
+      });
+  }
 }

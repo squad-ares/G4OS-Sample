@@ -6,11 +6,18 @@ import type {
   ClaudeStreamEvent,
 } from '../types.ts';
 
+/**
+ * Opções do BedrockProvider.
+ *
+ * A autenticação SigV4 é construída FORA via `sdkFactory` injetado — o
+ * provider não constrói cliente AWS internamente. Os campos `region`,
+ * `accessKeyId`, `secretAccessKey` e `sessionToken` eram campos mortos
+ * (F-CR31-10): declarados mas nunca lidos por `BedrockProvider`. Foram
+ * removidos para não enganar callers que poderiam achar que setá-los
+ * afeta o cliente real. Passe apenas `sdkFactory`; se precisar de suporte
+ * a credenciais diretas no futuro, abra ADR dedicado.
+ */
 export interface BedrockProviderOptions {
-  readonly region: string;
-  readonly accessKeyId: string;
-  readonly secretAccessKey: string;
-  readonly sessionToken?: string;
   readonly sdkFactory?: () => Promise<BedrockRuntimeLike>;
 }
 

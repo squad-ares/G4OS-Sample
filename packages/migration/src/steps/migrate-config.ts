@@ -1,0 +1,136 @@
+/**
+ * Step `config` — copia `config.json` do V1 pra V2 mapeando os campos
+ * conhecidos. Step "real" mais simples; serve de protótipo dos demais.
+ *
+ * V1 config (heurística, baseado em inspeção do app antigo):
+ * ```json
+ * { "version": "0.x.y", "theme": "dark|light", "locale": "pt-BR|en-US",
+ *   "telemetryOptIn": boolean, "lastWorkspaceId": "uuid" }
+ * ```
+ *
+ * V2 não tem um único `config.json` — preferences vivem no
+ * `PreferencesStore` (per-workspace) e `app.config` é env-driven. Este
+ * step grava `migration-config.json` no target.
+ *
+ * **CR-18 F-M4 (status):** o arquivo `migration-config.json` é HOJE
+ * write-only no migrator — `apps/desktop/src/main/services/preferences-store.ts`
+ * NÃO lê este arquivo na primeira boot. Decisão deliberada: o caller
+ * (UI Wizard / CLI) é responsável por inspecionar `report.stepResults`
+ * + ler manualmente o JSON e aplicar campos via API pública do
+ * PreferencesStore. Auto-aplicação foi rejeitada porque V1 traz
+ * formatos heurísticos (theme/locale com casing variado) que precisam
+ * de mapeamento explícito por field — colocar essa lógica num boot
+ * silent agrava bugs sem feedback. TASK-14-01 (consumer real) fica
+ * deferred até o wizard de migração consumir a API.
+ */
+
+import { mkdir, readFile } from 'node:fs/promises';
+import { dirname, join } from 'node:path';
+import type { AppError } from '@g4os/kernel/errors';
+import { writeAtomic } from '@g4os/kernel/fs';
+import { err, ok, type Result } from 'neverthrow';
+import { migrationError } from '../types.ts';
+import type { StepContext, StepResult } from './contract.ts';
+
+interface V1ConfigLike {
+  readonly version?: unknown;
+  readonly theme?: unknown;
+  readonly locale?: unknown;
+  readonly telemetryOptIn?: unknown;
+  readonly lastWorkspaceId?: unknown;
+}
+
+export async function migrateConfig(ctx: StepContext): Promise<Result<StepResult, AppError>> {
+  const { sourcePath, targetPath, stepIndex, stepCount, onProgress, dryRun } = ctx;
+  onProgress({
+    stepKind: 'config',
+    stepIndex,
+    stepCount,
+    stepProgress: 0,
+    message: dryRun ? 'config: dry-run' : 'config: lendo V1',
+  });
+
+  const v1ConfigPath = join(sourcePath, 'config.json');
+  const warnings: string[] = [];
+
+  let raw: string;
+  try {
+    raw = await readFile(v1ConfigPath, 'utf-8');
+  } catch (cause) {
+    return err(
+      migrationError({
+        migrationCode: 'step_failed',
+        message: `migrate-config: falha lendo ${v1ConfigPath}`,
+        cause: cause instanceof Error ? cause : undefined,
+      }),
+    );
+  }
+
+  let parsed: V1ConfigLike;
+  try {
+    parsed = JSON.parse(raw) as V1ConfigLike;
+  } catch (cause) {
+    return err(
+      migrationError({
+        migrationCode: 'v1_corrupted',
+        message: 'migrate-config: V1 config.json malformado',
+        cause: cause instanceof Error ? cause : undefined,
+      }),
+    );
+  }
+
+  // Whitelist de campos conhecidos. Demais são preservados em `extras` pra
+  // não perdermos info útil; caller pode inspecionar pós-migração.
+  const known: Record<string, unknown> = {};
+  const extras: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(parsed)) {
+    if (['version', 'theme', 'locale', 'telemetryOptIn', 'lastWorkspaceId'].includes(k)) {
+      known[k] = v;
+    } else {
+      extras[k] = v;
+    }
+  }
+  if (Object.keys(extras).length > 0) {
+    warnings.push(
+      `${Object.keys(extras).length} campo(s) desconhecido(s) em V1 config — preservados em "extras"`,
+    );
+  }
+  // F-CR40-13: migration-config.json é write-only no migrator — o caller
+  // (UI Wizard ou CLI) DEVE inspecionar report.stepResults e ler o arquivo
+  // para aplicar theme/locale via PreferencesStore. Auto-aplicação foi
+  // rejeitada (campos V1 com casing variado exigem mapeamento explícito
+  // por field — silencioso quebraria UX sem feedback).
+  warnings.push(
+    'migration-config.json gravado — caller deve aplicar theme/locale manualmente via PreferencesStore (TASK-14-01b)',
+  );
+
+  const bytes = Buffer.byteLength(raw, 'utf-8');
+
+  const writtenPaths: string[] = [];
+  if (!dryRun) {
+    const outPath = join(targetPath, 'migration-config.json');
+    await mkdir(dirname(outPath), { recursive: true });
+    const payload = JSON.stringify({ migratedFromV1: true, known, extras }, null, 2);
+    // CR-32 F-CR32-5: writeAtomic — crash mid-write em migration step deixa
+    // target em estado inconsistente. Outros steps já não usam writeFile cru;
+    // este era o último caso em packages/migration.
+    await writeAtomic(outPath, payload);
+    writtenPaths.push(outPath);
+  }
+
+  onProgress({
+    stepKind: 'config',
+    stepIndex,
+    stepCount,
+    stepProgress: 1,
+    message: dryRun ? 'config: dry-run ok' : 'config: gravado migration-config.json',
+  });
+
+  return ok({
+    itemsMigrated: 1,
+    itemsSkipped: 0,
+    bytesProcessed: bytes,
+    nonFatalWarnings: warnings,
+    writtenPaths,
+  });
+}

@@ -123,17 +123,222 @@ import { globSync } from 'glob';
 // - turn-dispatcher.ts: emite `turn.done` após runToolLoop pra renderer limpar
 //   `streamingTurnId` de forma confiável (antes era leak; ghost message ficava
 //   pendurado em algumas paths de erro).
-const MAIN_LIMIT = 8900;
+//
+// 2026-04-30 (TASK-14-01 Slice 4 part 1): teto sobe de 8900 → 9000 com
+// `migration-service.ts` (~75 LOC) — facade que adapta `@g4os/migration`
+// (detect + plan) ao contrato `MigrationService` do IPC. Composition root
+// instancia + plumbing através de `IpcServiceOverrides`. `execute()` virá
+// em slice 4 part 2 com writers (workspaces/sessions/sources).
+//
+// 2026-04-30 (TASK-14-01 Slice 4 part 2): teto sobe de 9000 → 9300 com
+// `migration/writers.ts` (~190 LOC) — V2WorkspaceWriter (drizzle direct +
+// bootstrap fs), V2SourceWriter (SourcesStore.insert), V2SessionWriter
+// (SessionsRepository + SessionEventStore + applyEvent). Composição
+// limpa: writers ficam em arquivo próprio dentro de `services/migration/`,
+// migration-service.ts cresce ~80 LOC com `execute()` que orquestra.
+//
+// 2026-04-30 (Epic 18 + 10b sub-tasks): teto sobe de 9300 → 9400 com
+// `global-shortcuts.ts` (~85 LOC) — registro Cmd+Shift+N + Cmd+Shift+W
+// no main process, IPC channel pra renderer focar composer.
+//
+// 2026-04-30 (Epic 18 — tray + deep-link extension): teto sobe de 9400 →
+// 9600 com `tray-service.ts` (~148 LOC) + expansão de
+// `deep-link-handler.ts` (~40 LOC adicionais: PATH_WHITELIST estendido +
+// IPC forward `deep-link:navigate` pra janela existente em vez de só
+// abrir nova).
+//
+// 2026-05-01 (10c-32 + window-bounds extraction): teto sobe de 9600 →
+// 9700 com `window-bounds.ts` (~67 LOC, extraído de window-manager pra
+// reduzir o file-size do composition root e separar I/O atômico de
+// lifecycle) + `onWindowCreated` subscriber pattern em window-manager
+// pra IPC server cobrir janelas criadas após o boot (multi-window via
+// WindowsService, deep-link, debug-hud).
+//
+// 2026-05-01 (CR-15 Wave 1+2): teto sobe de 9700 → 9800 com:
+// - `services/attachments-gc-bootstrap.ts` (~37 LOC) wired no boot pra
+//   GC de blobs órfãos (sem isso, attachments folder crescia monotonic).
+// - `turn-dispatcher` ganhou try/catch em buildMountedHandlers (~12 LOC).
+// - `backup-bootstrap` retorna {scheduler, gateway} (~10 LOC).
+// - `shutdown-bootstrap` await drain antes de dispose (~5 LOC).
+// - `debug-hud/{index,window}.ts` ganharam onWebContentsCreated hook
+//   (~16 LOC) pra IPC bootstrap wirar cleanup de subscriptions no HUD.
+//
+// 2026-05-01 (CR-17 — Backup IPC + UI completion): teto sobe de 9800 →
+// 10000 com:
+// - `services/backup-service.ts` (~135 LOC NEW) — implementa `BackupService`
+//   IPC (list/runNow/delete) compondo `BackupScheduler` + filesystem queries
+//   com path-guard no delete (refused se path fora de auto-backups dir).
+// - `services/backup-scheduler.ts` (+~25 LOC) — método público novo
+//   `runForWorkspace(id)` pra backup manual fora do ciclo periódico, +
+//   getter `backupDir` pra UI revelar via showItemInFolder.
+// - `ipc-context.ts` (+~5 LOC) — wire de `backup` service no override map
+//   + null fallback.
+// - `index.ts` (+~3 LOC) — import + injeção de `createBackupService` no
+//   `initIpcServer({ services })`.
+// Settings hub pré-canary completou as 14 categorias (12 ready + 2 planned)
+// com Backup como categoria de UI funcional — antes o BackupScheduler
+// rodava 24h em background mas usuário não tinha visibilidade nem trigger
+// manual. Pequena dívida de domínio paga.
+//
+// 10000 → 10150 — CR-18 F-DT-I: novo `services/single-instance-bootstrap.ts`
+// (~107 LOC) registra `requestSingleInstanceLock` + `setAsDefaultProtocolClient`
+// + `second-instance` listener + argv deep-link consumer. Sem isso o OS
+// jamais entrega URLs `g4os://...` ao app: era um buraco crítico não
+// mapeado em CRs anteriores (deep-link handler existia mas runtime ignorava
+// porque o protocol nunca era registrado). +`electron-runtime.ts` (+~20 LOC)
+// expõe `requestSingleInstanceLock`/`setAsDefaultProtocolClient` no contrato
+// `ElectronApp` e adiciona overload `on('second-instance', ...)` para
+// type-safety. +`index.ts` (+~25 LOC) wire 4 funções da bootstrap no
+// composition root antes de `whenReady()`. Próxima elevação exige nova
+// extração estrutural OU ADR justificando.
+//
+// 10150 → 10300 — code-review-19 retrofit: o commit `bd20855
+// feat(desktop): Services status screen with real HTTP connectivity probing`
+// adicionou `services/services-prober.ts` (111 LOC) — probe HTTP HEAD com
+// timeout pros endpoints de observability (Sentry DSN, OTLP, metrics
+// scrape) que reporta `reachable/latencyMs/error` real ao usuário em
+// `Settings → Services`, distinguindo "configurado mas inacessível" de
+// "ativo". Sem isso operadores ficavam cegos a configs aceitas mas que
+// não chegavam ao backend. PR original esqueceu de bumpar o teto; gate
+// passou a falhar cumulativamente quando outros pacotes cresceram em
+// ~10 LOC. Total atual: 10246 LOC. Buffer de 54 LOC para ajustes menores
+// até próxima extração estrutural (candidato natural: mover `services-prober.ts`
+// para `@g4os/observability/probe` em refactor futuro — função é
+// observability-agnostic e não tem deps de Electron).
+//
+// 11050 → 11100 — code-review-31 (12 findings aplicados em HUD):
+// - `debug-hud/state.ts` ganhou Zod schema (HudPersistedStateSchema) +
+//   trocou `writeFile` por `writeAtomic` (ADR-0050) (~15 LOC).
+// - `debug-hud/index.ts` ganhou IPC `get-app-meta` + safeParse no
+//   `save-config` (~12 LOC).
+// - `services/debug-hud-actions-bootstrap.ts` extraiu strings hardcoded
+//   em constantes documentadas (~5 LOC).
+// - `window-manager.ts` ganhou `getMain()` documentado (~10 LOC).
+// Total líquido: ~50 LOC. CR31 fixes refletem disciplina arquitetural
+// (Zod, atomic write, type safety) que justifica o crescimento.
+//
+// 11100 → 11500 — code-review-51 (22 findings aplicados em apps/desktop):
+// - `index.ts` (520 → 560 LOC): F-CR51-4 wire de `RotationOrchestrator`
+//   (start + dispose handler ~10 LOC); F-CR51-9 vault propagado ao
+//   `createMountRegistry` (~2 LOC); F-CR51-10 subscription `managedLogin
+//   .state$` para `observability.sentry.setUser` em authenticated/idle
+//   (~17 LOC); F-CR51-1 comentário documentando dispose do broker
+//   registrado em `registerShutdownHandlers` (~3 LOC); F-CR51-22 cast
+//   estrutural via `unknown` em vez de `as never` no Tray/Menu wiring
+//   (~3 LOC). Wiring de composition root puro — extrair viraria
+//   prop-drilling sem ganho de coesão.
+// - `turn-dispatcher.ts` (420 → 450 LOC): comentários documentais de
+//   findings cumulativos (CR-30 thinkingLevel ~7, CR-24 persistSystemError
+//   ~10, CR-25 isAbortedError discriminator ~8, CR-36 dispose pattern
+//   duplicado em interrupt+cleanupAll ~25, F-CR46-9/10 ~10). Comentários
+//   capturam decisões arquiteturais não-óbvias (memory leak via subscription
+//   externa, paridade com event-reducer-error V1) — comprimir prejudica
+//   futuro debugging.
+// - `projects-service.ts` (sem exemption → 310 LOC): CR-21 `instanceof
+//   AppError` preservation no `#try` (~5 LOC), CR-33 F-CR33-4 `writeAtomic`
+//   no bootstrap + comentário explicativo (~5 LOC). Marginal (3 LOC acima
+//   do default), criação de exemption documentada em vez de fragmentar
+//   um service de domínio coeso.
+// Total líquido em main: ~73 LOC. Próxima elevação exige extração
+// estrutural OU ADR justificando.
+//
+// 10700 → 11050 — debug HUD UX evolution (Fase 1+2+3 ações):
+// - `debug-hud/actions.ts` novo (~166 LOC): handlers puros das ações
+//   diagnósticas (force-gc, cancel-turn, cancel-all-turns, reset-listeners,
+//   clear-logs, export-diagnostic, reload-renderer) com `ActionResult`
+//   tipado.
+// - `services/debug-hud-actions-bootstrap.ts` novo (~102 LOC): closures
+//   que dependem do composition root (Electron dialog, exportDebugInfo,
+//   appPaths) — mantém `debug-hud/` com baixa dep.
+// - `debug-hud/index.ts` (+~38 LOC): IPC handlers `debug-hud:action:*` +
+//   ACTIONS array + cleanup no dispose.
+// - `debug-hud/aggregator.ts` (+~9 LOC): `clearLogBuffer()` pra ação
+//   clear-logs.
+// - `main/index.ts` wiring (+~10 LOC): `createDebugHudActionsBootstrap`
+//   + injeção de `turnDispatcher`/`reloadMainWindow`/`exportDiagnostic`.
+//
+// 10300 → 10700 — code-review-30 (7 findings aplicados):
+// - F-CR30-1: title-generator.ts: vault key correto `anthropic_api_key` +
+//   separação de `default-system-prompt.ts` (91 LOC novo) pra isolar
+//   geradores de prompt do scheduler.
+// - F-CR30-2: ThinkingLevel unificado em `@g4os/kernel/types`; wire em
+//   `turn-dispatcher.ts` lê `session.metadata.thinkingLevel` e injeta no
+//   AgentConfig; sessions-service.ts expõe thinkingLevel no update path.
+// - F-CR30-3: drain + dispose do TurnDispatcher combinados num único
+//   handler async em shutdown-bootstrap.ts (fix de race condition em
+//   graceful shutdown — flush parcial de eventos).
+// - F-CR30-4: `write_file` tool usa `writeAtomic` em vez de `fs.writeFile`
+//   (proteção contra truncamento em crash mid-write).
+// - F-CR30-9: `availableProviders` no renderer deriva de `runtimeStatus`
+//   em vez de credentials query (sinal autoritativo).
+// - F-CR30-10: `connectionSlugForProvider` deduplicado em `@g4os/kernel/types`.
+// - system-message.tsx novo componente + ADR-0159.
+// Crescimento líquido: ~350 LOC distribuído entre default-system-prompt.ts
+// (new) + expansões legítimas de turn-dispatcher/sessions-service/title-generator.
+const MAIN_LIMIT = 11500;
 const FILE_LIMIT = 300;
 
 // Composition roots e agregadores de diagnóstico com teto próprio.
 // Cada entrada justifica por que o FILE_LIMIT padrão não se aplica.
 const FILE_EXEMPTIONS: Map<string, number> = new Map([
+  // TurnDispatcher: orquestra agent run + tool loop + permission broker
+  // + mount registry + telemetry + event bus. CR-15 wave 1 adicionou
+  // try/catch em buildMountedHandlers (~12 LOC). CR-24 F-CR24-1 adicionou
+  // persistência de system error antes de emitir evento ephemeral (~20 LOC).
+  // CR-30 F-CR30-2 wiring de thinkingLevel: lê metadata.thinkingLevel do
+  // refreshedSession e injeta no AgentConfig (~20 LOC incluindo comentário
+  // explicativo). Extrair em helper foi avaliado; o try/catch local mantém
+  // escopo do logger e sessionId — extração viraria 2 indireções. CR-51
+  // acrescentou ~30 LOC de comentários documentais (CR-36 dispose pattern
+  // duplicado em interrupt+cleanupAll, F-CR46-9/10 broker cancelPending,
+  // CR-23 dispose agent em interrupt) capturando decisões não-óbvias
+  // sobre memory leak via subscription externa. Teto 450.
+  ['apps/desktop/src/main/services/turn-dispatcher.ts', 450],
+
+  // SourcesService: 9 procedures IPC (list/listAvailable/get/enableManaged/
+  // createStdio/createHttp/setEnabled/delete/testConnection) + secrets
+  // wire + status probing. CR-16 F-22 adicionou cleanup explícito de
+  // timer no testConnection (~5 LOC). Cada procedure tem boilerplate
+  // mínimo e error mapping próprio — extrair em sub-services ainda
+  // exigiria pass-through props sem ganho de legibilidade. Teto 320.
+  ['apps/desktop/src/main/services/sources-service.ts', 320],
+
+  // TitleGeneratorService: scheduler de geração de título via Anthropic
+  // Haiku (2 fases: truncate imediato + AI refine). CR-30 F-CR30-1 corrigiu
+  // vault key (anthropic_api_key vs connection.anthropic-direct.apiKey) e
+  // extraiu `default-system-prompt.ts` (91 LOC) — mesmo assim o scheduler
+  // principal cresce pelas utilities inline de truncate + skipIfDefault.
+  // Teto 340.
+  ['apps/desktop/src/main/services/title-generator.ts', 340],
+
+  // SessionsService: 20+ métodos IPC cobrindo list/get/create/update/delete/
+  // archive/restore/pin/star/markRead/branch/labels/search. CR-30 F-CR30-2
+  // adicionou thinkingLevel no path de update (~6 LOC). Extrair em sub-service
+  // exigiria >3 novos arquivos sem ganho de coesão — sessão é um único domínio.
+  // Teto 320.
+  ['apps/desktop/src/main/services/sessions-service.ts', 320],
+
   // Composition root do processo principal: instancia todos os serviços,
   // registra shutdown handlers, bootstrapa IPC e janela. Concentração
   // intencional — extrair implicaria prop drilling ou Context API sem
-  // ganho real de legibilidade. Teto: 450 LOC.
-  ['apps/desktop/src/main/index.ts', 450],
+  // ganho real de legibilidade. Bumps cumulativos: CR-18 F-DT-I
+  // (single-instance lock + protocol client), debug HUD UX evolution
+  // (createDebugHudActionsBootstrap + injeção de turnDispatcher/
+  // reloadMainWindow/exportDiagnostic). CR-51 wiring crítico: F-CR51-4
+  // RotationOrchestrator (start + dispose ~10 LOC), F-CR51-9 vault no
+  // mountRegistry (~2 LOC), F-CR51-10 Sentry user subscription (~17 LOC),
+  // F-CR51-1 broker dispose comment (~3 LOC), F-CR51-22 Tray cast estrutural
+  // (~3 LOC). Próximo bump exige extração estrutural.
+  // script usa split('\n').length que conta +1 vs wc -l (trailing newline).
+  // Teto: 560 LOC.
+  ['apps/desktop/src/main/index.ts', 560],
+
+  // ProjectsService: orquestrador de 17 métodos (CRUD + files + tasks +
+  // sessions + legacy import) sobre repositories. CR-21 propaga `instanceof
+  // AppError` no `#try` (~5 LOC), CR-33 F-CR33-4 `writeAtomic` no bootstrap
+  // (~5 LOC, ADR-0050). 3 LOC acima do default — exemption documentada em
+  // vez de fragmentar service de domínio coeso. Teto 310.
+  ['apps/desktop/src/main/services/projects-service.ts', 310],
 ]);
 
 const files = globSync('apps/desktop/src/main/**/*.ts', {

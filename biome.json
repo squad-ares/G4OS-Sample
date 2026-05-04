@@ -163,14 +163,17 @@
         "scripts/**/*.mts",
         "apps/*/scripts/**/*.ts",
         "apps/*/scripts/**/*.mts",
-        "apps/*/electron-builder.config.ts"
+        "apps/*/electron-builder.config.ts",
+        "tools/**/*.ts",
+        "tools/**/*.mts"
       ],
       "linter": {
         "rules": {
           "suspicious": {
             "noConsole": "off",
             "noTemplateCurlyInString": "off",
-            "noEmptyBlockStatements": "off"
+            "noEmptyBlockStatements": "off",
+            "useAwait": "off"
           },
           "style": {
             "noProcessEnv": "off",
@@ -206,7 +209,6 @@
         "**/validation/env.ts",
         "**/logger/logger.ts",
         "**/platform-info.ts",
-        "**/paths.ts",
         "**/routers/health-router.ts",
         "**/codex/binary-resolver.ts"
       ],

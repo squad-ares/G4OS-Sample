@@ -13,10 +13,12 @@
 
 import type { TranslationKey } from '@g4os/translate';
 import {
+  Archive,
   Bot,
   Briefcase,
   CloudUpload,
   Keyboard,
+  LifeBuoy,
   type LucideIcon,
   Palette,
   Settings as SettingsIcon,
@@ -24,6 +26,7 @@ import {
   SlidersHorizontal,
   Tag,
   Type,
+  Wifi,
   Wrench,
   Zap,
 } from 'lucide-react';
@@ -38,9 +41,12 @@ export type SettingsCategoryId =
   | 'permissions'
   | 'tags'
   | 'cloud-sync'
+  | 'backup'
   | 'repair'
   | 'shortcuts'
-  | 'preferences';
+  | 'preferences'
+  | 'support'
+  | 'services';
 
 export type SettingsCategoryStatus = 'ready' | 'planned';
 
@@ -107,7 +113,10 @@ export const SETTINGS_CATEGORIES: readonly SettingsCategory[] = [
     icon: Zap,
     labelKey: 'settings.category.usage.label',
     descriptionKey: 'settings.category.usage.description',
-    status: 'ready',
+    // `planned` até existir backend de billing/metrics. UI atual mostra
+    // 3 painéis com badge "Em breve" — sidebar surfacing planned-badge
+    // alinha expectativa antes de clicar.
+    status: 'planned',
     persistence: 'none',
   },
   {
@@ -131,8 +140,18 @@ export const SETTINGS_CATEGORIES: readonly SettingsCategory[] = [
     icon: CloudUpload,
     labelKey: 'settings.category.cloudSync.label',
     descriptionKey: 'settings.category.cloudSync.description',
-    status: 'ready',
+    // `planned` até wire de R2 sync existir. UI atual descreve escopo
+    // (transcripts/config sim, attachments não) sem persistir nada.
+    status: 'planned',
     persistence: 'app-config',
+  },
+  {
+    id: 'backup',
+    icon: Archive,
+    labelKey: 'settings.category.backup.label',
+    descriptionKey: 'settings.category.backup.description',
+    status: 'ready',
+    persistence: 'none',
   },
   {
     id: 'repair',
@@ -157,6 +176,22 @@ export const SETTINGS_CATEGORIES: readonly SettingsCategory[] = [
     descriptionKey: 'settings.category.preferences.description',
     status: 'ready',
     persistence: 'preferences',
+  },
+  {
+    id: 'support',
+    icon: LifeBuoy,
+    labelKey: 'settings.category.support.label',
+    descriptionKey: 'settings.category.support.description',
+    status: 'ready',
+    persistence: 'none',
+  },
+  {
+    id: 'services',
+    icon: Wifi,
+    labelKey: 'settings.category.services.label',
+    descriptionKey: 'settings.category.services.description',
+    status: 'ready',
+    persistence: 'none',
   },
 ];
 

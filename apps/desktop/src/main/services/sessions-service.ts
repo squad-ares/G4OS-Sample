@@ -9,7 +9,7 @@
  */
 
 import type { AppDb, Db } from '@g4os/data';
-import { SessionEventStore } from '@g4os/data/events';
+import { rebuildProjection, SessionEventStore } from '@g4os/data/events';
 import { globalSearch as globalSearchQuery } from '@g4os/data/queries';
 import { branchSession as branchSessionHelper, SessionsRepository } from '@g4os/data/sessions';
 import type {
@@ -34,6 +34,7 @@ import type {
 import type { PermissionBroker, PermissionDecision } from '@g4os/permissions';
 import {
   appendCreatedEvent,
+  emitLifecycleEvent,
   eventStoreReader,
   eventStoreWriter,
   failure,
@@ -44,7 +45,12 @@ import {
   stopTurn as stopTurnOp,
 } from '@g4os/session-runtime';
 import { err, ok, type Result } from 'neverthrow';
-import { archiveSession, restoreSession, softDeleteSession } from './sessions/lifecycle.ts';
+import {
+  archiveSession,
+  makeApplyReducer,
+  restoreSession,
+  softDeleteSession,
+} from './sessions/lifecycle.ts';
 import { retryLastTurn, truncateSessionAfter } from './sessions/retry-truncate.ts';
 import type { TurnDispatcher } from './turn-dispatcher.ts';
 
@@ -111,14 +117,39 @@ export class SqliteSessionsService implements SessionsServiceContract {
   }
 
   /**
-   * Patches sem implicação no log append-only (rename visual, flags UI,
-   * sources habilitadas) vão direto pro SQLite. Renames e provider/model
-   * changes deveriam eventualmente emitir eventos dedicados — fica como
-   * melhoria em cima do schema de eventos quando precisarmos rastreá-los
-   * em replay.
+   * CR-26 F-CR26-2: rename agora emite `session.renamed` no JSONL +
+   * SessionEventBus (paridade V1 `name_changed`/`title_generated`). Sem
+   * isso, sub-sidebar e command palette ficavam stale até a próxima
+   * mensagem invalidar o cache (~staleTime 15s OU reload).
+   *
+   * Outros campos do patch (provider/model/sources/working dir/unread)
+   * ainda não têm eventos dedicados — fica como melhoria incremental
+   * conforme features pedirem visibilidade reativa. Hoje a UI dispara
+   * `invalidateSessions` explicitamente nesses paths (use-session-header,
+   * source picker), o que cobre o caso comum.
    */
   async update(id: SessionId, patch: Partial<Session>): Promise<Result<void, AppError>> {
     try {
+      // Se nome mudou, emite session.renamed antes do update para que o
+      // event log reflita a transição (fonte de verdade append-only).
+      // `repo.update` em seguida atualiza demais campos (metadata,
+      // sources, etc.) — `name` é idempotente entre reducer e update.
+      if (typeof patch.name === 'string' && patch.name.length > 0) {
+        const session = await this.#repo.get(id);
+        if (session && session.name !== patch.name) {
+          const event = await emitLifecycleEvent(
+            {
+              workspaceId: session.workspaceId,
+              currentSequence: session.lastEventSequence,
+              applyReducer: makeApplyReducer(this.#deps.drizzle),
+            },
+            id,
+            'session.renamed',
+            { newName: patch.name },
+          );
+          if (event) this.#deps.eventBus.emit(id, event);
+        }
+      }
       await this.#repo.update(id, patch);
       return ok(undefined);
     } catch (error) {
@@ -154,6 +185,11 @@ export class SqliteSessionsService implements SessionsServiceContract {
         reader: eventStoreReader(eventStore),
         writer: eventStoreWriter(eventStore),
       });
+      // `branchSessionHelper` replica os eventos JSONL pra branch nova,
+      // mas não popula o `messages_index` em SQLite (consumer separado).
+      // Sem rebuild, busca/listagem da branch fica vazia até reboot. Custo
+      // proporcional ao tamanho da branch — aceitável dentro do mutation.
+      await rebuildProjection(this.#deps.drizzle, eventStore, created.id);
       return ok(created);
     } catch (error) {
       return failure('sessions.branch', error, { sourceId: input.sourceId });

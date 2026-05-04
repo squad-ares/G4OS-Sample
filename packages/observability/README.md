@@ -12,6 +12,7 @@ Logging estruturado vive em [`@g4os/kernel`](../kernel) (`createLogger(scope)`, 
 - **`memory/`** — `MemoryMonitor extends DisposableBase` (thresholds RSS + growth de heap, `auditProcessListeners`) + `ListenerLeakDetector` (WeakMap + WeakRef, `reportStale`).
 - **`metrics/`** — `createMetrics()` devolve um `Registry` isolado de `prom-client` com catálogo IPC/session/agent/MCP/worker. `startHistogramTimer` mede via `hrtime.bigint()`.
 - **`debug/`** — `exportDebugInfo` produz ZIP sanitizado (`system.json`, `config.json`, `logs/*`, `metrics.prom`, `crashes/`, `processes.json`) com redação dupla (shape + texto).
+- **`posthog/`** — `initPostHog(options)` opt-in com privacy-by-default: NOOP quando `consent !== 'granted'` ou `apiKey` ausente. `distinctId` anônimo (UUID). Lazy-load de `posthog-node` só com consent + apiKey. Catálogo tipado de eventos em `events.ts` (`EventMap`, `makeTypedClient` — string literal não compila).
 
 ## Stack
 

@@ -19,7 +19,7 @@ export const workspaceTransferRouter = router({
     .input(
       z.object({
         workspaceId: WorkspaceIdSchema,
-        outputPath: z.string().min(1),
+        outputPath: z.string().min(1).max(4096),
       }),
     )
     .output(ExportSummarySchema)
@@ -30,7 +30,7 @@ export const workspaceTransferRouter = router({
     }),
 
   importWorkspace: authed
-    .input(z.object({ zipPath: z.string().min(1) }))
+    .input(z.object({ zipPath: z.string().min(1).max(4096) }))
     .output(ImportSummarySchema)
     .mutation(async ({ input, ctx }) => {
       const result = await ctx.workspaceTransfer.importWorkspace(input);

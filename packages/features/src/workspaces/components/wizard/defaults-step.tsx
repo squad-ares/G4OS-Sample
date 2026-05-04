@@ -10,6 +10,17 @@ import {
 import { PERMISSION_PRESETS, type PermissionPreset, type ThinkingLevel } from '../../types.ts';
 import { StepActions, StepHeading, type WizardStepProps } from './shared.tsx';
 
+// CR-37 F-CR37-1: mapa tipado evita cast `as TranslationKey` por site.
+const THINKING_LEVEL_KEYS: Record<
+  ThinkingLevel,
+  Parameters<ReturnType<typeof useTranslate>['t']>[0]
+> = {
+  low: 'workspace.thinking.low',
+  think: 'workspace.thinking.think',
+  high: 'workspace.thinking.high',
+  ultra: 'workspace.thinking.ultra',
+};
+
 export function DefaultsStep({
   draft,
   onChange,
@@ -42,7 +53,7 @@ export function DefaultsStep({
             <SelectContent>
               {PERMISSION_PRESETS.map((preset) => (
                 <SelectItem key={preset.id} value={preset.id}>
-                  {t(preset.labelKey as Parameters<typeof t>[0])}
+                  {t(preset.labelKey)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -62,11 +73,13 @@ export function DefaultsStep({
             <SelectTrigger>
               <SelectValue />
             </SelectTrigger>
+            {/* CR-37 F-CR37-1: valores canônicos low/think/high/ultra (não minimal/medium). */}
             <SelectContent>
-              <SelectItem value="minimal">{t('workspace.thinking.minimal')}</SelectItem>
-              <SelectItem value="low">{t('workspace.thinking.low')}</SelectItem>
-              <SelectItem value="medium">{t('workspace.thinking.medium')}</SelectItem>
-              <SelectItem value="high">{t('workspace.thinking.high')}</SelectItem>
+              {(Object.keys(THINKING_LEVEL_KEYS) as ThinkingLevel[]).map((level) => (
+                <SelectItem key={level} value={level}>
+                  {t(THINKING_LEVEL_KEYS[level])}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>

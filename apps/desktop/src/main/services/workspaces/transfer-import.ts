@@ -1,5 +1,6 @@
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir } from 'node:fs/promises';
 import { dirname, join, normalize, sep } from 'node:path';
+import { writeAtomic } from '@g4os/kernel/fs';
 import { createLogger } from '@g4os/kernel/logger';
 import yauzl from 'yauzl';
 import {
@@ -61,7 +62,11 @@ export async function extractWorkspaceFiles(
       continue;
     }
     await mkdir(dirname(target), { recursive: true });
-    await writeFile(target, body);
+    // CR-33 F-CR33-6: writeAtomic per entry. Crash mid-import deixaria
+    // `targetRootPath` em estado misto (alguns arquivos completos, alguns
+    // parciais). Atomic preserva "arquivo parcial nunca aparece com nome
+    // final" — re-import idempotente cobre o resto.
+    await writeAtomic(target, body);
     writtenCount += 1;
   }
   return writtenCount;

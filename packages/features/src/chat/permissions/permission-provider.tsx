@@ -3,6 +3,7 @@ import {
   type ReactNode,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -71,12 +72,18 @@ export function PermissionProvider({ children, onDecide }: PermissionProviderPro
     });
   }, []);
 
-  // Bridge para callers sem acesso ao Context (rare, mas mantém API histórica).
-  // O effect roda no mount/unmount; em multi-window, cada Provider sobrescreve
-  // brevemente o bridge — não ideal, mas é fallback intencional.
-  if (activeBridge !== enqueue) {
+  // CR-37 F-CR37-7: mover bridge para useEffect com cleanup para evitar mutação
+  // de estado de módulo durante render (viola React 19 strict mode).
+  // Em multi-window: último Provider montado vira ativo; ao desmontar, limpa
+  // somente se ainda for o bridge atual (evita limpar bridge do Provider irmão).
+  useEffect(() => {
     activeBridge = enqueue;
-  }
+    return () => {
+      if (activeBridge === enqueue) {
+        activeBridge = null;
+      }
+    };
+  }, [enqueue]);
 
   const handleDecide = useCallback(
     (decision: PermissionDecision) => {

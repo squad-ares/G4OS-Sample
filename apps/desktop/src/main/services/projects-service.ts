@@ -1,10 +1,11 @@
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { AppDb } from '@g4os/data';
 import { ProjectsRepository, ProjectTasksRepository, toProjectSlug } from '@g4os/data/projects';
 import { SessionsRepository } from '@g4os/data/sessions';
 import type { ProjectsService as ProjectsServiceContract } from '@g4os/ipc/server';
 import { AppError, ErrorCode, ProjectError } from '@g4os/kernel/errors';
+import { writeAtomic } from '@g4os/kernel/fs';
 import { createLogger } from '@g4os/kernel/logger';
 import type {
   LegacyImportEntry,
@@ -225,9 +226,12 @@ class SqliteProjectsService implements ProjectsServiceContract {
       const targetPath = join(canonicalRoot, entry.slug);
       const moveResult = await legacyImport.moveLegacyProject(entry.path, targetPath);
       if (moveResult.isErr()) {
-        // Mantém comportamento equivalente ao throw anterior — caller
-        // recebe Result<..., AppError> via this.#try wrapper.
-        throw new Error(moveResult.error.message);
+        // CR-21: throw o `AppError` direto preserva typed identity quando
+        // o `#try` wrapper detecta `instanceof AppError` (line 251) e
+        // propaga via `err(error)` em vez de mapear pra `UNKNOWN_ERROR`.
+        // Antes, `throw new Error(moveResult.error.message)` strippava
+        // `code`/`context`/`cause` e o caller via genérico no renderer.
+        throw moveResult.error;
       }
       rootPath = targetPath;
     }
@@ -281,10 +285,13 @@ export function createProjectsService(deps: ProjectsServiceDeps): ProjectsServic
 async function bootstrapProjectDir(rootPath: string): Promise<void> {
   await mkdir(join(rootPath, 'files'), { recursive: true });
   await mkdir(join(rootPath, 'context'), { recursive: true });
-  await writeFile(
+  // CR-33 F-CR33-4: writeAtomic — crash mid-write deixaria `project.json`
+  // parcial e o `JSON.parse` subsequente em `list`/`get` falharia. Bootstrap
+  // roda na criação do projeto; user veria "criou mas falhou ao abrir" sem
+  // repair óbvio. ADR-0050 propagado.
+  await writeAtomic(
     join(rootPath, 'project.json'),
     JSON.stringify({ createdAt: new Date().toISOString(), sessionIds: [], tasks: [] }, null, 2),
-    'utf-8',
   );
 }
 

@@ -131,6 +131,18 @@ Escreva ADR quando:
 | 0142 | E2E testing — Playwright + Electron smoke harness | Accepted | 2026-04-24 | outlier-23 |
 | 0143 | MCP stdio probe distinto do `McpClient` real | Accepted | 2026-04-24 | outlier-12 |
 | 0144 | `McpClient` SDK-backed (lazy `@modelcontextprotocol/sdk`) | Accepted | 2026-04-24 | outlier-12 |
+| 0145 | No utilityProcess per session — main thin + DisposableBase + MemoryMonitor (supersedes 0030) | Accepted | 2026-04-24 | mvp-clean |
+| 0146 | Packaging flags + optional signing per build target | Accepted | 2026-04-25 | release |
+| 0150 | Modal vs Page para fluxos de criação | Accepted | 2026-04-26 | code-review-1 |
+| 0151 | App.tsx LOC exemption (renderer composition root) | Accepted | 2026-04-27 | refactor |
+| 0152 | Sources boundary — agents/platform isolation | Accepted | 2026-04-27 | code-review-12 |
+| 0153 | pnpm catalog para versões centralizadas | Accepted | 2026-04-28 | code-review-12 |
+| 0154 | Hover pattern CI gate (`hover:bg-foreground/N` legacy block) | Accepted | 2026-04-28 | code-review-12 |
+| 0155 | Desabilitar `noExcessiveCognitiveComplexity` no Biome | Accepted | 2026-04-28 | code-review-12 |
+| 0156 | Chat canvas chrome — sem SessionHeader, light chips + metadata panel | Accepted | 2026-05-01 | v1-v2-divergence |
+| 0157 | Creation wizards renderizados como fullscreen splash overlay | Accepted | 2026-05-01 | v1-v2-divergence |
+| 0158 | Single-instance lock + protocol registration | Accepted | 2026-05-01 | code-review-18 |
+| 0159 | System message discriminator + persistência de erros de turn | Accepted | 2026-05-02 | code-review-24 |
 
 ## Status
 

@@ -6,6 +6,7 @@ import {
   ProjectPatchSchema,
   ProjectSchema,
   ProjectTaskCreateInputSchema,
+  ProjectTaskIdSchema,
   ProjectTaskPatchSchema,
   ProjectTaskSchema,
   SessionSchema,
@@ -15,14 +16,13 @@ import { z } from 'zod';
 import { authed } from '../middleware/authed.ts';
 import { router } from '../trpc.ts';
 
-const ProjectTaskIdSchema = z.uuid();
-
 const LegacyImportEntrySchema = z.object({
-  path: z.string(),
-  name: z.string(),
-  slug: z.string(),
-  existingId: z.string().optional(),
-  description: z.string().optional(),
+  // Caps: PATH_MAX POSIX=4096; slug real <128; existingId/description razoáveis.
+  path: z.string().max(4096),
+  name: z.string().max(200),
+  slug: z.string().max(128),
+  existingId: z.string().max(256).optional(),
+  description: z.string().max(2000).optional(),
   decision: z.enum(['import', 'keep', 'skip']),
 });
 
@@ -195,7 +195,7 @@ export const projectsRouter = router({
     }),
 
   discoverLegacyProjects: authed
-    .input(z.object({ workspaceId: WorkspaceIdSchema, workingDirectory: z.string() }))
+    .input(z.object({ workspaceId: WorkspaceIdSchema, workingDirectory: z.string().max(4096) }))
     .output(z.array(LegacyProjectSchema))
     .query(async ({ input, ctx }) => {
       const result = await ctx.projects.discoverLegacyProjects(

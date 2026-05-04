@@ -3,12 +3,12 @@ import {
   MessageIdSchema,
   MessageSchema,
   SearchMatchSchema,
+  SessionIdSchema,
 } from '@g4os/kernel/schemas';
 import { z } from 'zod';
 import { authed } from '../middleware/authed.ts';
 import { router } from '../trpc.ts';
 
-const SessionIdSchema = z.uuid();
 const SearchQueryInput = z.object({
   sessionId: SessionIdSchema,
   query: z.string().min(1).max(200),

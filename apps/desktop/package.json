@@ -1,6 +1,6 @@
 {
   "name": "@g4os/desktop",
-  "version": "0.0.10-beta",
+  "version": "0.0.11-canary",
   "description": "G4 OS - Aplicativo desktop (Electron)",
   "private": true,
   "homepage": "https://g4educacao.com",
@@ -31,11 +31,13 @@
     "@anthropic-ai/sdk": "0.91.0",
     "@g4os/agents": "workspace:^",
     "@g4os/auth": "workspace:^",
+    "@g4os/release-channels": "workspace:^",
     "@g4os/credentials": "workspace:^",
     "@g4os/data": "workspace:^",
     "@g4os/features": "workspace:^",
     "@g4os/ipc": "workspace:^",
     "@g4os/kernel": "workspace:^",
+    "@g4os/migration": "workspace:^",
     "@g4os/observability": "workspace:^",
     "@g4os/permissions": "workspace:^",
     "@g4os/platform": "workspace:^",
@@ -52,6 +54,7 @@
     "@supabase/supabase-js": "2.52.1",
     "@tanstack/react-query": "5.99.2",
     "@tanstack/react-router": "catalog:",
+    "@tanstack/react-virtual": "3.13.24",
     "@trpc/client": "catalog:",
     "@trpc/react-query": "catalog:",
     "archiver": "catalog:",
@@ -70,6 +73,7 @@
     "pino-roll": "catalog:",
     "pino-std-serializers": "7.1.0",
     "piscina": "5.1.4",
+    "lucide-react": "catalog:",
     "process-warning": "5.0.0",
     "quick-format-unescaped": "4.0.4",
     "react": "catalog:",
@@ -103,11 +107,11 @@
     "vite": "^8.0.9"
   },
   "optionalDependencies": {
-    "@opentelemetry/exporter-trace-otlp-http": "0.215.0",
-    "@opentelemetry/resources": "2.7.0",
-    "@opentelemetry/sdk-node": "0.215.0",
-    "@opentelemetry/sdk-trace-base": "2.7.0",
-    "@sentry/electron": "5.10.0"
+    "@opentelemetry/exporter-trace-otlp-http": "catalog:",
+    "@opentelemetry/resources": "catalog:",
+    "@opentelemetry/sdk-node": "catalog:",
+    "@opentelemetry/sdk-trace-base": "catalog:",
+    "@sentry/electron": "catalog:"
   },
   "engines": {
     "node": ">=24.0.0"

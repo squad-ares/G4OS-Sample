@@ -53,8 +53,9 @@ function searchMessagesFts(
   if (sessionId) params.push(sessionId);
   params.push(limit);
 
-  const stmt = db.prepare(
-    `SELECT mi.id AS message_id,
+  // F-CR36-7: cachedPrepare — SQL varia apenas em sessionFilter (booleano
+  // estático para a chamada), portanto é seguro cachear por SQL literal.
+  const sql = `SELECT mi.id AS message_id,
             mi.sequence AS sequence,
             mi.session_id AS session_id,
             s.name AS session_name,
@@ -67,8 +68,8 @@ function searchMessagesFts(
         AND messages_fts MATCH ?${sessionFilter}
         AND s.status = 'active'
       ORDER BY rank
-      LIMIT ?`,
-  );
+      LIMIT ?`;
+  const stmt = db.cachedPrepare(sql);
   const rows = stmt.all(...params) as unknown as readonly MessageRow[];
   return rows.map(toHit);
 }
@@ -85,8 +86,8 @@ function searchMessagesLike(
   if (sessionId) params.push(sessionId);
   params.push(limit);
 
-  const stmt = db.prepare(
-    `SELECT mi.id AS message_id,
+  // F-CR36-7: cachedPrepare — mesmo argumento do FTS acima.
+  const sql = `SELECT mi.id AS message_id,
             mi.sequence AS sequence,
             mi.session_id AS session_id,
             s.name AS session_name,
@@ -98,8 +99,8 @@ function searchMessagesLike(
         AND mi.content_preview LIKE ? ESCAPE '\\'${sessionFilter}
         AND s.status = 'active'
       ORDER BY mi.created_at DESC
-      LIMIT ?`,
-  );
+      LIMIT ?`;
+  const stmt = db.cachedPrepare(sql);
   const rows = stmt.all(...params) as unknown as readonly MessageRow[];
   return rows.map(toHit);
 }
@@ -110,15 +111,15 @@ function searchSessionNames(
   query: string,
   limit: number,
 ): GlobalSearchResult['sessions'] {
-  const stmt = db.prepare(
-    `SELECT id, name, updated_at AS updated_at
+  // F-CR36-7: cachedPrepare — SQL é constante nesta função.
+  const sql = `SELECT id, name, updated_at AS updated_at
        FROM sessions
       WHERE workspace_id = ?
         AND name LIKE ? ESCAPE '\\'
         AND status = 'active'
       ORDER BY updated_at DESC
-      LIMIT ?`,
-  );
+      LIMIT ?`;
+  const stmt = db.cachedPrepare(sql);
   const rows = stmt.all(workspaceId, toLikePattern(query), limit) as unknown as ReadonlyArray<{
     readonly id: string;
     readonly name: string;

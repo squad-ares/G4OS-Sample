@@ -14,17 +14,14 @@ function _resetRuntimePaths(): void {
 
 describe('getPlatformInfo()', () => {
   it('retorna um objeto com todos os campos obrigatórios', () => {
+    // CR-43 F-CR43-8: PlatformInfo contem apenas informação de SO.
+    // Campos removidos: isDev, isPackaged, isWsl, pathSeparator, executableSuffix.
     const info = getPlatformInfo();
     expect(info).toHaveProperty('family');
     expect(info).toHaveProperty('arch');
     expect(info).toHaveProperty('version');
-    expect(info).toHaveProperty('isDev');
-    expect(info).toHaveProperty('isPackaged');
-    expect(info).toHaveProperty('isWsl');
     expect(info).toHaveProperty('homeDir');
     expect(info).toHaveProperty('tempDir');
-    expect(info).toHaveProperty('pathSeparator');
-    expect(info).toHaveProperty('executableSuffix');
   });
 
   it('family é um dos valores válidos', () => {
@@ -35,24 +32,6 @@ describe('getPlatformInfo()', () => {
   it('arch é um dos valores válidos', () => {
     const { arch } = getPlatformInfo();
     expect(['x64', 'arm64']).toContain(arch);
-  });
-
-  it('pathSeparator é : em POSIX ou ; no Windows', () => {
-    const { family, pathSeparator } = getPlatformInfo();
-    if (family === 'windows') {
-      expect(pathSeparator).toBe(';');
-    } else {
-      expect(pathSeparator).toBe(':');
-    }
-  });
-
-  it('executableSuffix é .exe no Windows, vazio nos demais', () => {
-    const { family, executableSuffix } = getPlatformInfo();
-    if (family === 'windows') {
-      expect(executableSuffix).toBe('.exe');
-    } else {
-      expect(executableSuffix).toBe('');
-    }
   });
 
   it('retorna objeto congelado (imutável)', () => {
@@ -127,32 +106,33 @@ describe('validateRuntimeIntegrity()', () => {
 
   afterEach(async () => {
     await rm(tmpDir, { recursive: true, force: true });
-    // reset singleton para próximo teste
-    // @ts-expect-error acesso a módulo interno para reset de estado de teste
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    // CR-18 F-P3: reset singleton via helper test-only `_resetForTestingInternal`.
+    // Antes era `_resetForTesting?.()` (com `?.`), que silenciava a ausência
+    // do helper — o teste passava sem realmente resetar, e o segundo teste
+    // reusava `_location` seedado pelo primeiro.
     const mod = await import('../runtime-paths.ts');
-    // @ts-expect-error
-    mod._resetForTesting?.();
+    mod._resetForTestingInternal();
   });
 
   it('retorna missing quando arquivos não existem', () => {
+    // afterEach garante _resetForTestingInternal — initRuntimePaths não vai
+    // lançar "already initialized" aqui desde que o afterEach tenha rodado.
     const runtimeDir = join(tmpDir, 'runtime');
     const vendorDir = join(tmpDir, 'vendor');
-    try {
-      initRuntimePaths({ runtimeDir, vendorDir });
-    } catch {
-      // pode já estar inicializado de outro teste — aceitar
-    }
+    initRuntimePaths({ runtimeDir, vendorDir });
     const result = validateRuntimeIntegrity();
     expect(result.ok).toBe(false);
     expect(result.missing.length).toBeGreaterThan(0);
   });
 
   it('retorna ok quando todos os arquivos críticos existem', async () => {
+    // CR-43 F-CR43-11: remover try/catch que silenciava falhas no init —
+    // o afterEach reseta o singleton via _resetForTestingInternal, então
+    // initRuntimePaths nunca lança "already initialized" aqui. Assertar
+    // ok===true explicitamente em vez de `typeof result.ok === 'boolean'`.
     const runtimeDir = join(tmpDir, 'runtime2');
     const vendorDir = join(tmpDir, 'vendor2');
 
-    // Criar arquivos esperados
     const { mkdir } = await import('node:fs/promises');
     await mkdir(join(runtimeDir, 'claude-agent-sdk'), { recursive: true });
     await mkdir(join(runtimeDir, 'interceptor'), { recursive: true });
@@ -163,14 +143,9 @@ describe('validateRuntimeIntegrity()', () => {
     await writeFile(join(runtimeDir, 'session-mcp-server', 'index.js'), '');
     await writeFile(join(runtimeDir, 'bridge-mcp-server', 'index.js'), '');
 
-    try {
-      initRuntimePaths({ runtimeDir, vendorDir });
-    } catch {
-      // já inicializado — recriar o estado é complexo sem reset; aceitar
-    }
-    // O teste acima (missing) já cobriu o path de falha; este cobre o shape.
+    initRuntimePaths({ runtimeDir, vendorDir });
     const result = validateRuntimeIntegrity();
-    expect(typeof result.ok).toBe('boolean');
-    expect(Array.isArray(result.missing)).toBe(true);
+    expect(result.ok).toBe(true);
+    expect(result.missing).toEqual([]);
   });
 });

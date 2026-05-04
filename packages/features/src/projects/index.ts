@@ -3,6 +3,10 @@ export {
   type CreateProjectDialogProps,
 } from './components/create-project-dialog.tsx';
 export {
+  CreateProjectForm,
+  type CreateProjectFormProps,
+} from './components/create-project-form.tsx';
+export {
   LegacyProjectsReview,
   type LegacyProjectsReviewProps,
 } from './components/legacy-projects-review.tsx';

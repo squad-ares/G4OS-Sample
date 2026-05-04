@@ -94,9 +94,10 @@ export async function appendCreatedEvent(
   sessionId: SessionId,
   name: string,
   createdBy: string,
+  eventStore?: Pick<SessionEventStore, 'append'>,
 ): Promise<void> {
   try {
-    const store = new SessionEventStore(workspaceId);
+    const store = eventStore ?? new SessionEventStore(workspaceId);
     const event: SessionEvent = {
       eventId: randomUUID(),
       sessionId,
@@ -115,10 +116,13 @@ export async function appendCreatedEvent(
 
 export function eventStoreReader(store: SessionEventStore) {
   return {
-    async *readReplay(sessionId: string) {
+    async *readReplay(sessionId: string, options?: { fromSequence?: number }) {
       let sequence = 0;
       for await (const event of store.read(sessionId)) {
         sequence += 1;
+        // F-CR46-2: skip eventos anteriores ao fromSequence para reduzir IO
+        // em branches profundas (ADR-0128). Antes era post-filter no caller.
+        if (options?.fromSequence !== undefined && sequence < options.fromSequence) continue;
         yield { sequence, payload: event };
       }
     },

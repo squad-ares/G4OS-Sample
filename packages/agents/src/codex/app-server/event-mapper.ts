@@ -33,7 +33,11 @@ export function mapCodexEvent(event: CodexResponseEvent): AgentEvent | undefined
       return {
         type: 'tool_use_complete',
         toolUseId: event.toolUseId,
-        input: event.input,
+        // Fronteira de validação: `CodexResponseEvent.tool_use_complete.input`
+        // é `unknown` (forçando narrowing no parser NDJSON). `AgentEvent`
+        // declara `Readonly<Record<string, unknown>>` — coerção aceitável aqui
+        // pois o decoder de frames já validou que o payload é objeto JSON.
+        input: event.input as Readonly<Record<string, unknown>>,
       };
     case 'usage':
       return {

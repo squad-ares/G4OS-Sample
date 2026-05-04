@@ -1,3 +1,10 @@
+/**
+ * CR-37 F-CR37-13: race cross-session — o efeito de save captura
+ * `sessionId` no momento do agendamento (closure). Quando o usuário
+ * navega para outra sessão, o primeiro efeito cancela o timeout pendente
+ * E atualiza `currentSessionRef` antes que qualquer save ocorra, então o
+ * save nunca grava o rascunho da sessão antiga na nova.
+ */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   type DraftStore,
@@ -30,6 +37,8 @@ export function useComposerState({
 
   useEffect(() => {
     if (currentSessionRef.current === sessionId) return;
+    // Sessão mudou — cancela save pendente da sessão anterior antes de
+    // atualizar a ref, para que o callback do timeout não grave na nova.
     currentSessionRef.current = sessionId;
     if (pendingTimeoutRef.current !== null) {
       clearTimeout(pendingTimeoutRef.current);
@@ -42,8 +51,13 @@ export function useComposerState({
     if (pendingTimeoutRef.current !== null) {
       clearTimeout(pendingTimeoutRef.current);
     }
+    // Captura sessionId no momento do agendamento — se o usuário navegar
+    // para outra sessão antes do timeout disparar, o efeito anterior já
+    // terá cancelado este timeout; mas se de alguma forma o timeout ainda
+    // disparar, ele salva na sessão correta (a que estava ativa).
+    const savedSessionId = sessionId;
     const timeout = setTimeout(() => {
-      draftStore.save(sessionId, text);
+      draftStore.save(savedSessionId, text);
       pendingTimeoutRef.current = null;
     }, debounceMs);
     pendingTimeoutRef.current = timeout;

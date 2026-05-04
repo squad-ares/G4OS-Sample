@@ -3,10 +3,12 @@ import { err, ok } from 'neverthrow';
 import type {
   AgentsService,
   AuthService,
+  BackupService,
   CredentialsService,
   LabelsService,
   MarketplaceService,
   MessagesService,
+  MigrationService,
   NewsService,
   PermissionsService,
   PreferencesService,
@@ -48,6 +50,8 @@ export interface NullServices {
   readonly workspaceTransfer: WorkspaceTransferService;
   readonly labels: LabelsService;
   readonly preferences: PreferencesService;
+  readonly migration: MigrationService;
+  readonly backup: BackupService;
 }
 
 export function createNullServices(): NullServices {
@@ -166,7 +170,7 @@ export function createNullServices(): NullServices {
       check: async () => err(notImplemented('updates.check')),
     },
     voice: {
-      transcribe: () => Promise.reject(notImplemented('voice.transcribe')),
+      transcribe: async () => err(notImplemented('voice.transcribe')),
     },
     windows: {
       openWorkspaceWindow: async () => err(notImplemented('windows.openWorkspaceWindow')),
@@ -188,6 +192,16 @@ export function createNullServices(): NullServices {
       getDebugHudEnabled: async () => ok(false),
       setDebugHudEnabled: async () => err(notImplemented('preferences.setDebugHudEnabled')),
       verifyRuntimeIntegrity: async () => err(notImplemented('preferences.verifyRuntimeIntegrity')),
+    },
+    migration: {
+      detect: async () => ok(null),
+      plan: async () => err(notImplemented('migration.plan')),
+      execute: async () => err(notImplemented('migration.execute')),
+    },
+    backup: {
+      list: async () => ok([]),
+      runNow: async () => err(notImplemented('backup.runNow')),
+      delete: async () => err(notImplemented('backup.delete')),
     },
   };
 }

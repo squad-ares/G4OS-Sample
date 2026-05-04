@@ -87,6 +87,23 @@ export function RepairCategoryContainer() {
     integrityMutation.mutate();
   }, [integrityMutation]);
 
+  // Hard reset — apaga workspaces + credenciais via `auth.wipeAndReset`
+  // (orquestrado em `apps/desktop/src/main/services/perform-wipe.ts`) e
+  // relança o app sem state in-memory residual. Útil em dev quando o
+  // login está corrompido / cache em estado ruim.
+  const hardResetMutation = useMutation({
+    mutationFn: () => trpc.auth.wipeAndReset.mutate({ confirm: true }),
+    onError: (err) => {
+      const message = err instanceof Error ? err.message : String(err);
+      toast.error(t('settings.repair.hardReset.failed', { message }));
+    },
+    // Sem `onSuccess` — main process chama `app.relaunch() + exit(0)`
+    // antes que a mutação resolva no renderer.
+  });
+  const onHardReset = useCallback(() => {
+    hardResetMutation.mutate();
+  }, [hardResetMutation]);
+
   return (
     <RepairCategory
       appVersion={infoQuery.data?.version ?? ''}
@@ -99,6 +116,8 @@ export function RepairCategoryContainer() {
       onVerifyIntegrity={onVerifyIntegrity}
       integrityReport={integrityReport}
       integrityPending={integrityMutation.isPending}
+      onHardReset={onHardReset}
+      hardResetPending={hardResetMutation.isPending}
     />
   );
 }

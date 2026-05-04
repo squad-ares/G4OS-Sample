@@ -1,19 +1,44 @@
-import type { SourceCatalogItem } from '@g4os/kernel/types';
+import type { SourceCatalogItem, SourceCategory } from '@g4os/kernel/types';
 import type { TranslationKey } from '@g4os/translate';
 import { Button, useTranslate } from '@g4os/ui';
 import { Check, Clock3, Plus } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { HighlightedTitle } from '../../shell/index.ts';
 import { SourceGlyph } from './source-glyph.tsx';
 
 export interface CatalogItemProps {
   readonly item: SourceCatalogItem;
   readonly onEnable: () => void;
   readonly disabled?: boolean;
+  /** CR-18 F-F5: query opcional para search-inline highlight no displayName. */
+  readonly searchQuery?: string;
 }
 
-export function CatalogItemCard({ item, onEnable, disabled }: CatalogItemProps): ReactNode {
+/**
+ * CR-37 F-CR37-16/17: mapa tipado elimina `as TranslationKey` na categoria.
+ */
+const CATALOG_CATEGORY_KEYS: Record<SourceCategory, TranslationKey> = {
+  google: 'sources.category.google',
+  microsoft: 'sources.category.microsoft',
+  slack: 'sources.category.slack',
+  dev: 'sources.category.dev',
+  storage: 'sources.category.storage',
+  crm: 'sources.category.crm',
+  pm: 'sources.category.pm',
+  other: 'sources.category.other',
+};
+
+export function CatalogItemCard({
+  item,
+  onEnable,
+  disabled,
+  searchQuery,
+}: CatalogItemProps): ReactNode {
   const { t } = useTranslate();
   const isPendingRuntime = item.kind === 'managed' && item.authKind === 'oauth';
+  // descriptionKey é garantidamente uma TranslationKey válida nos seeds
+  // gerenciados; o schema usa z.string() por restrição de boundary (kernel
+  // não importa @g4os/translate). O cast é necessário e seguro aqui.
   const description = item.descriptionKey
     ? t(item.descriptionKey as TranslationKey)
     : item.description;
@@ -24,7 +49,13 @@ export function CatalogItemCard({ item, onEnable, disabled }: CatalogItemProps):
           <SourceGlyph source={item} />
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              <span className="truncate text-sm font-semibold">{item.displayName}</span>
+              <span className="truncate text-sm font-semibold">
+                {searchQuery ? (
+                  <HighlightedTitle text={item.displayName} query={searchQuery} />
+                ) : (
+                  item.displayName
+                )}
+              </span>
               {item.authKind === 'oauth' && (
                 <span className="rounded-full border border-amber-400/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-300">
                   {t('sources.badge.oauth')}
@@ -39,7 +70,7 @@ export function CatalogItemCard({ item, onEnable, disabled }: CatalogItemProps):
       </div>
       <div className="flex items-center justify-between gap-3">
         <span className="rounded-full bg-foreground/5 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-          {t(`sources.category.${item.category}` as TranslationKey)}
+          {t(CATALOG_CATEGORY_KEYS[item.category])}
         </span>
         {item.isInstalled ? (
           <span className="flex items-center gap-1 text-[11px] font-medium text-emerald-600">

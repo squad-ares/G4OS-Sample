@@ -59,8 +59,10 @@ export async function probeMcpStdio(
 
     const child = spawn(config.command, config.args, {
       stdio: ['pipe', 'pipe', 'pipe'],
-      // biome-ignore lint/style/noProcessEnv: probe inherits env so binários resolvam (PATH etc.)
-      env: { ...process.env, ...(config.env ?? {}) } as NodeJS.ProcessEnv,
+      // ADR-0050: secrets do main process (ANTHROPIC_API_KEY, SUPABASE_*, etc.)
+      // nunca devem vazar para binários de terceiros. Usamos allowlist mínima
+      // suficiente para resolver o binário via PATH e executar normalmente.
+      env: buildProbeEnv(config.env),
       shell: false,
     });
 
@@ -104,6 +106,23 @@ export async function probeMcpStdio(
     };
     child.stdin?.write(`${JSON.stringify(req)}\n`);
   });
+}
+
+/**
+ * Vars de ambiente mínimas para execução segura do probe. Exclui qualquer
+ * secret do main process (API keys, tokens de supabase, etc.). O subprocess
+ * recebe apenas o que precisa para resolver o binário e seu runtime.
+ */
+const PROBE_ENV_ALLOWLIST = ['PATH', 'HOME', 'USER', 'LANG', 'LC_ALL', 'TMPDIR', 'SHELL'] as const;
+
+function buildProbeEnv(configEnv?: Readonly<Record<string, string>>): NodeJS.ProcessEnv {
+  const base: Record<string, string> = {};
+  for (const key of PROBE_ENV_ALLOWLIST) {
+    // biome-ignore lint/style/noProcessEnv: leitura individual de var da allowlist — não spread completo
+    const value = process.env[key];
+    if (value !== undefined) base[key] = value;
+  }
+  return { ...base, ...(configEnv ?? {}) } as NodeJS.ProcessEnv;
 }
 
 function tryParseJson(s: string): unknown {

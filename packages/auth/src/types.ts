@@ -62,8 +62,11 @@ export interface SupabaseRefreshResult {
  * (keeps this package boundary-clean).
  *
  * Contrato (consumidores como `SessionRefresher` dependem disso):
- * - `get(key)` em chave ausente: deve retornar `err(AuthError.tokenMissing)`
- *   ou similar, NUNCA `ok('')`.
+ * - `get(key)` em chave ausente: pode retornar `err(...)` (vault real) OU
+ *   `ok('')` (in-memory test stub). Ambos os caminhos são tratados pelos
+ *   consumidores via `result.isErr() || result.value === ''`. CR-18 F-AU6
+ *   relaxou a doc original para refletir a realidade da impl —
+ *   `AuthError.tokenMissing` não existe como factory; tests usam `ok('')`.
  * - `set(key, value, meta?)`: persistência atômica; sucesso = `ok(undefined)`.
  * - `delete(key)`: idempotente — apagar chave inexistente retorna `ok(undefined)`.
  * - `list()`: deve retornar `ok([])` quando o store está vazio. **Nunca**

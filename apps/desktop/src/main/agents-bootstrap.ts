@@ -8,6 +8,7 @@
  */
 
 import { createClaudeFactory, DirectApiProvider } from '@g4os/agents/claude';
+import { createCodexFactory, NodeSubprocessSpawner } from '@g4os/agents/codex';
 import { createGoogleFactory } from '@g4os/agents/google';
 import type { AgentFactory, AgentRegistry } from '@g4os/agents/interface';
 import { globalAgentRegistry } from '@g4os/agents/interface';
@@ -17,7 +18,8 @@ import { createLogger } from '@g4os/kernel/logger';
 
 const log = createLogger('agents-bootstrap');
 
-export type ProviderKind = 'claude' | 'openai' | 'google';
+// F-CR51-6: 'codex' adicionado — CodexAgent usa subprocess local, sem API key.
+export type ProviderKind = 'claude' | 'openai' | 'google' | 'codex';
 
 interface ProviderSpec {
   readonly kind: ProviderKind;
@@ -44,6 +46,15 @@ const PROVIDERS: readonly ProviderSpec[] = [
     factoryKind: 'google',
     vaultKey: 'google_api_key',
     envKeys: ['GOOGLE_API_KEY', 'GEMINI_API_KEY'],
+  },
+  // F-CR51-6: Codex usa subprocess local — sem API key.
+  // `vaultKey` vazio; `resolveKey` retorna string vazia → trata como chave
+  // especial via 'codex' case em `registerProvider`. ADR-0072.
+  {
+    kind: 'codex',
+    factoryKind: 'codex',
+    vaultKey: '',
+    envKeys: [],
   },
 ];
 
@@ -107,6 +118,15 @@ export async function registerAgents(options: RegisterAgentsOptions): Promise<Ag
     available.clear();
     for (const spec of PROVIDERS) {
       if (registry.has(spec.factoryKind)) registry.unregister(spec.factoryKind);
+      // F-CR51-6: Codex não precisa de API key — usa subprocess local.
+      // Registra incondicionalmente; key é string vazia (ignorada no buildFactory).
+      if (spec.kind === 'codex') {
+        if (registerProvider(spec, '')) {
+          available.add(spec.kind);
+          log.info({ kind: spec.kind }, 'factory registered');
+        }
+        continue;
+      }
       const key = await resolveKey(spec);
       if (!key) {
         log.debug({ kind: spec.kind }, 'api key not available — skipping');
@@ -121,13 +141,28 @@ export async function registerAgents(options: RegisterAgentsOptions): Promise<Ag
 
   await applyRegistration();
 
+  // CR-34 F-CR34-2: coalesce inflight `refresh()`. Antes, dois `vault.set` em
+  // janela curta (Settings UI + Wizard concorrentes, IPC subscription
+  // disparando enquanto user clica Save) podiam interleavar dois ciclos de
+  // unregister/register na mesma key, deixando `registry` com a factory de
+  // valor stale (refresh1 finaliza DEPOIS de refresh2 e reescreve com key
+  // antiga). Mesmo pattern usado em RotationOrchestrator.rotateIfExpiring.
+  let inflight: Promise<void> | null = null;
+  const refresh = (): Promise<void> => {
+    if (inflight) return inflight;
+    inflight = applyRegistration().finally(() => {
+      inflight = null;
+    });
+    return inflight;
+  };
+
   return {
     registry,
     status: () => ({
       providers: [...available],
       claudeAvailable: available.has('claude'),
     }),
-    refresh: applyRegistration,
+    refresh,
   };
 }
 
@@ -141,6 +176,10 @@ function buildFactory(kind: ProviderKind, apiKey: string): AgentFactory {
       return createOpenAIFactory({ resolveApiKey: () => apiKey });
     case 'google':
       return createGoogleFactory({ resolveApiKey: () => apiKey });
+    // F-CR51-6: Codex usa subprocess local, sem API key. NodeSubprocessSpawner
+    // usa node:child_process (zero dep runtime extra). ADR-0072.
+    case 'codex':
+      return createCodexFactory({ spawner: new NodeSubprocessSpawner() });
   }
 }
 

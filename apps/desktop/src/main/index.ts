@@ -2,8 +2,9 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadSupabaseEnvFiles } from '@g4os/auth/supabase';
 import { createVault } from '@g4os/credentials';
+import { RotationOrchestrator } from '@g4os/credentials/rotation';
 import { SessionsRepository } from '@g4os/data/sessions';
-import { setIpcMetricsRecorder } from '@g4os/ipc/server';
+import { cleanupSubscriptionsForSender, setIpcMetricsRecorder } from '@g4os/ipc/server';
 import { createLogger } from '@g4os/kernel/logger';
 import { ipcMetrics } from '@g4os/observability/ipc';
 import { PermissionBroker, PermissionStore } from '@g4os/permissions';
@@ -16,16 +17,22 @@ import { AppLifecycle } from './app-lifecycle.ts';
 import { createDebugHudRuntime, type DebugHudRuntime } from './debug-hud/index.ts';
 import { DeepLinkHandler } from './deep-link-handler.ts';
 import { loadElectron } from './electron-runtime.ts';
+import { registerGlobalShortcuts } from './global-shortcuts.ts';
 import { initIpcServer } from './ipc-bootstrap.ts';
 import { readRuntimeEnv } from './runtime-env.ts';
+import { startAttachmentsGcScheduler } from './services/attachments-gc-bootstrap.ts';
 import { createAuthRuntime } from './services/auth-runtime.ts';
 import { createBackupScheduler } from './services/backup-bootstrap.ts';
+import { createBackupService } from './services/backup-service.ts';
 import { scheduleOrphanTmpCleanup } from './services/cleanup-orphan-tmp-bootstrap.ts';
 import { CpuPool } from './services/cpu-pool.ts';
 import { createCredentialsService } from './services/credentials-service.ts';
 import { initDatabase } from './services/db-service.ts';
+import { createDebugHudActionsBootstrap } from './services/debug-hud-actions-bootstrap.ts';
+import { DEFAULT_SYSTEM_PROMPT } from './services/default-system-prompt.ts';
 import { createLabelsService } from './services/labels-service.ts';
 import { SqliteMessagesService } from './services/messages-service.ts';
+import { MigrationServiceImpl } from './services/migration-service.ts';
 import { createNewsService } from './services/news-service.ts';
 import { createObservabilityRuntime } from './services/observability-runtime.ts';
 import { createPerformWipe } from './services/perform-wipe.ts';
@@ -38,6 +45,12 @@ import { resolveIconPath, resolveRendererTargets } from './services/renderer-pat
 import { SessionsCleanupScheduler } from './services/sessions-cleanup-scheduler.ts';
 import { createSessionsService } from './services/sessions-service.ts';
 import { registerShutdownHandlers } from './services/shutdown-bootstrap.ts';
+import {
+  acquireSingleInstance,
+  consumeBootstrapArgvDeepLink,
+  registerProtocolClient,
+  wireSecondInstance,
+} from './services/single-instance-bootstrap.ts';
 import { createMountRegistry } from './services/sources/mount-bootstrap.ts';
 import { createSourcesService } from './services/sources-service.ts';
 import { TitleGeneratorService } from './services/title-generator.ts';
@@ -50,6 +63,7 @@ import { createWorkspaceTransferService } from './services/workspace-transfer-se
 import { createWorkspacesService } from './services/workspaces-service.ts';
 import { registerStartupCrashHandlers } from './startup-crash-log.ts';
 import { StartupPreflightService } from './startup-preflight-service.ts';
+import { createTrayService } from './tray-service.ts';
 import { WindowManager } from './window-manager.ts';
 
 const log = createLogger('main');
@@ -65,6 +79,18 @@ export async function bootstrapMain(options: BootstrapOptions = {}): Promise<voi
     log.warn('electron runtime unavailable; main boot skipped');
     return;
   }
+
+  // CR-18 F-DT-I: lock + protocol ANTES de qualquer init pesado. Se outra
+  // instância já está rodando, o segundo lançamento (deep-link em
+  // Windows/Linux, double-click no shortcut) deve quitar imediatamente —
+  // a 1ª instância recebe o evento `second-instance` e foca a janela.
+  const instanceCtx = acquireSingleInstance(electron);
+  if (!instanceCtx.acquired) {
+    log.info('another instance already holds the single-instance lock; quitting');
+    electron.app.quit();
+    return;
+  }
+  registerProtocolClient(electron, log);
 
   // .env loading ANTES de app.whenReady(): Sentry exige init pré-ready.
   const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), '../../../..');
@@ -123,6 +149,15 @@ export async function bootstrapMain(options: BootstrapOptions = {}): Promise<voi
   const credentialVault = await createVault({
     mode: electron.app.isPackaged ? 'prod' : 'dev',
   });
+
+  // F-CR51-4: instancia RotationOrchestrator para rotacionar OAuth tokens
+  // antes da expiração. Sem este wire, OAuthRotationHandler é dead-code e
+  // tokens OAuth (Google/Microsoft/Slack) nunca são renovados. ADR-0053.
+  const rotationOrchestrator = new RotationOrchestrator({
+    vault: credentialVault,
+    handlers: [],
+  });
+  rotationOrchestrator.start();
 
   const appPaths = getAppPaths();
   const migrationsFolder = electron.app.isPackaged
@@ -215,13 +250,18 @@ export async function bootstrapMain(options: BootstrapOptions = {}): Promise<voi
   );
 
   const toolCatalog = buildToolCatalog({ sourcesStore, sessionsRepo });
-  const mountRegistry = createMountRegistry();
+  // F-CR51-9: vault passado para resolver authCredentialKey de mcp-http sources. ADR-0084.
+  const mountRegistry = createMountRegistry({ vault: credentialVault });
 
   // TitleGenerator checa session.name contra defaultNames antes de gerar — não sobrescreve nomes manuais.
+  // CR-26 F-CR26-1: bus + drizzle injetados para emitir `session.renamed` após
+  // gravar o título, sincronizando UI sem reload (paridade V1 `title_generated`).
   const titleGenerator = new TitleGeneratorService({
     vault: credentialVault,
     sessionsRepo,
     defaultNames: ['Nova sessão', 'New session'],
+    eventBus: sessionEventBus,
+    drizzle: database.drizzle,
   });
 
   const turnDispatcher = new TurnDispatcher({
@@ -238,6 +278,10 @@ export async function bootstrapMain(options: BootstrapOptions = {}): Promise<voi
     resolveWorkingDirectory: (session) =>
       session?.workingDirectory ?? appPaths.workspace(session?.workspaceId ?? 'default'),
     sessionIntentUpdater: buildIntentUpdater(sessionsRepo),
+    // Default system prompt — sem este wiring, o LLM rodava sem qualquer
+    // identidade/orientation/tools-awareness, gerando respostas genéricas e
+    // pobres em detalhes vs V1. Paridade-lite com `packages/shared/src/prompts/system.ts`.
+    defaults: { systemPrompt: DEFAULT_SYSTEM_PROMPT },
   });
   const sessionsService = createSessionsService({
     db: database.db,
@@ -264,11 +308,20 @@ export async function bootstrapMain(options: BootstrapOptions = {}): Promise<voi
   sessionsCleanup.start();
 
   // BackupScheduler — 24h interval, retenção 7/4/3 (ADR-0045).
-  const backupScheduler = createBackupScheduler({
+  const { scheduler: backupScheduler, attachmentGateway } = createBackupScheduler({
     drizzle: database.drizzle,
     appVersion: electron.app.getVersion(),
   });
   backupScheduler.start();
+
+  // Attachments GC scheduler — 24h cycle separado do backup pra evitar
+  // coupling de cadências. Sem isso, blobs órfãos (refCount ≤ 0)
+  // acumulam indefinidamente em `attachments/`.
+  const attachmentsGcDisposable = startAttachmentsGcScheduler(attachmentGateway);
+  lifecycle.onQuit(() => {
+    attachmentsGcDisposable.dispose();
+    return Promise.resolve();
+  });
 
   // Limpa `.tmp` órfãos deixados por crashes do `truncateAfter` JSONL.
   // Best-effort, async em background — boot continua.
@@ -281,6 +334,14 @@ export async function bootstrapMain(options: BootstrapOptions = {}): Promise<voi
     defaultDebugHudEnabled: !electron.app.isPackaged,
   });
   const initialHudEnabled = await preferencesStore.getDebugHudEnabled();
+  const debugHudActionsBootstrap = createDebugHudActionsBootstrap({
+    electron,
+    windowManager,
+    logsDir: appPaths.logs,
+    crashesDir: join(appPaths.state, 'crashes'),
+    appVersion: electron.app.getVersion(),
+    ...(process.versions.electron ? { electronVersion: process.versions.electron } : {}),
+  });
   let debugHud: DebugHudRuntime | null = null;
   try {
     debugHud = await createDebugHudRuntime({
@@ -289,6 +350,18 @@ export async function bootstrapMain(options: BootstrapOptions = {}): Promise<voi
       initialEnabled: initialHudEnabled,
       listenerDetector: observability.listenerDetector,
       activeTurnsProvider: turnDispatcher,
+      turnDispatcher,
+      reloadMainWindow: debugHudActionsBootstrap.reloadMainWindow,
+      exportDiagnostic: debugHudActionsBootstrap.exportDiagnostic,
+      // HUD window não passa pelo WindowManager.createWindow, então o
+      // `onWindowCreated` listener do windowManager não dispara aqui.
+      // Hook explícito wireia cleanup de IPC subscriptions órfãs em
+      // reload/destroy do HUD (10c-32 cobre caso multi-window do main).
+      onWebContentsCreated: (wc) => {
+        const senderId = wc.id;
+        wc.on('did-start-navigation', () => cleanupSubscriptionsForSender(senderId));
+        wc.on('destroyed', () => cleanupSubscriptionsForSender(senderId));
+      },
     });
     log.info({ initialHudEnabled }, 'debug HUD runtime ready');
   } catch (cause) {
@@ -340,6 +413,26 @@ export async function bootstrapMain(options: BootstrapOptions = {}): Promise<voi
     log.warn({ missingEnv: authRuntime.missingEnv }, 'supabase auth not configured');
   }
 
+  // F-CR51-10: subscreve estado de auth para enviar/limpar contexto de user
+  // no Sentry do main process. Crashes do main agora incluem `user.id` para
+  // permitir debugging multi-user. ADR-0062.
+  if (authRuntime.managedLogin) {
+    const sentryUserSub = authRuntime.managedLogin.state$.subscribe((state) => {
+      if (state.kind === 'authenticated') {
+        observability.sentry.setUser({
+          id: state.session.userId,
+          email: state.session.email,
+        });
+      } else if (state.kind === 'idle') {
+        observability.sentry.setUser(null);
+      }
+    });
+    lifecycle.onQuit(() => {
+      sentryUserSub.unsubscribe();
+      return Promise.resolve();
+    });
+  }
+
   registerShutdownHandlers(lifecycle, {
     mountRegistry,
     turnDispatcher,
@@ -353,14 +446,28 @@ export async function bootstrapMain(options: BootstrapOptions = {}): Promise<voi
     database,
     observability,
     updates: updatesRuntime,
+    // F-CR51-1: registra dispose do broker no shutdown para cancelar
+    // Deferred queue pendente antes do IPC server derrubar. ADR-0134.
+    permissionBroker,
   });
   if (debugHud) lifecycle.onQuit(() => debugHud?.dispose());
+  // F-CR51-4: registra dispose do RotationOrchestrator para parar o timer
+  // de varredura e evitar que rotate() seja chamado após o vault fechar. ADR-0053.
+  lifecycle.onQuit(() => {
+    rotationOrchestrator.dispose();
+    return Promise.resolve();
+  });
   lifecycle.onAllWindowsClosed(() => {
     if (!isMacOS()) electron.app.quit();
   });
 
   const deepLinks = new DeepLinkHandler(windowManager);
   lifecycle.onOpenUrl(deepLinks.handle);
+  // CR-18 F-DT-I: roteia 2ª instância (Windows/Linux deep-link delivery)
+  // para a 1ª via evento `second-instance` + processa argv inicial caso
+  // o usuário abra o app via deep-link em cold-start.
+  wireSecondInstance(electron, deepLinks, log);
+  consumeBootstrapArgvDeepLink(deepLinks, log);
 
   const isDev = !electron.app.isPackaged;
   const mainWindow = await windowManager.create({ preloadPath });
@@ -389,9 +496,57 @@ export async function bootstrapMain(options: BootstrapOptions = {}): Promise<voi
         isPackaged: electron.app.isPackaged,
         appVersion: electron.app.getVersion(),
       }),
+      migration: new MigrationServiceImpl({
+        drizzle: database.drizzle,
+        sessionsRepo,
+        sourcesStore,
+        vault: credentialVault,
+        resolveWorkspaceRoot: (id: string) => appPaths.workspace(id),
+      }),
+      backup: createBackupService({ scheduler: backupScheduler }),
     },
+    servicesStatus: () => observability.probeServicesStatus(),
   });
   await windowManager.load(mainWindow, { url: rendererUrl, openDevTools: isDev });
+
+  // Atalhos globais. Carregamos `globalShortcut` lazy via
+  // dynamic import — runtime do `loadElectron()` é minimalista e não
+  // expõe globalShortcut no shape ElectronRuntime (mantém runtime mock testável).
+  const electronModule = await import('electron').catch(() => null);
+  if (electronModule?.globalShortcut) {
+    const shortcuts = registerGlobalShortcuts({
+      globalShortcut: electronModule.globalShortcut,
+      getMainWindow: () => mainWindow,
+    });
+    lifecycle.onQuit(() => {
+      shortcuts.dispose();
+      return Promise.resolve();
+    });
+  }
+
+  // Tray icon + system menu. Mesma estratégia: dynamic import pra evitar
+  // acoplar runtime mock. Sem icon resolvido, tray service retorna null.
+  if (electronModule?.Tray && electronModule?.Menu) {
+    const tray = createTrayService({
+      // F-CR51-22: cast via unknown para evitar `as never` — tray-service agora
+      // usa interface estrutural mínima em vez de marker `_isMenu: never`. ADR-0002.
+      Tray: electronModule.Tray as unknown as Parameters<typeof createTrayService>[0]['Tray'],
+      Menu: electronModule.Menu as unknown as Parameters<typeof createTrayService>[0]['Menu'],
+      app: electronModule.app,
+      iconPath,
+      getMainWindow: () => mainWindow,
+      onNewTurn: () => {
+        const wc = (mainWindow as { webContents?: { send?: (ch: string) => void } }).webContents;
+        wc?.send?.('global:new-turn');
+      },
+    });
+    if (tray) {
+      lifecycle.onQuit(() => {
+        tray.dispose();
+        return Promise.resolve();
+      });
+    }
+  }
 
   log.info({ preloadPath, rendererUrl }, 'main ready');
 }

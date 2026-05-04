@@ -1,12 +1,16 @@
-import type { Message, SessionId, ToolDefinition } from '@g4os/kernel';
+import type { Message, SessionId, ThinkingLevel, ToolDefinition } from '@g4os/kernel';
 import type { IDisposable } from '@g4os/kernel/disposable';
 import type { AgentError } from '@g4os/kernel/errors';
 import type { Result } from 'neverthrow';
 import type { Observable } from 'rxjs';
 
-export type AgentFamily = 'anthropic' | 'openai' | 'openai-compat' | 'google' | 'bedrock';
+// CR-30 F-CR30-2: `ThinkingLevel` agora vive em `@g4os/kernel/types/session.ts`
+// (via `session.schema.ts`) — fonte canônica compartilhada com features/UI
+// sem violar o boundary `features-cant-import-agents-directly`. Re-export
+// preserva API pública dos consumers que importam de `@g4os/agents/interface`.
+export type { ThinkingLevel };
 
-export type ThinkingLevel = 'low' | 'think' | 'high' | 'ultra';
+export type AgentFamily = 'anthropic' | 'openai' | 'openai-compat' | 'google' | 'bedrock';
 
 export interface AgentCapabilities {
   readonly family: AgentFamily;

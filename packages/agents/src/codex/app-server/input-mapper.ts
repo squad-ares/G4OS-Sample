@@ -1,18 +1,23 @@
 import type { ContentBlock, Message } from '@g4os/kernel';
-import type { AgentConfig, AgentTurnInput } from '../../interface/agent.ts';
+import type { AgentConfig, AgentTurnInput, ThinkingLevel } from '../../interface/agent.ts';
 import type {
   CodexRunTurnInput,
+  CodexToolInputSchema,
   CodexWireContentBlock,
   CodexWireMessage,
+  CodexWireThinkingLevel,
   CodexWireTool,
 } from './protocol.ts';
 
+// `satisfies Record<ThinkingLevel, ...>` força que adicionar um novo nível em
+// `ThinkingLevel` quebre o mapper em compile-time. NÃO trocar pra Partial — o
+// silent strip era o bug original (ver CR-18 F-CT1).
 const THINKING_LEVEL_MAP = {
   low: 'low',
   think: 'low',
   high: 'medium',
   ultra: 'high',
-} as const satisfies Record<'low' | 'think' | 'high' | 'ultra', 'low' | 'medium' | 'high'>;
+} as const satisfies Record<ThinkingLevel, CodexWireThinkingLevel>;
 
 function mapBlock(block: ContentBlock): CodexWireContentBlock | undefined {
   switch (block.type) {
@@ -21,7 +26,7 @@ function mapBlock(block: ContentBlock): CodexWireContentBlock | undefined {
     case 'tool_use':
       return {
         type: 'tool_use',
-        id: block.toolUseId,
+        toolUseId: block.toolUseId,
         name: block.toolName,
         input: block.input,
       };
@@ -70,7 +75,11 @@ function mapTools(config: AgentConfig): readonly CodexWireTool[] | undefined {
   return config.tools.map((tool) => ({
     name: tool.name,
     description: tool.description,
-    inputSchema: tool.inputSchema,
+    // `ToolDefinition.inputSchema` é `Record<string, unknown>` (kernel schema),
+    // mais fraco que `CodexToolInputSchema`. Coerção necessária na fronteira —
+    // a validação do shape JSON Schema acontece antes da chegada aqui (Zod parse
+    // em AgentConfigSchema). Em campo, tools sempre chegam com `type: 'object'`.
+    inputSchema: tool.inputSchema as CodexToolInputSchema,
   }));
 }
 

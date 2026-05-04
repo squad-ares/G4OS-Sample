@@ -1,5 +1,5 @@
 import { Button, cn, useTranslate } from '@g4os/ui';
-import { ChevronDown, FolderKanban, FolderOpen, Pencil, X } from 'lucide-react';
+import { Archive, ChevronDown, FolderKanban, FolderOpen, Pencil, X } from 'lucide-react';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 
 export interface SessionMetadataProject {
@@ -14,6 +14,7 @@ export interface SessionMetadataPanelProps {
 
   readonly name: string;
   readonly onRename?: (next: string) => void | Promise<void>;
+  readonly onArchive?: () => void;
 
   readonly project?: SessionMetadataProject | null;
   readonly availableProjects?: ReadonlyArray<SessionMetadataProject>;
@@ -42,6 +43,7 @@ export function SessionMetadataPanel({
   onClose,
   name,
   onRename,
+  onArchive,
   project,
   availableProjects,
   onSelectProject,
@@ -111,15 +113,29 @@ export function SessionMetadataPanel({
     >
       <div className="flex shrink-0 items-center justify-between border-b border-foreground/8 px-4 py-2.5">
         <h2 className="text-sm font-semibold">{t('chat.metadata.title')}</h2>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={onClose}
-          aria-label={t('chat.metadata.close')}
-          className="size-7"
-        >
-          <X className="size-4" aria-hidden={true} />
-        </Button>
+        <div className="flex items-center gap-0.5">
+          {onArchive ? (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onArchive}
+              aria-label={t('chat.header.archive')}
+              title={t('chat.header.archive')}
+              className="size-7"
+            >
+              <Archive className="size-3.5" aria-hidden={true} />
+            </Button>
+          ) : null}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onClose}
+            aria-label={t('chat.metadata.close')}
+            className="size-7"
+          >
+            <X className="size-4" aria-hidden={true} />
+          </Button>
+        </div>
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 py-4">

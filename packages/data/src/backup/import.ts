@@ -7,8 +7,9 @@
  * futuras devem acrescentar branches aqui, nunca editar o branch v1.
  */
 
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
+import { writeAtomic } from '@g4os/kernel/fs';
 import { createLogger } from '@g4os/kernel/logger';
 import { eq } from 'drizzle-orm';
 import yauzl from 'yauzl';
@@ -60,7 +61,11 @@ export async function restoreWorkspaceBackup(
     const body = extractBuffer(entries, `sessions/${sid}/events.jsonl`);
     const target = join(params.workspaceRoot, 'sessions', sid, 'events.jsonl');
     await mkdir(dirname(target), { recursive: true });
-    await writeFile(target, body);
+    // CR-33 F-CR33-3: writeAtomic — restore é exatamente o caminho onde o
+    // usuário precisa de durabilidade (já está reagindo a um disaster). Crash
+    // mid-restore deixaria `events.jsonl` parcial; com writeAtomic o restore
+    // pode ser re-executado sem ambiguidade (estado old-or-new).
+    await writeAtomic(target, body);
   }
 
   for (const hash of manifest.attachmentHashes) {

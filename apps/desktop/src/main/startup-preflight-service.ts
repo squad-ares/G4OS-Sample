@@ -127,9 +127,15 @@ export class StartupPreflightService {
       ? process.resourcesPath
       : resolve(options.rootDir, 'apps/desktop/dist');
 
+    // F-CR51-11: passa `target` para detectar manifesto de outro target
+    // (ex: build win32 rodando em macOS arm64). Sem isso, o preflight
+    // aceita install-meta.json incorreto silenciosamente. ADR-0146.
+    // process.platform/arch são leitura de metadados do processo — não secret.
+    const runtimeTarget = `${process.platform}-${process.arch}`;
     const result = await loadInstallMeta({
       resourcesPath,
       ...(options.appVersion ? { appVersion: options.appVersion } : {}),
+      target: runtimeTarget,
     });
 
     if (result.ok) {

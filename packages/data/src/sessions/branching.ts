@@ -9,9 +9,17 @@
  * Orquestrado pela camada de serviço (apps/desktop), que já tem acesso
  * ao EventStore (`@g4os/data/events`) + SessionsRepository.
  *
- * Writer agora é o `SessionEventStore` real — antes era um
- * placeholder que retornava `{ sequence: 0 }` e não validava payload.
- * Cada evento copiado é re-emitido com:
+ * **CALLER MUST: chamar `rebuildProjection(db, eventStore, result.id)`
+ * imediatamente após `branchSession` retornar.** Esta função apenas
+ * popula o JSONL da branch e o registro `sessions` em SQLite — não
+ * popula `messages_index` (consumer separado pra search/list). Sem o
+ * rebuild, busca/listagem da branch fica vazia até o próximo restart
+ * full do app. Caller canônico em `apps/desktop/src/main/services/sessions-service.ts`
+ * já segue esse contrato.
+ *
+ * Writer é o `SessionEventStore` real — antes era um placeholder que
+ * retornava `{ sequence: 0 }` e não validava payload. Cada evento
+ * copiado é re-emitido com:
  *   - novo `sessionId` (a branch)
  *   - novo `sequenceNumber` (1..copied — preserva ordem mas reseta para
  *     a branch, já que a sessão-mãe pode continuar avançando)
@@ -70,7 +78,11 @@ export async function branchSession(
 
   let copied = 0;
   for await (const event of deps.reader.readReplay(input.sourceId)) {
-    if (event.sequence > input.atSequence) break;
+    // F-CR36-11: `continue` em vez de `break` — se o reader retornar eventos
+    // fora de ordem (paralelismo, source heterogêneo), `break` pararia cedo
+    // e deixaria a branch incompleta sem sinal. `continue` filtra explicitamente,
+    // independente da garantia de ordering do reader.
+    if (event.sequence > input.atSequence) continue;
     const reEmitted = reEmitEventForBranch(event.payload, created.id, copied + 1);
     if (!reEmitted) continue;
     await deps.writer.append(created.id, reEmitted);

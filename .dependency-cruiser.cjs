@@ -42,12 +42,20 @@ module.exports = {
       to: { path: '^packages/(?!(kernel|agents))' },
     },
     {
+      name: 'codex-types-isolated',
+      comment:
+        '@g4os/codex-types é types-only + 1 const runtime; não pode depender de nenhum pacote interno.',
+      severity: 'error',
+      from: { path: '^packages/codex-types/src/' },
+      to: { path: '^packages/' },
+    },
+    {
       name: 'agents-layered',
       comment:
-        '@g4os/agents subpaths não-interface podem depender só de kernel/platform/agents. Sem features/ui/data/etc.',
+        '@g4os/agents subpaths não-interface podem depender só de kernel/platform/agents/codex-types. Sem features/ui/data/etc.',
       severity: 'error',
       from: { path: '^packages/agents/src/(?!interface)' },
-      to: { path: '^packages/(?!(kernel|platform|agents))' },
+      to: { path: '^packages/(?!(kernel|platform|agents|codex-types))' },
     },
     {
       name: 'auth-isolated',
@@ -81,17 +89,34 @@ module.exports = {
       from: { path: '^packages/sources' },
       to: { path: '^packages/(?!(kernel|platform|agents|sources))' },
     },
+    {
+      name: 'translate-isolated',
+      comment: '@g4os/translate é leaf — zero dependências de pacotes internos (ADR-0109)',
+      severity: 'error',
+      from: { path: '^packages/translate' },
+      to: { path: '^packages/(?!translate)' },
+    },
+    {
+      name: 'bridge-mcp-server-isolated',
+      comment:
+        '@g4os/bridge-mcp-server depende só de kernel (e platform quando precisar de detecção de SO). ' +
+        'Sem data, agents, features, ipc — enquanto skeleton. Quando promovido para implementação real, ' +
+        'expandir a allowlist com ADR justificando cada adição.',
+      severity: 'error',
+      from: { path: '^packages/bridge-mcp-server' },
+      to: { path: '^packages/(?!(kernel|platform|bridge-mcp-server))' },
+    },
 
     // ========== FEATURES ==========
     {
       name: 'no-cross-feature-imports',
       comment:
-        'Features nao podem importar umas das outras. Exceção: `shell` é horizontal (layout/nav) e pode ser consumido por qualquer feature como pacote de UI compartilhado.',
+        'Features nao podem importar umas das outras. Exceções: `shell` é horizontal (layout/nav); `shared` é utilitário horizontal (helpers puros sem deps de feature, ex: formatRelativeMs).',
       severity: 'error',
       from: { path: '^packages/features/src/([^/]+)/' },
       to: {
         path: '^packages/features/src/',
-        pathNot: '^packages/features/src/($1|shell)(/|$)',
+        pathNot: '^packages/features/src/($1|shell|shared)(/|$)',
       },
     },
     {
@@ -190,6 +215,14 @@ module.exports = {
           '(^|/)tsconfig\\.json$',
           '(^|/)\\.[^/]+\\.(js|cjs|mjs|ts)$',
           '(src|dist)/index\\.(ts|js|d\\.(ts|cts|mts)|cjs)$', // package exports
+          // Build/test runner config entry points — consumidos pelo runner
+          // externo (tsup CLI, vitest CLI, electron-builder), não importados
+          // por código fonte. Orphan por design.
+          '(^|/)(tsup|vitest|electron-builder)\\.config\\.(ts|js|mjs|cjs)$',
+          // Test files são discovered pelo vitest via glob, não importados
+          // por código fonte. Orphan por design quando não compartilham helpers.
+          '\\.(test|spec)\\.(ts|tsx)$',
+          '/__tests__/',
           'apps/desktop/src/preload\\.ts$', // Electron preload entry point
           'apps/desktop/src/main/index\\.ts$', // Main entry point
           'apps/desktop/src/main/workers/', // utilityProcess / Piscina worker entries

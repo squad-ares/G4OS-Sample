@@ -16,7 +16,14 @@ export const DEFAULT_CONNECTION_SLUG = 'anthropic-direct';
 export const DEFAULT_MAX_TOKENS = 4096;
 
 export interface TitleHook {
+  /** Gera título refinado via LLM. Usado a partir do 2º turn. */
   scheduleGeneration(sessionId: SessionId, messages: readonly Message[]): void;
+  /**
+   * Paridade V1: trunca a 1ª user msg e grava como título imediato sem
+   * chamar LLM. Chamado pelo dispatcher após o 1º turn ok pra dar feedback
+   * instantâneo na sub-sidebar / header em vez de "Nova sessão".
+   */
+  scheduleImmediateFromFirstMessage(sessionId: SessionId, firstUserMessage: string): void;
 }
 
 export interface TurnDispatcherDeps {

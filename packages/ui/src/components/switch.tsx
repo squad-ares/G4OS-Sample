@@ -10,7 +10,10 @@ function Switch({ className, ...props }: React.ComponentProps<typeof SwitchPrimi
     <SwitchPrimitive.Root
       data-slot="switch"
       className={cn(
-        'peer data-[state=checked]:bg-foreground data-[state=unchecked]:bg-foreground/15 focus-visible:border-foreground/30 focus-visible:ring-foreground/15 dark:data-[state=unchecked]:bg-foreground/12 inline-flex h-[1.15rem] w-8 shrink-0 items-center rounded-full border border-transparent shadow-xs transition-all outline-none focus-visible:ring-1 disabled:cursor-not-allowed disabled:opacity-50',
+        // data-[state=unchecked]:bg-accent/15 em vez de bg-foreground/15 —
+        // accent (gold) em opacidade baixa tem mais contraste e identidade
+        // visual em dark mode do que foreground/15 (cinza claro quase invisível). ADR-0154.
+        'peer data-[state=checked]:bg-foreground data-[state=unchecked]:bg-accent/15 focus-visible:border-foreground/30 focus-visible:ring-foreground/15 dark:data-[state=unchecked]:bg-accent/12 inline-flex h-[1.15rem] w-8 shrink-0 items-center rounded-full border border-transparent shadow-xs transition-all outline-none focus-visible:ring-1 disabled:cursor-not-allowed disabled:opacity-50',
         className,
       )}
       {...props}

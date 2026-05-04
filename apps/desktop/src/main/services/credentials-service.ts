@@ -70,12 +70,26 @@ export class VaultCredentialsService implements CredentialsServiceContract {
       updatedAt: m.updatedAt,
       ...(m.expiresAt === undefined ? {} : { expiresAt: m.expiresAt }),
       tags: [...m.tags],
+      // F-CR35-9: propaga `stale` do vault — entry com meta corrompida.
+      // Sem este campo, UI nunca recebia o sinal e operador não podia acionar repair.
+      ...(m.stale === true ? { stale: true as const } : {}),
     }));
     return ok(metas);
   }
 
-  async rotate(key: string, newValue: string): Promise<Result<void, AppError>> {
-    const result = await this.#vault.rotate(key, newValue);
+  // F-CR35-2: `options` (incluindo `expiresAt`) propagado para o vault.
+  async rotate(
+    key: string,
+    newValue: string,
+    options?: CredentialSetOptions,
+  ): Promise<Result<void, AppError>> {
+    const vaultOptions = options
+      ? {
+          ...(options.expiresAt === undefined ? {} : { expiresAt: options.expiresAt }),
+          ...(options.tags === undefined ? {} : { tags: options.tags }),
+        }
+      : {};
+    const result = await this.#vault.rotate(key, newValue, vaultOptions);
     if (result.isErr()) return err(toAppError('credentials.rotate', result.error, { key }));
     await this.#notifyMutation(key);
     return ok(undefined);

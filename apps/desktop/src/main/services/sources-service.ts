@@ -228,13 +228,18 @@ export function createSourcesService(deps: SourcesServiceDeps): SourcesService {
         // Outer timeout (10s) defende contra MCP stdio prober que
         // não respeite seu próprio timeout (subprocess hung). Inner probes
         // já têm 5s por kind; outer cobre orquestração + race com hung.
+        // Cleanup explícito do timer pra não acumular handles em event
+        // loop quando probe resolve antes do timeout.
+        let timeoutHandle: NodeJS.Timeout | null = null;
         const probed = await Promise.race([
           probeSource(hydrated),
           new Promise<SourceStatus>((resolve) => {
-            const t = setTimeout(() => resolve('error'), 10_000);
-            t.unref?.();
+            timeoutHandle = setTimeout(() => resolve('error'), 10_000);
+            timeoutHandle.unref?.();
           }),
-        ]);
+        ]).finally(() => {
+          if (timeoutHandle) clearTimeout(timeoutHandle);
+        });
         // Persiste o status probed no JSON pra UI/planner refletirem o check.
         if (probed !== existing.status) {
           await store.update(workspaceId, id, { status: probed });

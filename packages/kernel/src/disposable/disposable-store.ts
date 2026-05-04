@@ -1,4 +1,7 @@
+import { createLogger } from '../logger/index.ts';
 import type { IDisposable } from './types.ts';
+
+const log = createLogger('disposable-store');
 
 export class DisposableStore implements IDisposable {
   private _isDisposed = false;
@@ -10,13 +13,16 @@ export class DisposableStore implements IDisposable {
 
   add<T extends IDisposable>(disposable: T): T {
     if (this._isDisposed) {
-      // Auto-dispose para evitar recursos órfãos
+      // Race de shutdown: store já descartado antes do add. Logar e descartar
+      // o disposable para evitar recursos órfãos — não lançar, pois o caller
+      // pode não conseguir lidar com a exceção durante shutdown (ADR-0032).
+      log.warn('DisposableStore already disposed — disposing added item and returning');
       try {
         disposable.dispose();
       } catch {
-        //ignore
+        // best-effort
       }
-      throw new Error('DisposableStore already disposed — cannot add');
+      return disposable;
     }
     this._toDispose.add(disposable);
     return disposable;

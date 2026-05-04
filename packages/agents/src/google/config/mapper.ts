@@ -28,17 +28,33 @@ export function buildClassifierContents(text: string): GeminiContent[] {
 
 export function mapMessagesToGemini(messages: readonly Message[]): GeminiContent[] {
   const contents: GeminiContent[] = [];
+  // ADR-0075: rastreia toolUseId → toolName da assistant message anterior
+  // para resolver o nome correto no functionResponse. Message.role='tool'
+  // só carrega toolUseId nos blocos tool_result — sem este mapa o nome
+  // ficaria 'unknown', Gemini rejeitaria silenciosamente e multi-turn
+  // tool use quebraria.
+  const toolUseIdToName = new Map<string, string>();
   for (const msg of messages) {
     if (msg.role === 'user') {
       const parts = buildUserParts(msg);
       if (parts.length > 0) contents.push({ role: 'user', parts });
     } else if (msg.role === 'assistant') {
+      // Indexar tool_use blocks antes de emitir os parts
+      for (const block of msg.content as ReadonlyArray<{
+        type: string;
+        toolUseId?: string;
+        toolName?: string;
+      }>) {
+        if (block.type === 'tool_use' && block.toolUseId && block.toolName) {
+          toolUseIdToName.set(block.toolUseId, block.toolName);
+        }
+      }
       const parts = buildAssistantParts(msg);
       if (parts.length > 0) contents.push({ role: 'model', parts });
     } else if (msg.role === 'tool') {
       contents.push({
         role: 'user',
-        parts: buildToolResultParts(msg),
+        parts: buildToolResultParts(msg, toolUseIdToName),
       });
     }
   }
@@ -90,29 +106,44 @@ function buildAssistantParts(msg: Message): GeminiPart[] {
   return parts;
 }
 
-function buildToolResultParts(msg: Message): GeminiPart[] {
-  const content =
-    typeof msg.content === 'string'
-      ? msg.content
-      : (msg.content as ReadonlyArray<{ type: string; content?: string | { text: string }[] }>)
-          .map((b) => {
-            if (b.type === 'tool_result' && b.content) {
-              return typeof b.content === 'string'
-                ? b.content
-                : b.content.map((c) => c.text).join('');
-            }
-            return '';
-          })
-          .join('\n');
-  const toolName = (msg as unknown as { toolName?: string }).toolName ?? 'unknown';
-  return [
-    {
+function buildToolResultParts(
+  msg: Message,
+  toolUseIdToName: ReadonlyMap<string, string>,
+): GeminiPart[] {
+  const parts: GeminiPart[] = [];
+  for (const block of msg.content as ReadonlyArray<{
+    type: string;
+    toolUseId?: string;
+    content?: string | { text: string }[];
+  }>) {
+    if (block.type !== 'tool_result') continue;
+    const content =
+      block.content === undefined
+        ? ''
+        : typeof block.content === 'string'
+          ? block.content
+          : block.content.map((c) => c.text).join('');
+    // ADR-0075: resolver toolName via mapa; fallback 'unknown_tool' apenas
+    // quando o histórico está incompleto (ex: sessão truncada).
+    const toolName = (block.toolUseId && toolUseIdToName.get(block.toolUseId)) ?? 'unknown_tool';
+    parts.push({
       functionResponse: {
         name: toGeminiSafeToolName(toolName),
         response: { result: content },
       },
-    },
-  ];
+    });
+  }
+  // Fallback para mensagem mal-formada: emite um único part vazio para não
+  // gerar turn vazio que confunde o Gemini.
+  if (parts.length === 0) {
+    parts.push({
+      functionResponse: {
+        name: toGeminiSafeToolName('unknown_tool'),
+        response: { result: '' },
+      },
+    });
+  }
+  return parts;
 }
 
 export function mapToolsToGemini(
@@ -131,7 +162,7 @@ export function mapToolsToGemini(
 export function buildGeminiStreamParams(
   config: AgentConfig,
   messages: readonly Message[],
-): Pick<GeminiStreamParams, 'model' | 'systemInstruction' | 'contents' | 'tools'> {
+): Pick<GeminiStreamParams, 'model' | 'systemInstruction' | 'contents' | 'tools' | 'temperature'> {
   const usedNames = new Set<string>();
   return {
     model: config.modelId.replace(/^pi\//, ''),
@@ -140,6 +171,9 @@ export function buildGeminiStreamParams(
     ...(config.tools && config.tools.length > 0
       ? { tools: mapToolsToGemini(config.tools, usedNames) }
       : {}),
+    // ADR-0075 / F-CR31-8: propaga temperature do AgentConfig. Sem isso o
+    // Gemini ignorava silenciosamente o ajuste do usuário na UI.
+    ...(config.temperature === undefined ? {} : { temperature: config.temperature }),
   };
 }
 

@@ -1,11 +1,21 @@
+/**
+ * CR-37 F-CR37-12: expõe `error` para que o componente possa exibir
+ * feedback ao user em vez de swallow silencioso. Tipos de erro:
+ * - 'mic-permission': `getUserMedia` negado
+ * - 'transcribe-failed': transcrição falhou (via voice-button)
+ * - 'generic': qualquer outro erro de gravação
+ */
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 export type VoiceRecorderState = 'idle' | 'recording' | 'too-long';
+
+export type VoiceError = 'mic-permission' | 'transcribe-failed' | 'generic';
 
 export interface VoiceRecorderResult {
   readonly state: VoiceRecorderState;
   readonly duration: number;
   readonly analyser: AnalyserNode | null;
+  readonly error: VoiceError | null;
   readonly start: () => Promise<void>;
   readonly stop: () => Promise<Blob | null>;
   readonly cancel: () => void;
@@ -18,6 +28,7 @@ export function useVoiceRecorder(): VoiceRecorderResult {
   const [state, setState] = useState<VoiceRecorderState>('idle');
   const [duration, setDuration] = useState(0);
   const [analyser, setAnalyser] = useState<AnalyserNode | null>(null);
+  const [error, setError] = useState<VoiceError | null>(null);
 
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -47,14 +58,21 @@ export function useVoiceRecorder(): VoiceRecorderResult {
     }
     cleanup();
     setState('idle');
+    setError(null);
   }, [cleanup]);
 
   const start = useCallback(async () => {
     if (state !== 'idle') return;
+    setError(null);
     let stream: MediaStream;
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    } catch {
+    } catch (err) {
+      // CR-37 F-CR37-12: expor erro de permissão em vez de swallow silencioso.
+      const isDenied =
+        err instanceof DOMException &&
+        (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError');
+      setError(isDenied ? 'mic-permission' : 'generic');
       return;
     }
 
@@ -98,11 +116,15 @@ export function useVoiceRecorder(): VoiceRecorderResult {
       setState('idle');
       return Promise.resolve(null);
     }
-    return new Promise<Blob>((resolve) => {
+    return new Promise<Blob | null>((resolve) => {
       resolveRef.current = resolve;
       rec.onstop = () => {
         const blob = new Blob(chunksRef.current, { type: rec.mimeType });
-        resolveRef.current?.(blob);
+        // CR-37 F-CR37-12: verifica se resolve ainda está ativo antes de
+        // chamar — cancel() pode ter limpado resolveRef antes do onstop.
+        if (resolveRef.current) {
+          resolveRef.current(blob);
+        }
         cleanup();
         setState('idle');
       };
@@ -116,5 +138,5 @@ export function useVoiceRecorder(): VoiceRecorderResult {
     };
   }, [cancel]);
 
-  return { state, duration, analyser, start, stop, cancel };
+  return { state, duration, analyser, error, start, stop, cancel };
 }

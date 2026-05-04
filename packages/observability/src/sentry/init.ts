@@ -40,7 +40,16 @@ export async function initSentry(options: SentryInitOptions): Promise<SentryHand
     return NOOP_HANDLE;
   }
 
-  const mod = await loadSentryModule(options.process);
+  // Lazy import com fallback NOOP se SDK falhar (dep ausente, versão
+  // incompatível, bundle corrompido). Sem isso, erro borbulha do
+  // dynamic import e mata main no boot.
+  let mod: SentryClientModule;
+  try {
+    mod = await loadSentryModule(options.process);
+  } catch (cause) {
+    log.warn({ err: cause, process: options.process }, 'sentry SDK load failed; returning noop');
+    return NOOP_HANDLE;
+  }
 
   const config: Record<string, unknown> = {
     dsn: options.dsn,
@@ -88,12 +97,18 @@ export async function initSentry(options: SentryInitOptions): Promise<SentryHand
 }
 
 async function loadSentryModule(processType: SentryProcess): Promise<SentryClientModule> {
-  const specifier = resolveSpecifier(processType);
-  return (await import(/* @vite-ignore */ specifier)) as SentryClientModule;
-}
-
-function resolveSpecifier(processType: SentryProcess): string {
-  if (processType === 'main') return '@sentry/electron/main';
-  if (processType === 'renderer') return '@sentry/electron/renderer';
-  return '@sentry/node';
+  // Branches com string literal — Vite (renderer) precisa de specifier
+  // estático pra pré-bundlar `@sentry/electron/renderer`. Versão anterior
+  // usava `import(variável)` com `/* @vite-ignore */`, o que desativava
+  // a resolução no Vite e o renderer falhava em runtime com
+  // "Failed to resolve module specifier '@sentry/electron/renderer'".
+  // Para main/worker, o tsup mantém os imports como external e o Node
+  // resolve via require/import dinâmico normal.
+  if (processType === 'renderer') {
+    return (await import('@sentry/electron/renderer')) as unknown as SentryClientModule;
+  }
+  if (processType === 'main') {
+    return (await import('@sentry/electron/main')) as unknown as SentryClientModule;
+  }
+  return (await import('@sentry/node')) as unknown as SentryClientModule;
 }

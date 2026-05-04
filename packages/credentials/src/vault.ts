@@ -14,6 +14,7 @@
  * é agnóstico a backend (safeStorage, in-memory, etc.).
  */
 
+import { randomBytes } from 'node:crypto';
 import type { CredentialError, Result } from '@g4os/kernel/errors';
 import { CredentialError as CredentialErrorClass } from '@g4os/kernel/errors';
 import { createLogger } from '@g4os/kernel/logger';
@@ -34,6 +35,12 @@ const BACKUP_RETENTION = 3;
 const KEY_PATTERN = /^[a-z0-9._-]+$/;
 const KEY_MAX_LENGTH = 100;
 const VALUE_MAX_LENGTH = 1_000_000;
+// CR-18 F-C4: limites de tags alinhados com `CredentialMetaSchema` em
+// `@g4os/kernel/schemas/credential.schema.ts`. Sem essa validação no
+// `set`/`rotate`, caller que passe 33 tags grava OK, mas o `readMeta`
+// subsequente falha no Zod parse e a entry vira "stale" sem sinal claro.
+const MAX_TAGS = 32;
+const TAG_MAX_LENGTH = 64;
 
 export interface CredentialMeta {
   readonly key: string;
@@ -91,6 +98,8 @@ export class CredentialVault {
     if (keyValidation.isErr()) return err(keyValidation.error);
     const valueValidation = validateValue(value);
     if (valueValidation.isErr()) return err(valueValidation.error);
+    const tagsValidation = validateTags(options.tags);
+    if (tagsValidation.isErr()) return err(tagsValidation.error);
 
     return await this.writeLock.runExclusive(async () => {
       log.debug({ key, hasExpiry: options.expiresAt !== undefined }, 'set credential');
@@ -103,12 +112,17 @@ export class CredentialVault {
       const now = Date.now();
       const existing = await this.readMeta(key);
       const createdAt = existing.isOk() ? existing.value.createdAt : now;
+      // F-CR35-6: alinhar com comportamento do rotate() — preservar tags
+      // existentes quando `options.tags` não é fornecido. Antes `set()` sem
+      // `options.tags` zeraria as tags silenciosamente (ex.: migrador gravava
+      // `tags: ['migrated-from-v1']` mas próximo `set()` manual as apagava).
+      const tags = options.tags ?? (existing.isOk() ? [...existing.value.tags] : []);
       const meta: CredentialMeta = {
         key,
         createdAt,
         updatedAt: now,
         ...(options.expiresAt === undefined ? {} : { expiresAt: options.expiresAt }),
-        tags: Object.freeze([...(options.tags ?? [])]),
+        tags: Object.freeze([...tags]),
       };
       // Propagar erro de writeMeta. Se falhar, credencial já foi
       // escrita — log warn explícito + retorna o err para caller decidir
@@ -154,6 +168,8 @@ export class CredentialVault {
     if (keyValidation.isErr()) return err(keyValidation.error);
     const valueValidation = validateValue(newValue);
     if (valueValidation.isErr()) return err(valueValidation.error);
+    const tagsValidation = validateTags(options.tags);
+    if (tagsValidation.isErr()) return err(tagsValidation.error);
 
     return await this.writeLock.runExclusive(async () => {
       log.info({ key, hasExpiry: options.expiresAt !== undefined }, 'rotate credential');
@@ -260,7 +276,12 @@ export class CredentialVault {
     const current = await this.keychain.get(key);
     if (current.isErr()) return;
 
-    const backupName = `${key}${BACKUP_SEPARATOR}${Date.now()}`;
+    // F-CR35-11: sufixo composto de timestamp + 8 bytes hex evita colisão
+    // em rajadas sub-ms (set + delete consecutivos no mesmo ms). Antes, segundo
+    // backup sobrescrevia o primeiro silenciosamente, reduzindo histórico efetivo
+    // de 3 → 2. Mesmo padrão do writeAtomic (kernel/fs/atomic-write.ts).
+    const suffix = `${Date.now()}-${randomBytes(4).toString('hex')}`;
+    const backupName = `${key}${BACKUP_SEPARATOR}${suffix}`;
     // Logar erro de backup. Em disk-full / safeStorage indisponível
     // o set silenciosamente falhava — próximo `delete()` ou `set()` chama
     // backupCurrent que falha de novo, e usuário fica sem nenhum backup
@@ -328,6 +349,8 @@ function metaKey(key: string): string {
 }
 
 function timestampOf(name: string, prefix: string): number {
+  // F-CR35-11: sufixo agora tem formato `<ts>-<hex>`.
+  // parseInt para antes do '-', então continua extraindo o timestamp corretamente.
   const tail = name.slice(prefix.length);
   const ts = Number.parseInt(tail, 10);
   return Number.isFinite(ts) ? ts : 0;
@@ -336,6 +359,31 @@ function timestampOf(name: string, prefix: string): number {
 function validateKey(key: string): Result<void, CredentialError> {
   if (!KEY_PATTERN.test(key) || key.length > KEY_MAX_LENGTH) {
     return err(CredentialErrorClass.invalidKey(key));
+  }
+  // F-CR35-5: previne colisão de namespace com chaves internas do vault.
+  // `<key>.meta` e `<key>.backup-<ts>` são usados internamente — caller que
+  // gravasse `foo.meta` sobrescreveria a metadata de `foo` silenciosamente.
+  if (key.endsWith(META_SUFFIX)) {
+    return err(CredentialErrorClass.invalidKey(key));
+  }
+  if (key.includes(BACKUP_SEPARATOR)) {
+    return err(CredentialErrorClass.invalidKey(key));
+  }
+  return ok(undefined);
+}
+
+function validateTags(tags: readonly string[] | undefined): Result<void, CredentialError> {
+  // CR-18 F-C4: alinhamento com `CredentialMetaSchema` — sem essa guarda,
+  // tags excessivas/longas eram aceitas pelo set/rotate mas o readMeta
+  // subsequente falhava no Zod parse e a entry virava "stale" sem sinal.
+  if (!tags) return ok(undefined);
+  if (tags.length > MAX_TAGS) {
+    return err(CredentialErrorClass.invalidValue('too_many_tags'));
+  }
+  for (const tag of tags) {
+    if (tag.length === 0 || tag.length > TAG_MAX_LENGTH) {
+      return err(CredentialErrorClass.invalidValue('tag_length_out_of_range'));
+    }
   }
   return ok(undefined);
 }

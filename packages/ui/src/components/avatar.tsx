@@ -68,22 +68,37 @@ function CrossfadeAvatar({
 
   // Reseta isLoaded quando `src` muda — mas se o navegador já tem a nova imagem
   // em cache, evita flash do fallback marcando como carregada direto.
+  // Guarda o objeto Image para nulificar src no cleanup (F-CR49-5): sem isso,
+  // o request fica in-flight até completar mesmo após src mudar — acumula
+  // handles em listas longas com muitos avatares sendo trocados.
+  // currentSrc excluído das deps intencionalmente: usamos ref interna para
+  // rastrear a última src vista, evitando re-execução em loop quando
+  // setCurrentSrc é chamado dentro do próprio effect.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: (reason: currentSrc controlado pelo próprio effect — incluir causaria loop de re-execução)
   React.useEffect(() => {
-    if (src !== currentSrc) {
-      if (src) {
-        const img = new Image();
-        img.src = src;
-        if (img.complete && img.naturalWidth > 0) {
-          // Imagem já em cache — pula fallback.
-          setCurrentSrc(src);
-          setIsLoaded(true);
-          return;
-        }
+    if (src === currentSrc) return;
+
+    if (src) {
+      const img = new Image();
+      img.src = src;
+      if (img.complete && img.naturalWidth > 0) {
+        // Imagem já em cache — pula fallback.
+        setCurrentSrc(src);
+        setIsLoaded(true);
+        return () => {
+          img.src = '';
+        };
       }
-      setIsLoaded(false);
-      setCurrentSrc(src);
+      // Img ainda não está em cache — aguarda load normal via imgCallbackRef.
+      return () => {
+        img.src = '';
+      };
     }
-  }, [src, currentSrc]);
+
+    setIsLoaded(false);
+    setCurrentSrc(src);
+    return undefined;
+  }, [src]);
 
   const imgCallbackRef = React.useCallback((node: HTMLImageElement | null) => {
     if (node?.complete && node?.naturalWidth > 0) {
@@ -120,10 +135,14 @@ function CrossfadeAvatar({
               backgroundPosition: 'center',
               backgroundRepeat: 'no-repeat',
             }}
-            role="img"
-            // Omite aria-label quando `alt` é undefined para não emitir
-            // `aria-label="undefined"` literal (screen readers tratam como rótulo válido).
-            {...(alt === undefined ? {} : { 'aria-label': alt })}
+            // Contrato: alt=undefined → fallback inacessível (sem label);
+            // alt='' → decorativo (role=presentation + aria-hidden);
+            // alt='texto' → semântico (role=img + aria-label). F-CR49-6.
+            {...(alt === ''
+              ? { role: 'presentation' as const, 'aria-hidden': true as const }
+              : alt === undefined
+                ? { role: 'img' as const }
+                : { role: 'img' as const, 'aria-label': alt })}
           >
             {/* <img> oculto só pra detectar onLoad e popular o cache do navegador */}
             <img

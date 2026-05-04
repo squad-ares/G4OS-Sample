@@ -12,6 +12,7 @@
  * Garantia: ambos são idempotentes para um log de eventos imutável.
  */
 
+import type { SessionEvent } from '@g4os/kernel/schemas';
 import { and, eq, gt, sql } from 'drizzle-orm';
 import type { AppDb } from '../drizzle.ts';
 import { eventCheckpoints } from '../schema/event-checkpoints.ts';
@@ -27,18 +28,40 @@ export async function rebuildProjection(
   store: SessionEventStore,
   sessionId: string,
 ): Promise<number> {
+  // F-CR36-1: substituir `tx.delete(sessions)` por reset dos campos derivados.
+  // `DELETE FROM sessions` cascateia via ON DELETE CASCADE para
+  // `attachment_refs` e `session_labels` — rebuild perdia attachments e labels
+  // permanentemente (incluindo em restore de backup via import.ts:80).
+  // `attachment_refs`/`session_labels` não estão no event log JSONL (são
+  // state-side, não event-sourced), portanto não devem ser tocados aqui.
+  // Estratégia: reset apenas os campos que o reducer recompõe a partir dos
+  // eventos; preservar pinnedAt/starredAt/enabledSourceSlugsJson/labels/refs.
   db.transaction((tx) => {
     tx.delete(messagesIndex).where(eq(messagesIndex.sessionId, sessionId)).run();
     tx.delete(eventCheckpoints).where(eq(eventCheckpoints.sessionId, sessionId)).run();
-    tx.delete(sessions).where(eq(sessions.id, sessionId)).run();
+    // Reseta apenas o que o reducer reconstrói — preserva attachment_refs e
+    // session_labels (cascade) + flags persistidos fora do event log.
+    tx.update(sessions)
+      .set({ messageCount: 0, lastMessageAt: null, lastEventSequence: 0, updatedAt: Date.now() })
+      .where(eq(sessions.id, sessionId))
+      .run();
   });
 
-  let applied = 0;
+  // F-CR36-2: todos os eventos em uma única transação em vez de N transactions.
+  // Antes: applyEvent abria 1 tx por evento → N fsyncs WAL em replay de 10k eventos
+  // → boot pós-crash de ~20-50s em SSD. Agora: batch único = 1 fsync WAL.
+  const events: SessionEvent[] = [];
   for await (const event of store.read(sessionId)) {
-    applyEvent(db, event);
-    applied += 1;
+    events.push(event);
   }
-  return applied;
+  if (events.length > 0) {
+    db.transaction((tx) => {
+      for (const event of events) {
+        applyEvent(tx, event);
+      }
+    });
+  }
+  return events.length;
 }
 
 export async function catchUp(
@@ -56,7 +79,12 @@ export async function catchUp(
 
   const from = row?.lastSequence ?? -1;
   const pending = await store.readAfter(sessionId, from);
-  for (const event of pending) applyEvent(db, event);
+  // F-CR36-2: batch dentro de uma única transação — N fsyncs → 1.
+  if (pending.length > 0) {
+    db.transaction((tx) => {
+      for (const event of pending) applyEvent(tx, event);
+    });
+  }
   return pending.length;
 }
 

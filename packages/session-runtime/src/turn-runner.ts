@@ -8,11 +8,15 @@
  */
 
 import type { AgentConfig, AgentDoneReason, IAgent } from '@g4os/agents/interface';
+import { batchTextDeltas, dropIfBackpressured } from '@g4os/agents/streaming';
 import type { AppError } from '@g4os/kernel/errors';
+import { createLogger } from '@g4os/kernel/logger';
 import type { Message, SessionId } from '@g4os/kernel/types';
 import type { TurnTelemetry } from '@g4os/observability/metrics';
 import { ok, type Result } from 'neverthrow';
 import type { SessionEventBus } from './session-event-bus.ts';
+
+const log = createLogger('session-runtime:turn-runner');
 
 interface UnsubscribableLike {
   unsubscribe(): void;
@@ -55,7 +59,13 @@ export function runAgentIteration(
   let doneReason: AgentDoneReason = 'stop';
 
   return new Promise<Result<AgentIterationResult, AppError>>((resolve) => {
-    const obs = agent.run({ sessionId, turnId, messages, config });
+    // F-CR51-7: aplica streaming operators antes de subscrever.
+    // `batchTextDeltas(16ms)` coalescenha text_delta em janelas de 16ms
+    // para reduzir eventos IPC de 1:1 para N:1 (60fps drain no renderer).
+    // `dropIfBackpressured(100)` protege o bus quando o renderer não drena
+    // rápido o suficiente — evita OOM em gerações longas. ADR-0070.
+    const raw = agent.run({ sessionId, turnId, messages, config });
+    const obs = raw.pipe(batchTextDeltas(16), dropIfBackpressured(100));
     // Cleanup ativo via flag + unsubscribe explícito em error/complete.
     // Antes, o subscription permanecia "subscribed" até GC mesmo após
     // resolver — caller que retém via `onSubscription` callback podia
@@ -120,6 +130,14 @@ export function runAgentIteration(
                   };
               toolUses[idx] = finalEntry;
             } else {
+              // CR-18 F-SR5: branch defensivo — `tool_use_complete` sem
+              // `tool_use_start` precedente cria entrada com `toolName:'unknown'`.
+              // Tecnicamente impossível com providers atuais, mas log.warn
+              // sinaliza regressão de provider sem perder o tool result.
+              log.warn(
+                { toolUseId: event.toolUseId, sessionId, turnId },
+                'tool_use_complete without preceding tool_use_start; toolName=unknown',
+              );
               finalEntry = {
                 toolUseId: event.toolUseId,
                 toolName: 'unknown',
@@ -218,14 +236,22 @@ export function runAgentIteration(
       },
     });
 
-    if (subscription) onSubscription?.(subscription);
+    // F-CR46-8: guarda settled antes de expor a subscription. Se o Observable
+    // completou/errou sincronamente durante `obs.subscribe(...)`, `settle` já
+    // foi chamado antes desta linha — não tem sentido entregar a subscription
+    // ao caller nesse caso (já está completa e seria no-op ao unsubscribe).
+    if (subscription && !settled) onSubscription?.(subscription);
   });
 }
 
 function safeStringify(value: Readonly<Record<string, unknown>>): string {
   try {
     return JSON.stringify(value);
-  } catch {
-    return '{}';
+  } catch (err) {
+    // F-CR46-6: loga warn em vez de engolir o erro silenciosamente. Retorna
+    // marcador distinto para o renderer distinguir "input vazio legítimo" de
+    // "falha de serialização" (referência cíclica, BigInt, etc.).
+    log.warn({ err, type: typeof value }, 'tool input não serializável em JSON; preview vazio');
+    return '{"_error":"non_serializable"}';
   }
 }

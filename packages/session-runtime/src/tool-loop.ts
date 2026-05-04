@@ -7,7 +7,9 @@
  * e re-roda o agent com o histórico atualizado. Encerra em `stop` / `max_tokens`
  * / `interrupted` / `error`, ou em `MAX_ITERATIONS` como guarda.
  *
- * Helpers extraídos pra caber no cap 300 LOC/arquivo:
+ * Helpers extraídos pra caber no cap ≤500 LOC/arquivo (CR-18 F-SR3:
+ * comentário antigo mencionava 300 LOC — esse cap é do main process
+ * `apps/desktop/src/main/`, não de packages):
  *  - `tool-execution.ts` — permission broker + execução + emit `tool_use_completed`
  *  - `tool-persist.ts`   — persistência das mensagens assistant + role=tool
  */
@@ -163,6 +165,11 @@ async function runOneIteration(
         usageInput: state.totalUsageInput,
         usageOutput: state.totalUsageOutput,
         modelId: input.config.modelId,
+        // CR-25 F-CR25-1: forward de thinkingLevel quando configurado pelo
+        // dispatcher. Persistido em metadata para reprodutibilidade do turn.
+        ...(input.config.thinkingLevel === undefined
+          ? {}
+          : { thinkingLevel: input.config.thinkingLevel }),
       },
     );
     if (doneReason === 'error') {
@@ -205,12 +212,24 @@ async function runOneIteration(
       thinkingBuffered: thinkingChunks.join(''),
       toolUses,
       modelId: input.config.modelId,
+      // CR-25 F-CR25-1: usage parcial da iteração + thinking level. O total
+      // acumulado vai na finalize; aqui registramos só o segmento desta
+      // iteração para que cada mensagem tool-use tenha proveniência própria.
+      usageInput: usage.input,
+      usageOutput: usage.output,
+      ...(input.config.thinkingLevel === undefined
+        ? {}
+        : { thinkingLevel: input.config.thinkingLevel }),
     },
   );
   if (assistantPersisted.isErr()) return { kind: 'error', error: assistantPersisted.error };
   state.messages = [...state.messages, assistantPersisted.value];
-  state.allText.length = 0;
-  state.allThinking.length = 0;
+  // F-CR46-5: reassignação imutável em vez de mutação in-place (`length = 0`).
+  // Mantém consistência com a reassignação de `messages` acima e evita que
+  // referências externas guardadas ao array (improvável hoje, mas possível em
+  // refactor futuro) enxerguem o reset inesperadamente.
+  state.allText = [];
+  state.allThinking = [];
 
   const toolMsgResult = await persistToolResultMessage(
     { messages: deps.messages, eventBus: deps.eventBus },
@@ -226,9 +245,13 @@ async function runOneIteration(
 }
 
 function abortError(sessionId: string, turnId: string, iter: number): AppError {
+  // CR-25 F-CR25-4: marca via `context.aborted: true` para que callers
+  // (turn-dispatcher.persistSystemError) discriminem interrupção deliberada
+  // do usuário sem depender de string match na message. Antes era detectado
+  // via `error.message === 'turn aborted'` — frágil contra refactor futuro.
   return new AppError({
     code: ErrorCode.AGENT_UNAVAILABLE,
     message: 'turn aborted',
-    context: { sessionId, turnId, iter },
+    context: { sessionId, turnId, iter, aborted: true },
   });
 }

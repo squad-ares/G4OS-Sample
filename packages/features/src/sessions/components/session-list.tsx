@@ -71,11 +71,19 @@ export function SessionList({
     getItemKey: (index) => rows[index]?.id ?? index,
   });
 
+  // CR-32 F-CR32-3: dep do effect precisa cobrir state interno do virtualizer
+  // que muda com scroll. Antes era `[virtualizer, rows.length, ...]` —
+  // `virtualizer` é referência estável do `useVirtualizer`, então o effect
+  // só rodava quando rows.length/hasMore mudavam. Em sessão fresca com
+  // página inicial pequena, `last.index` ficava abaixo do threshold e
+  // `onLoadMore` nunca disparava em scroll. Trazendo `lastVisibleIndex`
+  // como dep, cada re-render disparado pelo virtualizer dispara reavaliação.
+  const lastVisibleIndex = virtualizer.getVirtualItems().at(-1)?.index;
   useEffect(() => {
     if (!hasMore || !onLoadMore) return;
-    const last = virtualizer.getVirtualItems().at(-1);
-    if (last && last.index >= rows.length - 5) onLoadMore();
-  }, [virtualizer, rows.length, hasMore, onLoadMore]);
+    if (lastVisibleIndex === undefined) return;
+    if (lastVisibleIndex >= rows.length - 5) onLoadMore();
+  }, [lastVisibleIndex, rows.length, hasMore, onLoadMore]);
 
   if (isLoading && sessions.length === 0) {
     return (

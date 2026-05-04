@@ -50,7 +50,26 @@ export class AgentRegistry {
   }
 
   create(config: AgentConfig): Result<IAgent, AgentError> {
-    return this.resolve(config).map((factory) => factory.create(config));
+    // CR-18 F-AG2: `factory.create` pode jogar exceção (CodexAgent
+    // `resolveCodexBinary` lança quando binário não está disponível;
+    // ClaudeAgent `resolveProvider` lança se host não carregou credentials
+    // ainda). `neverthrow.map` NÃO captura throws sync, então o `Result<T,E>`
+    // anunciado pela API era contornado em silêncio. Convertemos throws em
+    // `err(AgentError.factoryFailed)` preservando a cause.
+    return this.resolve(config).andThen((factory) => {
+      try {
+        return ok(factory.create(config));
+      } catch (cause) {
+        if (cause instanceof AgentError) return err(cause);
+        return err(
+          AgentError.unavailable(config.connectionSlug, {
+            reason: 'factory threw',
+            modelId: config.modelId,
+            cause: cause instanceof Error ? cause.message : String(cause),
+          }),
+        );
+      }
+    });
   }
 
   clear(): void {

@@ -69,6 +69,7 @@
     "@g4os/agents": "workspace:*",
     "@g4os/kernel": "workspace:*",
     "@g4os/platform": "workspace:*",
+    "@modelcontextprotocol/sdk": "catalog:",
     "neverthrow": "catalog:",
     "rxjs": "catalog:"
   },

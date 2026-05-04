@@ -1,0 +1,37 @@
+{
+  "_meta": {
+    "lastUpdated": "2026-04-30",
+    "note": "Placeholder baseline. Substituir após primeiro run real do bench suite. Re-baseline com `chore(bench): rebaseline X → Y` no commit message."
+  },
+  "startup": {
+    "p50": 1200,
+    "p95": 1800,
+    "p99": 2300
+  },
+  "warm_start": {
+    "p50": 600,
+    "p95": 800,
+    "p99": 1100
+  },
+  "first_message": {
+    "p50": 180,
+    "p95": 280,
+    "p99": 350
+  },
+  "session_switch": {
+    "p50": 80,
+    "p95": 150,
+    "p99": 200
+  },
+  "source_mount": {
+    "p50": 250,
+    "p95": 450,
+    "p99": 700
+  },
+  "memory_idle": {
+    "residentMB": 250
+  },
+  "memory_10sessions": {
+    "residentMB": 620
+  }
+}

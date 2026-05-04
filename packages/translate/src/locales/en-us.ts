@@ -15,10 +15,9 @@ export const enUS = {
   'chat.composer.chip.source': 'Sources',
   'chat.composer.chip.mode': 'Balanced',
   'chat.composer.chip.partners': 'Partners',
-  'chat.composer.chip.sourceTodo': 'Source picker lands with agent runtime wiring.',
-  'chat.composer.chip.workingDirTodo':
-    'Working directory picker lands with project-linked sessions.',
-  'chat.composer.chip.modeTodo': 'Model selector lands with multi-provider runtime.',
+  // CR-18 F-T1: removidos os 3 placeholder TODOs (sourceTodo, workingDirTodo,
+  // modeTodo) — pickers reais aterrissaram via OUTLIER-17/18/19.
+  // `partnersTodo` permanece (Partners ainda não implementado).
   'chat.composer.chip.partnersTodo': 'Partner suggestions will use the dedicated skill lane.',
 
   'chat.transcript.ariaLabel': 'Conversation transcript',
@@ -50,6 +49,7 @@ export const enUS = {
   'chat.header.archive': 'Archive session',
   'chat.header.moreActions': 'More actions',
   'chat.header.toggleMetadata': 'Toggle metadata panel',
+  'chat.header.openSessionMenu': 'Open session menu',
   'chat.metadata.title': 'Session details',
   'chat.metadata.ariaLabel': 'Session metadata panel',
   'chat.metadata.close': 'Close panel',
@@ -77,6 +77,27 @@ export const enUS = {
   'chat.actions.truncateTitle': 'Delete messages from here?',
   'chat.actions.truncateDescription':
     'This will permanently remove all messages after this point. This action cannot be undone.',
+  'chat.actions.copy': 'Copy message',
+  'chat.actions.copied': 'Copied',
+
+  'chat.systemMessage.errorTitle': 'Turn failed',
+  'chat.systemMessage.warningTitle': 'Warning',
+  'chat.systemMessage.infoTitle': 'Notice',
+  'chat.systemMessage.retry': 'Retry',
+
+  'chat.toolRenderer.result': 'Result',
+  'chat.toolRenderer.error': 'Error',
+  'chat.toolRenderer.bash.outputSingular': 'Output — 1 line',
+  'chat.toolRenderer.bash.outputPlural': 'Output — {{count}} lines',
+  'chat.toolRenderer.readFile.summarySingular': 'File — 1 line',
+  'chat.toolRenderer.readFile.summaryPlural': 'File — {{count}} lines',
+  'chat.toolRenderer.search.resultsSingular': '1 result',
+  'chat.toolRenderer.search.resultsPlural': '{{count}} results',
+
+  'chat.slashCommand.setup.description': 'Run workspace setup wizard',
+  'chat.slashCommand.clear.description': 'Clear current conversation',
+  'chat.slashCommand.compact.description': 'Summarize and compact context',
+  'chat.slashCommand.help.description': 'List available commands',
 
   'chat.modelSelector.ariaLabel': 'Select model',
   'chat.modelSelector.placeholder': 'Select model',
@@ -85,10 +106,10 @@ export const enUS = {
   'chat.modelSelector.empty': 'No models found',
 
   'chat.thinkingLevel.ariaLabel': 'Thinking level',
-  'chat.thinkingLevel.minimal': 'Minimal',
   'chat.thinkingLevel.low': 'Low',
-  'chat.thinkingLevel.medium': 'Medium',
+  'chat.thinkingLevel.think': 'Think',
   'chat.thinkingLevel.high': 'High',
+  'chat.thinkingLevel.ultra': 'Ultra',
 
   'chat.permission.title': 'Permission request',
   'chat.permission.description': 'The agent wants to execute',
@@ -193,6 +214,19 @@ export const enUS = {
   'onboarding.agent.skip': 'Skip for now',
   'onboarding.agent.claude.provider': 'Anthropic',
   'onboarding.agent.codex.provider': 'OpenAI',
+  'onboarding.credentials.title': 'Add your API key',
+  'onboarding.credentials.description':
+    'We store the key locally in your OS keychain. You can change or remove it in Settings later.',
+  'onboarding.credentials.errorTooShort': 'API key looks too short',
+  'onboarding.credentials.claude.placeholder': 'sk-ant-...',
+  'onboarding.credentials.claude.helper':
+    'Anthropic console → API keys. Required for Claude on this workspace.',
+  'onboarding.credentials.codex.placeholder': 'sk-...',
+  'onboarding.credentials.codex.helper':
+    'OpenAI dashboard → API keys. Required for Codex on this workspace.',
+  'onboarding.credentials.save': 'Save and continue',
+  'onboarding.credentials.saving': 'Saving...',
+  'onboarding.credentials.back': 'Back',
   'onboarding.ready.title': 'Everything is ready',
   'onboarding.ready.description': 'Your workspace has been prepared. Shall we start?',
   'onboarding.ready.start': 'Start first session',
@@ -468,6 +502,7 @@ export const enUS = {
   'workspace.wizard.back': 'Back',
   'workspace.wizard.next': 'Next',
   'workspace.wizard.cancel': 'Cancel',
+  'workspace.wizard.close': 'Close wizard',
   'workspace.wizard.step.name.title': 'Name your workspace',
   'workspace.wizard.step.name.description': 'Pick something memorable. You can rename it anytime.',
   'workspace.wizard.step.name.label': 'Workspace name',
@@ -564,8 +599,10 @@ export const enUS = {
 
   'workspace.thinking.minimal': 'Minimal',
   'workspace.thinking.low': 'Low',
+  'workspace.thinking.think': 'Think',
   'workspace.thinking.medium': 'Medium',
   'workspace.thinking.high': 'High',
+  'workspace.thinking.ultra': 'Ultra',
 
   'workspace.tone.formal': 'Formal',
   'workspace.tone.neutral': 'Neutral',
@@ -669,6 +706,11 @@ export const enUS = {
   'session.action.branch': 'Branch from here',
   'session.action.rename': 'Rename',
   'session.action.labels': 'Labels',
+  'session.action.openInNewWindow': 'Open in new window',
+  'session.deleteDialog.title': 'Move session to trash?',
+  'session.deleteDialog.description':
+    'Session "{{name}}" will be archived as deleted. You can restore it within 30 days before automatic cleanup.',
+  'session.deleteDialog.cancel': 'Cancel',
   'session.rename.prompt': 'Rename session',
   'session.rename.placeholder': 'Session name',
 
@@ -735,6 +777,11 @@ export const enUS = {
   'project.dialog.create': 'Create project',
   'project.dialog.creating': 'Creating…',
   'project.dialog.errorGeneric': 'Could not create project. Please try again.',
+  'project.new.title': 'New project',
+  'project.new.description':
+    'Pick a name, color and an optional description. You can add files, tasks and details later.',
+  'project.new.submit': 'Create project',
+  'project.new.close': 'Close',
   'project.files.empty': 'No files in files/.',
   'project.files.local': 'local',
   'project.files.localTitle': 'File too large for sync',
@@ -829,12 +876,57 @@ export const enUS = {
   'settings.category.tags.description': 'Manage label tree for sessions and projects.',
   'settings.category.cloudSync.label': 'Cloud Sync',
   'settings.category.cloudSync.description': 'Backup and restore for this workspace.',
+  'settings.category.backup.label': 'Backup',
+  'settings.category.backup.description': 'Local snapshots, retention 7/4/3, manual run.',
+  'settings.backup.runNow.title': 'Run a backup now',
+  'settings.backup.runNow.description':
+    'Generate a fresh ZIP for any workspace. The scheduler also runs every 24h.',
+  'settings.backup.runNow.action': 'Backup now',
+  'settings.backup.runNow.running': 'Running…',
+  'settings.backup.runNow.success': 'Backup created.',
+  'settings.backup.runNow.failed': 'Backup failed: {{message}}',
+  'settings.backup.runNow.lastBackup': 'Last backup: {{when}}',
+  'settings.backup.runNow.noBackupsYet': 'No backups yet for this workspace.',
+  'settings.backup.runNow.noWorkspaces': 'No workspaces to back up.',
+  'settings.backup.list.title': 'Existing backups',
+  'settings.backup.list.description':
+    'Most recent first. Stored under your local data directory; never uploaded automatically.',
+  'settings.backup.list.empty': 'No backups stored yet.',
+  'settings.backup.list.loading': 'Loading backups…',
+  'settings.backup.list.reveal': 'Show in folder',
+  'settings.backup.list.revealFailed': 'Could not open folder: {{message}}',
+  'settings.backup.list.delete': 'Delete backup',
+  'settings.backup.delete.confirmTitle': 'Delete this backup?',
+  'settings.backup.delete.confirmDescription':
+    'The ZIP file is removed from disk. Other backups are kept. This cannot be undone.',
+  'settings.backup.delete.confirmAction': 'Delete',
+  'settings.backup.delete.confirmCancel': 'Cancel',
+  'settings.backup.delete.success': 'Backup deleted.',
+  'settings.backup.delete.failed': 'Could not delete: {{message}}',
+  'settings.backup.unknownWorkspace': 'Unknown workspace',
   'settings.category.repair.label': 'Repair mode',
   'settings.category.repair.description': 'Diagnostics and cache reset tools.',
   'settings.category.shortcuts.label': 'Shortcuts',
   'settings.category.shortcuts.description': 'Keyboard shortcuts reference.',
   'settings.category.preferences.label': 'Preferences',
   'settings.category.preferences.description': 'Tutorial reset and misc toggles.',
+  'settings.category.support.label': 'Support',
+  'settings.category.support.description': 'Help, feedback, and build fingerprint.',
+  'settings.support.fingerprint.title': 'Build fingerprint',
+  'settings.support.fingerprint.description':
+    'Copy this block when reporting an issue so we can match logs to your build.',
+  'settings.support.fingerprint.copy': 'Copy fingerprint',
+  'settings.support.fingerprint.copied': 'Fingerprint copied to clipboard.',
+  'settings.support.fingerprint.loading': 'Loading build info…',
+  'settings.support.docs.title': 'Documentation',
+  'settings.support.docs.description': 'Product guides, recipes, and reference.',
+  'settings.support.docs.linkLabel': 'Open G4 OS docs',
+  'settings.support.feedback.title': 'Feedback and issues',
+  'settings.support.feedback.description':
+    'Report a bug or suggest something. We respond on GitHub and email.',
+  'settings.support.feedback.issuesLabel': 'Open new GitHub issue',
+  'settings.support.feedback.emailLabel': 'Email support@g4oscloud.com',
+  'settings.support.openExternalFailed': 'Could not open link: {{message}}',
 
   'settings.app.runtime.title': 'Runtime',
   'settings.app.runtime.description': 'Installed versions and current platform.',
@@ -853,9 +945,6 @@ export const enUS = {
   'settings.app.updates.available': 'Update available: {{version}}',
   'settings.app.updates.upToDate': 'You are on the latest version.',
   'settings.app.updates.failed': 'Could not check: {{message}}',
-  'settings.app.diagnostics.title': 'Diagnostics',
-  'settings.app.diagnostics.description': 'Export logs and cache tools.',
-  'settings.app.diagnostics.planned': 'Log export lands with repair mode category.',
 
   'settings.appearance.theme.title': 'Theme',
   'settings.appearance.theme.description': 'Choose how G4 OS looks.',
@@ -863,8 +952,6 @@ export const enUS = {
   'settings.appearance.theme.dark': 'Dark',
   'settings.appearance.theme.system': 'System',
   'settings.appearance.theme.active': 'Currently showing: {{resolved}}',
-  'settings.appearance.density.title': 'Density',
-  'settings.appearance.density.description': 'Adjust spacing between UI elements.',
 
   'settings.workspace.empty.title': 'No workspaces',
   'settings.workspace.empty.description': 'Create a workspace first to edit its settings.',
@@ -934,11 +1021,23 @@ export const enUS = {
   'settings.repair.softReset.clearCache': 'Clear query cache',
   'settings.repair.softReset.clearCacheDone': 'Query cache cleared',
   'settings.repair.softReset.reload': 'Reload window',
-  'settings.repair.destructive.title': 'Destructive reset',
-  'settings.repair.destructive.description':
-    'Reset workspace database, purge attachments, reinstall bundled runtime.',
-  'settings.repair.destructive.planned':
-    'Destructive reset lands together with cloud sync restore so users never lose data.',
+  'settings.repair.hardReset.title': 'Hard reset (dev / fresh login)',
+  'settings.repair.hardReset.description':
+    'Wipes everything stored locally and restarts the app for a clean login. No backup is taken — use only when you want to start over.',
+  'settings.repair.hardReset.bullet.workspaces':
+    'Removes all workspaces and their attachments / sessions / projects.',
+  'settings.repair.hardReset.bullet.credentials':
+    'Deletes every credential from the OS keychain (API keys, OAuth tokens).',
+  'settings.repair.hardReset.bullet.relaunch':
+    'Relaunches the app — you will land on the login screen.',
+  'settings.repair.hardReset.action': 'Reset everything and relaunch',
+  'settings.repair.hardReset.running': 'Resetting…',
+  'settings.repair.hardReset.confirmTitle': 'Reset everything?',
+  'settings.repair.hardReset.confirmDescription':
+    'This deletes all local data and signs you out. You cannot undo this.',
+  'settings.repair.hardReset.confirmAction': 'Yes, reset',
+  'settings.repair.hardReset.confirmCancel': 'Cancel',
+  'settings.repair.hardReset.failed': 'Hard reset failed: {{message}}',
   'settings.repair.debugHud.title': 'Inspection mode (Debug HUD)',
   'settings.repair.debugHud.description':
     'Floating window with live runtime metrics (memory, listeners, IPC, sessions). Useful for diagnosing freezes and sharing evidence with support.',
@@ -1053,9 +1152,11 @@ export const enUS = {
     'Binary to spawn (e.g. `npx`, `uvx`, `/usr/local/bin/my-mcp`).',
   'sources.dialog.stdio.args.label': 'Arguments',
   'sources.dialog.stdio.args.description': 'One argument per line.',
+  'sources.dialog.stdio.args.placeholder': 'mcp-server-filesystem\n/path/to/dir',
   'sources.dialog.stdio.env.label': 'Environment variables',
   'sources.dialog.stdio.env.description':
     'KEY=value, one per line. Secrets should go in the vault.',
+  'sources.dialog.stdio.env.placeholder': 'KEY=value\nANOTHER=secret',
   'sources.dialog.slug.label': 'Slug',
   'sources.dialog.slug.description': 'Lowercase alphanumeric + dashes. Must be unique.',
   'sources.dialog.displayName.label': 'Display name',
@@ -1128,8 +1229,417 @@ export const enUS = {
     'Zip backups scheduled 7 daily / 4 weekly / 3 monthly (ADR-0045).',
   'settings.cloudSync.backups.status': 'Scheduler runs locally. Cloud upload follows.',
 
+  'settings.category.services.label': 'Services',
+  'settings.category.services.description': 'Observability integration status.',
+  'settings.services.title': 'Services status',
+  'settings.services.description':
+    'State of observability integrations — active means the tool was initialised with valid credentials.',
+  'settings.services.sentry.label': 'Sentry',
+  'settings.services.sentry.description': 'Error reporting and diagnostic breadcrumbs.',
+  'settings.services.otel.label': 'OpenTelemetry',
+  'settings.services.otel.description': 'Distributed tracing via OTLP endpoint.',
+  'settings.services.metrics.label': 'Metrics server',
+  'settings.services.metrics.description': 'Prometheus metrics exposure (/metrics).',
+  'settings.services.status.active': 'Active',
+  'settings.services.status.activeWithLatency': 'Active · {{ms}}ms',
+  'settings.services.status.inactive': 'Inactive',
+  'settings.services.status.notConfigured': 'Not configured',
+  'settings.services.status.unreachable': 'Unreachable',
+  'settings.services.status.checking': 'Checking…',
+  'settings.services.refresh': 'Refresh',
+  'settings.services.lastChecked': 'Checked at {{time}}',
+  'settings.services.errorPrefix': 'Error:',
+  'settings.services.loadError': 'Could not load services status.',
+  'settings.services.note':
+    'Probe runs HTTP HEAD with a 3s timeout. Unreachable means the endpoint is configured but cannot be contacted — usually a local stack that is offline or a firewall blocking the connection.',
+
   'chat.mention.title': 'Mention a source',
   'chat.mention.empty': 'No source matches "{{query}}"',
+  'chat.slashCommand.title': 'Slash commands',
+  'chat.slashCommand.empty': 'No command matches "/{{query}}"',
+  'chat.streaming.thinking': 'Thinking…',
+  'chat.streaming.tool': 'Running tool…',
+
+  'migration.wizard.title': 'Migrate G4 OS v1 data',
+  'migration.wizard.subtitle':
+    "We detected a previous install. Let's import workspaces, sessions, and credentials.",
+  'migration.wizard.detecting': 'Looking for V1 install…',
+  'migration.wizard.noV1Found': 'No V1 install found. You can continue.',
+  'migration.wizard.continueWithoutMigrate': 'Continue without migrating',
+  'migration.wizard.detectedAt': 'Detected at',
+  'migration.wizard.version': 'Version',
+  'migration.wizard.versionUnknown': 'unknown',
+  'migration.wizard.flavor.internal': 'internal build',
+  'migration.wizard.flavor.public': 'public build',
+  'migration.wizard.alreadyMigrated':
+    'This V2 install has already been migrated. Use the CLI with --force to re-migrate.',
+  'migration.wizard.warnings': 'Warnings',
+  'migration.wizard.steps.config': 'Global config',
+  'migration.wizard.steps.credentials': 'Credentials',
+  'migration.wizard.steps.workspaces': 'Workspaces',
+  'migration.wizard.steps.sessions': 'Sessions',
+  'migration.wizard.steps.sources': 'Sources (MCP/API)',
+  'migration.wizard.steps.skills': 'Skills (legacy copy)',
+  'migration.wizard.masterKeyLabel': 'V1 master key',
+  'migration.wizard.masterKeyPlaceholder': 'Enter V1 master key',
+  'migration.wizard.masterKeyHelp': 'Required to decrypt V1 credentials.enc. Not stored in V2.',
+  'migration.wizard.execute': 'Migrate now',
+  'migration.wizard.skip': 'Skip',
+  'migration.wizard.executing': 'Migrating data… this may take a few minutes.',
+  'migration.wizard.successTitle': 'Migration completed successfully',
+  'migration.wizard.itemsMigrated': 'items migrated',
+  'migration.wizard.itemsSkipped': 'skipped',
+  'migration.wizard.backupAt': 'V1 backup preserved at',
+  'migration.wizard.warningsLabel': 'non-fatal warning(s)',
+  'migration.wizard.moreWarnings': '… +{{count}} additional warnings not shown',
+  'migration.wizard.close': 'Close',
+  'migration.wizard.errorTitle': 'Migration error',
+  'migration.wizard.retry': 'Try again',
+
+  'markdown.code.copy': 'Copy',
+  'markdown.code.copied': 'Copied',
+  'markdown.mermaid.renderError': 'Failed to render Mermaid diagram',
+  'markdown.pdf.renderError': 'Failed to render PDF',
+  'markdown.pdf.previewUnavailable': 'Inline preview unavailable in this build',
+  'markdown.pdf.openExternal': 'Open',
+
+  // Debug HUD ---------------------------------------------------------------
+  'debugHud.app.title': 'G4 OS · Diagnostics',
+  'debugHud.app.waiting': 'Waiting for first diagnostic tick…',
+  'debugHud.header.alertsOne': '{{count}} alert',
+  'debugHud.header.alertsMany': '{{count}} alerts',
+  'debugHud.header.uptime': 'active for {{duration}}',
+  'debugHud.header.releaseMemory': 'Release memory',
+  'debugHud.header.reload': 'Reload',
+  'debugHud.header.report': 'Report problem',
+  'debugHud.header.tooltip.releaseMemory':
+    'Asks the app to release unused memory now (requires --expose-gc)',
+  'debugHud.header.tooltip.reload': 'Reloads the main window — you lose any unsaved input',
+  'debugHud.header.tooltip.report':
+    'Generates a technical diagnostic and prepares a support report',
+
+  'debugHud.tab.overview': 'Overview',
+  'debugHud.tab.memory': 'Memory',
+  'debugHud.tab.ipc': 'IPC & Sessions',
+  'debugHud.tab.logs': 'Logs',
+  'debugHud.tab.vault': 'Vault',
+
+  'debugHud.healthLabel.healthy': 'Healthy',
+  'debugHud.healthLabel.attention': 'Attention',
+  'debugHud.healthLabel.critical': 'Critical',
+  'debugHud.healthScore.aria': 'System health: {{value}} of 100, {{label}}',
+
+  'debugHud.glossary.memoryRss.title': 'Total memory (RSS)',
+  'debugHud.glossary.memoryRss.description':
+    'Total space the app occupies in the computer, including code, data and cache. Think of it as the app size in RAM.',
+  'debugHud.glossary.memoryHeapUsed.title': 'JavaScript memory in use',
+  'debugHud.glossary.memoryHeapUsed.description':
+    'How much of the JavaScript-reserved memory is being used right now. Going up and down is normal — the garbage collector frees memory periodically.',
+  'debugHud.glossary.memoryHeapTotal.title': 'JavaScript memory reserved',
+  'debugHud.glossary.memoryHeapTotal.description':
+    'How much memory JavaScript reserved to use. May grow as the app needs more.',
+  'debugHud.glossary.memoryExternal.title': 'External memory',
+  'debugHud.glossary.memoryExternal.description':
+    'Memory used by native components (database, files, network). Not controlled by the JavaScript garbage collector.',
+  'debugHud.glossary.memoryGrowth.title': 'Memory growth',
+  'debugHud.glossary.memoryGrowth.description':
+    'How much new memory the app is consuming per minute. Growing a bit is normal; growing fast without stopping may indicate a leak.',
+  'debugHud.glossary.sessionsActive.title': 'Active conversations',
+  'debugHud.glossary.sessionsActive.description':
+    'AI conversations in progress now. Each one processes messages, tools and replies. If one stays here too long, it may be stuck.',
+  'debugHud.glossary.sessionsUptime.title': 'Uptime',
+  'debugHud.glossary.sessionsUptime.description':
+    'How long the app has been open without restarting.',
+  'debugHud.glossary.sessionsTurnDuration.title': 'Conversation duration',
+  'debugHud.glossary.sessionsTurnDuration.description':
+    'Time since this conversation started. Long AI conversations are normal; over a minute without a reply may have stalled.',
+  'debugHud.glossary.listenersTotal.title': 'Active notifications',
+  'debugHud.glossary.listenersTotal.description':
+    'Internal notifications different parts of the app wait for (clicks, changes, events). Normal to have a few dozen; hundreds may indicate a problem.',
+  'debugHud.glossary.listenersStale.title': 'Pending notifications',
+  'debugHud.glossary.listenersStale.description':
+    'Notifications that should have ended but stayed active for over a minute. Usually indicates a bug in code that forgets to clean up.',
+  'debugHud.glossary.ipcReqPerSec.title': 'Operations per second',
+  'debugHud.glossary.ipcReqPerSec.description':
+    'How many internal operations the app is processing now (clicks, saves, searches).',
+  'debugHud.glossary.ipcP50.title': 'Average time',
+  'debugHud.glossary.ipcP50.description':
+    'Half of the operations finish in this time or less. Good indicator of typical speed.',
+  'debugHud.glossary.ipcP95.title': '95th percentile time',
+  'debugHud.glossary.ipcP95.description':
+    '95% of operations finish in this time or less. If too high, some operations are slow and may be blocking the app.',
+  'debugHud.glossary.ipcErrorRate.title': 'Error rate',
+  'debugHud.glossary.ipcErrorRate.description':
+    'Percentage of operations that failed. Above 5% usually indicates a problem (invalid API key, unstable network, recent bug).',
+  'debugHud.glossary.ipcErrorCount.title': 'Total errors',
+  'debugHud.glossary.ipcErrorCount.description':
+    'How many operations failed since startup. A small number of errors is expected.',
+  'debugHud.glossary.ipcProcedures.title': 'Most-used operations',
+  'debugHud.glossary.ipcProcedures.description':
+    'Which internal operations the app runs most. Useful to investigate slowness — operations with high p95 plus many calls are the first to optimize.',
+  'debugHud.glossary.vaultOps.title': 'Vault accesses/min',
+  'debugHud.glossary.vaultOps.description':
+    'How many times the app read or wrote to the credentials vault (API keys, tokens) in the last minute.',
+  'debugHud.glossary.vaultErrors.title': 'Vault errors/min',
+  'debugHud.glossary.vaultErrors.description':
+    "Errors when accessing the vault. May indicate an invalid API key or a problem with the system's secure storage.",
+  'debugHud.glossary.vaultErrorRate.title': 'Vault error rate',
+  'debugHud.glossary.vaultErrorRate.description':
+    'Percentage of vault accesses that failed. Above 5% suggests checking your keys in Settings.',
+  'debugHud.glossary.logsRecent.title': 'Recent messages',
+  'debugHud.glossary.logsRecent.description':
+    'Latest lines the app wrote to the log. Useful to understand what happened before a problem.',
+  'debugHud.glossary.logsTotalSeen.title': 'Total messages',
+  'debugHud.glossary.logsTotalSeen.description':
+    'How many messages have been recorded since the app started.',
+  'debugHud.glossary.healthScore.title': 'System health',
+  'debugHud.glossary.healthScore.description':
+    'Overall indicator from 0 to 100 based on active alerts. 100 = everything ok; below 70 = worth a look; below 40 = needs attention.',
+
+  'debugHud.insight.memoryGrowthCritical.title': 'Memory growing fast ({{growth}} MB/min)',
+  'debugHud.insight.memoryGrowthCritical.description':
+    "The app's memory is consistently increasing. Could be a leak. Reloading the window frees stuck state without closing the app.",
+  'debugHud.insight.memoryGrowthCritical.action': 'Reload window',
+  'debugHud.insight.memoryGrowthWarn.title': 'Memory rising ({{growth}} MB/min)',
+  'debugHud.insight.memoryGrowthWarn.description':
+    "Moderate growth. May be normal in a long session. Forcing GC confirms whether it's a leak (memory drops) or actual usage (it doesn't).",
+  'debugHud.insight.memoryGrowthWarn.action': 'Force GC',
+  'debugHud.insight.memoryRssCritical.title': 'Very high memory usage ({{rss}} MB)',
+  'debugHud.insight.memoryRssCritical.description':
+    'The app is consuming a lot of system memory. Consider reloading the window. If it persists, export the diagnostic for investigation.',
+  'debugHud.insight.memoryRssCritical.action': 'Export diagnostic',
+  'debugHud.insight.memoryRssWarn.title': 'Elevated memory ({{rss}} MB)',
+  'debugHud.insight.memoryRssWarn.description':
+    'Higher than expected for normal use. Long sessions with many messages reach this level; reloading the window helps.',
+  'debugHud.insight.listenersStale.title': '{{count}} listeners are pending',
+  'debugHud.insight.listenersStale.description':
+    'Events that should have been released after use (stale listeners). Usually a bug in code that registers a handler but forgets to remove it. Recycling clears state and shows whether they come back.',
+  'debugHud.insight.listenersStale.action': 'Recycle detector',
+  'debugHud.insight.listenersManyCritical.title': 'Many active listeners ({{total}})',
+  'debugHud.insight.listenersManyCritical.description':
+    'High volume of event listeners — may degrade performance and signal accumulation. Export the diagnostic for detailed analysis.',
+  'debugHud.insight.listenersManyCritical.action': 'Export diagnostic',
+  'debugHud.insight.listenersManyWarn.title': 'Listeners above normal ({{total}})',
+  'debugHud.insight.listenersManyWarn.description':
+    'Moderate volume of event listeners. Common in sessions with many panels open.',
+  'debugHud.insight.ipcErrorRate.title': '{{pct}}% of internal calls are failing',
+  'debugHud.insight.ipcErrorRate.description':
+    'Main process procedures returning error frequently. May indicate a recent bug or an unstable external service (API key, database). See the IPC tab for the most affected procedures.',
+  'debugHud.insight.ipcLatencyCritical.title': 'Slow operations (p95 {{p95}}ms)',
+  'debugHud.insight.ipcLatencyCritical.description':
+    '95% of calls are taking longer than expected. An in-flight turn may be frozen, or disk/network IO may be stuck.',
+  'debugHud.insight.ipcLatencyWarn.title': 'High latency (p95 {{p95}}ms)',
+  'debugHud.insight.ipcLatencyWarn.description':
+    'Some operations are slow. See the IPC tab to identify which.',
+  'debugHud.insight.vaultErrors.title': 'Credential errors ({{count}} in the last minute)',
+  'debugHud.insight.vaultErrors.description':
+    'The credentials vault (API keys, OAuth tokens) is reporting errors. Verify in Settings > Keys whether the keys are valid.',
+  'debugHud.insight.turnsStuck.title': '{{count}} active turn(s) for over a minute',
+  'debugHud.insight.turnsStuck.description':
+    'Turns may be frozen waiting for an agent or tool reply. You can cancel them in the IPC/Sessions tab.',
+  'debugHud.insight.turnsStuck.action': 'Cancel all',
+
+  'debugHud.logCategory.all.label': 'All',
+  'debugHud.logCategory.all.description': 'No filter — every message.',
+  'debugHud.logCategory.normal.label': 'Normal activity',
+  'debugHud.logCategory.normal.description': 'Common app operations — useful to follow the flow.',
+  'debugHud.logCategory.warnings.label': 'Warnings',
+  'debugHud.logCategory.warnings.description':
+    "Unexpected situations that didn't interrupt the app.",
+  'debugHud.logCategory.errors.label': 'Errors',
+  'debugHud.logCategory.errors.description': 'Failures that prevented some operation. Investigate.',
+  'debugHud.logCategory.agents.label': 'AI & Agents',
+  'debugHud.logCategory.agents.description': 'Activity from AI models, tools and conversations.',
+  'debugHud.logCategory.data.label': 'Data & Credentials',
+  'debugHud.logCategory.data.description': 'Database, credentials vault and file access.',
+
+  'debugHud.tabOverview.cardMemory.title': 'App memory',
+  'debugHud.tabOverview.cardMemory.subtitle': 'How much the app is using of system memory',
+  'debugHud.tabOverview.cardMemory.hint':
+    'Going up is normal during use. If it passes 1.5 GB or grows fast without stopping, you may have a leak — reload the window.',
+  'debugHud.tabOverview.cardSessions.title': 'Active conversations',
+  'debugHud.tabOverview.cardSessions.subtitle': 'AI conversations in progress',
+  'debugHud.tabOverview.cardSessions.empty': 'No conversation running now.',
+  'debugHud.tabOverview.cardSessions.othersCount': '+{{count}} others…',
+  'debugHud.tabOverview.cardSessions.hint':
+    'If a conversation stays here too long without finishing, it may be stuck.',
+  'debugHud.tabOverview.cardListeners.title': 'Internal notifications',
+  'debugHud.tabOverview.cardListeners.subtitle': 'Active subscriptions in the app',
+  'debugHud.tabOverview.cardListeners.staleSummary': '{{count}} pending for ≥60s',
+  'debugHud.tabOverview.cardListeners.activeSummary': '{{count}} active',
+  'debugHud.tabOverview.cardListeners.totalLabel': 'Total',
+  'debugHud.tabOverview.cardListeners.hint':
+    'Normal to have a few dozen. Hundreds or pending may indicate a bug.',
+  'debugHud.tabOverview.cardIpc.title': 'Internal operations',
+  'debugHud.tabOverview.cardIpc.subtitle': '{{rate}} per second · p95 {{p95}} ms',
+  'debugHud.tabOverview.cardIpc.responseTime': 'Response time (p95)',
+  'debugHud.tabOverview.cardIpc.opsPerSec': 'op/s',
+  'debugHud.tabOverview.cardIpc.errors': 'errors',
+  'debugHud.tabOverview.cardIpc.hint':
+    'High time = slow app. Frequent errors may indicate network or API problems.',
+  'debugHud.tabOverview.viewDetails': 'Details →',
+
+  'debugHud.tabMemory.history.title': 'Memory history (5 minutes)',
+  'debugHud.tabMemory.history.growth': 'Average growth: {{value}} MB per minute',
+  'debugHud.tabMemory.history.stable': 'Stable or releasing memory',
+  'debugHud.tabMemory.releaseMemory': 'Release memory',
+  'debugHud.tabMemory.reload': 'Reload',
+  'debugHud.tabMemory.thresholdLabel': 'Total memory in the system',
+  'debugHud.tabMemory.thresholdDescription':
+    'Good up to ~800 MB · Attention up to 1.5 GB · Critical above',
+  'debugHud.tabMemory.processes.title': 'Active processes',
+  'debugHud.tabMemory.processes.subtitle': 'V2 runs everything in the main process (ADR-0145)',
+  'debugHud.tabMemory.processes.uptime': 'active for {{duration}}',
+
+  'debugHud.tabIpc.procedures.title': 'Internal operations',
+  'debugHud.tabIpc.procedures.subtitle': '{{rate}} per second · {{total}} total',
+  'debugHud.tabIpc.procedures.empty': 'Waiting for first calls…',
+  'debugHud.tabIpc.procedures.tableProcedure': 'procedure',
+  'debugHud.tabIpc.procedures.tableCalls': 'calls',
+  'debugHud.tabIpc.procedures.tableP95': 'p95',
+  'debugHud.tabIpc.procedures.tableErrors': 'errors',
+  'debugHud.tabIpc.procedures.metricP50': 'Average time (p50)',
+  'debugHud.tabIpc.procedures.metricP95': 'Time p95',
+  'debugHud.tabIpc.procedures.metricErrors': 'Errors',
+  'debugHud.tabIpc.procedures.metricRate': 'Error rate',
+  'debugHud.tabIpc.activeTurns.title': 'Active turns',
+  'debugHud.tabIpc.activeTurns.subtitle': '{{count}} active',
+  'debugHud.tabIpc.activeTurns.empty': 'No turn active right now.',
+  'debugHud.tabIpc.activeTurns.cancelAll': 'Cancel all',
+  'debugHud.tabIpc.activeTurns.cancel': 'Cancel',
+  'debugHud.tabIpc.activeTurns.startedAgo': 'turn {{turnId}}… · started {{duration}} ago',
+  'debugHud.tabIpc.listeners.title': 'Event listeners',
+  'debugHud.tabIpc.listeners.subtitle': '{{total}} active · {{stale}} pending',
+  'debugHud.tabIpc.listeners.recycle': 'Recycle',
+  'debugHud.tabIpc.listeners.empty':
+    'No listeners tracked — instrument subsystems with listenerDetector.track().',
+
+  'debugHud.tabLogs.search.placeholder': 'Search by component or message…',
+  'debugHud.tabLogs.search.clear': 'Clear search',
+  'debugHud.tabLogs.clearHistory': 'Clear history',
+  'debugHud.tabLogs.clearHistory.tooltip':
+    'Clears only the displayed history (files on disk are not affected)',
+  'debugHud.tabLogs.summary': '{{seen}} messages recorded total · buffer: 1000 lines',
+  'debugHud.tabLogs.selectCategory': 'Select a category to filter.',
+  'debugHud.tabLogs.empty.waiting': 'Waiting for first messages…',
+  'debugHud.tabLogs.empty.waitingHint': 'Subsystems write here as soon as they start operating.',
+  'debugHud.tabLogs.empty.noMatch': 'No messages in this category.',
+  'debugHud.tabLogs.empty.clearFilters': 'Clear filters',
+
+  'debugHud.tabVault.title': 'Credentials vault',
+  'debugHud.tabVault.subtitle': 'Where your API keys and tokens are stored · 60s window',
+  'debugHud.tabVault.metric.opsPerMin': 'Accesses per minute',
+  'debugHud.tabVault.metric.errorsPerMin': 'Errors per minute',
+  'debugHud.tabVault.metric.errorRate': 'Error rate',
+  'debugHud.tabVault.lastActivity': 'Last activity',
+  'debugHud.tabVault.noActivity': 'No activity recorded yet.',
+  'debugHud.tabVault.recentErrors.title': 'Recent errors',
+  'debugHud.tabVault.recentErrors.subtitle': '{{count}} of {{max}} (latest)',
+  'debugHud.tabVault.recentErrors.empty': 'No recent errors. Vault operating normally.',
+
+  'debugHud.report.title': 'Report problem',
+  'debugHud.report.description':
+    'Generate a diagnostic, describe the problem and copy the report to send to support.',
+  'debugHud.report.descLabel': 'What happened?',
+  'debugHud.report.descPlaceholder':
+    'Ex: When sending a message to the agent, the screen froze and I got no reply…',
+  'debugHud.report.charCount': '{{count}} characters',
+  'debugHud.report.diagTitle': 'Technical diagnostic',
+  'debugHud.report.diagDesc': 'ZIP with logs, metrics and system info (no sensitive data).',
+  'debugHud.report.diagButton.generate': 'Generate diagnostic',
+  'debugHud.report.diagButton.regenerate': 'Regenerate',
+  'debugHud.report.diagButton.generating': 'Generating…',
+  'debugHud.report.diagSuccess': 'Diagnostic saved. Path copied to the report.',
+  'debugHud.report.diagFail': 'Failed to export diagnostic.',
+  'debugHud.report.copyError': 'Could not copy — select and copy manually.',
+  'debugHud.report.previewLabel': 'Report preview',
+  'debugHud.report.close': 'Close',
+  'debugHud.report.copyAll': 'Copy all',
+  'debugHud.report.copied': 'Copied!',
+  'debugHud.report.template.problemTitle': '## Problem reported',
+  'debugHud.report.template.placeholder': '[describe what happened here]',
+  'debugHud.report.template.techInfoTitle': '## Technical information',
+  'debugHud.report.template.appVersion': '- App version: {{value}}',
+  'debugHud.report.template.platform': '- Platform: {{value}}',
+  'debugHud.report.template.date': '- Date: {{value}}',
+  'debugHud.report.template.diagAttached': '- Diagnostic attached: {{path}}',
+  'debugHud.report.dialogTitle': 'Export diagnostic',
+  'debugHud.report.dialogCanceled': 'Cancelled by user.',
+
+  'debugHud.logDetail.title': 'Log details',
+  'debugHud.logDetail.message': 'Message',
+  'debugHud.logDetail.context': 'Context',
+
+  'debugHud.memorySparkline.collecting': 'Collecting…',
+  'debugHud.memorySparkline.aria': 'Heap memory usage history',
+
+  'debugHud.action.success.gc': 'Garbage collector executed.',
+  'debugHud.action.error.gcMissing':
+    'Node was not started with --expose-gc. Restart the app with the flag.',
+  'debugHud.action.error.sessionRequired': 'sessionId is required.',
+  'debugHud.action.success.cancelTurn': 'Conversation {{sessionId}}… cancelled.',
+  'debugHud.action.error.cancelTurn': 'Failed to cancel conversation.',
+  'debugHud.action.success.cancelAllNone': 'No active conversations to cancel.',
+  'debugHud.action.success.cancelAllOk': '{{count}} conversation(s) cancelled.',
+  'debugHud.action.error.cancelAllPartial': '{{ok}} ok, {{failed}} failed.',
+  'debugHud.action.error.resetListenersUnsupported':
+    'Listener reset is not directly supported. Detector keeps WeakRef and frees automatically when GC runs — try "Release memory" to force it.',
+  'debugHud.action.success.clearLogs': "HUD buffer cleared (persisted files weren't touched).",
+  'debugHud.action.success.exportDiagnostic': 'Diagnostic exported.',
+  'debugHud.action.success.reloadRenderer': 'Main window reloaded.',
+  'debugHud.action.error.unknownAction': 'Unknown action: {{action}}',
+  'debugHud.action.error.unavailable': 'Action "{{action}}" unavailable in this context.',
+
+  // CR-37 F-CR37-2: attachment validation errors
+  'chat.composer.attachment.tooManyFiles': 'Maximum {{max}} files allowed.',
+  'chat.composer.attachment.fileTooLarge': '"{{name}}" exceeds the 20 MB limit.',
+  'chat.composer.attachment.totalTooLarge': 'Total attachment size exceeds 40 MB.',
+
+  // CR-37 F-CR37-3: thinking block labels
+  'chat.thinkingBlock.streaming': 'Thinking…',
+  'chat.thinkingBlock.label': 'Thought process',
+
+  // CR-37 F-CR37-4/5: shared relative time / date helpers
+  'common.relative.justNow': 'now',
+  'common.relative.minutesAgo': '{{count}}m',
+  'common.relative.hoursAgo': '{{count}}h',
+  'common.relative.daysAgo': '{{count}}d',
+
+  // CR-37 F-CR37-6: cooldown multi-locale hint
+  'auth.otp.cooldown.retryAfterSeconds': 'Please try again after {{seconds}} seconds.',
+
+  // CR-37 F-CR37-7: permission provider error messages
+  'chat.permission.noProvider': 'requestPermission called without PermissionProvider mounted',
+  'chat.permission.useOutsideProvider':
+    'usePermissionRequest must be used inside <PermissionProvider>',
+
+  // CR-37 F-CR37-14: working dir default label
+  'chat.composer.workingDir.defaultLabel': 'main',
+
+  // CR-37 F-CR37-15: tool use args count
+  'chat.toolUse.argCount': '{{count}} arg',
+  'chat.toolUse.argsCount': '{{count}} args',
+
+  // CR-37 F-CR37-16: source kind / category labels
+  'sources.kind.managed': 'Managed',
+  'sources.kind.mcp-stdio': 'MCP stdio',
+  'sources.kind.mcp-http': 'MCP HTTP',
+  'sources.kind.api': 'API',
+  'sources.kind.filesystem': 'Folder',
+  'sources.kindCategory.google': 'Google',
+  'sources.kindCategory.microsoft': 'Microsoft',
+  'sources.kindCategory.dev': 'Developer',
+  'sources.kindCategory.other': 'Other',
+
+  // CR-37 F-CR37-19: voice recorder error
+  'chat.composer.voice.error.micPermission':
+    'Microphone access denied. Check your browser permissions.',
+  'chat.composer.voice.error.transcribeFailed': 'Transcription failed. Please try again.',
+  'chat.composer.voice.error.generic': 'Voice recording failed. Please try again.',
+
+  // CR-37 F-CR37-19: erros normalizados em wizards (onboarding / migration)
+  'onboarding.credentials.saveError': 'Could not save the API key. Please try again.',
+  'migration.wizard.detectError': 'Could not analyze V1 data. Please try again.',
 } as const;
 
 export type TranslationKey = keyof typeof enUS;

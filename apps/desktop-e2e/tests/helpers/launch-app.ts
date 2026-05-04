@@ -29,6 +29,14 @@ export interface LaunchOptions {
    * o app carregar como se fosse um fresh install (login screen, etc.).
    */
   readonly auth?: 'mock' | 'none';
+  /**
+   * Passa `--js-flags=--expose-gc` para o Electron, expondo `globalThis.gc`
+   * no main process. Necessário para gates de memória (memlab) que precisam
+   * coletar garbage determinístico antes de medir heap delta — sem isso,
+   * `globalThis.gc` é `undefined` e a chamada vira no-op silencioso,
+   * deixando lixo coletável inflar o delta e gerando falsos positivos.
+   */
+  readonly forceGc?: boolean;
 }
 
 const DESKTOP_REPO_ROOT = resolve(
@@ -41,7 +49,11 @@ const DESKTOP_MAIN_ENTRY = resolve(DESKTOP_REPO_ROOT, 'apps/desktop/out/main/ind
 export async function launchApp(options: LaunchOptions = {}): Promise<LaunchedApp> {
   const userDataDir = mkdtempSync(resolve(tmpdir(), 'g4os-e2e-'));
   const app = await electron.launch({
-    args: [DESKTOP_MAIN_ENTRY, `--user-data-dir=${userDataDir}`],
+    args: [
+      DESKTOP_MAIN_ENTRY,
+      `--user-data-dir=${userDataDir}`,
+      ...(options.forceGc ? ['--js-flags=--expose-gc'] : []),
+    ],
     env: {
       // biome-ignore lint/style/noProcessEnv: E2E harness legitimate read — composition root for Electron spawn
       ...process.env,
