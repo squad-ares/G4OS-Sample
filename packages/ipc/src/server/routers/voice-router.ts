@@ -1,6 +1,7 @@
 import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
 import { authed } from '../middleware/authed.ts';
+import { rateLimit } from '../middleware/rate-limit.ts';
 import { router } from '../trpc.ts';
 
 // CR-27 F-CR27-5: cap de 10 MiB de string base64 (~7.5 MiB de Buffer).
@@ -22,7 +23,10 @@ const TranscribeOutput = z.object({
 });
 
 export const voiceRouter = router({
+  // 20 transcrições por minuto por usuário — protege contra payload flood
+  // (cada req pode ter até ~10 MiB de base64) e chamadas acidentais em loop.
   transcribe: authed
+    .use(rateLimit({ windowMs: 60_000, max: 20 }))
     .input(TranscribeInput)
     .output(TranscribeOutput)
     .mutation(async ({ input, ctx }) => {

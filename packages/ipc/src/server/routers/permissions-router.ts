@@ -1,8 +1,7 @@
+import { WorkspaceIdSchema } from '@g4os/kernel/schemas';
 import { z } from 'zod';
 import { authed } from '../middleware/authed.ts';
 import { router } from '../trpc.ts';
-
-const WorkspaceIdSchema = z.uuid();
 
 // Caps em campos de Permission. `toolName` em uso fica < 50 chars.
 // `argsHash` é sempre SHA-256 hex 64 chars exatos (legacy 32 chars era

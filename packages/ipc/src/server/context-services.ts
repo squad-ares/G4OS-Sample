@@ -1,5 +1,6 @@
 import type { IDisposable } from '@g4os/kernel/disposable';
 import type { AppError, Result } from '@g4os/kernel/errors';
+import type { SessionUpdate, WorkspaceUpdate } from '@g4os/kernel/schemas';
 import type {
   CreateMcpHttpSourceInput,
   CreateMcpStdioSourceInput,
@@ -60,7 +61,7 @@ export interface WorkspacesService {
   list(): Promise<Result<readonly Workspace[], AppError>>;
   get(id: WorkspaceId): Promise<Result<Workspace, AppError>>;
   create(input: Pick<Workspace, 'name' | 'rootPath'>): Promise<Result<Workspace, AppError>>;
-  update(id: WorkspaceId, patch: Partial<Workspace>): Promise<Result<void, AppError>>;
+  update(id: WorkspaceId, patch: WorkspaceUpdate): Promise<Result<void, AppError>>;
   delete(id: WorkspaceId, options?: WorkspaceDeleteOptions): Promise<Result<void, AppError>>;
   getSetupNeeds(id: WorkspaceId): Promise<Result<WorkspaceSetupNeeds, AppError>>;
 }
@@ -84,7 +85,7 @@ export interface SessionsService {
   listFiltered(filter: SessionFilter): Promise<Result<SessionListPage, AppError>>;
   get(id: SessionId): Promise<Result<Session, AppError>>;
   create(input: Pick<Session, 'workspaceId' | 'name'>): Promise<Result<Session, AppError>>;
-  update(id: SessionId, patch: Partial<Session>): Promise<Result<void, AppError>>;
+  update(id: SessionId, patch: SessionUpdate): Promise<Result<void, AppError>>;
   delete(id: SessionId): Promise<Result<void, AppError>>;
   subscribe(id: SessionId, handler: (event: SessionEvent) => void): IDisposable;
   subscribeStream(id: SessionId, handler: (event: TurnStreamEvent) => void): IDisposable;
@@ -210,6 +211,9 @@ export interface CredentialMetaView {
   readonly updatedAt: number;
   readonly expiresAt?: number;
   readonly tags: readonly string[];
+  // F-CR35-9: propagado do vault — `true` quando meta ausente/corrompida.
+  // UI usa para sinalizar repair manual ao operador.
+  readonly stale?: boolean;
 }
 
 export interface CredentialSetOptions {
@@ -239,7 +243,13 @@ export interface CredentialsService {
   set(key: string, value: string, options?: CredentialSetOptions): Promise<Result<void, AppError>>;
   delete(key: string): Promise<Result<void, AppError>>;
   list(): Promise<Result<readonly CredentialMetaView[], AppError>>;
-  rotate(key: string, newValue: string): Promise<Result<void, AppError>>;
+  // F-CR35-2: `options` propagado — inclui `expiresAt` para evitar expiry
+  // stale após rotação manual via Settings UI.
+  rotate(
+    key: string,
+    newValue: string,
+    options?: CredentialSetOptions,
+  ): Promise<Result<void, AppError>>;
 }
 
 export interface SourcesService {

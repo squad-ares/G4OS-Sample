@@ -71,8 +71,7 @@ export const sessionsCoreRouter = router({
     .input(z.object({ id: SessionIdSchema, patch: SessionUpdateSchema }))
     .output(z.void())
     .mutation(async ({ input, ctx }) => {
-      const patch = input.patch as Parameters<typeof ctx.sessions.update>[1];
-      const result = await ctx.sessions.update(input.id, patch);
+      const result = await ctx.sessions.update(input.id, input.patch);
       if (result.isErr()) throw result.error;
     }),
 

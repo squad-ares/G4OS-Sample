@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { authed } from '../middleware/authed.ts';
+import { rateLimit } from '../middleware/rate-limit.ts';
 import { router } from '../trpc.ts';
 
 const V1FlavorSchema = z.enum(['internal', 'public']);
@@ -98,7 +99,9 @@ export const migrationRouter = router({
       return result.value;
     }),
 
+  // 3 execuções por minuto — migração é operação pesada (I/O + criptografia).
   execute: authed
+    .use(rateLimit({ windowMs: 60_000, max: 3 }))
     .input(MigrationExecuteInputSchema)
     .output(MigrationReportSchema)
     .mutation(async ({ ctx, input }) => {

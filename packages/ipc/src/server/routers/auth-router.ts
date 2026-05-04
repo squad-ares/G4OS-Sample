@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { authed } from '../middleware/authed.ts';
+import { rateLimit } from '../middleware/rate-limit.ts';
 import { procedure, router } from '../trpc.ts';
 
 const IpcSessionSchema = z.object({
@@ -22,7 +23,9 @@ export const authRouter = router({
       return result.value;
     }),
 
+  // 5 envios por minuto — previne abuso de OTP (email flood, brute-force).
   sendOtp: procedure
+    .use(rateLimit({ windowMs: 60_000, max: 5 }))
     .input(z.object({ email: z.email() }))
     .output(z.void())
     .mutation(async ({ input, ctx }) => {
@@ -30,7 +33,9 @@ export const authRouter = router({
       if (result.isErr()) throw result.error;
     }),
 
+  // 10 tentativas por minuto — brute-force OTP mitigado sem bloquear UX normal.
   verifyOtp: procedure
+    .use(rateLimit({ windowMs: 60_000, max: 10 }))
     .input(z.object({ email: z.email(), code: z.string().min(4).max(10) }))
     .output(IpcSessionSchema)
     .mutation(async ({ input, ctx }) => {

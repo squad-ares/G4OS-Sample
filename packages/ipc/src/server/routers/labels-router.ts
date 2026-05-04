@@ -1,9 +1,13 @@
-import { LabelCreateSchema, LabelSchema, WorkspaceIdSchema } from '@g4os/kernel/schemas';
+import {
+  LabelCreateSchema,
+  LabelIdSchema,
+  LabelSchema,
+  WorkspaceIdSchema,
+} from '@g4os/kernel/schemas';
 import { z } from 'zod';
 import { authed } from '../middleware/authed.ts';
 import { router } from '../trpc.ts';
 
-const LabelIdSchema = z.uuid();
 const ColorSchema = z
   .string()
   .regex(/^#[0-9a-fA-F]{6}$/u)

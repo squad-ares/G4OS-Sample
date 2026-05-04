@@ -1,3 +1,4 @@
+import { WorkspaceIdSchema } from '@g4os/kernel/schemas';
 import { z } from 'zod';
 import { authed } from '../middleware/authed.ts';
 import { router } from '../trpc.ts';
@@ -27,7 +28,7 @@ export const backupRouter = router({
     }),
 
   runNow: authed
-    .input(z.object({ workspaceId: z.uuid() }))
+    .input(z.object({ workspaceId: WorkspaceIdSchema }))
     .output(BackupRunResultSchema)
     .mutation(async ({ input, ctx }) => {
       const result = await ctx.backup.runNow(input.workspaceId);
@@ -39,7 +40,7 @@ export const backupRouter = router({
     }),
 
   delete: authed
-    .input(z.object({ path: z.string().min(1) }))
+    .input(z.object({ path: z.string().min(1).max(4096) }))
     .output(z.void())
     .mutation(async ({ input, ctx }) => {
       const result = await ctx.backup.delete(input.path);
