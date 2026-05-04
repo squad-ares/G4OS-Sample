@@ -93,7 +93,16 @@ export class TurnDispatcher extends DisposableBase {
   private cleanupAll(): void {
     for (const [, active] of this.#active) {
       active.abortController.abort();
-      active.subscription?.unsubscribe();
+      // CR-36 F-CR36-1: NÃO `subscription.unsubscribe()` externo. Fechar o
+      // rxjs subscriber antes do `subscriber.complete()` natural do pump
+      // torna o callback `complete` em `runAgentIteration`
+      // (`turn-runner.ts:219-229`) um no-op silencioso — settle nunca é
+      // chamado, Promise pendura, dispatchInternal closure leaks. O
+      // `agent.dispose()` abaixo dispara o teardown em `claude-agent.ts:47-54`
+      // que aborta os controllers internos do agent; pump completa
+      // naturalmente, subscriber.complete() fires com subscriber AINDA
+      // subscribed, observer.complete em turn-runner settle resolve antes do
+      // process exit.
       active.agent.dispose();
     }
     this.#active.clear();
@@ -313,12 +322,43 @@ export class TurnDispatcher extends DisposableBase {
 
   interrupt(sessionId: SessionId): Result<void, AppError> {
     const active = this.#active.get(sessionId);
-    if (!active) return ok(undefined);
+    if (!active) {
+      // F-CR46-9: retorna err tipado em vez de ok silencioso. Caller IPC
+      // pode tratar como benign no-op, mas o tipo expressa a intenção —
+      // "stopped successfully" vs "nothing to stop" são estados distintos.
+      return err(
+        new AppError({
+          code: ErrorCode.SESSION_NOT_FOUND,
+          message: 'no active turn for session',
+          context: { sessionId },
+        }),
+      );
+    }
     try {
       active.abortController.abort();
-      active.subscription?.unsubscribe();
+      // CR-36 F-CR36-1: NÃO `subscription.unsubscribe()` externo. Fechar o
+      // rxjs subscriber antes do `subscriber.complete()` natural do pump
+      // (chamado pela função em `claude-agent.ts:64-75` quando o for-await
+      // termina via abort) torna o callback `complete` em `runAgentIteration`
+      // (`turn-runner.ts:219-229`) um no-op silencioso — `settle` nunca é
+      // chamado, o Promise interno pendura, e a closure de `dispatchInternal`
+      // fica viva indefinidamente segurando referências a messages,
+      // telemetry, agent. Memory leak cumulativo por interrupt até process
+      // restart. `agent.interrupt(sessionId)` abaixo aborta o controller
+      // interno do agent (síncrono via `controller.abort()`); o pump catches
+      // abort, runner yields done(reason: 'interrupted'), for-await termina
+      // naturalmente, `subscriber.complete()` fires com subscriber AINDA
+      // subscribed, observer.complete em turn-runner fires `settle`,
+      // runAgentIteration Promise resolve com partial state, runToolLoop
+      // retorna ok via finalizeAssistantMessage, dispatchInternal completa,
+      // closure GC'd.
       void active.agent.interrupt(sessionId);
-      this.#deps.permissionBroker.cancel(sessionId);
+      // F-CR46-10: `cancelPendingForSession` em vez de `cancel`. `cancel`
+      // esvaziava `#sessionAllow`, perdendo decisões `allow_session` do
+      // turn — num retry pós-interrupt o user teria que reaprovar tudo.
+      // `cancelPendingForSession` rejeita só as pendências em vôo,
+      // preservando o cache de decisões (ADR-0073, ADR-0134, CR-18 F-SR2).
+      this.#deps.permissionBroker.cancelPendingForSession(sessionId);
     } finally {
       // CR-23 F-CR23-1: dispose o agent AQUI. Antes era `disposeAgent: false`
       // assumindo que `dispatchInternal` chamaria o cleanup com `true` no

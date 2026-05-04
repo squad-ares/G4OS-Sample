@@ -112,8 +112,9 @@ export class SqliteMessagesService implements MessagesServiceContract {
         // CR-25 F-CR25-1: pass-through completo do metadata server-trusted.
         // CR-24 F-CR24-1 cobria só `systemKind`/`errorCode`; rotas internas
         // do session-runtime agora propagam `modelId`/`usage`/`thinkingLevel`/
-        // `durationMs` para que `messages_index.tokenCount` reflita o turno
-        // e `usage-reconcile-worker` consiga reconciliar contra billing.
+        // `durationMs` para que `messages_index.tokenCount` reflita o turno.
+        // F-CR51-13: `usage-reconcile-worker` é skeleton (TASK-18-07) — não
+        // spawned ainda. Billing reconciliation fica como FOLLOWUP-OUTLIER-18-07.
         metadata: input.metadata ?? {},
       };
 

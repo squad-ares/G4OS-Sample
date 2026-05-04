@@ -1,6 +1,6 @@
 {
   "name": "@g4os/desktop",
-  "version": "0.0.10-beta",
+  "version": "0.0.11-canary",
   "description": "G4 OS - Aplicativo desktop (Electron)",
   "private": true,
   "homepage": "https://g4educacao.com",
@@ -31,6 +31,7 @@
     "@anthropic-ai/sdk": "0.91.0",
     "@g4os/agents": "workspace:^",
     "@g4os/auth": "workspace:^",
+    "@g4os/release-channels": "workspace:^",
     "@g4os/credentials": "workspace:^",
     "@g4os/data": "workspace:^",
     "@g4os/features": "workspace:^",
@@ -106,11 +107,11 @@
     "vite": "^8.0.9"
   },
   "optionalDependencies": {
-    "@opentelemetry/exporter-trace-otlp-http": "0.215.0",
-    "@opentelemetry/resources": "2.7.0",
-    "@opentelemetry/sdk-node": "0.215.0",
-    "@opentelemetry/sdk-trace-base": "2.7.0",
-    "@sentry/electron": "5.10.0"
+    "@opentelemetry/exporter-trace-otlp-http": "catalog:",
+    "@opentelemetry/resources": "catalog:",
+    "@opentelemetry/sdk-node": "catalog:",
+    "@opentelemetry/sdk-trace-base": "catalog:",
+    "@sentry/electron": "catalog:"
   },
   "engines": {
     "node": ">=24.0.0"

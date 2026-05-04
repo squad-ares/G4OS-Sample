@@ -137,10 +137,12 @@ export function buildSourceWriter(deps: WritersDeps): V2SourceWriter {
  * V2SessionWriter — combina SessionsRepository (registro SQLite) +
  * SessionEventStore (JSONL append-only) + applyEvent (atualiza projection).
  *
- * Migrate-sessions já valida cada evento via SessionEventSchema antes de
- * passar pra appendEvent — confiamos no shape aqui (cast direto) e
- * deixamos applyEvent fazer a projeção SQLite (messages_index,
- * lastEventSequence, etc.).
+ * Migrate-sessions valida cada evento via SessionEventSchema antes de passar
+ * pra appendEvent. O evento validado PODE carregar `sequenceNumber` V1 (com
+ * gaps, ordem irregular ou duplicatas). F-CR40-1 (ADR-0043): DEVE strippar
+ * `sequenceNumber` antes de passar para o store para que o store calcule a
+ * sequência monotônica correta baseada no count atual da sessão. Checkpoints
+ * multi-consumer `(consumer_name, session_id)` dependem de sequência sem gaps.
  */
 export function buildSessionWriter(deps: WritersDeps): V2SessionWriter {
   return {
@@ -167,11 +169,22 @@ export function buildSessionWriter(deps: WritersDeps): V2SessionWriter {
       const session = await deps.sessionsRepo.get(sessionId);
       if (!session) throw new Error(`appendEvent: session ${sessionId} not found`);
       const store = new SessionEventStore(session.workspaceId);
-      // event é validado upstream em migrate-sessions via SessionEventSchema.
-      // Cast safe: o package só envia eventos que passaram no schema parse.
-      const validated = event as SessionEvent;
-      await store.append(sessionId, validated);
-      applyEvent(deps.drizzle, validated);
+
+      // F-CR40-1 (ADR-0043): strip sequenceNumber V1 antes de passar ao store.
+      // V1 pode ter sequences com gaps, ordem irregular ou duplicatas
+      // (ex.: [3, 0, 1, 7, 2]). SessionEventStore.append não recompõe — passa
+      // direto pro appendFile. Se o sequenceNumber V1 entrar no JSONL V2, os
+      // checkpoints multi-consumer (consumer_name, session_id) ficam
+      // permanentemente dessincronizados. Strip aqui; store calcula
+      // nextSeq = count(sessionId) na camada de store para garantir monotônico.
+      const eventWithV1SeqStripped = event as Record<string, unknown>;
+      const { sequenceNumber: _v1Seq, ...strippedEvent } = eventWithV1SeqStripped;
+      // Recalcula sequência monotônica a partir do count atual da sessão.
+      const nextSeq = await store.count(sessionId);
+      const eventWithNewSeq = { ...strippedEvent, sequenceNumber: nextSeq } as SessionEvent;
+
+      await store.append(sessionId, eventWithNewSeq);
+      applyEvent(deps.drizzle, eventWithNewSeq);
     },
   };
 }

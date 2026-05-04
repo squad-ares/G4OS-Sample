@@ -91,11 +91,40 @@ export function wireSecondInstance(
       log.info({ url }, 'second-instance deep-link forwarded');
       deepLinks.handle(url);
     } else {
-      // Sem URL — apenas foca a janela existente (user clicou no shortcut
-      // de novo). Caller pode delegar foco; aqui só logamos pra rastrear.
-      log.debug('second-instance signaled without deep-link argv');
+      // F-CR51-16: sem URL — foca a janela principal existente.
+      // Antes apenas logava debug, sem nenhum foco visual. UX: usuário
+      // clicando no atalho 2x ou dock icon espera que o app apareça.
+      // Delegado ao focusMainWindow para manter wireSecondInstance testável
+      // sem acesso ao módulo electron completo. ADR-0158.
+      log.debug('second-instance signaled without deep-link; focusing main window');
+      focusMainWindow(log);
     }
   });
+}
+
+/**
+ * Foca a janela principal via dynamic import do módulo electron.
+ * F-CR51-16: extração separada para manter `wireSecondInstance` testável.
+ */
+function focusMainWindow(log: Logger): void {
+  void (async () => {
+    try {
+      const specifier = 'electron';
+      const mod = (await import(/* @vite-ignore */ specifier)) as {
+        BrowserWindow?: {
+          getAllWindows(): readonly { isVisible(): boolean; show(): void; focus(): void }[];
+        };
+      };
+      const wins = mod.BrowserWindow?.getAllWindows() ?? [];
+      const first = wins[0];
+      if (first) {
+        if (!first.isVisible()) first.show();
+        first.focus();
+      }
+    } catch (err) {
+      log.warn({ err }, 'second-instance focus failed');
+    }
+  })();
 }
 
 /**

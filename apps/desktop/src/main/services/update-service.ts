@@ -1,7 +1,9 @@
 import { createLogger, DisposableBase, toDisposable } from '@g4os/kernel';
+import type { ReleaseChannel } from '@g4os/release-channels';
 import type { AppUpdater, ProgressInfo, UpdateInfo } from 'electron-updater';
 
-export type UpdateChannel = 'stable' | 'beta' | 'canary';
+/** Alias de `ReleaseChannel` — mantém compatibilidade com callers que usam `UpdateChannel`. */
+export type UpdateChannel = ReleaseChannel;
 
 export type UpdateState =
   | { status: 'idle' }

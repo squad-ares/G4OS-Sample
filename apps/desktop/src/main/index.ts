@@ -2,6 +2,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadSupabaseEnvFiles } from '@g4os/auth/supabase';
 import { createVault } from '@g4os/credentials';
+import { RotationOrchestrator } from '@g4os/credentials/rotation';
 import { SessionsRepository } from '@g4os/data/sessions';
 import { cleanupSubscriptionsForSender, setIpcMetricsRecorder } from '@g4os/ipc/server';
 import { createLogger } from '@g4os/kernel/logger';
@@ -149,6 +150,15 @@ export async function bootstrapMain(options: BootstrapOptions = {}): Promise<voi
     mode: electron.app.isPackaged ? 'prod' : 'dev',
   });
 
+  // F-CR51-4: instancia RotationOrchestrator para rotacionar OAuth tokens
+  // antes da expiração. Sem este wire, OAuthRotationHandler é dead-code e
+  // tokens OAuth (Google/Microsoft/Slack) nunca são renovados. ADR-0053.
+  const rotationOrchestrator = new RotationOrchestrator({
+    vault: credentialVault,
+    handlers: [],
+  });
+  rotationOrchestrator.start();
+
   const appPaths = getAppPaths();
   const migrationsFolder = electron.app.isPackaged
     ? resolve(process.resourcesPath, 'drizzle')
@@ -240,7 +250,8 @@ export async function bootstrapMain(options: BootstrapOptions = {}): Promise<voi
   );
 
   const toolCatalog = buildToolCatalog({ sourcesStore, sessionsRepo });
-  const mountRegistry = createMountRegistry();
+  // F-CR51-9: vault passado para resolver authCredentialKey de mcp-http sources. ADR-0084.
+  const mountRegistry = createMountRegistry({ vault: credentialVault });
 
   // TitleGenerator checa session.name contra defaultNames antes de gerar — não sobrescreve nomes manuais.
   // CR-26 F-CR26-1: bus + drizzle injetados para emitir `session.renamed` após
@@ -402,6 +413,26 @@ export async function bootstrapMain(options: BootstrapOptions = {}): Promise<voi
     log.warn({ missingEnv: authRuntime.missingEnv }, 'supabase auth not configured');
   }
 
+  // F-CR51-10: subscreve estado de auth para enviar/limpar contexto de user
+  // no Sentry do main process. Crashes do main agora incluem `user.id` para
+  // permitir debugging multi-user. ADR-0062.
+  if (authRuntime.managedLogin) {
+    const sentryUserSub = authRuntime.managedLogin.state$.subscribe((state) => {
+      if (state.kind === 'authenticated') {
+        observability.sentry.setUser({
+          id: state.session.userId,
+          email: state.session.email,
+        });
+      } else if (state.kind === 'idle') {
+        observability.sentry.setUser(null);
+      }
+    });
+    lifecycle.onQuit(() => {
+      sentryUserSub.unsubscribe();
+      return Promise.resolve();
+    });
+  }
+
   registerShutdownHandlers(lifecycle, {
     mountRegistry,
     turnDispatcher,
@@ -415,8 +446,17 @@ export async function bootstrapMain(options: BootstrapOptions = {}): Promise<voi
     database,
     observability,
     updates: updatesRuntime,
+    // F-CR51-1: registra dispose do broker no shutdown para cancelar
+    // Deferred queue pendente antes do IPC server derrubar. ADR-0134.
+    permissionBroker,
   });
   if (debugHud) lifecycle.onQuit(() => debugHud?.dispose());
+  // F-CR51-4: registra dispose do RotationOrchestrator para parar o timer
+  // de varredura e evitar que rotate() seja chamado após o vault fechar. ADR-0053.
+  lifecycle.onQuit(() => {
+    rotationOrchestrator.dispose();
+    return Promise.resolve();
+  });
   lifecycle.onAllWindowsClosed(() => {
     if (!isMacOS()) electron.app.quit();
   });
@@ -488,8 +528,10 @@ export async function bootstrapMain(options: BootstrapOptions = {}): Promise<voi
   // acoplar runtime mock. Sem icon resolvido, tray service retorna null.
   if (electronModule?.Tray && electronModule?.Menu) {
     const tray = createTrayService({
-      Tray: electronModule.Tray as never,
-      Menu: electronModule.Menu as never,
+      // F-CR51-22: cast via unknown para evitar `as never` — tray-service agora
+      // usa interface estrutural mínima em vez de marker `_isMenu: never`. ADR-0002.
+      Tray: electronModule.Tray as unknown as Parameters<typeof createTrayService>[0]['Tray'],
+      Menu: electronModule.Menu as unknown as Parameters<typeof createTrayService>[0]['Menu'],
       app: electronModule.app,
       iconPath,
       getMainWindow: () => mainWindow,

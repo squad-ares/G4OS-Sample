@@ -70,9 +70,13 @@ export function createPreferencesService(deps: CreatePreferencesServiceDeps): Pr
           : resolve(dirname(fileURLToPath(import.meta.url)), '../../../../dist');
         const vendorDir = resolve(resourcesPath, 'vendor');
 
+        // F-CR51-11: passa `target` para detectar manifesto de outro target.
+        // ADR-0146. process.platform/arch são lidos via composição — não secret.
+        const runtimeTarget = `${process.platform}-${process.arch}`;
         const metaResult = await loadInstallMeta({
           resourcesPath,
           appVersion: deps.appVersion,
+          target: runtimeTarget,
         });
 
         if (!metaResult.ok) {
@@ -142,6 +146,13 @@ function mapFailure(failure: IntegrityFailure): RuntimeIntegrityReport['failures
       return {
         code: failure.code,
         runtime: failure.runtime,
+        expected: failure.expected,
+        actual: failure.actual,
+      };
+    case 'target_mismatch':
+      // CR-38 F-CR38-2: manifesto de outro target (ex.: build win32 em runtime macOS).
+      return {
+        code: failure.code,
         expected: failure.expected,
         actual: failure.actual,
       };

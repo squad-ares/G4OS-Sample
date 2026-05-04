@@ -49,10 +49,17 @@ test.skip(
 );
 
 test('debug HUD não vaza memória após múltiplos ciclos abre/fecha', async () => {
-  launched = await launchApp({ auth: 'mock' });
+  // `forceGc: true` expõe `globalThis.gc` no main para que o GC determinístico
+  // antes do final-read (linha ~75) realmente colete — sem isso o `if (typeof
+  // globalThis.gc === 'function')` cai fora e o teste compara heaps com lixo
+  // não-coletado, falsando regularmente em CI por inflar delta acima de 5MB.
+  launched = await launchApp({ auth: 'mock', forceGc: true });
 
-  // Baseline antes de tocar no HUD.
-  await sleep(1_000);
+  // Boot async: drizzle migrations, vault load, schedulers (sessions cleanup,
+  // backup, attachments GC, MemoryMonitor), observability runtime, IPC server.
+  // 1s era curto demais — boot terminava DEPOIS do baseline e a alocação
+  // residual contava como leak. 5s deixa margem confortável em macos-14 CI.
+  await sleep(5_000);
   const baseline = await readMainHeap(launched);
 
   // Sample por ciclo (baseline mode) ou só baseline+final (modo gate).

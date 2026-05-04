@@ -20,6 +20,7 @@
 import type { Server } from 'node:http';
 import { createLogger } from '@g4os/kernel/logger';
 import { ListenerLeakDetector, MemoryMonitor } from '@g4os/observability/memory';
+import { type G4Metrics, getMetrics } from '@g4os/observability/metrics';
 import { initTelemetry, type TelemetryHandle } from '@g4os/observability/sdk';
 import { initSentry, type SentryHandle } from '@g4os/observability/sentry';
 import { readRuntimeEnv } from '../runtime-env.ts';
@@ -37,6 +38,7 @@ export interface ObservabilityRuntimeOptions {
 export interface ObservabilityRuntime {
   readonly telemetry: TelemetryHandle;
   readonly sentry: SentryHandle;
+  readonly metrics: G4Metrics;
   readonly memory: MemoryMonitor;
   /**
    * Detector global de listener leaks. Subsistemas que se
@@ -82,9 +84,18 @@ export async function createObservabilityRuntime(
     process: 'main',
   });
 
+  // Inicializa registry de métricas antes do monitor para que
+  // onThresholdExceeded possa emitir para workerMemoryRss (ADR-0063/0064).
+  const metrics = getMetrics();
+
   const baseMemoryOptions = {
-    onThresholdExceeded: (reason: string, sample: unknown) => {
+    onThresholdExceeded: (reason: string, sample: { rssBytes: number }) => {
       log.warn({ reason, sample }, 'memory threshold exceeded in main');
+      // Propaga RSS para gauge de metrics (ADR-0063: "empurra para workerMemoryRss").
+      // Label 'main' identifica o processo principal — sem session_id.
+      metrics.workerMemoryRss.set({ session_id: 'main' }, sample.rssBytes);
+      // Propaga para Sentry breadcrumb para correlação de crashes (ADR-0063).
+      sentry.setTag('memory_threshold_exceeded', reason.slice(0, 200));
     },
   };
   const memoryOptions =
@@ -116,6 +127,7 @@ export async function createObservabilityRuntime(
   return {
     telemetry,
     sentry,
+    metrics,
     memory,
     listenerDetector,
     probeServicesStatus: () =>

@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs';
-import { mkdir, readdir, readFile, rename, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, rename } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
+import { writeAtomic } from '@g4os/kernel/fs';
 import type { LegacyProject } from '@g4os/kernel/types';
 import { err, ok, type Result } from 'neverthrow';
 
@@ -129,9 +130,10 @@ export function isDoneMarked(workspacesRootPath: string, workspaceId: string): b
 }
 
 export async function markDone(workspacesRootPath: string, workspaceId: string): Promise<void> {
-  await writeFile(
-    join(workspacesRootPath, workspaceId, DONE_SENTINEL),
-    new Date().toISOString(),
-    'utf-8',
-  );
+  // CR-34 F-CR34-1: writeAtomic — completa a propagação do ADR-0050 dentro do
+  // apps/desktop. O sentinel `.legacy-import-done` é parseado por debug-export
+  // e support troubleshoot ("quando rodou a importação V1?"); partial-write em
+  // crash deixaria ISO timestamp truncado e a investigação descartaria o
+  // arquivo. Mesmo pattern de F-CR33-5 (MIGRATION_DONE_MARKER).
+  await writeAtomic(join(workspacesRootPath, workspaceId, DONE_SENTINEL), new Date().toISOString());
 }

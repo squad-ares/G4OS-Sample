@@ -64,7 +64,11 @@ export class DeepLinkHandler {
 
     log.info({ host: url.host, path }, 'deep link received');
 
-    const [existing] = this.windowManager.list();
+    // F-CR51-17: usa getMain() em vez de list()[0] — getMain() garante
+    // a janela principal em cenários multi-window/deep-link concorrente.
+    // list()[0] não é estável em JS Set quando janelas são criadas/destruídas
+    // concorrentemente. ADR-0100.
+    const existing = this.windowManager.getMain();
     if (!existing) {
       void this.windowManager.open({ url: rawUrl });
       return;

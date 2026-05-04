@@ -1,10 +1,11 @@
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { AppDb } from '@g4os/data';
 import { ProjectsRepository, ProjectTasksRepository, toProjectSlug } from '@g4os/data/projects';
 import { SessionsRepository } from '@g4os/data/sessions';
 import type { ProjectsService as ProjectsServiceContract } from '@g4os/ipc/server';
 import { AppError, ErrorCode, ProjectError } from '@g4os/kernel/errors';
+import { writeAtomic } from '@g4os/kernel/fs';
 import { createLogger } from '@g4os/kernel/logger';
 import type {
   LegacyImportEntry,
@@ -284,10 +285,13 @@ export function createProjectsService(deps: ProjectsServiceDeps): ProjectsServic
 async function bootstrapProjectDir(rootPath: string): Promise<void> {
   await mkdir(join(rootPath, 'files'), { recursive: true });
   await mkdir(join(rootPath, 'context'), { recursive: true });
-  await writeFile(
+  // CR-33 F-CR33-4: writeAtomic — crash mid-write deixaria `project.json`
+  // parcial e o `JSON.parse` subsequente em `list`/`get` falharia. Bootstrap
+  // roda na criação do projeto; user veria "criou mas falhou ao abrir" sem
+  // repair óbvio. ADR-0050 propagado.
+  await writeAtomic(
     join(rootPath, 'project.json'),
     JSON.stringify({ createdAt: new Date().toISOString(), sessionIds: [], tasks: [] }, null, 2),
-    'utf-8',
   );
 }
 

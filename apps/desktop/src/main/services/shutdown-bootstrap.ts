@@ -29,10 +29,17 @@ export interface ShutdownTargets {
   readonly database: { db: { dispose(): void } };
   readonly observability: { dispose(): Promise<void> | void };
   readonly updates: { dispose(): void };
+  // F-CR51-1: permissionBroker.dispose() cancela Deferred queue pendente
+  // e previne que `turn.permission_required` seja emitido para sender
+  // já destruído após o shutdown do IPC server. ADR-0134.
+  readonly permissionBroker: { dispose(): void };
 }
 
 export function registerShutdownHandlers(lifecycle: AppLifecycle, targets: ShutdownTargets): void {
   lifecycle.onQuit(() => targets.mountRegistry.dispose());
+  // F-CR51-1: cancela Deferred queue do broker antes do IPC server
+  // derrubar, evitando emit para senders já destruídos. ADR-0134.
+  lifecycle.onQuit(() => targets.permissionBroker.dispose());
   // CR-30 F-CR30-3: drain + dispose num único handler async pra serializar
   // de fato. `AppLifecycle.shutdown()` usa `Promise.allSettled` (paralelo)
   // — registrar em handlers separados fazia `dispose()` rodar antes de

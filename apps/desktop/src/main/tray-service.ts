@@ -25,10 +25,10 @@ interface ElectronTrayLike {
   destroy(): void;
 }
 
-interface ElectronMenuLike {
-  // marker — `Menu.buildFromTemplate` retorna esse shape opaco
-  readonly _isMenu: never;
-}
+// F-CR51-22: substituir marker `_isMenu: never` por type alias mínimo.
+// O cast `as never` em index.ts era workaround para este marker opaco —
+// type alias vazio é mais idiomático e não requer cast. ADR-0002.
+type ElectronMenuLike = Record<string, never>;
 
 interface ElectronMenuModule {
   buildFromTemplate(template: ReadonlyArray<Record<string, unknown>>): ElectronMenuLike;
