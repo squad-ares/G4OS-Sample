@@ -2,6 +2,12 @@ import { z } from 'zod';
 
 export const ProjectIdSchema = z.uuid();
 
+/**
+ * Schema canônico para IDs de tarefa de projeto. Routers devem importar daqui
+ * em vez de redeclarar `z.uuid()` inline (ADR-0020 — single source of truth).
+ */
+export const ProjectTaskIdSchema = z.uuid();
+
 export const ProjectStatusSchema = z.enum(['active', 'archived']);
 
 export const ProjectSchema = z.object({
@@ -107,9 +113,22 @@ export const ProjectFileSchema = z.object({
 
 export const LegacyProjectSchema = z.object({
   path: z.string(),
-  name: z.string(),
-  slug: z.string(),
+  name: z.string().max(200),
+  slug: z.string().max(100),
   existingId: z.string().optional(),
-  description: z.string().optional(),
+  description: z.string().max(1000).optional(),
   inCanonicalRoot: z.boolean(),
 });
+
+export const LegacyImportDecisionSchema = z.enum(['import', 'keep', 'skip']);
+export type LegacyImportDecision = z.infer<typeof LegacyImportDecisionSchema>;
+
+export const LegacyImportEntrySchema = z.object({
+  path: z.string(),
+  name: z.string().max(200),
+  slug: z.string().max(100),
+  existingId: z.string().optional(),
+  description: z.string().max(1000).optional(),
+  decision: LegacyImportDecisionSchema,
+});
+export type LegacyImportEntry = z.infer<typeof LegacyImportEntrySchema>;

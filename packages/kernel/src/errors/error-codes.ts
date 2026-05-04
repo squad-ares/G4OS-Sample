@@ -77,10 +77,25 @@ export const ErrorCode = {
   // de `context.errno` para mensagem específica.
   FS_IO_ERROR: 'fs.io_error',
 
+  // Migration V1 → V2 (F-CR40-3)
+  MIGRATION_ALREADY_DONE: 'migration.already_done',
+  MIGRATION_LOCK_FAILED: 'migration.lock_failed',
+  MIGRATION_BACKUP_FAILED: 'migration.backup_failed',
+  MIGRATION_STEP_FAILED: 'migration.step_failed',
+  MIGRATION_ROLLBACK_FAILED: 'migration.rollback_failed',
+  MIGRATION_V1_CORRUPTED: 'migration.v1_corrupted',
+  MIGRATION_INVALID_SOURCE: 'migration.invalid_source',
+  MIGRATION_PARTIAL_FAILURE: 'migration.partial_failure',
+
   // Generic
   VALIDATION_ERROR: 'validation.error',
   NETWORK_ERROR: 'network.error',
   UNKNOWN_ERROR: 'unknown.error',
+  // Funcionalidade desabilitada ou skeleton ainda não promovido.
+  // Distinto de UNKNOWN_ERROR (bug inesperado) — este código sinaliza estado
+  // esperado de "feature off". Callers devem exibir UI degradada, não disparar
+  // Sentry. Exemplo: bridge-mcp-server skeleton, usage-reconcile-worker gated.
+  FEATURE_DISABLED: 'feature.disabled',
 } as const;
 
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];

@@ -1,5 +1,9 @@
 import { z } from 'zod';
 import { AttachmentSchema } from './attachment.schema.ts';
+import { ThinkingLevelSchema } from './session.schema.ts';
+
+export const SystemMessageKindSchema = z.enum(['error', 'info', 'warning']);
+export type SystemMessageKind = z.infer<typeof SystemMessageKindSchema>;
 
 // Roles explicit como union discriminada
 export const MessageRoleSchema = z.enum(['user', 'assistant', 'system', 'tool']);
@@ -64,7 +68,7 @@ export const MessageSchema = z.object({
 
   metadata: z
     .object({
-      thinkingLevel: z.enum(['low', 'think', 'high', 'ultra']).optional(),
+      thinkingLevel: ThinkingLevelSchema.optional(),
       modelId: z.string().optional(),
       usage: z
         .object({
@@ -80,7 +84,7 @@ export const MessageSchema = z.object({
       // unifica em role='system' + `systemKind` para preservar o shape
       // do V1 SystemMessage (variantes visuais) sem inflar a enum de role.
       // Quando ausente, o renderer trata como `system` neutro.
-      systemKind: z.enum(['error', 'info', 'warning']).optional(),
+      systemKind: SystemMessageKindSchema.optional(),
       // Código de erro do AgentError ou do AppError que originou a falha.
       // Persistido só em system messages com `systemKind: 'error'` para
       // permitir Settings/Repair filtrar histórico por code (`agent.invalid_api_key`,
@@ -98,3 +102,7 @@ export const MessageAppendResultSchema = z.object({
   sequenceNumber: z.number().int().nonnegative(),
 });
 export type MessageAppendResult = z.infer<typeof MessageAppendResultSchema>;
+
+export function isSystemError(msg: Pick<Message, 'role' | 'metadata'>): boolean {
+  return msg.role === 'system' && msg.metadata?.systemKind === 'error';
+}

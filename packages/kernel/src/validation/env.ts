@@ -22,7 +22,18 @@ export function getEnv<T>(name: string, schema: ZodType<T>): T {
 export function getEnvOptional<T>(name: string, schema: ZodType<T | undefined>): T | undefined {
   const raw = process.env[name];
   if (raw === undefined) return undefined;
-  return getEnv(name, schema as ZodType<T>);
+  const parsed = (schema as ZodType<T>).safeParse(raw);
+  if (!parsed.success) {
+    log.fatal(
+      {
+        envVar: name,
+        issues: parsed.error.issues,
+      },
+      `Invalid environment variable: ${name}`,
+    );
+    throw new Error(`Invalid env var: ${name}`);
+  }
+  return parsed.data;
 }
 
 export const EnvSchemas = {

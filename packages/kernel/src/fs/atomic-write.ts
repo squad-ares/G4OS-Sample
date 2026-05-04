@@ -1,6 +1,9 @@
-import { randomBytes } from 'node:crypto';
+import { randomBytes as randomBytesCallback } from 'node:crypto';
 import { copyFile, open, rename, unlink } from 'node:fs/promises';
 import { dirname } from 'node:path';
+import { promisify } from 'node:util';
+
+const randomBytesAsync = promisify(randomBytesCallback);
 
 import { err, ok, type Result } from 'neverthrow';
 import { FsError } from '../errors/fs-error.ts';
@@ -47,7 +50,8 @@ export async function writeAtomic(
   // basta — chamadas in-process concorrentes ao mesmo target compartilham
   // process.pid; Date.now() pode colidir em ms quando event loop dispara
   // múltiplos awaits no mesmo tick. UUID-equivalente em entropia.
-  const tmpPath = `${path}.${process.pid}.${Date.now()}.${randomBytes(8).toString('hex')}.tmp`;
+  const randomSuffix = (await randomBytesAsync(8)).toString('hex');
+  const tmpPath = `${path}.${process.pid}.${Date.now()}.${randomSuffix}.tmp`;
   const mode = options?.mode ?? 0o600;
 
   let fileHandle: Awaited<ReturnType<typeof open>> | null = null;

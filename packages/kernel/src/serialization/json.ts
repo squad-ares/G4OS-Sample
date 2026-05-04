@@ -1,6 +1,7 @@
-import type { Result } from 'neverthrow';
+import { err, type Result } from 'neverthrow';
 import type { ZodType } from 'zod';
-import type { AppError } from '../errors/app-error.ts';
+import { AppError } from '../errors/app-error.ts';
+import { ErrorCode } from '../errors/error-codes.ts';
 import { parseSchema } from '../validation/parse.ts';
 
 export function serializeJson<T>(value: T): string {
@@ -15,8 +16,16 @@ export function deserializeJson<T>(
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw);
-  } catch {
-    return parseSchema(schema, undefined, context ?? 'JSON.parse');
+  } catch (syntaxError) {
+    const ctxLabel = context ? ` (${context})` : '';
+    return err(
+      new AppError({
+        code: ErrorCode.VALIDATION_ERROR,
+        message: `JSON parse failed${ctxLabel}`,
+        cause: syntaxError,
+        context: { sample: raw.slice(0, 200) },
+      }),
+    );
   }
   return parseSchema(schema, parsed, context);
 }

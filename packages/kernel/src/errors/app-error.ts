@@ -27,6 +27,10 @@ function truncateCauseChain(
   seen.add(cause);
   const inner = (cause as { cause?: unknown }).cause;
   if (inner === undefined) return cause;
+  // Força leitura do `stack` antes do clone: o V8 define `stack` como
+  // getter lazy own-property — se não for lida antes, `getOwnPropertyDescriptor`
+  // retorna `undefined` e o clone perde o stack trace.
+  void (cause as { stack?: unknown }).stack;
   // Clonamos preservando o protótipo (`instanceof CustomError` continua valendo) e
   // substituímos `cause` no clone — nunca mutamos o input. Caller pode reter referência
   // para o original; mutar quebraria cadeias compartilhadas (Sentry breadcrumb capture,

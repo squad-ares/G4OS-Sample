@@ -60,30 +60,35 @@ function readProcessEnv(key: string): string | undefined {
   if (typeof process === 'undefined' || process.env === undefined) return undefined;
   return process.env[key];
 }
-const defaultLevel: Level = (readProcessEnv('LOG_LEVEL') ?? 'info') as Level;
-const isDev = readProcessEnv('NODE_ENV') === 'development';
+let _baseLogger: PinoLogger | undefined;
 
-const baseLogger = pino({
-  level: defaultLevel,
-  redact: {
-    paths: [...REDACT_PATHS],
-    censor: REDACT_CENSOR,
-  },
-  formatters: {
-    level: (label) => ({ level: label }),
-  },
-  timestamp: pino.stdTimeFunctions.isoTime,
-  ...(isDev && {
-    transport: {
-      target: 'pino-pretty',
-      options: {
-        colorize: true,
-        translateTime: 'HH:MM:ss.l',
-        ignore: 'pid,hostname',
-      },
+function getBaseLogger(): PinoLogger {
+  if (_baseLogger !== undefined) return _baseLogger;
+  const defaultLevel: Level = (readProcessEnv('LOG_LEVEL') ?? 'info') as Level;
+  const isDev = readProcessEnv('NODE_ENV') === 'development';
+  _baseLogger = pino({
+    level: defaultLevel,
+    redact: {
+      paths: [...REDACT_PATHS],
+      censor: REDACT_CENSOR,
     },
-  }),
-});
+    formatters: {
+      level: (label) => ({ level: label }),
+    },
+    timestamp: pino.stdTimeFunctions.isoTime,
+    ...(isDev && {
+      transport: {
+        target: 'pino-pretty',
+        options: {
+          colorize: true,
+          translateTime: 'HH:MM:ss.l',
+          ignore: 'pid,hostname',
+        },
+      },
+    }),
+  });
+  return _baseLogger;
+}
 
 export interface Logger {
   child(context: LogContext): Logger;
@@ -140,7 +145,16 @@ export function wrapPinoLogger(inner: PinoLogger): Logger {
   };
 }
 
-export const logger = wrapPinoLogger(baseLogger);
 export function createLogger(component: string): Logger {
-  return logger.child({ component });
+  return wrapPinoLogger(getBaseLogger()).child({ component });
 }
+
+export const logger: Logger = {
+  child: (context) => wrapPinoLogger(getBaseLogger().child(context)),
+  trace: (ctx, msg) => wrapPinoLogger(getBaseLogger()).trace(ctx, msg),
+  debug: (ctx, msg) => wrapPinoLogger(getBaseLogger()).debug(ctx, msg),
+  info: (ctx, msg) => wrapPinoLogger(getBaseLogger()).info(ctx, msg),
+  warn: (ctx, msg) => wrapPinoLogger(getBaseLogger()).warn(ctx, msg),
+  error: (ctx, msg) => wrapPinoLogger(getBaseLogger()).error(ctx, msg),
+  fatal: (ctx, msg) => wrapPinoLogger(getBaseLogger()).fatal(ctx, msg),
+};
