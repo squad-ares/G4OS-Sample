@@ -2,6 +2,7 @@ import type { Workspace } from '@g4os/kernel/types';
 import type { TranslationKey, TranslationParams } from '@g4os/translate';
 import { Button, useTranslate } from '@g4os/ui';
 import { ExternalLink, MessagesSquare, Plus, Share, Trash2, Upload } from 'lucide-react';
+import { formatRelativeMs } from '../../shared/format-relative.ts';
 
 type TranslateFn = (key: TranslationKey, params?: TranslationParams) => string;
 
@@ -212,22 +213,10 @@ function formatStatsLine(stats: WorkspaceListItemStats | undefined, t: Translate
     parts.push(t('workspace.list.stats.projects', { count: stats.projectCount }));
   }
   if (typeof stats.lastActivityAt === 'number' && stats.lastActivityAt > 0) {
-    parts.push(
-      t('workspace.list.stats.lastActivity', { when: formatRelative(stats.lastActivityAt) }),
-    );
+    // CR-37 F-CR37-4/5: usar helper centralizado com locale do app.
+    const when = formatRelativeMs(t, stats.lastActivityAt);
+    if (when) parts.push(t('workspace.list.stats.lastActivity', { when }));
   }
   return parts.length > 0 ? parts.join(' · ') : null;
 }
-
-function formatRelative(ms: number): string {
-  const delta = Date.now() - ms;
-  if (delta < 0) return 'agora';
-  const minutes = Math.floor(delta / 60_000);
-  if (minutes < 1) return 'agora';
-  if (minutes < 60) return `${minutes}m`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h`;
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d`;
-  return new Date(ms).toLocaleDateString(undefined, { month: 'short', day: '2-digit' });
-}
+// CR-37 F-CR37-4: formatRelative local removida — usar formatRelativeMs do helper centralizado.

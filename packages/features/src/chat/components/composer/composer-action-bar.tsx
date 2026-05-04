@@ -116,7 +116,7 @@ function LeftActionGroup({
         (affordances?.onOpenWorkingDir ? (
           <ComposerChipButton
             icon={<Folder className="size-3.5" aria-hidden={true} />}
-            label={affordances.workingDirLabel ?? 'main'}
+            label={affordances.workingDirLabel ?? t('chat.composer.workingDir.defaultLabel')}
             onClick={affordances.onOpenWorkingDir}
             {...(disabled ? { disabled } : {})}
           />

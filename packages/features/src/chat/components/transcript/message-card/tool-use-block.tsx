@@ -1,4 +1,4 @@
-import { cn } from '@g4os/ui';
+import { cn, useTranslate } from '@g4os/ui';
 import { ChevronRight, Wrench } from 'lucide-react';
 import { useState } from 'react';
 import type { ToolUseBlock as ToolUseBlockType } from '../../../types.ts';
@@ -16,8 +16,9 @@ interface ToolUseBlockProps {
  * sem competir com o texto principal da assistant message.
  */
 export function ToolUseBlock({ block }: ToolUseBlockProps) {
+  const { t } = useTranslate();
   const [open, setOpen] = useState(false);
-  const argSummary = formatArgs(block.input);
+  const argSummary = formatArgs(block.input, t);
 
   return (
     <div className="my-1.5 overflow-hidden rounded-lg border border-foreground/10 bg-foreground/[0.03]">
@@ -52,11 +53,14 @@ export function ToolUseBlock({ block }: ToolUseBlockProps) {
   );
 }
 
+type TFn = ReturnType<typeof useTranslate>['t'];
+
 /**
  * Sumariza args em uma linha — extrai o valor escalar mais relevante
  * pelas heurísticas comuns (command, path, query, etc.).
+ * CR-37 F-CR37-15: contagem de args via t() em vez de plural hardcoded.
  */
-function formatArgs(input: Record<string, unknown>): string {
+function formatArgs(input: Record<string, unknown>, t: TFn): string {
   const entries = Object.entries(input);
   if (entries.length === 0) return '';
 
@@ -78,5 +82,8 @@ function formatArgs(input: Record<string, unknown>): string {
     return `${k}="${display}"`;
   }
 
-  return `${entries.length} ${entries.length === 1 ? 'arg' : 'args'}`;
+  const count = entries.length;
+  return count === 1
+    ? t('chat.toolUse.argCount', { count })
+    : t('chat.toolUse.argsCount', { count });
 }

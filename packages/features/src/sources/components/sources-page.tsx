@@ -1,6 +1,7 @@
 import type {
   CreateMcpStdioSourceInput,
   SourceCatalogItem,
+  SourceCategory,
   SourceConfigView,
 } from '@g4os/kernel/types';
 import type { TranslationKey } from '@g4os/translate';
@@ -26,6 +27,18 @@ export interface SourcesPageProps {
 }
 
 type SourcesTab = 'all' | 'installed' | 'catalog' | 'custom';
+
+/** CR-37 F-CR37-16/17: mapa tipado elimina `as TranslationKey` na categoria. */
+const PAGE_CATEGORY_KEYS: Record<SourceCategory, TranslationKey> = {
+  google: 'sources.category.google',
+  microsoft: 'sources.category.microsoft',
+  slack: 'sources.category.slack',
+  dev: 'sources.category.dev',
+  storage: 'sources.category.storage',
+  crm: 'sources.category.crm',
+  pm: 'sources.category.pm',
+  other: 'sources.category.other',
+};
 
 export function SourcesPage({
   workspaceId,
@@ -168,7 +181,7 @@ export function SourcesPage({
             {Array.from(grouped.entries()).map(([category, items]) => (
               <div key={category} className="flex flex-col gap-2">
                 <h3 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                  {t(`sources.category.${category}` as TranslationKey)}
+                  {t(PAGE_CATEGORY_KEYS[category])}
                 </h3>
                 <ul className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
                   {items.map((item) => (
@@ -229,8 +242,8 @@ function EmptyState() {
 
 function groupByCategory(
   items: readonly SourceCatalogItem[],
-): ReadonlyMap<string, readonly SourceCatalogItem[]> {
-  const map = new Map<string, SourceCatalogItem[]>();
+): ReadonlyMap<SourceCategory, readonly SourceCatalogItem[]> {
+  const map = new Map<SourceCategory, SourceCatalogItem[]>();
   for (const item of items) {
     const existing = map.get(item.category);
     if (existing) existing.push(item);

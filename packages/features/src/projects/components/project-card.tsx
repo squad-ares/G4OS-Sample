@@ -8,6 +8,7 @@ import {
   useTranslate,
 } from '@g4os/ui';
 import { FolderKanban, MoreHorizontal } from 'lucide-react';
+import { formatRelativeMs } from '../../shared/format-relative.ts';
 import { HighlightedTitle } from '../../shell/index.ts';
 import type { ProjectListItem } from '../types.ts';
 
@@ -32,7 +33,8 @@ export function ProjectCard({
   const { t } = useTranslate();
   const accent = project.color ?? COLOR_FALLBACK;
   const isArchived = project.status === 'archived';
-  const updatedRelative = formatRelativeTime(project.updatedAt);
+  // CR-37 F-CR37-4/5: usar helper centralizado com locale do app.
+  const updatedRelative = project.updatedAt ? formatRelativeMs(t, project.updatedAt) : null;
 
   return (
     <div
@@ -115,19 +117,4 @@ export function ProjectCard({
   );
 }
 
-function formatRelativeTime(ms: number): string | null {
-  try {
-    const delta = Date.now() - ms;
-    if (delta < 0) return null;
-    const minutes = Math.floor(delta / 60_000);
-    if (minutes < 1) return 'agora';
-    if (minutes < 60) return `${minutes}m`;
-    const hours = Math.floor(minutes / 60);
-    if (hours < 24) return `${hours}h`;
-    const days = Math.floor(hours / 24);
-    if (days < 7) return `${days}d`;
-    return new Date(ms).toLocaleDateString(undefined, { month: 'short', day: '2-digit' });
-  } catch {
-    return null;
-  }
-}
+// CR-37 F-CR37-4: formatRelativeTime local removida — usar formatRelativeMs do helper centralizado.

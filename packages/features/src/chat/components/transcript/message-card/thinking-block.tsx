@@ -1,4 +1,4 @@
-import { cn } from '@g4os/ui';
+import { cn, useTranslate } from '@g4os/ui';
 import { ChevronDown } from 'lucide-react';
 import { useState } from 'react';
 import type { ThinkingBlock as ThinkingBlockType } from '../../../types.ts';
@@ -9,6 +9,7 @@ interface ThinkingBlockProps {
 }
 
 export function ThinkingBlock({ block, isStreaming }: ThinkingBlockProps) {
+  const { t } = useTranslate();
   const [open, setOpen] = useState(false);
 
   return (
@@ -19,8 +20,9 @@ export function ThinkingBlock({ block, isStreaming }: ThinkingBlockProps) {
         className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-muted-foreground hover:text-foreground"
       >
         <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-violet-400" aria-hidden={true} />
+        {/* CR-37 F-CR37-3: usar t() em vez de strings hardcoded. */}
         <span className="flex-1 font-medium italic">
-          {isStreaming ? 'Thinking…' : 'Thought process'}
+          {isStreaming ? t('chat.thinkingBlock.streaming') : t('chat.thinkingBlock.label')}
         </span>
         <ChevronDown className={cn('h-3.5 w-3.5 transition-transform', open && 'rotate-180')} />
       </button>

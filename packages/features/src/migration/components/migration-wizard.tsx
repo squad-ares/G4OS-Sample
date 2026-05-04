@@ -87,10 +87,11 @@ export function MigrationWizard({ ports, onComplete, onSkip }: MigrationWizardPr
       }
       const plan = await ports.plan({ source: v1 });
       setState({ kind: 'plan-review', v1, plan });
-    } catch (err) {
-      setState({ kind: 'error', message: err instanceof Error ? err.message : String(err) });
+    } catch {
+      // CR-37 F-CR37-19: não expõe err.message bruto — usa chave i18n genérica.
+      setState({ kind: 'error', message: t('migration.wizard.detectError') });
     }
-  }, [ports]);
+  }, [ports, t]);
 
   useEffect(() => {
     void detectAndPlan();
@@ -105,8 +106,9 @@ export function MigrationWizard({ ports, onComplete, onSkip }: MigrationWizardPr
       });
       setState({ kind: 'done', report });
       onComplete(report);
-    } catch (err) {
-      setState({ kind: 'error', message: err instanceof Error ? err.message : String(err) });
+    } catch {
+      // CR-37 F-CR37-19: não expõe err.message bruto — usa chave i18n genérica.
+      setState({ kind: 'error', message: t('migration.wizard.detectError') });
     }
   }
 

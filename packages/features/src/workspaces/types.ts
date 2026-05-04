@@ -1,5 +1,9 @@
-import type { Workspace } from '@g4os/kernel/types';
+import type { ThinkingLevel, Workspace } from '@g4os/kernel/types';
 import type { TranslationKey } from '@g4os/translate';
+
+// CR-37 F-CR37-1: ThinkingLevel importado de @g4os/kernel/types (canônico).
+// Valores válidos: 'low' | 'think' | 'high' | 'ultra' — definido em session.schema.ts.
+export type { ThinkingLevel };
 
 export const WORKSPACE_WIZARD_STEPS = [
   'name',
@@ -12,9 +16,7 @@ export const WORKSPACE_WIZARD_STEPS = [
 
 export type WorkspaceWizardStep = (typeof WORKSPACE_WIZARD_STEPS)[number];
 
-export type ThinkingLevel = 'minimal' | 'low' | 'medium' | 'high';
-
-export const DEFAULT_THINKING_LEVEL: ThinkingLevel = 'medium';
+export const DEFAULT_THINKING_LEVEL: ThinkingLevel = 'think';
 
 export interface WorkspaceColor {
   readonly id: string;
@@ -33,10 +35,11 @@ export const WORKSPACE_COLORS: readonly WorkspaceColor[] = [
 
 export type PermissionPreset = 'permissive' | 'balanced' | 'strict';
 
+// CR-37 F-CR37-18: labelKey/descriptionKey tipados como TranslationKey (não string).
 export interface PermissionPresetConfig {
   readonly id: PermissionPreset;
-  readonly labelKey: string;
-  readonly descriptionKey: string;
+  readonly labelKey: TranslationKey;
+  readonly descriptionKey: TranslationKey;
   readonly mode: Workspace['defaults']['permissionMode'];
 }
 
@@ -61,9 +64,10 @@ export const PERMISSION_PRESETS: readonly PermissionPresetConfig[] = [
   },
 ];
 
+// CR-37 F-CR37-18: labelKey tipado como TranslationKey (não string).
 export interface SourceSeed {
   readonly slug: string;
-  readonly labelKey: string;
+  readonly labelKey: TranslationKey;
   readonly group: 'google' | 'microsoft' | 'dev' | 'other';
 }
 

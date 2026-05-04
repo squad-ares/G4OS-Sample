@@ -79,9 +79,18 @@ function NodeItem({ node, currentId, onSelect, depth }: NodeItemProps) {
   );
 }
 
-function buildTree(root: Session, branches: readonly Session[]): Node {
+/**
+ * CR-37 F-CR37-9: cycle-guard — passa Set de ids visitados para evitar
+ * loop infinito em caso de corrupção do grafo de branches no DB.
+ */
+function buildTree(
+  root: Session,
+  branches: readonly Session[],
+  visited: Set<string> = new Set(),
+): Node {
+  visited.add(root.id);
   const children = branches
-    .filter((b) => b.parentId === root.id)
-    .map((b) => buildTree(b, branches));
+    .filter((b) => b.parentId === root.id && !visited.has(b.id))
+    .map((b) => buildTree(b, branches, new Set(visited)));
   return { session: root, children };
 }

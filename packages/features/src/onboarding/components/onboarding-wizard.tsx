@@ -263,8 +263,9 @@ function CredentialsStep({
           setError(null);
           try {
             await onSubmit(values.apiKey);
-          } catch (err) {
-            setError(err instanceof Error ? err.message : String(err));
+          } catch {
+            // CR-37 F-CR37-19: não expõe err.message bruto — usa chave i18n genérica.
+            setError(t('onboarding.credentials.saveError'));
           }
         })}
         className="flex flex-col gap-3"

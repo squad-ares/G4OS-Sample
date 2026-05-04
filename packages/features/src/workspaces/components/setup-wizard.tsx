@@ -40,7 +40,8 @@ export function WorkspaceSetupWizard({
     name: initialName ?? '',
     color: WORKSPACE_COLORS[0]?.id ?? 'indigo',
     workingDirectory: '',
-    defaults: { permissionPreset: 'balanced', thinkingLevel: 'medium' },
+    // CR-37 F-CR37-1: usar valor canônico 'think' (não 'medium' — regressão do CR-30).
+    defaults: { permissionPreset: 'balanced', thinkingLevel: 'think' },
     enabledSources: DEFAULT_SOURCE_SEEDS.map((s) => s.slug),
     styleInterview: { language: 'pt-BR', tone: 'neutral', skip: false },
   });

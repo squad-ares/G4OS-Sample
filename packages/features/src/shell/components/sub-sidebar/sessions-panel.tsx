@@ -13,6 +13,7 @@ import {
   X,
 } from 'lucide-react';
 import { type MouseEvent as ReactMouseEvent, type ReactNode, useMemo, useState } from 'react';
+import { formatRelativeMs } from '../../../shared/format-relative.ts';
 import { SessionRow, TabIconButton } from './session-row.tsx';
 import { groupSessionsByDay } from './sessions-panel-grouping.ts';
 import {
@@ -390,18 +391,13 @@ export function mapSessionToPanelItem(
   };
 }
 
-function formatTimestamp(ms: number): string | undefined {
-  try {
-    const delta = Date.now() - ms;
-    const minutes = Math.floor(delta / 60_000);
-    if (minutes < 1) return 'now';
-    if (minutes < 60) return `${minutes}m`;
-    const hours = Math.floor(minutes / 60);
-    if (hours < 24) return `${hours}h`;
-    const days = Math.floor(hours / 24);
-    if (days < 7) return `${days}d`;
-    return new Date(ms).toLocaleDateString(undefined, { month: 'short', day: '2-digit' });
-  } catch {
-    return undefined;
-  }
+// CR-37 F-CR37-4/5: formatTimestamp removida — usar formatRelativeMs do helper centralizado.
+// mapSessionToPanelItem aceita `t` para gerar timestamp localizado.
+// Para compatibilidade retroativa com callers sem `t`, retorna undefined quando não há t.
+export function formatTimestamp(
+  ms: number,
+  t?: Parameters<typeof formatRelativeMs>[0],
+): string | undefined {
+  if (!t) return undefined;
+  return formatRelativeMs(t, ms) ?? undefined;
 }

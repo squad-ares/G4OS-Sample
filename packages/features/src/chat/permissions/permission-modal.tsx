@@ -68,7 +68,15 @@ export function PermissionModal({ request, pendingCount, onDecide }: PermissionM
   }, [onDecide]);
 
   return (
-    <Dialog open={true}>
+    <Dialog
+      open={true}
+      onOpenChange={(open) => {
+        // CR-37 F-CR37-20: Esc fecha o dialog via Radix onOpenChange(false).
+        // Mapeamos para deny para que o agente continue sem aguardar
+        // indefinidamente e o estado interno do provider seja drenado.
+        if (!open) onDecide({ type: 'deny' });
+      }}
+    >
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>{t('chat.permission.title')}</DialogTitle>

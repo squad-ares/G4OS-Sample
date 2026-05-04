@@ -50,7 +50,12 @@ export function WorkingDirPicker({
   const { t } = useTranslate();
   const [open, setOpen] = useState(false);
 
-  const activeLabel = resolveActiveLabel(value, options, t('chat.workingDir.custom'));
+  const activeLabel = resolveActiveLabel(
+    value,
+    options,
+    t('chat.workingDir.custom'),
+    t('chat.composer.workingDir.defaultLabel'),
+  );
 
   const handleSelect = (option: WorkingDirOption) => {
     setOpen(false);
@@ -194,10 +199,11 @@ function resolveActiveLabel(
   value: string | null,
   options: readonly WorkingDirOption[],
   customLabel: string,
+  defaultLabel: string,
 ): string {
   if (value === null) {
     const main = options.find((o) => o.kind === 'workspace-main');
-    return main?.label ?? 'main';
+    return main?.label ?? defaultLabel;
   }
   const match = options.find((o) => o.path === value);
   if (match) return match.label;

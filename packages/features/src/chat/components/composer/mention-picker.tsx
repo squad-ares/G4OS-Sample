@@ -14,6 +14,15 @@ import { useTranslate } from '@g4os/ui';
 import { LayoutGrid } from 'lucide-react';
 import { type KeyboardEvent, type ReactNode, useEffect, useId, useMemo, useState } from 'react';
 
+/** CR-37 F-CR37-17: mapa tipado elimina `as TranslationKey` no status badge. */
+const MENTION_STATUS_KEYS: Record<SourceConfigView['status'], TranslationKey> = {
+  connected: 'sources.status.connected',
+  disconnected: 'sources.status.disconnected',
+  connecting: 'sources.status.connecting',
+  needs_auth: 'sources.status.needs_auth',
+  error: 'sources.status.error',
+};
+
 export interface MentionPickerProps {
   readonly sources: readonly SourceConfigView[];
   readonly query: string;
@@ -155,7 +164,7 @@ function MentionRow({ id, source, active, onHover, onSelect }: MentionRowProps):
         <div className="truncate font-mono text-[10px] text-muted-foreground">{source.slug}</div>
       </div>
       <span className={`text-[9px] uppercase tracking-wider ${statusColor(source.status)}`}>
-        {t(`sources.status.${source.status}` as TranslationKey)}
+        {t(MENTION_STATUS_KEYS[source.status])}
       </span>
     </button>
   );

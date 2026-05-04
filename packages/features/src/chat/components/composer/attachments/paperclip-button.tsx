@@ -21,7 +21,8 @@ export function PaperclipButton({ existing, onAttach, onError, disabled }: Paper
     const arr = Array.from(files);
     const err = validateAttachments(arr, existing);
     if (err) {
-      onError?.(err);
+      // CR-37 F-CR37-2: traduz a mensagem de erro usando a chave discriminada.
+      onError?.(t(err.key, err.params as Record<string, string | number>));
       e.target.value = '';
       return;
     }

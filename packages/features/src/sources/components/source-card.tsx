@@ -1,4 +1,4 @@
-import type { SourceConfigView } from '@g4os/kernel/types';
+import type { SourceCategory, SourceConfigView, SourceKind } from '@g4os/kernel/types';
 import type { TranslationKey } from '@g4os/translate';
 import { Button, ConfirmDestructiveDialog, useTranslate } from '@g4os/ui';
 import {
@@ -172,15 +172,47 @@ function StatusBadge({
     <span
       className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${colorMap[status] ?? colorMap.disconnected}`}
     >
-      {t(`sources.status.${status}` as TranslationKey)}
+      {t(SOURCE_STATUS_KEYS[status] ?? SOURCE_STATUS_KEYS.disconnected)}
     </span>
   );
 }
 
+/**
+ * CR-37 F-CR37-16/17: mapas tipados eliminam `as TranslationKey` e garantem
+ * que novas variantes de kind/category/status sejam checadas em compile-time.
+ */
+const SOURCE_STATUS_KEYS: Record<SourceConfigView['status'], TranslationKey> = {
+  connected: 'sources.status.connected',
+  disconnected: 'sources.status.disconnected',
+  connecting: 'sources.status.connecting',
+  needs_auth: 'sources.status.needs_auth',
+  error: 'sources.status.error',
+};
+
+const SOURCE_KIND_KEYS: Record<SourceKind, TranslationKey> = {
+  managed: 'sources.kind.managed',
+  'mcp-stdio': 'sources.kind.mcp-stdio',
+  'mcp-http': 'sources.kind.mcp-http',
+  api: 'sources.kind.api',
+  filesystem: 'sources.kind.filesystem',
+};
+
+const SOURCE_CATEGORY_KEYS: Record<SourceCategory, TranslationKey> = {
+  google: 'sources.category.google',
+  microsoft: 'sources.category.microsoft',
+  slack: 'sources.category.slack',
+  dev: 'sources.category.dev',
+  storage: 'sources.category.storage',
+  crm: 'sources.category.crm',
+  pm: 'sources.category.pm',
+  other: 'sources.category.other',
+};
+
 function KindBadge({ kind }: { readonly kind: SourceConfigView['kind'] }): ReactNode {
+  const { t } = useTranslate();
   return (
     <span className="rounded-full bg-foreground/5 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-      {kind}
+      {t(SOURCE_KIND_KEYS[kind])}
     </span>
   );
 }
@@ -190,9 +222,10 @@ function CategoryBadge({
 }: {
   readonly category: SourceConfigView['category'];
 }): ReactNode {
+  const { t } = useTranslate();
   return (
     <span className="rounded-full bg-foreground/5 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-      {category}
+      {t(SOURCE_CATEGORY_KEYS[category])}
     </span>
   );
 }
