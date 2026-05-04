@@ -28,6 +28,8 @@ pre-push:
       run: pnpm lint
     full-typecheck:
       run: pnpm typecheck
+    check-i18n:
+      run: pnpm check:i18n
     # test-affected: removed — defer to CI for comprehensive test runs
     # When packages have tests, uncomment with:
     # test-affected:

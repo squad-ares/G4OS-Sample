@@ -6,6 +6,24 @@ settings:
 
 catalogs:
   default:
+    '@opentelemetry/api':
+      specifier: 1.9.0
+      version: 1.9.0
+    '@opentelemetry/exporter-trace-otlp-http':
+      specifier: 0.215.0
+      version: 0.215.0
+    '@opentelemetry/resources':
+      specifier: 2.7.0
+      version: 2.7.0
+    '@opentelemetry/sdk-node':
+      specifier: 0.215.0
+      version: 0.215.0
+    '@opentelemetry/sdk-trace-base':
+      specifier: 2.7.0
+      version: 2.7.0
+    '@sentry/electron':
+      specifier: 5.10.0
+      version: 5.10.0
     '@tanstack/react-router':
       specifier: 1.168.23
       version: 1.168.23
@@ -215,6 +233,9 @@ importers:
       '@g4os/platform':
         specifier: workspace:^
         version: link:../../packages/platform
+      '@g4os/release-channels':
+        specifier: workspace:^
+        version: link:../../packages/release-channels
       '@g4os/session-runtime':
         specifier: workspace:^
         version: link:../../packages/session-runtime
@@ -404,19 +425,19 @@ importers:
         version: 8.0.9(@types/node@25.6.0)(esbuild@0.28.0)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.3)
     optionalDependencies:
       '@opentelemetry/exporter-trace-otlp-http':
-        specifier: 0.215.0
+        specifier: 'catalog:'
         version: 0.215.0(@opentelemetry/api@1.9.0)
       '@opentelemetry/resources':
-        specifier: 2.7.0
+        specifier: 'catalog:'
         version: 2.7.0(@opentelemetry/api@1.9.0)
       '@opentelemetry/sdk-node':
-        specifier: 0.215.0
+        specifier: 'catalog:'
         version: 0.215.0(@opentelemetry/api@1.9.0)
       '@opentelemetry/sdk-trace-base':
-        specifier: 2.7.0
+        specifier: 'catalog:'
         version: 2.7.0(@opentelemetry/api@1.9.0)
       '@sentry/electron':
-        specifier: 5.10.0
+        specifier: 'catalog:'
         version: 5.10.0
 
   apps/desktop-e2e:
@@ -629,7 +650,7 @@ importers:
         specifier: workspace:^
         version: link:../kernel
       '@opentelemetry/api':
-        specifier: 1.9.0
+        specifier: 'catalog:'
         version: 1.9.0
       '@trpc/client':
         specifier: 'catalog:'
@@ -707,7 +728,7 @@ importers:
         specifier: workspace:*
         version: link:../kernel
       '@opentelemetry/api':
-        specifier: 1.9.0
+        specifier: 'catalog:'
         version: 1.9.0
       archiver:
         specifier: 'catalog:'
@@ -733,19 +754,19 @@ importers:
         version: 4.1.4(@opentelemetry/api@1.9.0)(@types/node@25.6.0)(esbuild@0.28.0)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.3)
     optionalDependencies:
       '@opentelemetry/exporter-trace-otlp-http':
-        specifier: 0.215.0
+        specifier: 'catalog:'
         version: 0.215.0(@opentelemetry/api@1.9.0)
       '@opentelemetry/resources':
-        specifier: 2.7.0
+        specifier: 'catalog:'
         version: 2.7.0(@opentelemetry/api@1.9.0)
       '@opentelemetry/sdk-node':
-        specifier: 0.215.0
+        specifier: 'catalog:'
         version: 0.215.0(@opentelemetry/api@1.9.0)
       '@opentelemetry/sdk-trace-base':
-        specifier: 2.7.0
+        specifier: 'catalog:'
         version: 2.7.0(@opentelemetry/api@1.9.0)
       '@sentry/electron':
-        specifier: 5.10.0
+        specifier: 'catalog:'
         version: 5.10.0
       '@sentry/node':
         specifier: 8.34.0
@@ -782,6 +803,9 @@ importers:
 
   packages/release-channels:
     dependencies:
+      neverthrow:
+        specifier: 'catalog:'
+        version: 8.2.0
       zod:
         specifier: 'catalog:'
         version: 4.3.6
@@ -836,6 +860,9 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 25.6.0
+      rxjs:
+        specifier: 'catalog:'
+        version: 7.8.2
       vitest:
         specifier: 'catalog:'
         version: 4.1.4(@opentelemetry/api@1.9.0)(@types/node@25.6.0)(esbuild@0.28.0)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.3)

@@ -209,7 +209,6 @@
         "**/validation/env.ts",
         "**/logger/logger.ts",
         "**/platform-info.ts",
-        "**/paths.ts",
         "**/routers/health-router.ts",
         "**/codex/binary-resolver.ts"
       ],

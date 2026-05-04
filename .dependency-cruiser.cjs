@@ -42,6 +42,14 @@ module.exports = {
       to: { path: '^packages/(?!(kernel|agents))' },
     },
     {
+      name: 'codex-types-isolated',
+      comment:
+        '@g4os/codex-types é types-only + 1 const runtime; não pode depender de nenhum pacote interno.',
+      severity: 'error',
+      from: { path: '^packages/codex-types/src/' },
+      to: { path: '^packages/' },
+    },
+    {
       name: 'agents-layered',
       comment:
         '@g4os/agents subpaths não-interface podem depender só de kernel/platform/agents/codex-types. Sem features/ui/data/etc.',
@@ -80,6 +88,23 @@ module.exports = {
       severity: 'error',
       from: { path: '^packages/sources' },
       to: { path: '^packages/(?!(kernel|platform|agents|sources))' },
+    },
+    {
+      name: 'translate-isolated',
+      comment: '@g4os/translate é leaf — zero dependências de pacotes internos (ADR-0109)',
+      severity: 'error',
+      from: { path: '^packages/translate' },
+      to: { path: '^packages/(?!translate)' },
+    },
+    {
+      name: 'bridge-mcp-server-isolated',
+      comment:
+        '@g4os/bridge-mcp-server depende só de kernel (e platform quando precisar de detecção de SO). ' +
+        'Sem data, agents, features, ipc — enquanto skeleton. Quando promovido para implementação real, ' +
+        'expandir a allowlist com ADR justificando cada adição.',
+      severity: 'error',
+      from: { path: '^packages/bridge-mcp-server' },
+      to: { path: '^packages/(?!(kernel|platform|bridge-mcp-server))' },
     },
 
     // ========== FEATURES ==========
