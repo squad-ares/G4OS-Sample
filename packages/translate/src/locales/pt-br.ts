@@ -607,8 +607,10 @@ export const ptBR = {
 
   'workspace.thinking.minimal': 'Mínimo',
   'workspace.thinking.low': 'Baixo',
+  'workspace.thinking.think': 'Pensar',
   'workspace.thinking.medium': 'Médio',
   'workspace.thinking.high': 'Alto',
+  'workspace.thinking.ultra': 'Ultra',
 
   'workspace.tone.formal': 'Formal',
   'workspace.tone.neutral': 'Neutro',
@@ -1310,6 +1312,8 @@ export const ptBR = {
   'migration.wizard.errorTitle': 'Erro na migração',
   'migration.wizard.retry': 'Tentar novamente',
 
+  'markdown.code.copy': 'Copiar',
+  'markdown.code.copied': 'Copiado',
   'markdown.mermaid.renderError': 'Erro ao renderizar diagrama Mermaid',
   'markdown.pdf.renderError': 'Erro ao renderizar PDF',
   'markdown.pdf.previewUnavailable': 'Pré-visualização indisponível neste build',
@@ -1318,9 +1322,9 @@ export const ptBR = {
   // Debug HUD ---------------------------------------------------------------
   'debugHud.app.title': 'G4 OS · Diagnóstico',
   'debugHud.app.waiting': 'Aguardando primeiro tick do diagnóstico…',
-  'debugHud.header.alertsOne': '{count} alerta',
-  'debugHud.header.alertsMany': '{count} alertas',
-  'debugHud.header.uptime': 'ativo há {duration}',
+  'debugHud.header.alertsOne': '{{count}} alerta',
+  'debugHud.header.alertsMany': '{{count}} alertas',
+  'debugHud.header.uptime': 'ativo há {{duration}}',
   'debugHud.header.releaseMemory': 'Liberar memória',
   'debugHud.header.reload': 'Recarregar',
   'debugHud.header.report': 'Reportar problema',
@@ -1339,7 +1343,7 @@ export const ptBR = {
   'debugHud.healthLabel.healthy': 'Saudável',
   'debugHud.healthLabel.attention': 'Atenção',
   'debugHud.healthLabel.critical': 'Crítico',
-  'debugHud.healthScore.aria': 'Saúde do sistema: {value} de 100, {label}',
+  'debugHud.healthScore.aria': 'Saúde do sistema: {{value}} de 100, {{label}}',
 
   'debugHud.glossary.memoryRss.title': 'Memória total (RSS)',
   'debugHud.glossary.memoryRss.description':
@@ -1408,45 +1412,45 @@ export const ptBR = {
   'debugHud.glossary.healthScore.description':
     'Indicador geral de 0 a 100 baseado em alertas ativos. 100 = tudo ok; abaixo de 70 = vale dar uma olhada; abaixo de 40 = precisa de atenção.',
 
-  'debugHud.insight.memoryGrowthCritical.title': 'Memória crescendo rápido ({growth} MB/min)',
+  'debugHud.insight.memoryGrowthCritical.title': 'Memória crescendo rápido ({{growth}} MB/min)',
   'debugHud.insight.memoryGrowthCritical.description':
     'A memória do app está aumentando consistentemente. Pode ser um vazamento. Recarregar a janela libera estado preso sem fechar o app.',
   'debugHud.insight.memoryGrowthCritical.action': 'Recarregar janela',
-  'debugHud.insight.memoryGrowthWarn.title': 'Memória subindo ({growth} MB/min)',
+  'debugHud.insight.memoryGrowthWarn.title': 'Memória subindo ({{growth}} MB/min)',
   'debugHud.insight.memoryGrowthWarn.description':
     'Crescimento moderado. Pode ser uso normal em sessão longa. Forçar GC confirma se é vazamento (memória cai) ou uso real (não cai).',
   'debugHud.insight.memoryGrowthWarn.action': 'Forçar GC',
-  'debugHud.insight.memoryRssCritical.title': 'Uso de memória muito alto ({rss} MB)',
+  'debugHud.insight.memoryRssCritical.title': 'Uso de memória muito alto ({{rss}} MB)',
   'debugHud.insight.memoryRssCritical.description':
     'O app está consumindo muita memória do sistema. Considere recarregar a janela. Se persistir, exporte o diagnóstico para investigação.',
   'debugHud.insight.memoryRssCritical.action': 'Exportar diagnóstico',
-  'debugHud.insight.memoryRssWarn.title': 'Memória elevada ({rss} MB)',
+  'debugHud.insight.memoryRssWarn.title': 'Memória elevada ({{rss}} MB)',
   'debugHud.insight.memoryRssWarn.description':
     'Consumo acima do esperado para uso normal. Sessões longas com muitas mensagens chegam a esse patamar; recarregar a janela ajuda.',
-  'debugHud.insight.listenersStale.title': '{count} listeners ficaram pendurados',
+  'debugHud.insight.listenersStale.title': '{{count}} listeners ficaram pendurados',
   'debugHud.insight.listenersStale.description':
     'Eventos que deveriam ter sido liberados após uso (listeners stale). Costuma ser bug em código que registra handler mas esquece de remover. Reciclar limpa o estado e mostra se voltam.',
   'debugHud.insight.listenersStale.action': 'Reciclar detector',
-  'debugHud.insight.listenersManyCritical.title': 'Muitos listeners ativos ({total})',
+  'debugHud.insight.listenersManyCritical.title': 'Muitos listeners ativos ({{total}})',
   'debugHud.insight.listenersManyCritical.description':
     'Volume alto de event listeners — pode degradar performance e sinalizar acúmulo. Exporte o diagnóstico para análise detalhada.',
   'debugHud.insight.listenersManyCritical.action': 'Exportar diagnóstico',
-  'debugHud.insight.listenersManyWarn.title': 'Listeners acima do normal ({total})',
+  'debugHud.insight.listenersManyWarn.title': 'Listeners acima do normal ({{total}})',
   'debugHud.insight.listenersManyWarn.description':
     'Volume moderado de event listeners. Comum em sessões com muitos painéis abertos.',
-  'debugHud.insight.ipcErrorRate.title': '{pct}% das chamadas internas estão falhando',
+  'debugHud.insight.ipcErrorRate.title': '{{pct}}% das chamadas internas estão falhando',
   'debugHud.insight.ipcErrorRate.description':
     'Procedures do main process retornando erro com frequência. Pode indicar bug recente ou serviço externo (API key, banco) instável. Veja a tab IPC para os procedures mais afetados.',
-  'debugHud.insight.ipcLatencyCritical.title': 'Operações lentas (p95 {p95}ms)',
+  'debugHud.insight.ipcLatencyCritical.title': 'Operações lentas (p95 {{p95}}ms)',
   'debugHud.insight.ipcLatencyCritical.description':
     '95% das chamadas estão demorando mais que o esperado. Turno em vôo pode estar congelado, ou IO de disco/rede travado.',
-  'debugHud.insight.ipcLatencyWarn.title': 'Latência alta (p95 {p95}ms)',
+  'debugHud.insight.ipcLatencyWarn.title': 'Latência alta (p95 {{p95}}ms)',
   'debugHud.insight.ipcLatencyWarn.description':
     'Algumas operações estão lentas. Veja a tab IPC para identificar quais.',
-  'debugHud.insight.vaultErrors.title': 'Erros de credenciais ({count} no último minuto)',
+  'debugHud.insight.vaultErrors.title': 'Erros de credenciais ({{count}} no último minuto)',
   'debugHud.insight.vaultErrors.description':
     'O cofre de credenciais (API keys, tokens OAuth) está reportando erros. Verifique em Configurações > Chaves se as chaves estão válidas.',
-  'debugHud.insight.turnsStuck.title': '{count} turno(s) ativo(s) há mais de 1 minuto',
+  'debugHud.insight.turnsStuck.title': '{{count}} turno(s) ativo(s) há mais de 1 minuto',
   'debugHud.insight.turnsStuck.description':
     'Turnos podem estar congelados aguardando resposta do agente ou de uma ferramenta. Você pode cancelá-los na tab de IPC/Sessões.',
   'debugHud.insight.turnsStuck.action': 'Cancelar todos',
@@ -1472,18 +1476,18 @@ export const ptBR = {
   'debugHud.tabOverview.cardSessions.title': 'Conversas ativas',
   'debugHud.tabOverview.cardSessions.subtitle': 'Conversas com IA em andamento',
   'debugHud.tabOverview.cardSessions.empty': 'Nenhuma conversa em execução agora.',
-  'debugHud.tabOverview.cardSessions.othersCount': '+{count} outras…',
+  'debugHud.tabOverview.cardSessions.othersCount': '+{{count}} outras…',
   'debugHud.tabOverview.cardSessions.hint':
     'Se uma conversa ficar muito tempo aqui sem terminar, pode estar travada.',
   'debugHud.tabOverview.cardListeners.title': 'Notificações internas',
   'debugHud.tabOverview.cardListeners.subtitle': 'Subscrições ativas no app',
-  'debugHud.tabOverview.cardListeners.staleSummary': '{count} pendurada(s) há ≥60s',
-  'debugHud.tabOverview.cardListeners.activeSummary': '{count} ativas',
+  'debugHud.tabOverview.cardListeners.staleSummary': '{{count}} pendurada(s) há ≥60s',
+  'debugHud.tabOverview.cardListeners.activeSummary': '{{count}} ativas',
   'debugHud.tabOverview.cardListeners.totalLabel': 'Total',
   'debugHud.tabOverview.cardListeners.hint':
     'Normal ter algumas dezenas. Centenas ou pendentes podem indicar bug.',
   'debugHud.tabOverview.cardIpc.title': 'Operações internas',
-  'debugHud.tabOverview.cardIpc.subtitle': 'Comunicação entre as partes do app',
+  'debugHud.tabOverview.cardIpc.subtitle': '{{rate}} por segundo · p95 {{p95}} ms',
   'debugHud.tabOverview.cardIpc.responseTime': 'Tempo de resposta (p95)',
   'debugHud.tabOverview.cardIpc.opsPerSec': 'op/s',
   'debugHud.tabOverview.cardIpc.errors': 'erros',
@@ -1492,7 +1496,7 @@ export const ptBR = {
   'debugHud.tabOverview.viewDetails': 'Detalhes →',
 
   'debugHud.tabMemory.history.title': 'Histórico de memória (5 minutos)',
-  'debugHud.tabMemory.history.growth': 'Crescimento médio: {value} MB por minuto',
+  'debugHud.tabMemory.history.growth': 'Crescimento médio: {{value}} MB por minuto',
   'debugHud.tabMemory.history.stable': 'Estável ou liberando memória',
   'debugHud.tabMemory.releaseMemory': 'Liberar memória',
   'debugHud.tabMemory.reload': 'Recarregar',
@@ -1500,10 +1504,10 @@ export const ptBR = {
   'debugHud.tabMemory.thresholdDescription': 'Bom até ~800 MB · Atenção até 1.5 GB · Crítico acima',
   'debugHud.tabMemory.processes.title': 'Processos ativos',
   'debugHud.tabMemory.processes.subtitle': 'V2 roda tudo no processo principal (ADR-0145)',
-  'debugHud.tabMemory.processes.uptime': 'ativo há {duration}',
+  'debugHud.tabMemory.processes.uptime': 'ativo há {{duration}}',
 
   'debugHud.tabIpc.procedures.title': 'Operações internas',
-  'debugHud.tabIpc.procedures.subtitle': '{rate} por segundo · {total} no total',
+  'debugHud.tabIpc.procedures.subtitle': '{{rate}} por segundo · {{total}} no total',
   'debugHud.tabIpc.procedures.empty': 'Aguardando primeiras chamadas…',
   'debugHud.tabIpc.procedures.tableProcedure': 'procedure',
   'debugHud.tabIpc.procedures.tableCalls': 'chamadas',
@@ -1514,13 +1518,13 @@ export const ptBR = {
   'debugHud.tabIpc.procedures.metricErrors': 'Erros',
   'debugHud.tabIpc.procedures.metricRate': 'Taxa de erro',
   'debugHud.tabIpc.activeTurns.title': 'Turnos em vôo',
-  'debugHud.tabIpc.activeTurns.subtitle': '{count} ativo(s)',
+  'debugHud.tabIpc.activeTurns.subtitle': '{{count}} ativo(s)',
   'debugHud.tabIpc.activeTurns.empty': 'Nenhum turno ativo no momento.',
   'debugHud.tabIpc.activeTurns.cancelAll': 'Cancelar todos',
   'debugHud.tabIpc.activeTurns.cancel': 'Cancelar',
-  'debugHud.tabIpc.activeTurns.startedAgo': 'turn {turnId}… · iniciado há {duration}',
+  'debugHud.tabIpc.activeTurns.startedAgo': 'turn {{turnId}}… · iniciado há {{duration}}',
   'debugHud.tabIpc.listeners.title': 'Event Listeners',
-  'debugHud.tabIpc.listeners.subtitle': '{total} ativos · {stale} pendurados',
+  'debugHud.tabIpc.listeners.subtitle': '{{total}} ativos · {{stale}} pendurados',
   'debugHud.tabIpc.listeners.recycle': 'Reciclar',
   'debugHud.tabIpc.listeners.empty':
     'Sem listeners rastreados — instrumente subsystems com listenerDetector.track().',
@@ -1530,7 +1534,7 @@ export const ptBR = {
   'debugHud.tabLogs.clearHistory': 'Limpar histórico',
   'debugHud.tabLogs.clearHistory.tooltip':
     'Limpa apenas o histórico exibido (arquivos no disco não são afetados)',
-  'debugHud.tabLogs.summary': '{seen} mensagens registradas no total · buffer: 1000 linhas',
+  'debugHud.tabLogs.summary': '{{seen}} mensagens registradas no total · buffer: 1000 linhas',
   'debugHud.tabLogs.selectCategory': 'Selecione uma categoria pra filtrar.',
   'debugHud.tabLogs.empty.waiting': 'Aguardando primeiras mensagens…',
   'debugHud.tabLogs.empty.waitingHint': 'Subsystems escrevem aqui assim que começam a operar.',
@@ -1545,7 +1549,7 @@ export const ptBR = {
   'debugHud.tabVault.lastActivity': 'Última atividade',
   'debugHud.tabVault.noActivity': 'Sem atividade registrada ainda.',
   'debugHud.tabVault.recentErrors.title': 'Erros recentes',
-  'debugHud.tabVault.recentErrors.subtitle': '{count} de {max} (últimos)',
+  'debugHud.tabVault.recentErrors.subtitle': '{{count}} de {{max}} (últimos)',
   'debugHud.tabVault.recentErrors.empty': 'Nenhum erro recente. Vault operando normalmente.',
 
   'debugHud.report.title': 'Reportar problema',
@@ -1554,7 +1558,7 @@ export const ptBR = {
   'debugHud.report.descLabel': 'O que aconteceu?',
   'debugHud.report.descPlaceholder':
     'Ex: Ao enviar mensagem para o agente, a tela travou e não recebi resposta…',
-  'debugHud.report.charCount': '{count} caracteres',
+  'debugHud.report.charCount': '{{count}} caracteres',
   'debugHud.report.diagTitle': 'Diagnóstico técnico',
   'debugHud.report.diagDesc': 'ZIP com logs, métricas e info do sistema (sem dados sensíveis).',
   'debugHud.report.diagButton.generate': 'Gerar diagnóstico',
@@ -1570,10 +1574,10 @@ export const ptBR = {
   'debugHud.report.template.problemTitle': '## Problema reportado',
   'debugHud.report.template.placeholder': '[descreva aqui o que aconteceu]',
   'debugHud.report.template.techInfoTitle': '## Informações técnicas',
-  'debugHud.report.template.appVersion': '- Versão do app: {value}',
-  'debugHud.report.template.platform': '- Plataforma: {value}',
-  'debugHud.report.template.date': '- Data: {value}',
-  'debugHud.report.template.diagAttached': '- Diagnóstico anexo: {path}',
+  'debugHud.report.template.appVersion': '- Versão do app: {{value}}',
+  'debugHud.report.template.platform': '- Plataforma: {{value}}',
+  'debugHud.report.template.date': '- Data: {{value}}',
+  'debugHud.report.template.diagAttached': '- Diagnóstico anexo: {{path}}',
   'debugHud.report.dialogTitle': 'Exportar diagnóstico',
   'debugHud.report.dialogCanceled': 'Cancelado pelo usuário.',
 
@@ -1588,17 +1592,67 @@ export const ptBR = {
   'debugHud.action.error.gcMissing':
     'Node não foi iniciado com --expose-gc. Reinicie o app com a flag.',
   'debugHud.action.error.sessionRequired': 'sessionId obrigatório.',
-  'debugHud.action.success.cancelTurn': 'Conversa {sessionId}… cancelada.',
+  'debugHud.action.success.cancelTurn': 'Conversa {{sessionId}}… cancelada.',
   'debugHud.action.error.cancelTurn': 'Falha ao cancelar conversa.',
   'debugHud.action.success.cancelAllNone': 'Nenhuma conversa ativa para cancelar.',
-  'debugHud.action.success.cancelAllOk': '{count} conversa(s) cancelada(s).',
-  'debugHud.action.error.cancelAllPartial': '{ok} ok, {failed} falharam.',
+  'debugHud.action.success.cancelAllOk': '{{count}} conversa(s) cancelada(s).',
+  'debugHud.action.error.cancelAllPartial': '{{ok}} ok, {{failed}} falharam.',
   'debugHud.action.error.resetListenersUnsupported':
     'Reset direto não é suportado. O detector mantém WeakRef e libera automaticamente quando o GC roda — tente "Liberar memória" pra forçar.',
   'debugHud.action.success.clearLogs':
     'Buffer do HUD limpo (arquivos persistidos não foram tocados).',
   'debugHud.action.success.exportDiagnostic': 'Diagnóstico exportado.',
   'debugHud.action.success.reloadRenderer': 'Janela principal recarregada.',
-  'debugHud.action.error.unknownAction': 'Ação desconhecida: {action}',
-  'debugHud.action.error.unavailable': 'Ação "{action}" indisponível neste contexto.',
+  'debugHud.action.error.unknownAction': 'Ação desconhecida: {{action}}',
+  'debugHud.action.error.unavailable': 'Ação "{{action}}" indisponível neste contexto.',
+
+  // CR-37 F-CR37-2: erros de validação de anexos
+  'chat.composer.attachment.tooManyFiles': 'Máximo de {{max}} arquivos permitidos.',
+  'chat.composer.attachment.fileTooLarge': '"{{name}}" excede o limite de 20 MB.',
+  'chat.composer.attachment.totalTooLarge': 'Tamanho total dos anexos excede 40 MB.',
+
+  // CR-37 F-CR37-3: rótulos do bloco de raciocínio
+  'chat.thinkingBlock.streaming': 'Pensando…',
+  'chat.thinkingBlock.label': 'Processo de raciocínio',
+
+  // CR-37 F-CR37-4/5: tempo relativo e data compartilhados
+  'common.relative.justNow': 'agora',
+  'common.relative.minutesAgo': '{{count}}m',
+  'common.relative.hoursAgo': '{{count}}h',
+  'common.relative.daysAgo': '{{count}}d',
+
+  // CR-37 F-CR37-6: mensagem de cooldown multi-locale
+  'auth.otp.cooldown.retryAfterSeconds': 'Aguarde {{seconds}} segundos antes de tentar novamente.',
+
+  // CR-37 F-CR37-7: mensagens de erro do permission provider
+  'chat.permission.noProvider': 'requestPermission chamado sem PermissionProvider montado',
+  'chat.permission.useOutsideProvider':
+    'usePermissionRequest deve ser usado dentro de <PermissionProvider>',
+
+  // CR-37 F-CR37-14: label padrão do working dir
+  'chat.composer.workingDir.defaultLabel': 'main',
+
+  // CR-37 F-CR37-15: contagem de args da tool use
+  'chat.toolUse.argCount': '{{count}} arg',
+  'chat.toolUse.argsCount': '{{count}} args',
+
+  // CR-37 F-CR37-16: rótulos de kind/categoria de source
+  'sources.kind.managed': 'Gerenciado',
+  'sources.kind.mcp-stdio': 'MCP stdio',
+  'sources.kind.mcp-http': 'MCP HTTP',
+  'sources.kind.api': 'API',
+  'sources.kind.filesystem': 'Pasta',
+  'sources.kindCategory.google': 'Google',
+  'sources.kindCategory.microsoft': 'Microsoft',
+  'sources.kindCategory.dev': 'Desenvolvimento',
+  'sources.kindCategory.other': 'Outro',
+
+  // CR-37 F-CR37-19: erros do gravador de voz
+  'chat.composer.voice.error.micPermission': 'Acesso ao microfone negado. Verifique as permissões.',
+  'chat.composer.voice.error.transcribeFailed': 'Transcrição falhou. Tente novamente.',
+  'chat.composer.voice.error.generic': 'Gravação de voz falhou. Tente novamente.',
+
+  // CR-37 F-CR37-19: erros normalizados em wizards (onboarding / migration)
+  'onboarding.credentials.saveError': 'Não foi possível salvar a chave de API. Tente novamente.',
+  'migration.wizard.detectError': 'Não foi possível analisar os dados V1. Tente novamente.',
 } satisfies Record<TranslationKey, string>;

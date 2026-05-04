@@ -599,8 +599,10 @@ export const enUS = {
 
   'workspace.thinking.minimal': 'Minimal',
   'workspace.thinking.low': 'Low',
+  'workspace.thinking.think': 'Think',
   'workspace.thinking.medium': 'Medium',
   'workspace.thinking.high': 'High',
+  'workspace.thinking.ultra': 'Ultra',
 
   'workspace.tone.formal': 'Formal',
   'workspace.tone.neutral': 'Neutral',
@@ -1294,6 +1296,8 @@ export const enUS = {
   'migration.wizard.errorTitle': 'Migration error',
   'migration.wizard.retry': 'Try again',
 
+  'markdown.code.copy': 'Copy',
+  'markdown.code.copied': 'Copied',
   'markdown.mermaid.renderError': 'Failed to render Mermaid diagram',
   'markdown.pdf.renderError': 'Failed to render PDF',
   'markdown.pdf.previewUnavailable': 'Inline preview unavailable in this build',
@@ -1302,9 +1306,9 @@ export const enUS = {
   // Debug HUD ---------------------------------------------------------------
   'debugHud.app.title': 'G4 OS · Diagnostics',
   'debugHud.app.waiting': 'Waiting for first diagnostic tick…',
-  'debugHud.header.alertsOne': '{count} alert',
-  'debugHud.header.alertsMany': '{count} alerts',
-  'debugHud.header.uptime': 'active for {duration}',
+  'debugHud.header.alertsOne': '{{count}} alert',
+  'debugHud.header.alertsMany': '{{count}} alerts',
+  'debugHud.header.uptime': 'active for {{duration}}',
   'debugHud.header.releaseMemory': 'Release memory',
   'debugHud.header.reload': 'Reload',
   'debugHud.header.report': 'Report problem',
@@ -1323,7 +1327,7 @@ export const enUS = {
   'debugHud.healthLabel.healthy': 'Healthy',
   'debugHud.healthLabel.attention': 'Attention',
   'debugHud.healthLabel.critical': 'Critical',
-  'debugHud.healthScore.aria': 'System health: {value} of 100, {label}',
+  'debugHud.healthScore.aria': 'System health: {{value}} of 100, {{label}}',
 
   'debugHud.glossary.memoryRss.title': 'Total memory (RSS)',
   'debugHud.glossary.memoryRss.description':
@@ -1392,45 +1396,45 @@ export const enUS = {
   'debugHud.glossary.healthScore.description':
     'Overall indicator from 0 to 100 based on active alerts. 100 = everything ok; below 70 = worth a look; below 40 = needs attention.',
 
-  'debugHud.insight.memoryGrowthCritical.title': 'Memory growing fast ({growth} MB/min)',
+  'debugHud.insight.memoryGrowthCritical.title': 'Memory growing fast ({{growth}} MB/min)',
   'debugHud.insight.memoryGrowthCritical.description':
     "The app's memory is consistently increasing. Could be a leak. Reloading the window frees stuck state without closing the app.",
   'debugHud.insight.memoryGrowthCritical.action': 'Reload window',
-  'debugHud.insight.memoryGrowthWarn.title': 'Memory rising ({growth} MB/min)',
+  'debugHud.insight.memoryGrowthWarn.title': 'Memory rising ({{growth}} MB/min)',
   'debugHud.insight.memoryGrowthWarn.description':
     "Moderate growth. May be normal in a long session. Forcing GC confirms whether it's a leak (memory drops) or actual usage (it doesn't).",
   'debugHud.insight.memoryGrowthWarn.action': 'Force GC',
-  'debugHud.insight.memoryRssCritical.title': 'Very high memory usage ({rss} MB)',
+  'debugHud.insight.memoryRssCritical.title': 'Very high memory usage ({{rss}} MB)',
   'debugHud.insight.memoryRssCritical.description':
     'The app is consuming a lot of system memory. Consider reloading the window. If it persists, export the diagnostic for investigation.',
   'debugHud.insight.memoryRssCritical.action': 'Export diagnostic',
-  'debugHud.insight.memoryRssWarn.title': 'Elevated memory ({rss} MB)',
+  'debugHud.insight.memoryRssWarn.title': 'Elevated memory ({{rss}} MB)',
   'debugHud.insight.memoryRssWarn.description':
     'Higher than expected for normal use. Long sessions with many messages reach this level; reloading the window helps.',
-  'debugHud.insight.listenersStale.title': '{count} listeners are pending',
+  'debugHud.insight.listenersStale.title': '{{count}} listeners are pending',
   'debugHud.insight.listenersStale.description':
     'Events that should have been released after use (stale listeners). Usually a bug in code that registers a handler but forgets to remove it. Recycling clears state and shows whether they come back.',
   'debugHud.insight.listenersStale.action': 'Recycle detector',
-  'debugHud.insight.listenersManyCritical.title': 'Many active listeners ({total})',
+  'debugHud.insight.listenersManyCritical.title': 'Many active listeners ({{total}})',
   'debugHud.insight.listenersManyCritical.description':
     'High volume of event listeners — may degrade performance and signal accumulation. Export the diagnostic for detailed analysis.',
   'debugHud.insight.listenersManyCritical.action': 'Export diagnostic',
-  'debugHud.insight.listenersManyWarn.title': 'Listeners above normal ({total})',
+  'debugHud.insight.listenersManyWarn.title': 'Listeners above normal ({{total}})',
   'debugHud.insight.listenersManyWarn.description':
     'Moderate volume of event listeners. Common in sessions with many panels open.',
-  'debugHud.insight.ipcErrorRate.title': '{pct}% of internal calls are failing',
+  'debugHud.insight.ipcErrorRate.title': '{{pct}}% of internal calls are failing',
   'debugHud.insight.ipcErrorRate.description':
     'Main process procedures returning error frequently. May indicate a recent bug or an unstable external service (API key, database). See the IPC tab for the most affected procedures.',
-  'debugHud.insight.ipcLatencyCritical.title': 'Slow operations (p95 {p95}ms)',
+  'debugHud.insight.ipcLatencyCritical.title': 'Slow operations (p95 {{p95}}ms)',
   'debugHud.insight.ipcLatencyCritical.description':
     '95% of calls are taking longer than expected. An in-flight turn may be frozen, or disk/network IO may be stuck.',
-  'debugHud.insight.ipcLatencyWarn.title': 'High latency (p95 {p95}ms)',
+  'debugHud.insight.ipcLatencyWarn.title': 'High latency (p95 {{p95}}ms)',
   'debugHud.insight.ipcLatencyWarn.description':
     'Some operations are slow. See the IPC tab to identify which.',
-  'debugHud.insight.vaultErrors.title': 'Credential errors ({count} in the last minute)',
+  'debugHud.insight.vaultErrors.title': 'Credential errors ({{count}} in the last minute)',
   'debugHud.insight.vaultErrors.description':
     'The credentials vault (API keys, OAuth tokens) is reporting errors. Verify in Settings > Keys whether the keys are valid.',
-  'debugHud.insight.turnsStuck.title': '{count} active turn(s) for over a minute',
+  'debugHud.insight.turnsStuck.title': '{{count}} active turn(s) for over a minute',
   'debugHud.insight.turnsStuck.description':
     'Turns may be frozen waiting for an agent or tool reply. You can cancel them in the IPC/Sessions tab.',
   'debugHud.insight.turnsStuck.action': 'Cancel all',
@@ -1456,18 +1460,18 @@ export const enUS = {
   'debugHud.tabOverview.cardSessions.title': 'Active conversations',
   'debugHud.tabOverview.cardSessions.subtitle': 'AI conversations in progress',
   'debugHud.tabOverview.cardSessions.empty': 'No conversation running now.',
-  'debugHud.tabOverview.cardSessions.othersCount': '+{count} others…',
+  'debugHud.tabOverview.cardSessions.othersCount': '+{{count}} others…',
   'debugHud.tabOverview.cardSessions.hint':
     'If a conversation stays here too long without finishing, it may be stuck.',
   'debugHud.tabOverview.cardListeners.title': 'Internal notifications',
   'debugHud.tabOverview.cardListeners.subtitle': 'Active subscriptions in the app',
-  'debugHud.tabOverview.cardListeners.staleSummary': '{count} pending for ≥60s',
-  'debugHud.tabOverview.cardListeners.activeSummary': '{count} active',
+  'debugHud.tabOverview.cardListeners.staleSummary': '{{count}} pending for ≥60s',
+  'debugHud.tabOverview.cardListeners.activeSummary': '{{count}} active',
   'debugHud.tabOverview.cardListeners.totalLabel': 'Total',
   'debugHud.tabOverview.cardListeners.hint':
     'Normal to have a few dozen. Hundreds or pending may indicate a bug.',
   'debugHud.tabOverview.cardIpc.title': 'Internal operations',
-  'debugHud.tabOverview.cardIpc.subtitle': '{rate} per second · p95 {p95} ms',
+  'debugHud.tabOverview.cardIpc.subtitle': '{{rate}} per second · p95 {{p95}} ms',
   'debugHud.tabOverview.cardIpc.responseTime': 'Response time (p95)',
   'debugHud.tabOverview.cardIpc.opsPerSec': 'op/s',
   'debugHud.tabOverview.cardIpc.errors': 'errors',
@@ -1476,7 +1480,7 @@ export const enUS = {
   'debugHud.tabOverview.viewDetails': 'Details →',
 
   'debugHud.tabMemory.history.title': 'Memory history (5 minutes)',
-  'debugHud.tabMemory.history.growth': 'Average growth: {value} MB per minute',
+  'debugHud.tabMemory.history.growth': 'Average growth: {{value}} MB per minute',
   'debugHud.tabMemory.history.stable': 'Stable or releasing memory',
   'debugHud.tabMemory.releaseMemory': 'Release memory',
   'debugHud.tabMemory.reload': 'Reload',
@@ -1485,10 +1489,10 @@ export const enUS = {
     'Good up to ~800 MB · Attention up to 1.5 GB · Critical above',
   'debugHud.tabMemory.processes.title': 'Active processes',
   'debugHud.tabMemory.processes.subtitle': 'V2 runs everything in the main process (ADR-0145)',
-  'debugHud.tabMemory.processes.uptime': 'active for {duration}',
+  'debugHud.tabMemory.processes.uptime': 'active for {{duration}}',
 
   'debugHud.tabIpc.procedures.title': 'Internal operations',
-  'debugHud.tabIpc.procedures.subtitle': '{rate} per second · {total} total',
+  'debugHud.tabIpc.procedures.subtitle': '{{rate}} per second · {{total}} total',
   'debugHud.tabIpc.procedures.empty': 'Waiting for first calls…',
   'debugHud.tabIpc.procedures.tableProcedure': 'procedure',
   'debugHud.tabIpc.procedures.tableCalls': 'calls',
@@ -1499,13 +1503,13 @@ export const enUS = {
   'debugHud.tabIpc.procedures.metricErrors': 'Errors',
   'debugHud.tabIpc.procedures.metricRate': 'Error rate',
   'debugHud.tabIpc.activeTurns.title': 'Active turns',
-  'debugHud.tabIpc.activeTurns.subtitle': '{count} active',
+  'debugHud.tabIpc.activeTurns.subtitle': '{{count}} active',
   'debugHud.tabIpc.activeTurns.empty': 'No turn active right now.',
   'debugHud.tabIpc.activeTurns.cancelAll': 'Cancel all',
   'debugHud.tabIpc.activeTurns.cancel': 'Cancel',
-  'debugHud.tabIpc.activeTurns.startedAgo': 'turn {turnId}… · started {duration} ago',
+  'debugHud.tabIpc.activeTurns.startedAgo': 'turn {{turnId}}… · started {{duration}} ago',
   'debugHud.tabIpc.listeners.title': 'Event listeners',
-  'debugHud.tabIpc.listeners.subtitle': '{total} active · {stale} pending',
+  'debugHud.tabIpc.listeners.subtitle': '{{total}} active · {{stale}} pending',
   'debugHud.tabIpc.listeners.recycle': 'Recycle',
   'debugHud.tabIpc.listeners.empty':
     'No listeners tracked — instrument subsystems with listenerDetector.track().',
@@ -1515,7 +1519,7 @@ export const enUS = {
   'debugHud.tabLogs.clearHistory': 'Clear history',
   'debugHud.tabLogs.clearHistory.tooltip':
     'Clears only the displayed history (files on disk are not affected)',
-  'debugHud.tabLogs.summary': '{seen} messages recorded total · buffer: 1000 lines',
+  'debugHud.tabLogs.summary': '{{seen}} messages recorded total · buffer: 1000 lines',
   'debugHud.tabLogs.selectCategory': 'Select a category to filter.',
   'debugHud.tabLogs.empty.waiting': 'Waiting for first messages…',
   'debugHud.tabLogs.empty.waitingHint': 'Subsystems write here as soon as they start operating.',
@@ -1530,7 +1534,7 @@ export const enUS = {
   'debugHud.tabVault.lastActivity': 'Last activity',
   'debugHud.tabVault.noActivity': 'No activity recorded yet.',
   'debugHud.tabVault.recentErrors.title': 'Recent errors',
-  'debugHud.tabVault.recentErrors.subtitle': '{count} of {max} (latest)',
+  'debugHud.tabVault.recentErrors.subtitle': '{{count}} of {{max}} (latest)',
   'debugHud.tabVault.recentErrors.empty': 'No recent errors. Vault operating normally.',
 
   'debugHud.report.title': 'Report problem',
@@ -1539,7 +1543,7 @@ export const enUS = {
   'debugHud.report.descLabel': 'What happened?',
   'debugHud.report.descPlaceholder':
     'Ex: When sending a message to the agent, the screen froze and I got no reply…',
-  'debugHud.report.charCount': '{count} characters',
+  'debugHud.report.charCount': '{{count}} characters',
   'debugHud.report.diagTitle': 'Technical diagnostic',
   'debugHud.report.diagDesc': 'ZIP with logs, metrics and system info (no sensitive data).',
   'debugHud.report.diagButton.generate': 'Generate diagnostic',
@@ -1555,10 +1559,10 @@ export const enUS = {
   'debugHud.report.template.problemTitle': '## Problem reported',
   'debugHud.report.template.placeholder': '[describe what happened here]',
   'debugHud.report.template.techInfoTitle': '## Technical information',
-  'debugHud.report.template.appVersion': '- App version: {value}',
-  'debugHud.report.template.platform': '- Platform: {value}',
-  'debugHud.report.template.date': '- Date: {value}',
-  'debugHud.report.template.diagAttached': '- Diagnostic attached: {path}',
+  'debugHud.report.template.appVersion': '- App version: {{value}}',
+  'debugHud.report.template.platform': '- Platform: {{value}}',
+  'debugHud.report.template.date': '- Date: {{value}}',
+  'debugHud.report.template.diagAttached': '- Diagnostic attached: {{path}}',
   'debugHud.report.dialogTitle': 'Export diagnostic',
   'debugHud.report.dialogCanceled': 'Cancelled by user.',
 
@@ -1573,18 +1577,69 @@ export const enUS = {
   'debugHud.action.error.gcMissing':
     'Node was not started with --expose-gc. Restart the app with the flag.',
   'debugHud.action.error.sessionRequired': 'sessionId is required.',
-  'debugHud.action.success.cancelTurn': 'Conversation {sessionId}… cancelled.',
+  'debugHud.action.success.cancelTurn': 'Conversation {{sessionId}}… cancelled.',
   'debugHud.action.error.cancelTurn': 'Failed to cancel conversation.',
   'debugHud.action.success.cancelAllNone': 'No active conversations to cancel.',
-  'debugHud.action.success.cancelAllOk': '{count} conversation(s) cancelled.',
-  'debugHud.action.error.cancelAllPartial': '{ok} ok, {failed} failed.',
+  'debugHud.action.success.cancelAllOk': '{{count}} conversation(s) cancelled.',
+  'debugHud.action.error.cancelAllPartial': '{{ok}} ok, {{failed}} failed.',
   'debugHud.action.error.resetListenersUnsupported':
     'Listener reset is not directly supported. Detector keeps WeakRef and frees automatically when GC runs — try "Release memory" to force it.',
   'debugHud.action.success.clearLogs': "HUD buffer cleared (persisted files weren't touched).",
   'debugHud.action.success.exportDiagnostic': 'Diagnostic exported.',
   'debugHud.action.success.reloadRenderer': 'Main window reloaded.',
-  'debugHud.action.error.unknownAction': 'Unknown action: {action}',
-  'debugHud.action.error.unavailable': 'Action "{action}" unavailable in this context.',
+  'debugHud.action.error.unknownAction': 'Unknown action: {{action}}',
+  'debugHud.action.error.unavailable': 'Action "{{action}}" unavailable in this context.',
+
+  // CR-37 F-CR37-2: attachment validation errors
+  'chat.composer.attachment.tooManyFiles': 'Maximum {{max}} files allowed.',
+  'chat.composer.attachment.fileTooLarge': '"{{name}}" exceeds the 20 MB limit.',
+  'chat.composer.attachment.totalTooLarge': 'Total attachment size exceeds 40 MB.',
+
+  // CR-37 F-CR37-3: thinking block labels
+  'chat.thinkingBlock.streaming': 'Thinking…',
+  'chat.thinkingBlock.label': 'Thought process',
+
+  // CR-37 F-CR37-4/5: shared relative time / date helpers
+  'common.relative.justNow': 'now',
+  'common.relative.minutesAgo': '{{count}}m',
+  'common.relative.hoursAgo': '{{count}}h',
+  'common.relative.daysAgo': '{{count}}d',
+
+  // CR-37 F-CR37-6: cooldown multi-locale hint
+  'auth.otp.cooldown.retryAfterSeconds': 'Please try again after {{seconds}} seconds.',
+
+  // CR-37 F-CR37-7: permission provider error messages
+  'chat.permission.noProvider': 'requestPermission called without PermissionProvider mounted',
+  'chat.permission.useOutsideProvider':
+    'usePermissionRequest must be used inside <PermissionProvider>',
+
+  // CR-37 F-CR37-14: working dir default label
+  'chat.composer.workingDir.defaultLabel': 'main',
+
+  // CR-37 F-CR37-15: tool use args count
+  'chat.toolUse.argCount': '{{count}} arg',
+  'chat.toolUse.argsCount': '{{count}} args',
+
+  // CR-37 F-CR37-16: source kind / category labels
+  'sources.kind.managed': 'Managed',
+  'sources.kind.mcp-stdio': 'MCP stdio',
+  'sources.kind.mcp-http': 'MCP HTTP',
+  'sources.kind.api': 'API',
+  'sources.kind.filesystem': 'Folder',
+  'sources.kindCategory.google': 'Google',
+  'sources.kindCategory.microsoft': 'Microsoft',
+  'sources.kindCategory.dev': 'Developer',
+  'sources.kindCategory.other': 'Other',
+
+  // CR-37 F-CR37-19: voice recorder error
+  'chat.composer.voice.error.micPermission':
+    'Microphone access denied. Check your browser permissions.',
+  'chat.composer.voice.error.transcribeFailed': 'Transcription failed. Please try again.',
+  'chat.composer.voice.error.generic': 'Voice recording failed. Please try again.',
+
+  // CR-37 F-CR37-19: erros normalizados em wizards (onboarding / migration)
+  'onboarding.credentials.saveError': 'Could not save the API key. Please try again.',
+  'migration.wizard.detectError': 'Could not analyze V1 data. Please try again.',
 } as const;
 
 export type TranslationKey = keyof typeof enUS;
