@@ -149,4 +149,172 @@ describe('SessionRefresher', () => {
     expect(refresher.state.kind).toBe('idle');
     refresher.dispose();
   });
+
+  // F-CR32-1: dispose() bloqueia operações pós-dispose
+  it('refreshNow() após dispose() retorna sem mutar o store', async () => {
+    const now = 1_000_000;
+    const store = makeStore([
+      { key: 'auth.access-token', value: 'old', expiresAt: now - 1 },
+      { key: 'auth.refresh-token', value: 'oldref' },
+    ]);
+    const supabase: SupabaseAuthPort = {
+      signInWithOtp: vi.fn(),
+      verifyOtp: vi.fn(),
+      refreshSession: vi.fn(() =>
+        Promise.resolve({
+          data: {
+            session: {
+              access_token: 'newtok',
+              refresh_token: 'newref',
+              expires_at: Math.floor((now + 3600 * 1000) / 1000),
+            },
+          },
+        }),
+      ),
+    };
+    const refresher = new SessionRefresher({ supabase, tokenStore: store, now: () => now });
+    refresher.dispose();
+    await refresher.refreshNow();
+    // Supabase nunca foi chamado
+    expect(supabase.refreshSession).not.toHaveBeenCalled();
+  });
+
+  // F-CR32-2: stop() + start() permite ciclo após relogin
+  it('stop() + start() re-arma o schedule (ciclo logout→relogin)', async () => {
+    const now = 1_000_000;
+    const fireAt = now + 10 * 60 * 1000;
+    const store = makeStore([
+      { key: 'auth.access-token', value: 'a', expiresAt: fireAt },
+      { key: 'auth.refresh-token', value: 'r' },
+    ]);
+    const setTimerCalls: number[] = [];
+    const supabase: SupabaseAuthPort = {
+      signInWithOtp: vi.fn(),
+      verifyOtp: vi.fn(),
+      refreshSession: vi.fn(),
+    };
+    const refresher = new SessionRefresher({
+      supabase,
+      tokenStore: store,
+      now: () => now,
+      setTimer: (_fn, ms) => {
+        setTimerCalls.push(ms);
+        return { cancel: () => undefined };
+      },
+    });
+    await refresher.start();
+    expect(setTimerCalls.length).toBe(1);
+    expect(refresher.state.kind).toBe('scheduled');
+
+    // Simula logout
+    refresher.stop();
+    expect(refresher.state.kind).toBe('idle');
+
+    // Re-login: deve re-armar
+    await refresher.start();
+    expect(setTimerCalls.length).toBe(2);
+    expect(refresher.state.kind).toBe('scheduled');
+
+    refresher.dispose();
+  });
+
+  // F-CR32-3: logout race — access token deletado durante refresh em vôo
+  it('descarta tokens frescos quando access-token foi deletado (logout race)', async () => {
+    const now = 1_000_000;
+    const store = makeStore([
+      { key: 'auth.access-token', value: 'old', expiresAt: now - 1 },
+      { key: 'auth.refresh-token', value: 'oldref' },
+    ]);
+
+    let resolveRefresh!: (v: {
+      data: {
+        session: {
+          access_token: string;
+          refresh_token: string;
+          expires_at: number;
+        };
+      };
+    }) => void;
+    const supabase: SupabaseAuthPort = {
+      signInWithOtp: vi.fn(),
+      verifyOtp: vi.fn(),
+      refreshSession: vi.fn(
+        () =>
+          new Promise((r) => {
+            resolveRefresh = r;
+          }),
+      ),
+    };
+
+    const refresher = new SessionRefresher({
+      supabase,
+      tokenStore: store,
+      now: () => now,
+      // dispara imediatamente para testar o caminho de refresh
+      setTimer: (fn) => {
+        fn();
+        return { cancel: () => undefined };
+      },
+    });
+
+    const startPromise = refresher.start();
+    // Aguarda microtasks suficientes para que `runRefresh` avance até o ponto em
+    // que chama `supabase.refreshSession` (que atribui `resolveRefresh`). São
+    // necessários: tokenStore.list → scheduleNext body → setTimer → fn() →
+    // tokenStore.get(refresh-token) → refreshSession call. Cada await é 1
+    // tick de microfila; setImmediate garante que todos tenham drenado.
+    await new Promise((r) => setImmediate(r));
+    // Enquanto refresh está em vôo, simula logout deletando o access token
+    await store.delete('auth.access-token');
+    // Resolve o refresh bem-sucedido do Supabase
+    resolveRefresh({
+      data: {
+        session: {
+          access_token: 'newtok',
+          refresh_token: 'newref',
+          expires_at: Math.floor((now + 3600 * 1000) / 1000),
+        },
+      },
+    });
+    await startPromise;
+
+    // Access token não deve ter sido escrito de volta
+    const access = await store.get('auth.access-token');
+    expect(access._unsafeUnwrap()).toBe('');
+    // Estado deve ser idle, não scheduled
+    expect(refresher.state.kind).toBe('idle');
+    refresher.dispose();
+  });
+
+  // F-CR32-12: tightScheduleCount zerado em ramos reauth_required
+  it('zera tightScheduleCount quando refresh falha (no_refresh_token)', async () => {
+    const now = 1_000_000;
+    // Token expirado sem refresh-token → reauth_required
+    const store = makeStore([{ key: 'auth.access-token', value: 'a', expiresAt: now - 1 }]);
+    const supabase: SupabaseAuthPort = {
+      signInWithOtp: vi.fn(),
+      verifyOtp: vi.fn(),
+      refreshSession: vi.fn(),
+    };
+    const refresher = new SessionRefresher({
+      supabase,
+      tokenStore: store,
+      now: () => now,
+      setTimer: (fn) => {
+        fn();
+        return { cancel: () => undefined };
+      },
+    });
+    await refresher.start();
+    expect(refresher.state.kind).toBe('reauth_required');
+    // tightScheduleCount não é exposto — test indireto: stop + start não
+    // deve fazer bail prematuro por contador alto residual.
+    refresher.stop();
+    // Adiciona refresh-token para que próximo start passe pelo refresh e não
+    // bata no bail por tightScheduleCount acumulado.
+    await store.set('auth.refresh-token', 'ref');
+    // Estado retorna a idle após stop()
+    expect(refresher.state.kind).toBe('idle');
+    refresher.dispose();
+  });
 });

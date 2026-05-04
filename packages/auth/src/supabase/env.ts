@@ -1,7 +1,10 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { AppError, ErrorCode } from '@g4os/kernel/errors';
+import { createLogger } from '@g4os/kernel/logger';
 import { err, ok, type Result } from 'neverthrow';
+
+const log = createLogger('auth:supabase-env');
 
 export const SUPABASE_ENV_FILE_NAMES = ['.env', '.env.local'] as const;
 
@@ -29,7 +32,21 @@ export function loadSupabaseEnvFiles(rootDir: string): SupabaseEnvLoadResult {
     const path = join(rootDir, fileName);
     if (!existsSync(path)) continue;
 
-    const pairs = parseEnvFile(readFileSync(path, 'utf-8'));
+    // F-CR32-10: `existsSync` é insuficiente — arquivo pode existir e ser
+    // ilegível (EACCES, antivírus no Windows, symlink quebrado). Sem try/catch
+    // a exceção propagava até o caller (auth-runtime.ts) sem try/catch,
+    // travando o boot antes da janela aparecer.
+    let raw: string;
+    try {
+      raw = readFileSync(path, 'utf-8');
+    } catch (cause) {
+      log.warn(
+        { path, err: cause instanceof Error ? cause.message : String(cause) },
+        'could not read env file; skipping',
+      );
+      continue;
+    }
+    const pairs = parseEnvFile(raw);
     for (const [key, value] of Object.entries(pairs)) {
       if (env[key] === undefined) env[key] = value;
     }

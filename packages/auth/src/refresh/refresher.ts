@@ -47,7 +47,12 @@ export class SessionRefresher extends DisposableBase {
   private readonly bufferMs: number;
   private readonly minDelayMs: number;
   private pending: { cancel: () => void } | null = null;
-  private started = false;
+  /**
+   * F-CR32-2: substituir flag booleana definitiva por estado cíclico que
+   * permite stop() + start() repetido (ex: logout → relogin). `running`
+   * controla se há schedule em curso; `stop()` limpa e reseta.
+   */
+  private running = false;
   /**
    * Coalesce concorrentes. `refreshNow()` + tick agendado
    * podiam executar `refresh()` em paralelo, ambos escrevendo ao
@@ -90,12 +95,30 @@ export class SessionRefresher extends DisposableBase {
   }
 
   async start(): Promise<void> {
-    if (this.started) return;
-    this.started = true;
+    // F-CR32-1: guard dispose; F-CR32-2: usa `running` reiniciável.
+    if (this._disposed) return;
+    if (this.running) return;
+    this.running = true;
     await this.scheduleNext();
   }
 
+  /**
+   * Para o schedule sem descartar o refresher. Permite ciclo stop/start
+   * para logout → relogin sem precisar recriar a instância.
+   * F-CR32-2: expõe stop() público para wiring no consumer.
+   */
+  stop(): void {
+    this.cancelPending();
+    this.running = false;
+    this.tightScheduleCount = 0;
+    if (!this._disposed) {
+      this.subject.next({ kind: 'idle' });
+    }
+  }
+
   async refreshNow(): Promise<void> {
+    // F-CR32-1: guard dispose.
+    if (this._disposed) return;
     this.cancelPending();
     if (this.inflight) {
       // Já há refresh em vôo (do tick agendado ou outro refreshNow).
@@ -107,6 +130,8 @@ export class SessionRefresher extends DisposableBase {
   }
 
   private async scheduleNext(): Promise<void> {
+    // F-CR32-1: guard dispose após qualquer await.
+    if (this._disposed) return;
     this.cancelPending();
     const list = await this.tokenStore.list();
     if (list.isErr()) {
@@ -199,20 +224,38 @@ export class SessionRefresher extends DisposableBase {
   }
 
   private async runRefresh(): Promise<void> {
+    // F-CR32-1: guard dispose no início.
+    if (this._disposed) return;
     this.subject.next({ kind: 'refreshing' });
     const refreshToken = await this.tokenStore.get(AUTH_REFRESH_TOKEN_KEY);
     if (refreshToken.isErr() || !refreshToken.value) {
+      // F-CR32-12: zerar contador em todos os ramos reauth_required.
+      this.tightScheduleCount = 0;
       this.subject.next({ kind: 'reauth_required', reason: 'no_refresh_token' });
       return;
     }
     const { data, error } = await this.supabase.refreshSession({
       refreshToken: refreshToken.value,
     });
+    // F-CR32-1: descartar resultado se dispose() ocorreu durante o await.
+    if (this._disposed) return;
     if (error || !data.session) {
+      // F-CR32-12: zerar contador em todos os ramos reauth_required.
+      this.tightScheduleCount = 0;
       this.subject.next({
         kind: 'reauth_required',
         reason: error?.message ?? 'refresh_failed',
       });
+      return;
+    }
+    // F-CR32-3: verificar atomicamente se o access-token ainda existe antes de
+    // gravar o novo. Race: logout() deleta os tokens enquanto
+    // supabase.refreshSession estava em vôo — sucesso do Supabase não deve
+    // reescrever tokens num vault já limpo pelo logout.
+    const existingAccess = await this.tokenStore.get(AUTH_ACCESS_TOKEN_KEY);
+    if (existingAccess.isErr() || existingAccess.value === '') {
+      log.info('access token cleared during refresh (logout race); discarding refreshed tokens');
+      this.subject.next({ kind: 'idle' });
       return;
     }
     // CR-18 F-AU1: descartar o `Result` dos tokenStore.set silencia disk
@@ -232,6 +275,8 @@ export class SessionRefresher extends DisposableBase {
         { err: accessSet.error.message },
         'failed to persist refreshed access token; requiring reauth',
       );
+      // F-CR32-12: zerar contador em todos os ramos reauth_required.
+      this.tightScheduleCount = 0;
       this.subject.next({ kind: 'reauth_required', reason: 'token_persist_failed' });
       return;
     }
@@ -245,6 +290,8 @@ export class SessionRefresher extends DisposableBase {
           { err: refreshSet.error.message },
           'failed to persist refreshed refresh token; requiring reauth',
         );
+        // F-CR32-12: zerar contador em todos os ramos reauth_required.
+        this.tightScheduleCount = 0;
         this.subject.next({ kind: 'reauth_required', reason: 'token_persist_failed' });
         return;
       }
@@ -298,6 +345,7 @@ export class SessionRefresher extends DisposableBase {
       return;
     }
     this.cancelPending();
+    this.running = false;
     this.subject.next({ kind: 'disabled' });
     this.subject.complete();
     super.dispose();
