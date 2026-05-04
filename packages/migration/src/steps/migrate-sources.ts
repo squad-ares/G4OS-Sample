@@ -22,10 +22,11 @@
 import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { AppError, ErrorCode } from '@g4os/kernel/errors';
+import type { AppError } from '@g4os/kernel/errors';
 import { type SourceKind, SourceKindSchema } from '@g4os/kernel/schemas';
 import { err, ok, type Result } from 'neverthrow';
 import { z } from 'zod';
+import { migrationError } from '../types.ts';
 import type { StepContext, StepResult, V2SourceInput } from './contract.ts';
 
 // V1 schema permissivo — diferentes minor versions podem ter omitido campos.
@@ -70,8 +71,8 @@ export async function migrateSources(ctx: StepContext): Promise<Result<StepResul
     raw = await readFile(v1FilePath, 'utf-8');
   } catch (cause) {
     return err(
-      new AppError({
-        code: ErrorCode.UNKNOWN_ERROR,
+      migrationError({
+        migrationCode: 'step_failed',
         message: `migrate-sources: falha lendo ${v1FilePath}`,
         cause: cause instanceof Error ? cause : undefined,
       }),
@@ -84,8 +85,8 @@ export async function migrateSources(ctx: StepContext): Promise<Result<StepResul
     parsed = JSON.parse(raw);
   } catch (cause) {
     return err(
-      new AppError({
-        code: ErrorCode.UNKNOWN_ERROR,
+      migrationError({
+        migrationCode: 'v1_corrupted',
         message: 'migrate-sources: V1 sources.json malformado',
         cause: cause instanceof Error ? cause : undefined,
       }),
@@ -101,8 +102,8 @@ export async function migrateSources(ctx: StepContext): Promise<Result<StepResul
     else sources = [];
   } catch (cause) {
     return err(
-      new AppError({
-        code: ErrorCode.UNKNOWN_ERROR,
+      migrationError({
+        migrationCode: 'v1_corrupted',
         message: 'migrate-sources: shape de sources.json não reconhecido',
         cause: cause instanceof Error ? cause : undefined,
       }),

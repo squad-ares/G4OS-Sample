@@ -20,9 +20,10 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import { existsSync } from 'node:fs';
-import { readdir, readFile } from 'node:fs/promises';
+import { createReadStream, existsSync } from 'node:fs';
+import { readdir, readFile, stat } from 'node:fs/promises';
 import { join } from 'node:path';
+import { createInterface } from 'node:readline';
 import type { AppError } from '@g4os/kernel/errors';
 import { SessionEventSchema } from '@g4os/kernel/schemas';
 import { ok, type Result } from 'neverthrow';
@@ -169,10 +170,9 @@ async function migrateOneSession(
     return;
   }
 
-  // Read-only mode: count + parse, sem persistir.
+  // Modo read-only: conta bytes via stat + parse sem persistir.
   if (!writer || dryRun) {
-    const events = await readJsonlEvents(session.jsonlPath, stats);
-    stats.bytes += events.bytes;
+    stats.bytes += await fileBytes(session.jsonlPath);
     stats.migrated++;
     return;
   }
@@ -192,17 +192,24 @@ async function migrateOneSession(
     return;
   }
 
-  const events = await readJsonlEvents(session.jsonlPath, stats);
-  stats.bytes += events.bytes;
+  // F-CR40-7: bytes via stat, stream processado event-by-event (não carrega
+  // JSONL inteiro em memória — sessões grandes com base64 inline podem ter dezenas
+  // de MB; sem stream, pico O(maior_sessão) levava a OOM em máquinas limitadas).
+  const jsonlBytes = await fileBytes(session.jsonlPath);
+  stats.bytes += jsonlBytes;
 
+  let lineIndex = 0;
   let appended = 0;
-  for (let i = 0; i < events.lines.length; i++) {
-    const line = events.lines[i];
-    if (!line) continue;
-    const v2Event = mapV1EventToV2(line, session, i, meta.createdAt);
+  let totalLines = 0;
+  let appendFailed = false;
+
+  for await (const line of streamJsonlLines(session.jsonlPath)) {
+    totalLines++;
+    const v2Event = mapV1EventToV2(line, session, lineIndex, meta.createdAt);
+    lineIndex++;
     if (!v2Event) {
       stats.warnings.push(
-        `${session.sessionId}#${i}: evento V1 não mapeável — type "${line['type'] ?? '(?)'}" skipado`,
+        `${session.sessionId}#${lineIndex - 1}: evento V1 não mapeável — type "${(line['type'] as string) ?? '(?)'}" skipado`,
       );
       continue;
     }
@@ -210,13 +217,28 @@ async function migrateOneSession(
       await writer.appendEvent(session.sessionId, v2Event);
       appended++;
     } catch (cause) {
-      stats.warnings.push(`${session.sessionId}#${i}: appendEvent falhou (${describe(cause)})`);
+      // F-CR40-10: falha em appendEvent é escalada para erro da sessão.
+      // Continuar após falha de IO deixa sessão V2 com eventos faltando;
+      // o próximo run via existsSession retorna true e skipa permanentemente.
+      // Registramos o erro e marcamos sessão como falha (não incrementa migrated).
+      stats.warnings.push(
+        `${session.sessionId}#${lineIndex - 1}: appendEvent falhou — sessão marcada como parcial (${describe(cause)})`,
+      );
+      appendFailed = true;
+      break;
     }
   }
 
-  if (appended === 0 && events.lines.length > 0) {
+  if (appendFailed) {
+    // Não incrementa migrated — sessão ficou parcial; re-run precisa de
+    // --force ou tratamento específico pelo caller.
+    stats.skipped++;
+    return;
+  }
+
+  if (appended === 0 && totalLines > 0) {
     stats.warnings.push(
-      `${session.sessionId}: 0 eventos válidos de ${events.lines.length} — sessão vazia em V2`,
+      `${session.sessionId}: 0 eventos válidos de ${totalLines} — sessão vazia em V2`,
     );
   }
 
@@ -265,34 +287,40 @@ async function readSessionMeta(
   return meta;
 }
 
-async function readJsonlEvents(
-  path: string,
-  stats: AggregateStats,
-): Promise<{ readonly lines: readonly Record<string, unknown>[]; readonly bytes: number }> {
-  if (!existsSync(path)) return { lines: [], bytes: 0 };
-  let raw: string;
-  try {
-    raw = await readFile(path, 'utf-8');
-  } catch (cause) {
-    stats.warnings.push(`${path}: falha lendo session.jsonl (${describe(cause)})`);
-    return { lines: [], bytes: 0 };
-  }
-  const bytes = Buffer.byteLength(raw, 'utf-8');
-  const lines: Record<string, unknown>[] = [];
-  for (const line of raw.split('\n')) {
+/**
+ * F-CR40-7: Lê JSONL linha a linha via stream (não carrega em memória).
+ * Linhas corrompidas são puladas silenciosamente (JSONL legacy tem linhas
+ * parciais por crash mid-write em V1).
+ */
+async function* streamJsonlLines(path: string): AsyncGenerator<Record<string, unknown>> {
+  if (!existsSync(path)) return;
+  const rl = createInterface({
+    input: createReadStream(path, { encoding: 'utf8' }),
+    crlfDelay: Number.POSITIVE_INFINITY,
+  });
+  for await (const line of rl) {
     const trimmed = line.trim();
     if (trimmed.length === 0) continue;
     try {
       const parsed = JSON.parse(trimmed) as unknown;
       if (typeof parsed === 'object' && parsed !== null) {
-        lines.push(parsed as Record<string, unknown>);
+        yield parsed as Record<string, unknown>;
       }
     } catch {
-      // Linha corrompida — pula sem warn (JSONL legacy frequentemente tem
-      // linhas parciais por crash mid-write).
+      // Linha corrompida — pula (JSONL legacy frequentemente tem linhas
+      // parciais por crash mid-write no V1).
     }
   }
-  return { lines, bytes };
+}
+
+async function fileBytes(path: string): Promise<number> {
+  if (!existsSync(path)) return 0;
+  try {
+    const s = await stat(path);
+    return s.isFile() ? s.size : 0;
+  } catch {
+    return 0;
+  }
 }
 
 function mapV1EventToV2(

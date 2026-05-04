@@ -13,10 +13,12 @@
  */
 
 import { existsSync } from 'node:fs';
+import { stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { migrateV1ToV2 } from '@g4os/credentials/migration';
-import { AppError, ErrorCode } from '@g4os/kernel/errors';
+import type { AppError } from '@g4os/kernel/errors';
 import { err, ok, type Result } from 'neverthrow';
+import { migrationError } from '../types.ts';
 import type { StepContext, StepResult } from './contract.ts';
 
 export async function migrateCredentials(ctx: StepContext): Promise<Result<StepResult, AppError>> {
@@ -34,10 +36,20 @@ export async function migrateCredentials(ctx: StepContext): Promise<Result<StepR
     return ok(emptyResult());
   }
 
+  // F-CR40-15: reportar tamanho do arquivo mesmo em creds — agrega pro
+  // total de bytesProcessed no MigrationReport (UI Wizard mostra "X MB migrados").
+  let credBytes = 0;
+  try {
+    const s = await stat(v1CredPath);
+    credBytes = s.size;
+  } catch {
+    // best-effort — se stat falhar, segue com 0
+  }
+
   if (!options.vault) {
     return err(
-      new AppError({
-        code: ErrorCode.UNKNOWN_ERROR,
+      migrationError({
+        migrationCode: 'step_failed',
         message:
           'migrate-credentials: requer `vault` em StepOptions (createVault({ mode })). CLI sem vault deve usar --steps sem `credentials`.',
       }),
@@ -45,8 +57,8 @@ export async function migrateCredentials(ctx: StepContext): Promise<Result<StepR
   }
   if (!options.v1MasterKey) {
     return err(
-      new AppError({
-        code: ErrorCode.UNKNOWN_ERROR,
+      migrationError({
+        migrationCode: 'step_failed',
         message:
           'migrate-credentials: requer `v1MasterKey` em StepOptions (PBKDF2 do V1). Forneça via --v1-master-key ou prompt.',
       }),
@@ -61,6 +73,10 @@ export async function migrateCredentials(ctx: StepContext): Promise<Result<StepR
     message: dryRun ? 'credentials: dry-run, lendo V1' : 'credentials: migrando',
   });
 
+  // F-CR40-16: notas sobre dryRun — `migrateV1ToV2` com `dryRun:true` ainda
+  // requer vault para checar colisões via `vault.exists()`. O guard acima
+  // garante que vault está presente. Em dry-run, nenhuma escrita acontece
+  // (migrateV1ToV2 respeita o flag internamente).
   const report = await migrateV1ToV2({
     vault: options.vault,
     masterKey: options.v1MasterKey,
@@ -81,8 +97,8 @@ export async function migrateCredentials(ctx: StepContext): Promise<Result<StepR
   // (provavelmente masterKey errada ou arquivo corrompido).
   if (report.found > 0 && report.migrated === 0 && report.failed === report.found) {
     return err(
-      new AppError({
-        code: ErrorCode.UNKNOWN_ERROR,
+      migrationError({
+        migrationCode: 'v1_corrupted',
         message: `migrate-credentials: TODAS as ${report.found} credenciais falharam. masterKey errada? Erros: ${report.errors.slice(0, 3).join('; ')}`,
       }),
     );
@@ -91,7 +107,7 @@ export async function migrateCredentials(ctx: StepContext): Promise<Result<StepR
   return ok({
     itemsMigrated: report.migrated,
     itemsSkipped: report.skipped,
-    bytesProcessed: 0, // tamanho não é o que importa em creds; report.found é mais útil
+    bytesProcessed: credBytes,
     nonFatalWarnings: report.errors,
   });
 }

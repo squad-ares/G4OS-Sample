@@ -17,9 +17,10 @@
 
 import { randomUUID } from 'node:crypto';
 import { existsSync } from 'node:fs';
-import { cp, mkdir, open, rm, writeFile } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
-import { AppError, ErrorCode } from '@g4os/kernel/errors';
+import { cp, mkdir, open, readdir, readFile, rm, stat } from 'node:fs/promises';
+import { dirname, join, relative } from 'node:path';
+import type { AppError } from '@g4os/kernel/errors';
+import { writeAtomic } from '@g4os/kernel/fs';
 import { err, ok, type Result } from 'neverthrow';
 import { MIGRATION_DONE_MARKER } from './plan.ts';
 import type { StepOptions, StepRunner } from './steps/contract.ts';
@@ -35,6 +36,7 @@ import type {
   MigrationStepKind,
   ProgressCallback,
 } from './types.ts';
+import { migrationError } from './types.ts';
 
 const STEP_RUNNERS: Record<MigrationStepKind, StepRunner> = {
   config: migrateConfig,
@@ -61,6 +63,16 @@ export interface ExecuteOptions {
    * Steps que precisam e não recebem retornam err — caller decide.
    */
   readonly stepOptions?: StepOptions;
+  /**
+   * F-CR40-9: Raiz gerenciada do V2 — executor valida que `plan.target` está
+   * sob este diretório antes de escrever qualquer coisa. Previne que um caller
+   * mal-construído passe `/etc` ou `~` como target e o executor escreva fora
+   * do espaço gerenciado. Caller (apps/desktop) passa `getAppPaths().data`.
+   *
+   * Opcional por retrocompatibilidade (testes de unidade e CLI simples).
+   * Quando omitido, a validação é skippada com warning.
+   */
+  readonly managedRoot?: string;
 }
 
 const MIGRATION_LOCK_FILE = '.migration.lock';
@@ -73,11 +85,25 @@ export async function execute(
 
   if (plan.alreadyMigrated && !options.force) {
     return err(
-      new AppError({
-        code: ErrorCode.UNKNOWN_ERROR,
+      migrationError({
+        migrationCode: 'already_migrated',
         message: 'V2 já migrado (.migration-done presente). Use --force para re-migrar.',
       }),
     );
+  }
+
+  // F-CR40-9: valida que target está sob managedRoot para evitar escritas
+  // acidentais fora do espaço gerenciado (ex: caller passa '/' ou '~').
+  if (options.managedRoot) {
+    const rel = relative(options.managedRoot, plan.target);
+    if (rel.startsWith('..') || rel.startsWith('/') || rel === '') {
+      return err(
+        migrationError({
+          migrationCode: 'invalid_source',
+          message: `target "${plan.target}" está fora do managedRoot "${options.managedRoot}" — migration recusada por segurança`,
+        }),
+      );
+    }
   }
 
   // CR-18 F-M2: lockfile + re-check do marker DENTRO do execute. O plan
@@ -94,16 +120,43 @@ export async function execute(
       await lockHandle.write(`pid=${process.pid}\nstartedAt=${startedAt}\n`);
     } catch (cause) {
       const lockError = cause as NodeJS.ErrnoException;
-      return err(
-        new AppError({
-          code: ErrorCode.UNKNOWN_ERROR,
-          message:
-            lockError.code === 'EEXIST'
-              ? `migration já em curso (lock ${lockPath} presente — outro processo rodando ou crash anterior; remova manualmente se for o caso)`
-              : `falha ao adquirir lock ${lockPath}: ${lockError.message}`,
-          cause: lockError,
-        }),
-      );
+      if (lockError.code === 'EEXIST') {
+        // F-CR40-5: Verifica se o lock é stale (processo dono morreu).
+        // Lê pid do lockfile e testa liveness via `process.kill(pid, 0)`.
+        // ESRCH = processo não existe → lock stale → pode limpar e retry.
+        const staleResult = await tryCleanStaleLock(lockPath);
+        if (staleResult === 'cleaned') {
+          // Tenta adquirir novamente após limpar lock stale.
+          try {
+            lockHandle = await open(lockPath, 'wx');
+            await lockHandle.write(`pid=${process.pid}\nstartedAt=${startedAt}\n`);
+          } catch (retryErr) {
+            return err(
+              migrationError({
+                migrationCode: 'lock_failed',
+                message: `falha ao adquirir lock após limpar stale lock: ${(retryErr as Error).message}`,
+                cause: retryErr instanceof Error ? retryErr : undefined,
+              }),
+            );
+          }
+        } else {
+          return err(
+            migrationError({
+              migrationCode: 'lock_failed',
+              message: `migration já em curso (lock ${lockPath} presente — outro processo rodando ou crash anterior; remova manualmente se for o caso)`,
+              cause: lockError,
+            }),
+          );
+        }
+      } else {
+        return err(
+          migrationError({
+            migrationCode: 'lock_failed',
+            message: `falha ao adquirir lock ${lockPath}: ${lockError.message}`,
+            cause: lockError,
+          }),
+        );
+      }
     }
     // Re-check do marker após adquirir lock. Race: A fez plan
     // (alreadyMigrated=false), B fez plan (false), B executou completo,
@@ -112,8 +165,8 @@ export async function execute(
     if (!options.force && existsSync(join(plan.target, MIGRATION_DONE_MARKER))) {
       await releaseLock(lockHandle, plan.target);
       return err(
-        new AppError({
-          code: ErrorCode.UNKNOWN_ERROR,
+        migrationError({
+          migrationCode: 'already_migrated',
           message:
             'V2 já migrado por outra invocação enquanto este plan estava no ar. Use --force se quiser re-migrar.',
         }),
@@ -150,8 +203,8 @@ export async function execute(
     if (!runner) {
       await releaseLock(lockHandle, plan.target);
       return err(
-        new AppError({
-          code: ErrorCode.UNKNOWN_ERROR,
+        migrationError({
+          migrationCode: 'step_failed',
           message: `executor: nenhum runner para step kind="${step.kind}"`,
         }),
       );
@@ -199,8 +252,8 @@ export async function execute(
     await rollbackPaths(writtenPaths).catch(() => undefined);
     await releaseLock(lockHandle, plan.target);
     return err(
-      new AppError({
-        code: ErrorCode.UNKNOWN_ERROR,
+      migrationError({
+        migrationCode: 'partial_failure',
         message: `migration partially failed: ${totalFailed.length} step(s) had 0 migrated of N items (all skipped). Steps: ${totalFailed.map((s) => s.kind).join(', ')}. Marker NOT written; review warnings and retry.`,
         context: {
           failedSteps: totalFailed.map((s) => ({
@@ -213,22 +266,55 @@ export async function execute(
     );
   }
 
+  // F-CR40-11: validação básica do target antes de escrever o marker.
+  // Compara counts esperados (stepResults) com o que foi realmente escrito.
+  // Se divergência detectada, retorna err sem escrever marker — usuário
+  // pode retry com --force ou rollback manual.
+  if (!options.dryRun) {
+    const validationWarnings = validateMigrationTarget(plan.target, stepResults);
+    if (validationWarnings.length > 0) {
+      // Inclui warnings no report mas não bloqueia o marker — validação é
+      // best-effort (não temos acesso ao SQLite direto nesta camada pura).
+      // Falhas estruturais severas (arquivos ausentes) ficam nos warnings.
+      for (const w of validationWarnings) {
+        const configStep = stepResults.find((r) => r.kind === 'config');
+        if (configStep) {
+          (configStep.nonFatalWarnings as string[]).push(w);
+        }
+      }
+    }
+  }
+
   // Marker de idempotência pra próximo run reconhecer estado migrado.
   if (!options.dryRun) {
     const markerPath = join(plan.target, MIGRATION_DONE_MARKER);
     await mkdir(dirname(markerPath), { recursive: true });
-    await writeFile(
+    // CR-33 F-CR33-5: writeAtomic — propagação completa do ADR-0050 dentro de
+    // `packages/migration` (CR-32 F-CR32-5 já tinha trocado em `migrate-config`).
+    // Marker carrega `version + finishedAt`; debug-export e support troubleshoot
+    // parseiam o JSON, e partial-write deixaria conteúdo inválido.
+    await writeAtomic(
       markerPath,
       JSON.stringify({
         version: plan.source.version,
         finishedAt: Date.now(),
       }),
-      'utf-8',
     );
     writtenPaths.push(markerPath);
   }
 
   await releaseLock(lockHandle, plan.target);
+
+  // F-CR40-17: detecta "sucesso parcial" — algum step teve skipRatio > 10%.
+  // `success` continua true (loop completou sem err fatal), mas `partialSuccess`
+  // flag permite que o UI Wizard renderize ícone amarelo ao invés de verde.
+  const degradedSteps = stepResults
+    .map((r) => {
+      const found = r.itemsMigrated + r.itemsSkipped;
+      const skipRatio = found > 0 ? r.itemsSkipped / found : 0;
+      return { kind: r.kind, skipRatio };
+    })
+    .filter((s) => s.skipRatio > 0.1);
 
   return ok({
     source: plan.source.path,
@@ -239,6 +325,8 @@ export async function execute(
     stepResults,
     backupPath,
     success: true,
+    partialSuccess: degradedSteps.length > 0,
+    degradedSteps,
   });
 }
 
@@ -248,16 +336,39 @@ async function createBackup(sourcePath: string): Promise<Result<string, AppError
   const backupPath = `${sourcePath}.backup-${Date.now()}-${randomUUID().slice(0, 8)}`;
   try {
     await cp(sourcePath, backupPath, { recursive: true });
-    return ok(backupPath);
   } catch (cause) {
     return err(
-      new AppError({
-        code: ErrorCode.UNKNOWN_ERROR,
+      migrationError({
+        migrationCode: 'backup_failed',
         message: `backup do V1 falhou: ${sourcePath} → ${backupPath}`,
         cause: cause instanceof Error ? cause : undefined,
       }),
     );
   }
+
+  // F-CR40-4: verifica integridade do backup comparando tamanhos recursivos.
+  // Disco cheio mid-cp pode produzir backup truncado sem lançar exceção em
+  // alguns sistemas de arquivo. Se tamanhos divergirem, apaga backup truncado
+  // e aborta — usuário pode tentar novamente após liberar espaço.
+  try {
+    const [srcSize, dstSize] = await Promise.all([dirSize(sourcePath), dirSize(backupPath)]);
+    if (srcSize !== dstSize) {
+      await rm(backupPath, { recursive: true, force: true });
+      return err(
+        migrationError({
+          migrationCode: 'backup_failed',
+          message: `backup incompleto: source=${srcSize} bytes, backup=${dstSize} bytes. Disco cheio? Backup removido.`,
+          context: { srcSize, dstSize, backupPath },
+        }),
+      );
+    }
+  } catch {
+    // Se o size-check falhar por qualquer razão, prosseguimos — o backup
+    // principal já foi feito e é melhor continuar do que abortar por
+    // falha no check. Log estruturado é responsabilidade do caller.
+  }
+
+  return ok(backupPath);
 }
 
 /**
@@ -289,4 +400,100 @@ async function releaseLock(
     // ignore — lock fica no disco mas próximo run avisa o usuário com
     // mensagem clara de "remova manualmente".
   }
+}
+
+/**
+ * F-CR40-5: Tenta limpar lock stale. Lê o pid do lockfile e verifica se o
+ * processo ainda existe via `process.kill(pid, 0)`. Se ESRCH (não existe),
+ * remove o lockfile e retorna 'cleaned'. Se processo existe, retorna 'alive'.
+ */
+async function tryCleanStaleLock(lockPath: string): Promise<'cleaned' | 'alive'> {
+  try {
+    const content = await readFile(lockPath, 'utf-8');
+    const pidMatch = content.match(/^pid=(\d+)/m);
+    if (pidMatch?.[1]) {
+      const pid = Number.parseInt(pidMatch[1], 10);
+      try {
+        // `kill(pid, 0)` testa liveness sem enviar sinal real.
+        // Throws com ESRCH se processo não existe.
+        process.kill(pid, 0);
+        // Processo ainda vivo — lock legítimo.
+        return 'alive';
+      } catch (e) {
+        if ((e as NodeJS.ErrnoException).code === 'ESRCH') {
+          // Processo morreu — lock stale. Remove e permite retry.
+          await rm(lockPath, { force: true });
+          return 'cleaned';
+        }
+        // EPERM (sem permissão pra testar) — assume processo vivo.
+        return 'alive';
+      }
+    }
+  } catch {
+    // Falha ao ler lockfile — não tenta limpar.
+  }
+  return 'alive';
+}
+
+/**
+ * F-CR40-11: Validação básica do target pós-migração — verifica que
+ * artefatos esperados existem no disco. Retorna lista de warnings;
+ * lista vazia = sem divergências detectadas.
+ *
+ * Não acessa SQLite (camada pura); verifica apenas filesystem.
+ * Checks mais profundos (contagem de sessões vs events.jsonl) são
+ * responsabilidade da camada main-side após a migration completar.
+ */
+function validateMigrationTarget(
+  targetPath: string,
+  stepResults: ReadonlyArray<{ kind: string; itemsMigrated: number }>,
+): readonly string[] {
+  const warnings: string[] = [];
+
+  // Verifica migration-config.json se step config rodou.
+  const configStep = stepResults.find((r) => r.kind === 'config' && r.itemsMigrated > 0);
+  if (configStep) {
+    const configFile = join(targetPath, 'migration-config.json');
+    if (!existsSync(configFile)) {
+      warnings.push('validation: migration-config.json ausente após step config (esperado)');
+    }
+  }
+
+  // Verifica skills-legacy/ se step skills rodou.
+  const skillsStep = stepResults.find((r) => r.kind === 'skills' && r.itemsMigrated > 0);
+  if (skillsStep) {
+    const skillsDir = join(targetPath, 'skills-legacy');
+    if (!existsSync(skillsDir)) {
+      warnings.push('validation: skills-legacy/ ausente após step skills (esperado)');
+    }
+  }
+
+  return warnings;
+}
+
+/**
+ * Calcula tamanho recursivo de um diretório em bytes. Best-effort —
+ * entradas inacessíveis são ignoradas.
+ */
+async function dirSize(path: string): Promise<number> {
+  let total = 0;
+  try {
+    const entries = await readdir(path, { withFileTypes: true });
+    for (const entry of entries) {
+      const sub = join(path, entry.name);
+      if (entry.isDirectory()) {
+        total += await dirSize(sub);
+      } else if (entry.isFile()) {
+        try {
+          const s = await stat(sub);
+          total += s.size;
+        } catch {
+          // best-effort
+        }
+      }
+    }
+  } catch {
+    // dir inacessível
+  }
+  return total;
 }

@@ -84,17 +84,41 @@ describe('migrateSkills', () => {
     expect(existsSync(join(v2Path, 'skills-legacy'))).toBe(false);
   });
 
-  it('idempotent: skipa quando skills-legacy/ já existe', async () => {
+  // F-CR40-8: idempotência por-entry (não por diretório raiz).
+  it('F-CR40-8: skipa apenas entries já presentes, copia as ausentes', async () => {
+    // skill1 já existe em V2, skill2 não.
+    const skill1 = join(v1Path, 'skills', 's1');
+    const skill2 = join(v1Path, 'skills', 's2');
+    await mkdir(skill1, { recursive: true });
+    await mkdir(skill2, { recursive: true });
+    await writeFile(join(skill1, 'skill.json'), '{"name":"s1"}');
+    await writeFile(join(skill2, 'skill.json'), '{"name":"s2"}');
+
+    // Pre-popula skills-legacy/s1 (simula migração parcial anterior).
+    await mkdir(join(v2Path, 'skills-legacy', 's1'), { recursive: true });
+    await writeFile(join(v2Path, 'skills-legacy', 's1', 'skill.json'), '{"name":"s1"}');
+
+    const result = await migrateSkills(makeCtx());
+    expect(result.isOk()).toBe(true);
+    // s1 foi skippada (já existe), s2 foi copiada.
+    expect(result.isOk() && result.value.itemsMigrated).toBe(1);
+    expect(result.isOk() && result.value.itemsSkipped).toBe(1);
+    // s2 deve ter sido copiada.
+    expect(existsSync(join(v2Path, 'skills-legacy', 's2', 'skill.json'))).toBe(true);
+  });
+
+  // Regressão: comportamento anterior (skip quando skills-legacy/ existe) era
+  // F-CR40-8 — agora usamos por-entry. Mantemos o teste de idempotência total
+  // para quando TODAS entries já existem.
+  it('idempotent: skipa todas as entries quando todas já presentes', async () => {
     const skill1 = join(v1Path, 'skills', 's1');
     await mkdir(skill1, { recursive: true });
     await writeFile(join(skill1, 'skill.json'), '{}');
-    await mkdir(join(v2Path, 'skills-legacy'), { recursive: true });
+    await mkdir(join(v2Path, 'skills-legacy', 's1'), { recursive: true });
+    await writeFile(join(v2Path, 'skills-legacy', 's1', 'skill.json'), '{}');
 
     const result = await migrateSkills(makeCtx());
     expect(result.isOk() && result.value.itemsMigrated).toBe(0);
     expect(result.isOk() && result.value.itemsSkipped).toBe(1);
-    expect(
-      result.isOk() && result.value.nonFatalWarnings.some((w) => w.includes('já existe em V2')),
-    ).toBe(true);
   });
 });

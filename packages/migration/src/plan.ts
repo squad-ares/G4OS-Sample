@@ -8,7 +8,7 @@
  */
 
 import { existsSync } from 'node:fs';
-import { readdir, stat } from 'node:fs/promises';
+import { readdir, readFile, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { MigrationPlan, MigrationStep, MigrationStepKind, V1Install } from './types.ts';
 
@@ -29,9 +29,10 @@ export async function createMigrationPlan(input: CreatePlanInput): Promise<Migra
   const { source, target } = input;
   const warnings: string[] = [];
 
-  // Idempotência: se já há marker no destino, plan vem com flag e steps
-  // todos zerados. Caller decide se respeita (default) ou força.
-  const alreadyMigrated = existsSync(join(target, MIGRATION_DONE_MARKER));
+  // F-CR40-6: usa readFile em vez de existsSync para detectar o marker —
+  // evita race TOCTOU onde outro processo escreve o marker entre o check
+  // e o execute(). ENOENT = não migrado; qualquer outro conteúdo = migrado.
+  const alreadyMigrated = await checkMarkerExists(join(target, MIGRATION_DONE_MARKER));
   if (alreadyMigrated) {
     return {
       source,
@@ -157,6 +158,23 @@ async function fileBytes(path: string): Promise<number> {
     return s.isFile() ? s.size : 0;
   } catch {
     return 0;
+  }
+}
+
+/**
+ * F-CR40-6: Verifica existência do marker via leitura (em vez de existsSync).
+ * ENOENT = não migrado; qualquer conteúdo lido = migrado.
+ * Outros erros de IO são tratados como "não migrado" — preferimos não
+ * bloquear uma migração legítima por erro de permissão no check.
+ */
+async function checkMarkerExists(markerPath: string): Promise<boolean> {
+  try {
+    await readFile(markerPath, 'utf-8');
+    return true;
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code === 'ENOENT') return false;
+    // IO error (EACCES, etc.) — trata como não-migrado com log implícito.
+    return false;
   }
 }
 

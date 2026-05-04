@@ -11,7 +11,7 @@
  * (ou nunca, se o usuário preferir manter).
  */
 
-import type { AppError } from '@g4os/kernel/errors';
+import { AppError, ErrorCode } from '@g4os/kernel/errors';
 
 /** Diretórios candidatos onde V1 pode estar instalado (em `homedir()`). */
 export const V1_CANDIDATE_DIRS = ['.g4os', '.g4os-public'] as const;
@@ -26,7 +26,23 @@ export interface V1Install {
   readonly flavor: V1Flavor;
 }
 
-/** Tipos discriminados de step — cada um sabe o seu próprio formato V1. */
+/**
+ * Tipos discriminados de step — cada um sabe o seu próprio formato V1.
+ *
+ * F-CR40-2 (SKIP-ADR): `projects` está AUSENTE deste enum. ADR-0133 delega
+ * o re-discovery de projetos V1 para `ProjectsService.discoverLegacyProjects`
+ * no renderer (pós-migração), que varre 3 candidatos e usa sentinel
+ * `.legacy-import-done`. Contudo, projetos em `~/.g4os/workspaces/<wid>/projects/`
+ * fora do `workingDirectory` configurado não são cobertos por esse discovery.
+ * Decisão: deferred ao discovery pós-migração do ADR-0133 por ora.
+ *
+ * TODO: ADR needed for projects/ migration — decidir se adicionamos step
+ * `projects` que copia `<v1>/workspaces/<wid>/projects/` para
+ * `<v2 workspace root>/<wid>/projects/`, ou se formalizamos via ADR que
+ * o discovery do ADR-0133 é suficiente (e documenta o gap de projetos
+ * fora do workingDirectory).
+ */
+// TODO(ADR-needed): projects/ migration step missing — see CR-40 F-CR40-2
 export type MigrationStepKind =
   | 'config'
   | 'credentials'
@@ -64,10 +80,50 @@ export type MigrationErrorCode =
   | 'backup_failed'
   | 'step_failed'
   | 'rollback_failed'
-  | 'already_migrated';
+  | 'already_migrated'
+  | 'lock_failed'
+  | 'invalid_source'
+  | 'partial_failure';
 
 export interface MigrationError extends AppError {
   readonly migrationCode: MigrationErrorCode;
+}
+
+/** Mapeamento de MigrationErrorCode → ErrorCode para telemetria e UI. F-CR40-3. */
+const MIGRATION_CODE_TO_ERROR_CODE: Record<MigrationErrorCode, ErrorCode> = {
+  no_v1_install_found: ErrorCode.MIGRATION_INVALID_SOURCE,
+  v1_corrupted: ErrorCode.MIGRATION_V1_CORRUPTED,
+  backup_failed: ErrorCode.MIGRATION_BACKUP_FAILED,
+  step_failed: ErrorCode.MIGRATION_STEP_FAILED,
+  rollback_failed: ErrorCode.MIGRATION_ROLLBACK_FAILED,
+  already_migrated: ErrorCode.MIGRATION_ALREADY_DONE,
+  lock_failed: ErrorCode.MIGRATION_LOCK_FAILED,
+  invalid_source: ErrorCode.MIGRATION_INVALID_SOURCE,
+  partial_failure: ErrorCode.MIGRATION_PARTIAL_FAILURE,
+};
+
+/**
+ * Factory para erros de migração tipados. F-CR40-3: substitui todas as
+ * chamadas `new AppError({ code: UNKNOWN_ERROR })` no pacote por códigos
+ * específicos, permitindo que o CLI e a UI Wizard diferenciem por tipo
+ * (lock, backup, step, rollback, já migrado, etc.).
+ */
+export function migrationError(opts: {
+  readonly migrationCode: MigrationErrorCode;
+  readonly message: string;
+  readonly cause?: unknown;
+  readonly context?: Record<string, unknown>;
+}): MigrationError {
+  const code = MIGRATION_CODE_TO_ERROR_CODE[opts.migrationCode];
+  // exactOptionalPropertyTypes: não passa cause/context se undefined —
+  // usa spread condicional para não incluir a chave.
+  const base = new AppError({
+    code,
+    message: opts.message,
+    ...(opts.cause instanceof Error ? { cause: opts.cause } : {}),
+    ...(opts.context === undefined ? {} : { context: opts.context }),
+  });
+  return Object.assign(base, { migrationCode: opts.migrationCode }) as MigrationError;
 }
 
 /** Callback de progresso emitido durante `executor.execute`. */
@@ -98,5 +154,20 @@ export interface MigrationReport {
     readonly nonFatalWarnings: readonly string[];
   }>;
   readonly backupPath: string | null;
+  /** `true` se todos os steps concluíram sem err fatal. */
   readonly success: boolean;
+  /**
+   * F-CR40-17: `true` se algum step teve skipRatio > 10% (ex: 80/100
+   * workspaces malformados → sucesso técnico mas 80% dos dados não migraram).
+   * UI Wizard renderiza ícone amarelo em vez de verde quando este flag é true.
+   */
+  readonly partialSuccess: boolean;
+  /**
+   * Steps com skipRatio > 10%. Vazio quando `partialSuccess = false`.
+   * UI pode listar quais steps tiveram alta taxa de skip com contexto.
+   */
+  readonly degradedSteps: ReadonlyArray<{
+    readonly kind: MigrationStepKind;
+    readonly skipRatio: number;
+  }>;
 }

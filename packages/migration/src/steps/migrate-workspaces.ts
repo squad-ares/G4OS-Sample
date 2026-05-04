@@ -14,9 +14,10 @@
 import { existsSync } from 'node:fs';
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { AppError, ErrorCode } from '@g4os/kernel/errors';
+import type { AppError } from '@g4os/kernel/errors';
 import { err, ok, type Result } from 'neverthrow';
 import { z } from 'zod';
+import { migrationError } from '../types.ts';
 import type { StepContext, StepResult, V2WorkspaceInput } from './contract.ts';
 
 // Schema permissivo — V1 evoluiu ao longo das releases; campos opcionais
@@ -54,8 +55,8 @@ export async function migrateWorkspaces(ctx: StepContext): Promise<Result<StepRe
     entries = raw.filter((e) => e.isDirectory()).map((e) => e.name);
   } catch (cause) {
     return err(
-      new AppError({
-        code: ErrorCode.UNKNOWN_ERROR,
+      migrationError({
+        migrationCode: 'step_failed',
         message: `migrate-workspaces: falha lendo ${wsRoot}`,
         cause: cause instanceof Error ? cause : undefined,
       }),

@@ -136,9 +136,10 @@ describe('execute', () => {
 
   it('rejects parallel execute via lockfile (CR-18 F-M2)', async () => {
     const plan = await createMigrationPlan({ source: makeV1Install(), target: v2Path });
-    // Cria o lock manualmente — simula outra instância rodando.
+    // Cria o lock manualmente com pid do processo atual — simula outra instância
+    // rodando (pid vivo não é tratado como stale por F-CR40-5).
     await mkdir(v2Path, { recursive: true });
-    await writeFile(join(v2Path, '.migration.lock'), 'pid=99999\n', 'utf-8');
+    await writeFile(join(v2Path, '.migration.lock'), `pid=${process.pid}\n`, 'utf-8');
 
     const result = await execute(plan, {
       dryRun: false,
@@ -150,6 +151,36 @@ describe('execute', () => {
     if (result.isErr()) {
       expect(result.error.message).toMatch(/já em curso|EEXIST/i);
     }
+  });
+
+  // F-CR40-9: managedRoot validation.
+  it('F-CR40-9: rejeita target fora do managedRoot', async () => {
+    const plan = await createMigrationPlan({ source: makeV1Install(), target: v2Path });
+    const result = await execute(plan, {
+      dryRun: false,
+      force: false,
+      onProgress: vi.fn(),
+      stepFilter: new Set(['config']),
+      managedRoot: '/some/other/managed/root',
+    });
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error.message).toMatch(/fora do managedRoot/i);
+    }
+  });
+
+  // F-CR40-17: partialSuccess quando steps têm alta taxa de skip.
+  it('F-CR40-17: partialSuccess=false quando tudo migra com sucesso', async () => {
+    const plan = await createMigrationPlan({ source: makeV1Install(), target: v2Path });
+    const result = await execute(plan, {
+      dryRun: false,
+      force: false,
+      onProgress: vi.fn(),
+      stepFilter: new Set(['config']),
+    });
+    expect(result.isOk()).toBe(true);
+    expect(result.isOk() && result.value.partialSuccess).toBe(false);
+    expect(result.isOk() && result.value.degradedSteps).toHaveLength(0);
   });
 
   it('re-checks marker after lock acquisition (CR-18 F-M2 race)', async () => {

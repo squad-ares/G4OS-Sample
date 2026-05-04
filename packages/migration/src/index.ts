@@ -33,6 +33,7 @@ export {
   type MigrationReport,
   type MigrationStep,
   type MigrationStepKind,
+  migrationError,
   type ProgressCallback,
   type ProgressEvent,
   V1_CANDIDATE_DIRS,

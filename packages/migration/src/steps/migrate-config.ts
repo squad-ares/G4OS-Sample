@@ -24,10 +24,12 @@
  * deferred até o wizard de migração consumir a API.
  */
 
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
-import { AppError, ErrorCode } from '@g4os/kernel/errors';
+import type { AppError } from '@g4os/kernel/errors';
+import { writeAtomic } from '@g4os/kernel/fs';
 import { err, ok, type Result } from 'neverthrow';
+import { migrationError } from '../types.ts';
 import type { StepContext, StepResult } from './contract.ts';
 
 interface V1ConfigLike {
@@ -56,8 +58,8 @@ export async function migrateConfig(ctx: StepContext): Promise<Result<StepResult
     raw = await readFile(v1ConfigPath, 'utf-8');
   } catch (cause) {
     return err(
-      new AppError({
-        code: ErrorCode.UNKNOWN_ERROR,
+      migrationError({
+        migrationCode: 'step_failed',
         message: `migrate-config: falha lendo ${v1ConfigPath}`,
         cause: cause instanceof Error ? cause : undefined,
       }),
@@ -69,8 +71,8 @@ export async function migrateConfig(ctx: StepContext): Promise<Result<StepResult
     parsed = JSON.parse(raw) as V1ConfigLike;
   } catch (cause) {
     return err(
-      new AppError({
-        code: ErrorCode.UNKNOWN_ERROR,
+      migrationError({
+        migrationCode: 'v1_corrupted',
         message: 'migrate-config: V1 config.json malformado',
         cause: cause instanceof Error ? cause : undefined,
       }),
@@ -93,6 +95,14 @@ export async function migrateConfig(ctx: StepContext): Promise<Result<StepResult
       `${Object.keys(extras).length} campo(s) desconhecido(s) em V1 config — preservados em "extras"`,
     );
   }
+  // F-CR40-13: migration-config.json é write-only no migrator — o caller
+  // (UI Wizard ou CLI) DEVE inspecionar report.stepResults e ler o arquivo
+  // para aplicar theme/locale via PreferencesStore. Auto-aplicação foi
+  // rejeitada (campos V1 com casing variado exigem mapeamento explícito
+  // por field — silencioso quebraria UX sem feedback).
+  warnings.push(
+    'migration-config.json gravado — caller deve aplicar theme/locale manualmente via PreferencesStore (TASK-14-01b)',
+  );
 
   const bytes = Buffer.byteLength(raw, 'utf-8');
 
@@ -101,7 +111,10 @@ export async function migrateConfig(ctx: StepContext): Promise<Result<StepResult
     const outPath = join(targetPath, 'migration-config.json');
     await mkdir(dirname(outPath), { recursive: true });
     const payload = JSON.stringify({ migratedFromV1: true, known, extras }, null, 2);
-    await writeFile(outPath, payload, 'utf-8');
+    // CR-32 F-CR32-5: writeAtomic — crash mid-write em migration step deixa
+    // target em estado inconsistente. Outros steps já não usam writeFile cru;
+    // este era o último caso em packages/migration.
+    await writeAtomic(outPath, payload);
     writtenPaths.push(outPath);
   }
 

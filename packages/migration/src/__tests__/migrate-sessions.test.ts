@@ -177,4 +177,123 @@ describe('migrateSessions', () => {
       result.isOk() && result.value.nonFatalWarnings.some((w) => w.includes('não mapeável')),
     ).toBe(true);
   });
+
+  // F-CR40-1 (regressão): V1 com sequências irregulares [3,0,1,7,2] deve
+  // ser passada ao writer sem o sequenceNumber original — writer é responsável
+  // por strip+recompute (ADR-0043). Migrator NÃO reordena nem valida gaps.
+  it('F-CR40-1: passa eventos com sequenceNumber V1 irregular ao writer sem rejeitar', async () => {
+    const wid = randomUUID();
+    const sid = randomUUID();
+    // V1 JSONL com sequências fora de ordem e com gaps.
+    const events = [3, 0, 1, 7, 2].map((seq) => ({
+      type: 'message.added',
+      sequenceNumber: seq,
+      message: {
+        id: randomUUID(),
+        sessionId: sid,
+        role: 'user',
+        content: [{ type: 'text', text: `msg seq=${seq}` }],
+        createdAt: 1700000000000 + seq,
+        updatedAt: 1700000000000 + seq,
+      },
+    }));
+
+    await writeSession({
+      workspaceId: wid,
+      sessionId: sid,
+      meta: { id: sid, workspaceId: wid, createdAt: 1700000000000 },
+      events,
+    });
+
+    const appended: unknown[] = [];
+    const writer: V2SessionWriter = {
+      existsSession: () => Promise.resolve(false),
+      createSession: () => Promise.resolve(),
+      appendEvent: (_sid, ev) => {
+        appended.push(ev);
+        return Promise.resolve();
+      },
+    };
+    const result = await migrateSessions(makeCtx({ options: { sessionWriter: writer } }));
+    expect(result.isOk()).toBe(true);
+    // Todos os 5 eventos chegam ao writer (com sequenceNumber original do V1 —
+    // o writer é quem deve fazer strip+recompute conforme ADR-0043).
+    expect(appended).toHaveLength(5);
+    // Sem warnings de "não mapeável" (todos são message.added válidos).
+    expect(
+      result.isOk() && result.value.nonFatalWarnings.some((w) => w.includes('não mapeável')),
+    ).toBe(false);
+  });
+
+  // F-CR40-10: appendEvent falha = sessão marcada como skipped (não migrated).
+  it('F-CR40-10: appendEvent error marca sessão como skipped com warning', async () => {
+    const wid = randomUUID();
+    const sid = randomUUID();
+    const validEvent = {
+      type: 'message.added',
+      message: {
+        id: randomUUID(),
+        sessionId: sid,
+        role: 'user',
+        content: [{ type: 'text', text: 'hi' }],
+        createdAt: 1700000000000,
+        updatedAt: 1700000000000,
+      },
+    };
+    await writeSession({
+      workspaceId: wid,
+      sessionId: sid,
+      meta: { id: sid, workspaceId: wid, createdAt: 1700000000000 },
+      events: [validEvent],
+    });
+
+    const writer: V2SessionWriter = {
+      existsSession: () => Promise.resolve(false),
+      createSession: () => Promise.resolve(),
+      appendEvent: () => Promise.reject(new Error('disk full')),
+    };
+    const result = await migrateSessions(makeCtx({ options: { sessionWriter: writer } }));
+    expect(result.isOk()).toBe(true);
+    // Sessão NÃO foi contada como migrada (appendFailed).
+    expect(result.isOk() && result.value.itemsMigrated).toBe(0);
+    expect(result.isOk() && result.value.itemsSkipped).toBe(1);
+    expect(
+      result.isOk() && result.value.nonFatalWarnings.some((w) => w.includes('appendEvent falhou')),
+    ).toBe(true);
+  });
+
+  // F-CR40-14: fixture roundtrip V1-0.1 — migrate sem writer conta corretamente.
+  it('F-CR40-14: roundtrip com fixture V1-0.1 (read-only)', async () => {
+    const wid = randomUUID();
+    const sid = randomUUID();
+    // Simula fixture V1 0.1.0 — sem campos modernos (provider/modelId).
+    await writeSession({
+      workspaceId: wid,
+      sessionId: sid,
+      meta: { version: '0.1.0', name: 'Sessão legacy' },
+      events: [
+        {
+          type: 'session.created',
+          timestamp: 1700000000000,
+        },
+        {
+          type: 'message.added',
+          message: {
+            id: randomUUID(),
+            sessionId: sid,
+            role: 'user',
+            content: [{ type: 'text', text: 'oi' }],
+            createdAt: 1700000001000,
+            updatedAt: 1700000001000,
+          },
+        },
+      ],
+    });
+
+    // Read-only (sem writer): deve contar 1 sessão migrada.
+    const result = await migrateSessions(makeCtx());
+    expect(result.isOk()).toBe(true);
+    expect(result.isOk() && result.value.itemsMigrated).toBe(1);
+    expect(result.isOk() && result.value.itemsSkipped).toBe(0);
+  });
 });

@@ -7,15 +7,20 @@
  * não é estável (depende do design da feature V2). Cópia byte-a-byte
  * preserva o conteúdo do user pra re-importar quando a feature subir.
  *
- * Idempotente: se `<v2>/skills-legacy/` já existe, skipa com warning
- * (assume que migração anterior já fez a cópia).
+ * F-CR40-8: Idempotência por-entry — itera cada skill individualmente e
+ * verifica se `<v2>/skills-legacy/<entry>/` já existe antes de copiar.
+ * Evita o bug onde uma migração parcial anterior (cp falhou no meio)
+ * criava o diretório raiz `skills-legacy/` mas deixava entries faltando;
+ * próximas execuções skipavam tudo silenciosamente. `writtenPaths` é
+ * populado por entry (rollback granular).
  */
 
 import { existsSync } from 'node:fs';
 import { cp, readdir, stat } from 'node:fs/promises';
 import { join } from 'node:path';
-import { AppError, ErrorCode } from '@g4os/kernel/errors';
+import type { AppError } from '@g4os/kernel/errors';
 import { err, ok, type Result } from 'neverthrow';
+import { migrationError } from '../types.ts';
 import type { StepContext, StepResult } from './contract.ts';
 
 const LEGACY_DIR_NAME = 'skills-legacy';
@@ -41,8 +46,8 @@ export async function migrateSkills(ctx: StepContext): Promise<Result<StepResult
     entries = dirents.filter((e) => e.isDirectory()).map((e) => e.name);
   } catch (cause) {
     return err(
-      new AppError({
-        code: ErrorCode.UNKNOWN_ERROR,
+      migrationError({
+        migrationCode: 'step_failed',
         message: `migrate-skills: falha lendo ${v1SkillsDir}`,
         cause: cause instanceof Error ? cause : undefined,
       }),
@@ -64,27 +69,8 @@ export async function migrateSkills(ctx: StepContext): Promise<Result<StepResult
     'skills V2 ainda não disponível (11-features/10) — copiados pra `skills-legacy/`. Re-importar quando feature subir.',
   ];
 
-  const targetDir = join(targetPath, LEGACY_DIR_NAME);
   const bytes = await dirSize(v1SkillsDir);
-
-  if (existsSync(targetDir)) {
-    warnings.push(
-      `${LEGACY_DIR_NAME}/ já existe em V2 — skip cópia (assumindo migração anterior já copiou)`,
-    );
-    onProgress({
-      stepKind: 'skills',
-      stepIndex,
-      stepCount,
-      stepProgress: 1,
-      message: 'skills: skills-legacy/ já presente',
-    });
-    return ok({
-      itemsMigrated: 0,
-      itemsSkipped: entries.length,
-      bytesProcessed: bytes,
-      nonFatalWarnings: warnings,
-    });
-  }
+  const targetDir = join(targetPath, LEGACY_DIR_NAME);
 
   if (dryRun) {
     onProgress({
@@ -102,16 +88,47 @@ export async function migrateSkills(ctx: StepContext): Promise<Result<StepResult
     });
   }
 
-  try {
-    await cp(v1SkillsDir, targetDir, { recursive: true });
-  } catch (cause) {
-    return err(
-      new AppError({
-        code: ErrorCode.UNKNOWN_ERROR,
-        message: `migrate-skills: cp ${v1SkillsDir} → ${targetDir} falhou`,
-        cause: cause instanceof Error ? cause : undefined,
-      }),
-    );
+  // F-CR40-8: itera por entry — não usa existsSync no diretório raiz como
+  // sentinel de idempotência. Migração parcial anterior pode ter criado
+  // skills-legacy/ com apenas metade das entries.
+  let migrated = 0;
+  let skipped = 0;
+  const writtenPaths: string[] = [];
+
+  for (let i = 0; i < entries.length; i++) {
+    const entry = entries[i];
+    if (!entry) continue;
+
+    onProgress({
+      stepKind: 'skills',
+      stepIndex,
+      stepCount,
+      stepProgress: i / entries.length,
+      message: `skills: ${entry}`,
+    });
+
+    const srcEntry = join(v1SkillsDir, entry);
+    const dstEntry = join(targetDir, entry);
+
+    if (existsSync(dstEntry)) {
+      // Entry já copiada — skip granular (idempotente por entry).
+      skipped++;
+      continue;
+    }
+
+    try {
+      await cp(srcEntry, dstEntry, { recursive: true });
+      writtenPaths.push(dstEntry);
+      migrated++;
+    } catch (cause) {
+      return err(
+        migrationError({
+          migrationCode: 'step_failed',
+          message: `migrate-skills: cp ${srcEntry} → ${dstEntry} falhou`,
+          cause: cause instanceof Error ? cause : undefined,
+        }),
+      );
+    }
   }
 
   onProgress({
@@ -119,15 +136,15 @@ export async function migrateSkills(ctx: StepContext): Promise<Result<StepResult
     stepIndex,
     stepCount,
     stepProgress: 1,
-    message: `skills: ${entries.length} copiadas pra skills-legacy/`,
+    message: `skills: ${migrated} copiadas, ${skipped} skip`,
   });
 
   return ok({
-    itemsMigrated: entries.length,
-    itemsSkipped: 0,
+    itemsMigrated: migrated,
+    itemsSkipped: skipped,
     bytesProcessed: bytes,
     nonFatalWarnings: warnings,
-    writtenPaths: [targetDir],
+    writtenPaths,
   });
 }
 

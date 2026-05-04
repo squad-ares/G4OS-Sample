@@ -1,0 +1,8 @@
+{
+  "version": "0.2.3",
+  "theme": "light",
+  "locale": "en-US",
+  "telemetryOptIn": false,
+  "lastWorkspaceId": "ws-0002",
+  "newField": "unknown-to-migrator"
+}

@@ -16,6 +16,8 @@ import { V1_CANDIDATE_DIRS, type V1Flavor, type V1Install } from './types.ts';
 
 interface V1Config {
   readonly version?: unknown;
+  /** F-CR40-12: campo `flavor` presente em instalações V1 mais recentes. */
+  readonly flavor?: unknown;
 }
 
 /**
@@ -35,7 +37,11 @@ export async function detectV1Install(home: string = getHomeDir()): Promise<V1In
     // returnando `{ found: false }`.
     const detectResult = await readV1Version(path);
     if (!detectResult.found) continue;
-    const flavor: V1Flavor = dirName.includes('public') ? 'public' : 'internal';
+    // F-CR40-12: prefere flavor declarado em config.json (instalações V1 mais
+    // recentes o incluem). Fallback para heurística por nome de diretório
+    // — útil para instalações antigas que não tinham o campo.
+    const flavor: V1Flavor =
+      detectResult.flavor ?? (dirName.includes('public') ? 'public' : 'internal');
     return { path, version: detectResult.version, flavor };
   }
   return null;
@@ -43,28 +49,33 @@ export async function detectV1Install(home: string = getHomeDir()): Promise<V1In
 
 async function readV1Version(
   installPath: string,
-): Promise<{ found: boolean; version: string | null }> {
+): Promise<{ found: boolean; version: string | null; flavor: V1Flavor | null }> {
   let raw: string;
   try {
     raw = await readFile(join(installPath, 'config.json'), 'utf-8');
   } catch (cause) {
     // ENOENT é o caso comum (V1 não instalado nesse path) — não é erro,
     // só sinal pra continuar pra próximo candidato.
-    if ((cause as NodeJS.ErrnoException).code === 'ENOENT') return { found: false, version: null };
+    if ((cause as NodeJS.ErrnoException).code === 'ENOENT')
+      return { found: false, version: null, flavor: null };
     // Permission denied / IO error: V1 existe mas não conseguimos ler.
     // Tratamos como "não encontrado" — plan emite warning genérico, user
     // pode tentar novamente após fechar o V1 ou rodar com privilégios.
-    return { found: false, version: null };
+    return { found: false, version: null, flavor: null };
   }
   try {
     const parsed = JSON.parse(raw) as V1Config;
+    // F-CR40-12: extrai flavor do config.json quando disponível.
+    const flavor: V1Flavor | null =
+      parsed.flavor === 'public' ? 'public' : parsed.flavor === 'internal' ? 'internal' : null;
     return {
       found: true,
       version: typeof parsed.version === 'string' ? parsed.version : null,
+      flavor,
     };
   } catch {
     // Arquivo presente mas JSON malformado — V1 corrompido. Plan ainda
     // entra (path detectado), version=null sinaliza degradação.
-    return { found: true, version: null };
+    return { found: true, version: null, flavor: null };
   }
 }
