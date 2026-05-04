@@ -24,7 +24,7 @@ import type { SessionEvent, TurnStreamEvent } from '@g4os/kernel/types';
 import { ConfirmDestructiveDialog, toast, useTranslate } from '@g4os/ui';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ProjectBadge } from '../../chat/project-badge.tsx';
 import { formatSendError, handlePermissionRequired } from '../../chat/session-page-helpers.ts';
 import { SessionTitleMenu } from '../../chat/session-title-menu.tsx';
@@ -52,6 +52,10 @@ function SessionPage() {
     reset: resetStreamingText,
   } = useStreamingText();
   const [streamingTurnId, setStreamingTurnId] = useState<string | null>(null);
+  // Captura o timestamp do início do turn uma única vez — evita que
+  // Date.now() no useMemo abaixo gere um valor novo a cada RAF tick,
+  // propagando timestamp instável para os filhos da ghost message.
+  const streamingStartedAtRef = useRef<number>(0);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pendingTruncateAt, setPendingTruncateAt] = useState<number | null>(null);
   const [metadataOpen, setMetadataOpen] = useState(false);
@@ -76,12 +80,18 @@ function SessionPage() {
   );
 
   const chatMessages = useMemo<ReadonlyArray<ChatMessage>>(() => {
-    if (!streamingTurnId || !streamingText) return persistedMessages;
+    // Mostra ghost assim que turn.started chega — sem esperar o primeiro
+    // texto. AssistantMessage renderiza "thinking" dots quando content=[],
+    // dando feedback imediato. Antes, !streamingText escondia o ghost até
+    // o primeiro RAF tick (~16ms), criando flicker no início do turn.
+    if (!streamingTurnId) return persistedMessages;
     const ghost: ChatMessage = {
       id: `__streaming__${streamingTurnId}`,
       role: 'assistant',
       content: [{ type: 'text', text: streamingText }],
-      createdAt: Date.now(),
+      // Timestamp estável capturado uma vez em turn.started — Date.now()
+      // inline recalcularia a cada RAF tick gerando prop instável.
+      createdAt: streamingStartedAtRef.current,
       isStreaming: true,
     };
     return [...persistedMessages, ghost];
@@ -94,18 +104,22 @@ function SessionPage() {
       {
         onData: (event: SessionEvent) => {
           if (event.type === 'message.added' || event.type === 'tool.completed') {
-            void invalidateMessages(queryClient, sessionId);
-            // CR-UX: invalidar sessions list para que a sidebar reflita
-            // novo lastMessageAt / updatedAt / messageCount sem precisar
-            // de cmd+r. Sem isso, sidebar fica out of sync após cada
-            // mensagem e usuário precisa refresh manual.
             void invalidateSessions(queryClient);
             setIsStreaming(false);
-            // Reset do ghost assim que uma assistant message é persistida —
-            // o texto agora vive no histórico; ghost deve limpar para não
-            // duplicar o conteúdo entre iterações do tool loop.
             if (event.type === 'message.added' && event.message.role === 'assistant') {
-              resetStreamingText();
+              // Aguardar o refetch completar antes de limpar o ghost —
+              // evita flicker onde ghost some antes da mensagem do DB
+              // aparecer em persistedMessages. `invalidateQueries` resolve
+              // quando o cache já está atualizado com a nova mensagem.
+              void invalidateMessages(queryClient, sessionId).then(() => {
+                resetStreamingText();
+                setStreamingTurnId(null);
+              });
+            } else {
+              // CR-UX: invalidar sessions list para que a sidebar reflita
+              // novo lastMessageAt / updatedAt / messageCount sem precisar
+              // de cmd+r.
+              void invalidateMessages(queryClient, sessionId);
             }
           }
           if (event.type === 'message.updated') {
@@ -139,6 +153,7 @@ function SessionPage() {
     (event: TurnStreamEvent): void => {
       switch (event.type) {
         case 'turn.started':
+          streamingStartedAtRef.current = Date.now();
           setStreamingTurnId(event.turnId);
           resetStreamingText();
           setIsStreaming(true);
@@ -148,7 +163,10 @@ function SessionPage() {
           return;
         case 'turn.done':
           flushStreamingText();
-          setStreamingTurnId(null);
+          // Não zerar streamingTurnId aqui — ghost fica visível até
+          // message.added confirmar que a mensagem está no DB e o
+          // refetch completar. Sem isso, há um flicker onde a resposta
+          // da IA desaparece brevemente entre ghost→persisted.
           return;
         case 'turn.error':
           flushStreamingText();

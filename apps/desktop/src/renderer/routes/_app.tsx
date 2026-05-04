@@ -402,7 +402,7 @@ function AuthenticatedLayout() {
             params: { workspaceId: activeWorkspaceSlug, sessionId },
           });
         }}
-        onNewSession={() => void handleNewSession()}
+        {...(activeWorkspaceSlug ? { onNewSession: () => void handleNewSession() } : {})}
         onSessionContextMenu={(event, item) => {
           event.preventDefault();
           const session = findPanelSession(item.id);

@@ -1,4 +1,4 @@
-import { WorkspaceSetupWizard } from '@g4os/features/workspaces';
+import { useSetActiveWorkspaceId, WorkspaceSetupWizard } from '@g4os/features/workspaces';
 import { useTranslate } from '@g4os/ui';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { X } from 'lucide-react';
@@ -14,6 +14,7 @@ export const Route = createFileRoute('/_app/workspaces/new')({
 function NewWorkspaceRoute() {
   const navigate = useNavigate();
   const { t } = useTranslate();
+  const setActiveWorkspaceId = useSetActiveWorkspaceId();
   const [submitting, setSubmitting] = useState(false);
 
   const close = () => {
@@ -74,8 +75,11 @@ function NewWorkspaceRoute() {
             }
           }}
           onComplete={({ workspaceId }) => {
-            void navigate({ to: '/workspaces' });
-            void workspaceId;
+            setActiveWorkspaceId(workspaceId);
+            void navigate({
+              to: '/workspaces/$workspaceId',
+              params: { workspaceId },
+            });
           }}
         />
       </main>

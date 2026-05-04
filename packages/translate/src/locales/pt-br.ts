@@ -867,7 +867,7 @@ export const ptBR = {
   'news.badge.unread': '{{count}} não lidas',
 
   'settings.sidebar.ariaLabel': 'Categorias de configurações',
-  'settings.category.plannedBadge': 'Em breve',
+  'settings.category.plannedBadge': 'Futura',
   'settings.category.app.label': 'App',
   'settings.category.app.description': 'Versão, canal de update, diagnósticos.',
   'settings.category.agents.label': 'Agentes',

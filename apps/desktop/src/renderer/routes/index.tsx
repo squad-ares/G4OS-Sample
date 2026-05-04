@@ -1,11 +1,7 @@
 import { ACTIVE_WORKSPACE_STORAGE_KEY } from '@g4os/features/workspaces';
 import { createFileRoute, redirect } from '@tanstack/react-router';
 import { ensureAuthState } from '../auth/auth-store.ts';
-import { trpc } from '../ipc/trpc-client.ts';
-import {
-  invalidateWorkspaces,
-  workspacesListQueryOptions,
-} from '../workspaces/workspaces-store.ts';
+import { workspacesListQueryOptions } from '../workspaces/workspaces-store.ts';
 
 function readActiveWorkspaceId(): string | null {
   if (typeof window === 'undefined') return null;
@@ -44,12 +40,10 @@ export const Route = createFileRoute('/')({
       });
     }
 
-    // CR-UX: sem workspace persistido — verifica se o usuário já tem algum.
-    // Se sim, navega pro mais recente (UX V1 paridade). Se não, cria um
-    // default automaticamente e marca como pendente de setup, pra
-    // `useFirstLoginSetup` disparar o auto-onboarding na primeira sessão.
-    // Sem isso, usuário caía no `/workspaces/` (lista vazia) e precisava
-    // clicar em "Criar workspace" manualmente — fricção desnecessária.
+    // Sem workspace persistido — verifica se o usuário já tem algum.
+    // Se sim, navega pro mais recente (paridade V1). Se não, encaminha
+    // para o wizard de setup: mesmo fluxo do V1 que impedia entrar no
+    // sistema sem ter configurado pelo menos um workspace.
     const workspaces = await context.queryClient.ensureQueryData(workspacesListQueryOptions());
     const mostRecent = workspaces[0];
     if (mostRecent) {
@@ -60,26 +54,8 @@ export const Route = createFileRoute('/')({
       });
     }
 
-    try {
-      // `rootPath` opcional pelo schema; o service resolve default via
-      // `appPaths.workspace(id)` quando ausente. `name` é o único required.
-      const created = await trpc.workspaces.create.mutate({
-        name: 'My Workspace',
-      });
-      await invalidateWorkspaces(context.queryClient);
-      persistActiveWorkspaceId(created.id);
-      throw redirect({
-        to: '/workspaces/$workspaceId',
-        params: { workspaceId: created.id },
-      });
-    } catch (err) {
-      // O `redirect()` é throwado como controle de flow, NÃO é erro real.
-      // Re-throw pra que tanstack-router processe a navegação.
-      if (err && typeof err === 'object' && 'to' in err) throw err;
-      // Falha real ao criar (ex: slug duplicado por race) — manda pra
-      // lista para o user resolver manualmente.
-      throw redirect({ to: '/workspaces/' });
-    }
+    // Nenhum workspace existente — wizard obrigatório antes de acessar o shell.
+    throw redirect({ to: '/workspaces/new' });
   },
   component: () => null,
 });
