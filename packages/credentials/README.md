@@ -18,7 +18,7 @@ import {
   OAuthRotationHandler,
   type RotationHandler,
 } from '@g4os/credentials/rotation';
-import { migrateV1Credentials } from '@g4os/credentials/migration';
+import { migrateV1ToV2 } from '@g4os/credentials/migration';
 ```
 
 ## Módulos
@@ -97,44 +97,48 @@ await vault.delete('anthropic-key');
 ```ts
 import { RotationOrchestrator, OAuthRotationHandler } from '@g4os/credentials/rotation';
 
-const orchestrator = new RotationOrchestrator(vault, {
-  intervalMs: 5 * 60 * 1000,      // scan a cada 5 min
-  bufferMs: 5 * 60 * 1000,        // refresh se expiração < 5 min
+// Assinatura real: new RotationOrchestrator({ vault, handlers, intervalMs, bufferMs })
+// Telemetria separada via setTelemetry(). Instanciado na composition root
+// (apps/desktop/src/main/) após createVault().
+const orchestrator = new RotationOrchestrator({
+  vault,
+  intervalMs: 5 * 60 * 1000,   // scan a cada 5 min
+  bufferMs: 5 * 60 * 1000,     // refresh se expiração < 5 min
   handlers: [
     new OAuthRotationHandler({
-      vault,
-      tokenUrl: 'https://oauth.anthropic.com/token',
-      clientId: process.env['ANTHROPIC_CLIENT_ID'],
-      clientSecret: process.env['ANTHROPIC_CLIENT_SECRET'],
-      fetch: globalThis.fetch, // injetável para testes
+      tokenUrl: 'https://oauth.example.com/token',
+      clientId: resolvedClientId,   // injetado via DI, nunca process.env direto
     }),
   ],
-  onRotation: ({ key, provider, oldExpiresAt, newExpiresAt }) => {
-    log.info({ key, provider, oldExpiresAt, newExpiresAt }, 'token atualizado');
-  },
+});
+
+// Telemetria opcional (injetada separadamente)
+orchestrator.setTelemetry({
+  onRotation: ({ key, status }) => log.info({ key, status }, 'token rotacionado'),
+  onScan: ({ scanned, expiring }) => log.debug({ scanned, expiring }, 'scan de rotação'),
 });
 
 orchestrator.start();
 
-// no shutdown
+// no shutdown (AppLifecycle.onQuit)
 orchestrator.dispose();
 ```
 
 ### Migração v1 → v2
 
 ```ts
-import { migrateV1Credentials } from '@g4os/credentials/migration';
+import { migrateV1ToV2 } from '@g4os/credentials/migration';
 
 // Dry-run (não-destrutivo)
-const report = await migrateV1Credentials({
+const report = await migrateV1ToV2({
   vault,
-  v1EncPath: '/Users/user/.g4os/credentials.enc',
-  v1Key: derivedKeyFromPassword,
+  masterKey: derivedKeyFromPassword,
+  v1Path: '/Users/user/.g4os/credentials.enc', // opcional, default detectado
   dryRun: true,
 });
 
-if (report.keysMigrated === report.keysProcessed) {
-  await migrateV1Credentials({ ...opts, dryRun: false });
+if (report.failed === 0) {
+  await migrateV1ToV2({ vault, masterKey: derivedKeyFromPassword });
 }
 ```
 

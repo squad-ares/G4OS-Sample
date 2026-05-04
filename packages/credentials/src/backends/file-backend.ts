@@ -121,7 +121,17 @@ export class FileKeychain implements IKeychain {
       return Promise.resolve(err(CredentialErrorClass.locked('codec-unavailable')));
     }
     if (this.readyPromise === null) {
-      this.readyPromise = mkdir(this.baseDir, { recursive: true }).then(() => undefined);
+      // F-CR35-7: invalida `readyPromise` em rejeição. Antes, mkdir EACCES
+      // temporário (ex.: macOS Disk Full Protection durante popup) deixava
+      // promise rejeitada cached — vault permanecia poison até restart do
+      // processo mesmo após o problema ser resolvido.
+      this.readyPromise = mkdir(this.baseDir, { recursive: true })
+        .then(() => undefined)
+        .catch((cause: unknown) => {
+          // Invalida cache para permitir retry na próxima chamada.
+          this.readyPromise = null;
+          throw cause;
+        });
     }
     return this.readyPromise.then(
       () => ok<void, CredentialError>(undefined),

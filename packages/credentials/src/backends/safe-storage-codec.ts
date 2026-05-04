@@ -24,10 +24,33 @@ const SPECIFIER = 'electron';
 
 export async function loadSafeStorageCodec(): Promise<SecretCodec> {
   const mod = (await import(/* @vite-ignore */ SPECIFIER)) as ElectronLike;
-  const store = mod.safeStorage;
+  // F-CR35-8: valida shape do módulo antes de usar. Import dinâmico pode
+  // retornar um objeto sem `safeStorage` (versão antiga, runtime não-Electron,
+  // mock incompleto em testes). Sem validação, `store.isEncryptionAvailable()`
+  // lançaria TypeError síncrono no getter `available`, escapando do try/catch
+  // de `file-backend.ts` e violando ADR-0011 (erros esperados são tipos).
+  const store = mod?.safeStorage;
+  if (
+    typeof store?.isEncryptionAvailable !== 'function' ||
+    typeof store?.encryptString !== 'function' ||
+    typeof store?.decryptString !== 'function'
+  ) {
+    // Retorna codec com `available: false` — vault usará o caminho `locked`.
+    return {
+      available: false,
+      encrypt: (_value: string): Buffer => Buffer.alloc(0),
+      decrypt: (_payload: Buffer): string => '',
+    };
+  }
   return {
     get available() {
-      return store.isEncryptionAvailable();
+      // Wrapper defensivo: se isEncryptionAvailable() lançar (estado interno
+      // do Electron inconsistente), retorna false em vez de propagar throw.
+      try {
+        return store.isEncryptionAvailable();
+      } catch {
+        return false;
+      }
     },
     encrypt: (value: string) => store.encryptString(value),
     decrypt: (payload: Buffer) => store.decryptString(payload),
