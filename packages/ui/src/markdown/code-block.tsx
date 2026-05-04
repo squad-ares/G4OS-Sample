@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { cn } from '../libs/utils.ts';
+import { useTranslate } from '../translate/translate-provider.tsx';
 import { useHighlightedHtml } from './use-highlighted-html.ts';
 
 export interface CodeBlockProps {
@@ -8,11 +9,22 @@ export interface CodeBlockProps {
 }
 
 export function CodeBlock({ className, children }: CodeBlockProps) {
+  const { t } = useTranslate();
   const lang = className?.replace('language-', '') ?? '';
   const isBlock = Boolean(lang || className?.startsWith('language-'));
   const code = String(children ?? '').replace(/\n$/, '');
   const html = useHighlightedHtml(isBlock ? code : '', isBlock ? lang || 'text' : '');
   const [copied, setCopied] = useState(false);
+  // Guarda o id do timeout para cancelar no cleanup — evita setState em componente desmontado.
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current !== null) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
 
   if (!isBlock) {
     return (
@@ -27,7 +39,8 @@ export function CodeBlock({ className, children }: CodeBlockProps) {
     // Fallback para `document.execCommand('copy')` funciona em qualquer browser desde 2015.
     const showFeedback = (): void => {
       setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
+      if (timeoutRef.current !== null) clearTimeout(timeoutRef.current);
+      timeoutRef.current = setTimeout(() => setCopied(false), 1500);
     };
 
     if (navigator.clipboard?.writeText) {
@@ -56,7 +69,7 @@ export function CodeBlock({ className, children }: CodeBlockProps) {
             copied ? 'text-emerald-400' : 'text-muted-foreground hover:text-foreground',
           )}
         >
-          {copied ? 'Copied' : 'Copy'}
+          {copied ? t('markdown.code.copied') : t('markdown.code.copy')}
         </button>
       </div>
       {html ? (

@@ -8,6 +8,12 @@ export type G4OSSymbolProps = Omit<SVGProps<SVGSVGElement>, 'children' | 'viewBo
  *
  * Usa `currentColor` no fill pra herdar a cor do parent via Tailwind
  * (`text-accent`, `text-foreground`, etc) — a V1 hardcodava `#B9915B`.
+ *
+ * Contrato de acessibilidade (F-CR49-7):
+ * - Padrão: `aria-hidden=true` (decorativo). `role` não é fixado — consumer
+ *   pode passar `role="img" aria-label="G4 OS logo"` para uso semântico
+ *   (boot screen, workspace landing). `role="presentation"` era hardcoded e
+ *   impedia uso semântico; removido em CR-49.
  */
 export function G4OSSymbol({
   className,
@@ -15,11 +21,11 @@ export function G4OSSymbol({
   ...rest
 }: G4OSSymbolProps) {
   return (
+    // biome-ignore lint/a11y/noSvgWithoutTitle: (reason: aria-hidden padrão=true já exclui do AT tree; consumer semântico passa role="img" aria-label via props — estático é decorativo)
     <svg
       viewBox="0 0 45 45"
       xmlns="http://www.w3.org/2000/svg"
       fill="none"
-      role="presentation"
       className={className}
       aria-hidden={ariaHidden}
       {...rest}

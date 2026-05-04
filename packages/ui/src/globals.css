@@ -154,11 +154,15 @@
   --radius: var(--radius);
 
   /* Stacking layers — usadas pelos componentes Radix-wrapped (dialog,
-     popover, drawer, dropdown-menu, select, context-menu). Sem estes
-     tokens, as utilities `z-modal`/`z-dropdown`/`z-floating-menu` em
-     Tailwind v4 resolvem para nada e os overlays ficam sem z-index. */
+     popover, drawer, dropdown-menu, select, context-menu, tooltip). Sem
+     estes tokens, as utilities `z-modal`/`z-dropdown`/`z-floating-menu`/
+     `z-tooltip` em Tailwind v4 resolvem para nada e os overlays ficam
+     sem z-index. Hierarquia: floating-menu(35) < dropdown(40) < tooltip(55)
+     = modal(50+5) > modal(50). Tooltip deve aparecer sobre qualquer overlay
+     não-modal (dropdown, popover) mas pode ficar atrás de dialogs — ADR-0108. */
   --z-floating-menu: 35;
   --z-dropdown: 40;
+  --z-tooltip: 55;
   --z-modal: 50;
 }
 
