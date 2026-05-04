@@ -18,7 +18,7 @@
 import { randomUUID } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { cp, mkdir, open, readdir, readFile, rm, stat } from 'node:fs/promises';
-import { dirname, join, relative } from 'node:path';
+import { dirname, isAbsolute, join, relative } from 'node:path';
 import type { AppError } from '@g4os/kernel/errors';
 import { writeAtomic } from '@g4os/kernel/fs';
 import { err, ok, type Result } from 'neverthrow';
@@ -96,7 +96,7 @@ export async function execute(
   // acidentais fora do espaço gerenciado (ex: caller passa '/' ou '~').
   if (options.managedRoot) {
     const rel = relative(options.managedRoot, plan.target);
-    if (rel.startsWith('..') || rel.startsWith('/') || rel === '') {
+    if (rel.startsWith('..') || isAbsolute(rel) || rel === '') {
       return err(
         migrationError({
           migrationCode: 'invalid_source',
