@@ -3,6 +3,15 @@ import { join } from 'node:path';
 import { AppError, ErrorCode } from '@g4os/kernel/errors';
 import { getPlatformInfo } from './platform-info.ts';
 
+/**
+ * CR-43 F-CR43-8: `executableSuffix` movido de `PlatformInfo` (campo público)
+ * para função privada deste módulo. Único consumer real era `runtime-paths.ts`
+ * — não há motivo para expor no contrato público de platform.
+ */
+function executableSuffix(): '' | '.exe' {
+  return getPlatformInfo().family === 'windows' ? '.exe' : '';
+}
+
 interface RuntimeLocation {
   /** Runtime directory base (ex: resourcesPath/runtime em packaged, dist/runtime em dev) */
   readonly runtimeDir: string;
@@ -55,24 +64,22 @@ export const runtime = {
 
   /** Vendored binaries */
   git(): string {
-    const { family, executableSuffix } = getPlatformInfo();
+    const { family } = getPlatformInfo();
     const loc = requireLocation();
     if (family === 'windows') {
-      return join(loc.vendorDir, 'git', 'cmd', `git${executableSuffix}`);
+      return join(loc.vendorDir, 'git', 'cmd', `git${executableSuffix()}`);
     }
     return join(loc.vendorDir, 'git', 'bin', 'git');
   },
 
   node(): string {
-    const { executableSuffix } = getPlatformInfo();
     const loc = requireLocation();
-    return join(loc.vendorDir, 'node', `node${executableSuffix}`);
+    return join(loc.vendorDir, 'node', `node${executableSuffix()}`);
   },
 
   uv(): string {
-    const { executableSuffix } = getPlatformInfo();
     const loc = requireLocation();
-    return join(loc.vendorDir, 'uv', `uv${executableSuffix}`);
+    return join(loc.vendorDir, 'uv', `uv${executableSuffix()}`);
   },
 } as const;
 
@@ -89,11 +96,13 @@ export function _resetForTestingInternal(): void {
 
 /** Valida que todos os runtime paths críticos existem. Chamar em startup. */
 export function validateRuntimeIntegrity(): { ok: boolean; missing: string[] } {
+  // bridge-mcp-server e session-mcp-server são skeletons pendentes (TASK-18-01/02).
+  // Enquanto não promovidos, nunca existem em dev/prod — incluí-los geraria
+  // `runtime.missing` em todo boot, tornando o sinal ruído permanente.
+  // Readicionar ao array quando o pacote for promovido para implementação real.
   const checks: Array<[string, string]> = [
     ['claude-sdk-cli', runtime.claudeSdkCli()],
     ['interceptor', runtime.interceptor()],
-    ['session-mcp-server', runtime.sessionMcpServer()],
-    ['bridge-mcp-server', runtime.bridgeMcpServer()],
   ];
   const missing: string[] = [];
   for (const [name, path] of checks) {

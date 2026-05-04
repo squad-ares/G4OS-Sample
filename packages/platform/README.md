@@ -8,17 +8,44 @@ Abstração de sistema operacional para o G4 OS v2. Ponto único onde `process.p
 import {
   // Paths canônicos (config, data, cache, state, logs, workspace)
   getAppPaths,
-  initAppPaths,
 
-  // Runtime bundle paths (node/pnpm/uv/python empacotados)
+  // Platform info — família, arch, versão, homeDir, tempDir
+  getPlatformInfo,
+  getHomeDir,
+  getTempDir,
+  getDistributionFlavor,
+  getAppName,
+  getProtocolName,
+  isMacOS,
+  isWindows,
+  isLinux,
+
+  // Runtime bundle paths
   initRuntimePaths,
   validateRuntimeIntegrity,
-  resolveBundledBinary,
+
+  // Install manifest + hash check
+  loadInstallMeta,
+  verifyRuntimeHashes,
+  sha256OfFile,
 
   // Keychain cross-platform
   type IKeychain,
+
+  // Types
+  type AppPaths,
+  type PlatformInfo,
+  type InstallMeta,
+  type RuntimeName,
+  type IntegrityFailure,
 } from '@g4os/platform';
 ```
+
+> `_resetForTestingInternal` é helper test-only exportado diretamente de
+> `'@g4os/platform/src/runtime-paths.ts'` — não faz parte do barrel público.
+>
+> `runtime` (builders de path de runtime) é privado do módulo — use
+> `loadInstallMeta` + `verifyRuntimeHashes` para verificação de integridade.
 
 ## Responsabilidades
 
