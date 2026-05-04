@@ -71,6 +71,17 @@ describe('scrubObject', () => {
     expect(result).toBe(SCRUB_CENSOR);
   });
 
+  // F-CR41-10: Symbol-keyed properties são intencionalmente descartados.
+  // Sentry/OTel SDKs ocasionalmente anexam contexto via Symbol; sem este
+  // teste, uma regressão (Object.entries no lugar de Reflect.ownKeys)
+  // passaria silenciosa.
+  it('drops symbol-keyed properties', () => {
+    const sym = Symbol.for('pii');
+    const out = scrubObject({ a: 1, [sym]: 'leak' }) as Record<string | symbol, unknown>;
+    expect(Object.getOwnPropertySymbols(out)).toHaveLength(0);
+    expect(out['a']).toBe(1);
+  });
+
   it('preserves cycle structure with both nodes scrubbed (CR6-03)', () => {
     const a: Record<string, unknown> = { token: 'tk-leak', name: 'a' };
     a['self'] = a;

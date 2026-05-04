@@ -95,6 +95,19 @@ export class MemoryMonitor extends DisposableBase {
   }
 
   sampleOnce(): MemorySample {
+    // Guard: interval pode ter entrado no callback ANTES do clearInterval
+    // executar em dispose(). Sem check, onThresholdExceeded + onSample
+    // executariam em monitor descartado (ADR-0012).
+    if (this._disposed) {
+      return {
+        timestamp: this.now(),
+        rssBytes: 0,
+        heapUsedBytes: 0,
+        heapTotalBytes: 0,
+        externalBytes: 0,
+        arrayBuffersBytes: 0,
+      };
+    }
     const usage = this.memoryUsage();
     const sample: MemorySample = {
       timestamp: this.now(),
@@ -105,8 +118,8 @@ export class MemoryMonitor extends DisposableBase {
       arrayBuffersBytes: usage.arrayBuffers,
     };
     this.recordSample(sample);
-    this.checkThresholds(sample);
-    this.onSample?.(sample);
+    if (!this._disposed) this.checkThresholds(sample);
+    if (!this._disposed) this.onSample?.(sample);
     return sample;
   }
 
@@ -163,7 +176,7 @@ export function auditProcessListeners(
   const result: ListenerAuditResult[] = [];
   for (const event of events) {
     const count = process.listenerCount(event);
-    if (count > threshold) {
+    if (count >= threshold) {
       result.push({ target: 'process', event, count });
     }
   }
