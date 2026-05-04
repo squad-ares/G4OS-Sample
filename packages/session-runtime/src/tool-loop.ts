@@ -224,8 +224,12 @@ async function runOneIteration(
   );
   if (assistantPersisted.isErr()) return { kind: 'error', error: assistantPersisted.error };
   state.messages = [...state.messages, assistantPersisted.value];
-  state.allText.length = 0;
-  state.allThinking.length = 0;
+  // F-CR46-5: reassignação imutável em vez de mutação in-place (`length = 0`).
+  // Mantém consistência com a reassignação de `messages` acima e evita que
+  // referências externas guardadas ao array (improvável hoje, mas possível em
+  // refactor futuro) enxerguem o reset inesperadamente.
+  state.allText = [];
+  state.allThinking = [];
 
   const toolMsgResult = await persistToolResultMessage(
     { messages: deps.messages, eventBus: deps.eventBus },

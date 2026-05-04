@@ -23,6 +23,7 @@
   },
   "devDependencies": {
     "@types/node": "catalog:",
+    "rxjs": "catalog:",
     "vitest": "catalog:"
   },
   "scripts": {

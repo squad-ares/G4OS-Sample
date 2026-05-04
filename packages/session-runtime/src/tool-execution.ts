@@ -221,6 +221,7 @@ async function executeSingleToolInternal(
   const composite = AbortSignal.any([ctx.signal, timeoutController.signal]);
 
   let handlerResult: ToolHandlerResult;
+  let timedOut = false;
   try {
     handlerResult = await handler.execute(use.input, {
       sessionId: ctx.sessionId,
@@ -229,11 +230,21 @@ async function executeSingleToolInternal(
       workingDirectory: ctx.workingDirectory,
       signal: composite,
     });
+    // Captura o estado de timeout ANTES de abortar o controller no finally.
+    // Sem isso, `timeoutController.signal.aborted` seria sempre true após
+    // o finally (F-CR46-3), impossibilitando distinguir timeout real de
+    // cleanup normal.
+    timedOut = timeoutController.signal.aborted && !ctx.signal.aborted;
   } finally {
     clearTimeout(timeoutHandle);
+    // F-CR46-3: aborta o timeoutController para liberar o listener que
+    // `AbortSignal.any` registrou em `ctx.signal`. Sem isso, cada tool
+    // execution acumula um listener no signal de turno — 10 tool uses = 10
+    // listeners. `timeoutController.abort()` no-op se já abortado (idempotente).
+    timeoutController.abort();
   }
 
-  if (timeoutController.signal.aborted && !ctx.signal.aborted) {
+  if (timedOut) {
     log.warn({ toolName: use.toolName, timeoutMs }, 'tool handler timed out');
     return {
       toolUseId: use.toolUseId,
