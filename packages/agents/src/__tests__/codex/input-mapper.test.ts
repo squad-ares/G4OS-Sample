@@ -65,7 +65,7 @@ describe('mapAgentInputToCodex', () => {
     expect(wire.messages[1]?.content[0]).toMatchObject({ type: 'text', text: 'calling' });
     expect(wire.messages[1]?.content[1]).toMatchObject({
       type: 'tool_use',
-      id: 'tu-1',
+      toolUseId: 'tu-1',
       name: 'grep',
     });
     expect(wire.messages[2]?.content[0]).toMatchObject({

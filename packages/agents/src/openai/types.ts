@@ -44,6 +44,9 @@ export interface OpenAIStreamParams {
   readonly prompt_cache_key?: string;
   readonly metadata?: Readonly<Record<string, string>>;
   readonly stream: true;
+  // ADR-0074 / F-CR31-6: solicita usage no stream final para que o
+  // provider emita evento 'usage' e o caller possa rastrear tokens.
+  readonly stream_options?: { readonly include_usage: true };
 }
 
 export type OpenAIStreamChunk =

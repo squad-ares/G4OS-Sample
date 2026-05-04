@@ -33,6 +33,9 @@ interface GoogleStreamRequest {
     systemInstruction?: string;
     tools?: unknown[];
     thinkingConfig?: unknown;
+    // ADR-0075 / F-CR31-8: @google/genai aceita temperature em
+    // generationConfig — passado diretamente no config do request.
+    temperature?: number;
   };
 }
 
@@ -133,6 +136,7 @@ function buildRequest(params: GeminiStreamParams): GoogleStreamRequest {
       ...(params.systemInstruction ? { systemInstruction: params.systemInstruction } : {}),
       ...(params.tools && params.tools.length > 0 ? { tools: params.tools as unknown[] } : {}),
       ...(params.thinkingConfig ? { thinkingConfig: params.thinkingConfig } : {}),
+      ...(params.temperature === undefined ? {} : { temperature: params.temperature }),
     },
   };
 }

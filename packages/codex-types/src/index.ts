@@ -1,14 +1,14 @@
 /**
- * `@g4os/codex-types` — types compartilhados do protocolo NDJSON do
- * Codex CLI app-server. Migrado da V1.
+ * `@g4os/codex-types` — types sintéticos V2 do protocolo NDJSON do
+ * Codex agent subprocess. **NÃO é 1:1 com o protocolo real do Codex CLI
+ * app-server** (que usa JSON-RPC com 200+ tipos gerados por `codex
+ * app-server generate-ts`). Este pacote define o contrato interno V2,
+ * consumido exclusivamente por `@g4os/agents/codex` (skeleton placeholder).
  *
  * Wire format documentado em ADR-0072. Mantém aqui no core pra evitar
  * duplicar definições — `@g4os/agents/codex` consome via re-export e
  * futuros consumers (test harness, bridge MCP, observers de tracing)
  * importam diretamente.
- *
- * Pacote 100% type-only — não tem runtime, não tem deps. Build empty
- * (tsup gera só `.d.ts`).
  */
 
 /**
@@ -22,10 +22,30 @@
  */
 export type CodexWireThinkingLevel = 'low' | 'medium' | 'high';
 
+/**
+ * Sub-schema mínimo para um JSON Schema de input de tool.
+ * Permite narrowing compile-time sem requerer `@types/json-schema` como dep.
+ * Fronteira de validação: consumer recebe isso como output do Codex CLI;
+ * não há garantia runtime além do shape mínimo aqui declarado.
+ */
+export interface CodexToolInputSchema {
+  readonly type: 'object';
+  readonly properties?: Readonly<Record<string, unknown>>;
+  readonly required?: readonly string[];
+  readonly [key: string]: unknown;
+}
+
 export interface CodexRunTurnInput {
   readonly instructions?: string;
   readonly messages: readonly CodexWireMessage[];
   readonly model?: string;
+  /**
+   * V2-synthetic: campo não reconhecido pelo Codex CLI real (que recebe
+   * tools via bridge MCP server — ADR-0072). Mantido no protocolo V2 para
+   * que `input-mapper.ts` possa passar tools enquanto o bridge MCP não está
+   * wired. Quando o bridge MCP estiver ativo, este campo deve ser removido
+   * e tools roteadas exclusivamente via `bridgeMcpUrl`.
+   */
   readonly tools?: readonly CodexWireTool[];
   /**
    * Pós-mapeamento. Caller passa `AgentConfig.thinkingLevel` (interface) e o
@@ -35,6 +55,12 @@ export interface CodexRunTurnInput {
 }
 
 export interface CodexWireMessage {
+  /**
+   * Mensagens com `role: 'system'` são intencionalmente excluídas deste
+   * tipo — system prompts são roteados pelo campo `instructions` separado
+   * em `CodexRunTurnInput`. `mapRole` em `input-mapper.ts` dropa silenciosamente
+   * qualquer mensagem com role não coberto aqui.
+   */
   readonly role: 'user' | 'assistant' | 'tool';
   readonly content: readonly CodexWireContentBlock[];
 }
@@ -43,7 +69,12 @@ export type CodexWireContentBlock =
   | { readonly type: 'text'; readonly text: string }
   | {
       readonly type: 'tool_use';
-      readonly id: string;
+      /**
+       * F-CR34-5: padronizado para `toolUseId` (mesmo nome usado em
+       * `tool_result` e nos eventos `tool_use_*` em `CodexResponseEvent`).
+       * `input-mapper.ts` mapeia `block.toolUseId` → `toolUseId` aqui.
+       */
+      readonly toolUseId: string;
       readonly name: string;
       readonly input: unknown;
     }
@@ -57,7 +88,7 @@ export type CodexWireContentBlock =
 export interface CodexWireTool {
   readonly name: string;
   readonly description: string;
-  readonly inputSchema: Readonly<Record<string, unknown>>;
+  readonly inputSchema: CodexToolInputSchema;
 }
 
 export interface CodexRunTurnRequest {
@@ -71,28 +102,7 @@ export interface CodexCancelRequest {
   readonly requestId: string;
 }
 
-/**
- * CR-18 F-CT3: type pré-cabeado para handshake — `AppServerClient` ainda
- * não emite (sem versionamento de protocol em uso). Mantido como surface
- * area para o roadmap (TASK-08-XX bridge MCP versionado). `protocolVersion`
- * é numérico simples; quando handshake for wired, definir constante
- * exportada `PROTOCOL_VERSION = 1` aqui.
- */
-export interface CodexHandshakeRequest {
-  readonly type: 'handshake';
-  readonly requestId: string;
-  readonly protocolVersion: number;
-  readonly bridgeMcpUrl?: string;
-}
-
-/**
- * Versão atual do protocolo NDJSON quando handshake estiver wired.
- * Hoje exportado como constante para callers que queiram pinar a versão
- * que conhecem. Mudança requer ADR.
- */
-export const CODEX_PROTOCOL_VERSION = 1 as const;
-
-export type CodexRequest = CodexRunTurnRequest | CodexCancelRequest | CodexHandshakeRequest;
+export type CodexRequest = CodexRunTurnRequest | CodexCancelRequest;
 
 export type CodexResponseEvent =
   | { readonly type: 'ack'; readonly requestId: string }
@@ -123,7 +133,13 @@ export type CodexResponseEvent =
       readonly type: 'tool_use_complete';
       readonly requestId: string;
       readonly toolUseId: string;
-      readonly input: Readonly<Record<string, unknown>>;
+      /**
+       * Input completo do tool call. Fronteira de validação externa: tipo
+       * declarado como `unknown` para forçar narrowing no consumer. Não usar
+       * `Readonly<Record<string, unknown>>` — aceita qualquer objeto sem
+       * garantia de shape (ver ADR-0002 "unknown + narrowing é o caminho").
+       */
+      readonly input: unknown;
     }
   | {
       readonly type: 'usage';
@@ -147,10 +163,30 @@ export type CodexResponseEvent =
 
 export type CodexResponseEventType = CodexResponseEvent['type'];
 
-export interface CodexFrameEncoder {
-  encode(message: CodexRequest): string;
-}
-
-export interface CodexFrameDecoder {
-  decode(line: string): CodexResponseEvent | undefined;
-}
+/**
+ * Lista canônica de event types — fonte do decoder gate runtime em
+ * `agents/codex/app-server/frame.ts`. `as const satisfies readonly
+ * CodexResponseEventType[]` força compile-time check que o array cobre
+ * exatamente a união `CodexResponseEvent['type']` — adicionar evento
+ * novo na união sem atualizar essa lista (ou vice-versa) quebra o build
+ * via `satisfies`. Pacote types-only friendly: array literal const é
+ * compile-time data, zero runtime extra além do próprio Set construído
+ * pelo consumer.
+ *
+ * CR-38 F-CR38-3: o gate manual em `frame.ts` (`new Set([...])` literal)
+ * duplicava a união e drifted silenciosamente — frames novos adicionados
+ * em `CodexResponseEvent` viravam `schema_error` no decoder em runtime
+ * sem nenhum sinal compile-time. Constante canônica aqui elimina drift.
+ */
+export const CODEX_RESPONSE_EVENT_TYPES = [
+  'ack',
+  'turn_started',
+  'text_delta',
+  'thinking_delta',
+  'tool_use_start',
+  'tool_use_input_delta',
+  'tool_use_complete',
+  'usage',
+  'turn_finished',
+  'error',
+] as const satisfies readonly CodexResponseEventType[];

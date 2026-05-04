@@ -3,7 +3,7 @@ import type { SessionId } from '@g4os/kernel';
 import { DisposableBase, toDisposable } from '@g4os/kernel/disposable';
 import { AgentError } from '@g4os/kernel/errors';
 import { createLogger, type Logger } from '@g4os/kernel/logger';
-import { ok, type Result } from 'neverthrow';
+import { err, ok, type Result } from 'neverthrow';
 import { Observable } from 'rxjs';
 import type {
   AgentCapabilities,
@@ -68,8 +68,24 @@ export class CodexAgent extends DisposableBase implements IAgent {
 
   run(input: AgentTurnInput): Observable<AgentEvent> {
     return new Observable<AgentEvent>((subscriber) => {
+      // ADR-0072 / F-CR31-5: cancela turn anterior em re-run para a mesma
+      // sessão. Sem isso, dois turns rápidos deixam o primeiro rodando no
+      // subprocess consumindo tokens, enquanto a UI só recebe o segundo.
+      const previousRequestId = this.activeRequests.get(input.sessionId);
+      if (previousRequestId !== undefined) {
+        this.deps.appServer
+          .send({ type: 'cancel', requestId: previousRequestId })
+          .catch((err: unknown) =>
+            this.log.warn({ err, requestId: previousRequestId }, 'cancel previous turn failed'),
+          );
+      }
       const requestId = this.requestIdFactory();
       this.activeRequests.set(input.sessionId, requestId);
+      // CR-34 F-CR34-4: marca turn finalizado pelo lado Codex (`done` natural ou
+      // `error`) para evitar enviar `cancel` no teardown subsequente. Sem este
+      // flag, todo turn bem-sucedido gerava NDJSON spurious + log warn falso-
+      // positivo (`cancel send failed`) quando o subprocess fechava em paralelo.
+      let completed = false;
 
       const handler = (event: CodexResponseEvent): void => {
         if (event.requestId !== requestId) return;
@@ -82,14 +98,40 @@ export class CodexAgent extends DisposableBase implements IAgent {
             }),
           });
           subscriber.next({ type: 'done', reason: 'error' });
+          completed = true;
           subscriber.complete();
           return;
         }
         const mapped = mapCodexEvent(event);
         if (!mapped) return;
         subscriber.next(mapped);
-        if (mapped.type === 'done') subscriber.complete();
+        if (mapped.type === 'done') {
+          completed = true;
+          subscriber.complete();
+        }
       };
+
+      // ADR-0072: se subprocess crashar mid-turn (OOM, sinal externo),
+      // AppServerClient emite 'exit' mas o Observable ficaria pendurado
+      // indefinidamente sem este listener. Só finaliza se o turno ainda
+      // não completou via handler normal.
+      const offExit = this.deps.appServer.on(
+        'exit',
+        ({ code, signal }: { code: number | null; signal: string | null }) => {
+          if (completed) return;
+          completed = true;
+          subscriber.next({
+            type: 'error',
+            error: AgentError.network('codex', {
+              reason: 'subprocess_exit',
+              code,
+              signal,
+            }),
+          });
+          subscriber.next({ type: 'done', reason: 'error' });
+          subscriber.complete();
+        },
+      );
 
       const offMessage = this.deps.appServer.on('message', handler);
 
@@ -99,16 +141,37 @@ export class CodexAgent extends DisposableBase implements IAgent {
           requestId,
           input: mapAgentInputToCodex(input),
         })
-        .catch((err: unknown) => subscriber.error(err));
+        .catch((sendErr: unknown) => {
+          // ADR-0070 / ADR-0072 / F-CR31-9: emitir error + done + complete
+          // em vez de subscriber.error(), que faz teardown sem `done` e
+          // quebra o contrato AgentEvent. runToolLoop espera done:error para
+          // finalizar a assistant message no event store.
+          if (completed) return;
+          completed = true;
+          const agentErr =
+            sendErr instanceof AgentError
+              ? sendErr
+              : AgentError.network('codex', { cause: sendErr });
+          subscriber.next({ type: 'error', error: agentErr });
+          subscriber.next({ type: 'done', reason: 'error' });
+          subscriber.complete();
+        });
 
       return () => {
         offMessage();
+        offExit();
         if (this.activeRequests.get(input.sessionId) === requestId) {
           this.activeRequests.delete(input.sessionId);
         }
-        this.deps.appServer
-          .send({ type: 'cancel', requestId })
-          .catch((err: unknown) => this.log.warn({ err, requestId }, 'cancel send failed'));
+        // Após `done`/`error` natural, Codex já fechou a request — enviar
+        // cancel gera tráfego NDJSON sem efeito + log warn ruidoso quando o
+        // subprocess está em teardown. Só cancela em unsubscribe externo
+        // (interrupt explícito, settle do turn-runner, dispose do agent).
+        if (!completed) {
+          this.deps.appServer
+            .send({ type: 'cancel', requestId })
+            .catch((err: unknown) => this.log.warn({ err, requestId }, 'cancel send failed'));
+        }
       };
     });
   }
@@ -118,12 +181,20 @@ export class CodexAgent extends DisposableBase implements IAgent {
     if (!requestId) return Promise.resolve(ok(undefined));
     this.log.info({ sessionId, requestId }, 'interrupting codex turn');
     this.activeRequests.delete(sessionId);
+    // CR-32 F-CR32-1: respeita o contrato `Result<void, AgentError>` da
+    // IAgent.interrupt. Antes o `.catch` lançava — caller idiomático
+    // (`void agent.interrupt(...)` no TurnDispatcher) gerava
+    // unhandledRejection quando subprocess Codex morto recusava o cancel.
+    // Sibling agents (Claude/OpenAI/Google) já abortam in-process e
+    // sempre retornam `ok`; Codex precisa do round-trip NDJSON, então
+    // mapeamos falha como `err(...)` em vez de throw.
     return this.deps.appServer
       .send({ type: 'cancel', requestId })
       .then(() => ok<void, AgentError>(undefined))
-      .catch((err: unknown) => {
-        if (err instanceof AgentError) throw err;
-        throw AgentError.network('codex', err);
+      .catch((cause: unknown) => {
+        const error = cause instanceof AgentError ? cause : AgentError.network('codex', cause);
+        this.log.warn({ err: error, sessionId, requestId }, 'codex cancel send failed');
+        return err<void, AgentError>(error);
       });
   }
 

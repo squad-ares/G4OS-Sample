@@ -2,6 +2,7 @@ import type { ContentBlock, Message } from '@g4os/kernel';
 import type { AgentConfig, AgentTurnInput, ThinkingLevel } from '../../interface/agent.ts';
 import type {
   CodexRunTurnInput,
+  CodexToolInputSchema,
   CodexWireContentBlock,
   CodexWireMessage,
   CodexWireThinkingLevel,
@@ -25,7 +26,7 @@ function mapBlock(block: ContentBlock): CodexWireContentBlock | undefined {
     case 'tool_use':
       return {
         type: 'tool_use',
-        id: block.toolUseId,
+        toolUseId: block.toolUseId,
         name: block.toolName,
         input: block.input,
       };
@@ -74,7 +75,11 @@ function mapTools(config: AgentConfig): readonly CodexWireTool[] | undefined {
   return config.tools.map((tool) => ({
     name: tool.name,
     description: tool.description,
-    inputSchema: tool.inputSchema,
+    // `ToolDefinition.inputSchema` é `Record<string, unknown>` (kernel schema),
+    // mais fraco que `CodexToolInputSchema`. Coerção necessária na fronteira —
+    // a validação do shape JSON Schema acontece antes da chegada aqui (Zod parse
+    // em AgentConfigSchema). Em campo, tools sempre chegam com `type: 'object'`.
+    inputSchema: tool.inputSchema as CodexToolInputSchema,
   }));
 }
 

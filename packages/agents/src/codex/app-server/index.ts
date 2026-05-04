@@ -1,6 +1,8 @@
 export { AppServerClient, type AppServerClientOptions } from './client.ts';
 export { mapCodexEvent, mapCodexStopReason } from './event-mapper.ts';
 export {
+  type CodexFrameDecoder,
+  type CodexFrameEncoder,
   jsonLineDecoder,
   jsonLineEncoder,
   LineBuffer,
@@ -9,14 +11,12 @@ export { mapAgentInputToCodex } from './input-mapper.ts';
 export { NodeSubprocessSpawner, wrapChildProcess } from './node-spawner.ts';
 export type {
   CodexCancelRequest,
-  CodexFrameDecoder,
-  CodexFrameEncoder,
-  CodexHandshakeRequest,
   CodexRequest,
   CodexResponseEvent,
   CodexResponseEventType,
   CodexRunTurnInput,
   CodexRunTurnRequest,
+  CodexToolInputSchema,
   CodexWireContentBlock,
   CodexWireMessage,
   CodexWireTool,

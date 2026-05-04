@@ -68,13 +68,27 @@ async function* adaptResponsesStream(
   params: OpenAIStreamParams,
   signal: AbortSignal,
 ): AsyncIterable<OpenAIStreamChunk> {
+  const state: ResponsesStreamState = { pendingToolCalls: 0 };
   const raw = await client.responses.create(params, { signal });
   for await (const event of raw) {
-    yield* translateResponsesEvent(event);
+    yield* translateResponsesEvent(event, state);
   }
 }
 
-function* translateResponsesEvent(raw: unknown): Iterable<OpenAIStreamChunk> {
+// ADR-0074 / F-CR31-7: estado de stream por chamada a adaptResponsesStream.
+// Responses API emite `response.output_item.done` UMA VEZ POR TOOL CALL —
+// emitir `done` nesse evento causava encerramento prematuro quando o modelo
+// chamava 2+ tools. Agora rastreamos se há tool calls pendentes e só
+// emitimos `done` em `response.completed` (que é emitido uma única vez no
+// fim do response).
+interface ResponsesStreamState {
+  pendingToolCalls: number;
+}
+
+function* translateResponsesEvent(
+  raw: unknown,
+  state: ResponsesStreamState,
+): Iterable<OpenAIStreamChunk> {
   if (typeof raw !== 'object' || raw === null) return;
   const event = raw as {
     type?: string;
@@ -102,13 +116,14 @@ function* translateResponsesEvent(raw: unknown): Iterable<OpenAIStreamChunk> {
     return;
   }
 
-  // Tool call started — emit start with id and name
+  // Tool call started — emit start with id and name, incrementa contador
   if (
     event.type === 'response.output_item.added' &&
     event.item?.type === 'function_call' &&
     typeof event.item.id === 'string' &&
     typeof event.item.name === 'string'
   ) {
+    state.pendingToolCalls += 1;
     yield {
       type: 'tool_call_delta',
       index: event.index ?? 0,
@@ -128,14 +143,17 @@ function* translateResponsesEvent(raw: unknown): Iterable<OpenAIStreamChunk> {
     return;
   }
 
-  // Tool call completed
+  // Tool call item concluído — decrementa contador mas NÃO emite done.
+  // O done com finishReason='tool_calls' é emitido apenas em
+  // response.completed (abaixo) quando todos os items estão prontos.
   if (event.type === 'response.output_item.done' && event.item?.type === 'function_call') {
-    yield { type: 'done', finishReason: 'tool_calls' };
+    if (state.pendingToolCalls > 0) state.pendingToolCalls -= 1;
     return;
   }
 
-  // Full response completed
+  // Full response completed — único ponto de emissão de done
   if (event.type === 'response.completed') {
-    yield { type: 'done', finishReason: 'stop' };
+    const finishReason = state.pendingToolCalls > 0 ? 'tool_calls' : 'stop';
+    yield { type: 'done', finishReason };
   }
 }

@@ -11,7 +11,8 @@ const FINISH_REASON: Readonly<Record<string, AgentDoneReason>> = {
 
 export class OpenAIEventMapper {
   private readonly accumulator = new OpenAIToolAccumulator();
-  private readonly startedIndexes = new Set<number>();
+  // F-CR31-11: `startedIndexes` removido — era estado morto acumulando sem
+  // GC. De-dupe já é coberto por `accumulator.has(chunk.index)` abaixo.
 
   mapChunk(chunk: OpenAIStreamChunk): AgentEvent[] {
     if (chunk.type === 'text_delta') {
@@ -43,7 +44,6 @@ export class OpenAIEventMapper {
     const isNew = !this.accumulator.has(chunk.index);
     this.accumulator.pushDelta(chunk.index, chunk.id, chunk.name, chunk.argumentsChunk);
     if (isNew && chunk.id !== undefined && chunk.name !== undefined) {
-      this.startedIndexes.add(chunk.index);
       events.push({ type: 'tool_use_start', toolUseId: chunk.id, toolName: chunk.name });
     }
     if (chunk.argumentsChunk !== undefined && chunk.argumentsChunk.length > 0) {

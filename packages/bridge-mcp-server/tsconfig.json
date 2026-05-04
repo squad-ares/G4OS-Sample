@@ -1,9 +1,9 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
+    // noEmit: tsup é o único produtor de artefatos de build.
+    // outDir/rootDir omitidos propositalmente — não há emissão via tsc.
     "noEmit": true,
-    "outDir": "./dist",
-    "rootDir": "./src",
     "types": ["node"]
   },
   "include": ["src/**/*"],

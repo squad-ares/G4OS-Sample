@@ -1,23 +1,30 @@
-import type {
-  CodexFrameDecoder,
-  CodexFrameEncoder,
-  CodexRequest,
-  CodexResponseEvent,
-  CodexResponseEventType,
-} from './protocol.ts';
+import type { CodexRequest, CodexResponseEvent, CodexResponseEventType } from './protocol.ts';
+import { CODEX_RESPONSE_EVENT_TYPES } from './protocol.ts';
 
-const VALID_EVENT_TYPES: ReadonlySet<CodexResponseEventType> = new Set([
-  'ack',
-  'turn_started',
-  'text_delta',
-  'thinking_delta',
-  'tool_use_start',
-  'tool_use_input_delta',
-  'tool_use_complete',
-  'usage',
-  'turn_finished',
-  'error',
-]);
+/**
+ * Contrato de encoder de frames NDJSON. Definido aqui (consumer) pois
+ * nenhum outro módulo externo a `app-server/` programa contra esta interface
+ * — manter em `@g4os/codex-types` seria surface desnecessária sem caller
+ * externo (F-CR34-8).
+ */
+export interface CodexFrameEncoder {
+  encode(message: CodexRequest): string;
+}
+
+/**
+ * Contrato de decoder de frames NDJSON. Ver `CodexFrameEncoder` acima.
+ */
+export interface CodexFrameDecoder {
+  decode(line: string): CodexResponseEvent | undefined;
+}
+
+// CR-38 F-CR38-3: gate runtime construído a partir da constante canônica
+// em `@g4os/codex-types` (re-exportada via `protocol.ts`). Adicionar
+// event type novo em `CodexResponseEvent` sem atualizar
+// `CODEX_RESPONSE_EVENT_TYPES` (ou vice-versa) quebra o build via
+// `satisfies` no codex-types — drift silencioso eliminado, frames novos
+// não viram mais `schema_error` por esquecimento de update do gate.
+const VALID_EVENT_TYPES: ReadonlySet<CodexResponseEventType> = new Set(CODEX_RESPONSE_EVENT_TYPES);
 
 export const jsonLineEncoder: CodexFrameEncoder = {
   encode(message: CodexRequest): string {

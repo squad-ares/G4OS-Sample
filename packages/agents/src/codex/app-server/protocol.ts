@@ -9,16 +9,20 @@
 
 export type {
   CodexCancelRequest,
-  CodexFrameDecoder,
-  CodexFrameEncoder,
-  CodexHandshakeRequest,
   CodexRequest,
   CodexResponseEvent,
   CodexResponseEventType,
   CodexRunTurnInput,
   CodexRunTurnRequest,
+  CodexToolInputSchema,
   CodexWireContentBlock,
   CodexWireMessage,
   CodexWireThinkingLevel,
   CodexWireTool,
 } from '@g4os/codex-types';
+
+// CR-38 F-CR38-3: re-export da constante canônica para o consumer
+// `frame.ts` construir o gate runtime via `new Set(CODEX_RESPONSE_EVENT_TYPES)`.
+// `satisfies` em codex-types força paridade compile-time com a união
+// `CodexResponseEvent['type']`.
+export { CODEX_RESPONSE_EVENT_TYPES } from '@g4os/codex-types';
