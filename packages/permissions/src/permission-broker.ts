@@ -274,6 +274,13 @@ export class PermissionBroker extends DisposableBase {
       // adicional é aceita: usuário acabou de clicar "Always", está
       // esperando o tool rodar; janela de poucos ms para fsync é
       // imperceptível e garante que próximo turn não pergunta de novo.
+      //
+      // CR-43 F-CR42-2: se persist falha, fazer downgrade para `allow_once`
+      // em vez de resolver com `allow_always`. Antes o catch apenas logava mas
+      // a linha seguinte resolvia com `effectiveDecision` (= `allow_always`),
+      // criando discrepância: caller recebia `allow_always` mas no próximo turn
+      // o broker perguntava de novo (store vazio). Agora o behavior e o log
+      // estão alinhados: falha de persistência → `allow_once` explícito.
       try {
         await this.#store.persist(pending.workspaceId, {
           toolName: pending.request.toolName,
@@ -281,16 +288,49 @@ export class PermissionBroker extends DisposableBase {
         });
       } catch (err) {
         log.warn(
-          { err, toolName: pending.request.toolName },
-          'failed to persist allow_always — proceeding with allow_once for current turn',
+          {
+            err: err instanceof Error ? err.message : String(err),
+            toolName: pending.request.toolName,
+            requestId,
+            workspaceId: pending.workspaceId,
+          },
+          'failed to persist allow_always — downgrading to allow_once for this turn',
         );
+        effectiveDecision = 'allow_once';
       }
+    } else if (effectiveDecision === 'allow_always' && (!this.#store || !pending.workspaceId)) {
+      // Sem store ou workspaceId, persistência é no-op. Downgrade explícito
+      // para allow_session para evitar resolver com allow_always sem garantia
+      // de que a decisão será honrada no próximo turn.
+      log.warn(
+        { requestId, toolName: pending.request.toolName, hasStore: !!this.#store },
+        'allow_always sem store/workspaceId — downgrading to allow_session',
+      );
+      effectiveDecision = 'allow_session';
+      sessionAllowAdd(
+        this.#sessionAllow,
+        pending.request.sessionId,
+        pending.request.toolName,
+        pending.argsHash,
+      );
     }
 
     pending.resolve(effectiveDecision);
     return true;
   }
 
+  /**
+   * Rejeita todas as pendências da sessão E limpa o cache `allow_session`.
+   *
+   * @deprecated CR-42 F-CR42-6 — API faz duas coisas com nome ambíguo.
+   *   - Para abortar tool mid-turn: prefira `cancelPendingForSession(sessionId)`
+   *     (preserva cache `allow_session` do turno atual).
+   *   - Para limpar cache ao encerrar sessão: prefira `clearSessionAllow(sessionId)`.
+   *   Manter por compatibilidade com callers legados até migração completa.
+   *   Auditar `apps/desktop/src/main/services/turn-dispatcher.ts` — `interrupt()`
+   *   chama este método mas deveria chamar só `cancelPendingForSession` (abort
+   *   mid-turn preserva decisões `allow_session` do turn).
+   */
   cancel(sessionId: string): void {
     for (const [id, pending] of this.#pending) {
       if (pending.request.sessionId !== sessionId) continue;
@@ -398,9 +438,23 @@ function sessionAllowAdd(
 }
 
 function safeJson(input: Readonly<Record<string, unknown>>): string {
+  // CR-42 F-CR42-12: usar JSON.stringify mas logar shapes não-serializáveis
+  // (DataView, Map, Set) que retornam `{}` silenciosamente — usuário aprovaria
+  // modal com input vazio sem saber que o broker recebeu dados malformados.
   try {
-    return JSON.stringify(input);
+    const result = JSON.stringify(input);
+    // Se o resultado é `'{}'` mas input não é vazio, pode ser Map/Set/DataView.
+    if (result === '{}' && Object.keys(input).length > 0) {
+      log.warn(
+        { inputKeys: Object.keys(input), inputTypes: Object.values(input).map((v) => typeof v) },
+        'safeJson: input serializado como {} — possível Map/Set/DataView não serializável',
+      );
+    }
+    return result;
   } catch {
+    // BigInt, circular — hashArgs já rejeita circulares; BigInt vira string.
+    // Qualquer outro caso: retorna {} com log warn para rastreabilidade.
+    log.warn({ inputKeys: Object.keys(input) }, 'safeJson: JSON.stringify falhou; returning {}');
     return '{}';
   }
 }

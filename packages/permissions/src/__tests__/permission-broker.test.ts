@@ -120,6 +120,30 @@ describe('PermissionBroker', () => {
     });
   });
 
+  // CR-42 F-CR42-2: persist fail → downgrade para allow_once em vez de
+  // resolver com allow_always (que antes criava discrepância: caller recebia
+  // allow_always mas no próximo turn o broker perguntava de novo).
+  it('downgrades allow_always to allow_once when persist throws (F-CR42-2)', async () => {
+    const persist = vi.fn().mockRejectedValue(new Error('disk full'));
+    const store = makeStore({ persist });
+    broker = new PermissionBroker((req) => emitted.push(req), { store });
+    const pending = broker.request(makeInput());
+    await new Promise((r) => setImmediate(r));
+    broker.respond(firstRequestId(emitted), 'allow_always');
+    // Persist falha → caller recebe allow_once, não allow_always.
+    await expect(pending).resolves.toBe('allow_once');
+    expect(persist).toHaveBeenCalledTimes(1);
+  });
+
+  // CR-42 F-CR42-2: sem store → allow_always downgrades para allow_session.
+  it('downgrades allow_always to allow_session when no store is configured (F-CR42-2)', async () => {
+    broker = new PermissionBroker((req) => emitted.push(req));
+    const pending = broker.request(makeInput());
+    await new Promise((r) => setImmediate(r));
+    broker.respond(firstRequestId(emitted), 'allow_always');
+    await expect(pending).resolves.toBe('allow_session');
+  });
+
   it('cancel(sessionId) rejects pending requests and clears allow_session cache', async () => {
     broker = new PermissionBroker((req) => emitted.push(req));
     const pending = broker.request(makeInput({ sessionId: 'sess-X' }));
