@@ -15,7 +15,7 @@
 
 import { randomUUID } from 'node:crypto';
 import { Mutex } from 'async-mutex';
-import { eq, sql } from 'drizzle-orm';
+import { eq, inArray, sql } from 'drizzle-orm';
 import type { AppDb } from '../drizzle.ts';
 import { attachmentRefs, attachments } from '../schema/attachments.ts';
 import type { AttachmentStorage } from './storage.ts';
@@ -205,10 +205,14 @@ export class AttachmentGateway {
    */
   listReferencedHashesForSessions(sessionIds: readonly string[]): readonly string[] {
     if (sessionIds.length === 0) return [];
+    // F-CR36-4: `sql\`${col} IN ${array}\`` não expande arrays — Drizzle
+    // passa o array como um único parâmetro bind, causando zero resultados
+    // em workspaces multi-sessão (backup exportava ZIP sem attachments).
+    // `inArray()` expande corretamente para `IN (?, ?, ?)`.
     const rows = this.db
       .selectDistinct({ hash: attachmentRefs.hash })
       .from(attachmentRefs)
-      .where(sql`${attachmentRefs.sessionId} IN ${sessionIds}`)
+      .where(inArray(attachmentRefs.sessionId, [...sessionIds]))
       .all();
     return rows.map((r) => r.hash);
   }

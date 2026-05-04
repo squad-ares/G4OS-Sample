@@ -14,6 +14,15 @@
 -- copiamos elas para `attachment_refs_orphaned` antes — operador pode
 -- consultar disponibilidade de blobs zumbis e rodar GC manual via
 -- AttachmentGateway sem perder rastreabilidade.
+--
+-- F-CR36-3: PRAGMA foreign_keys=OFF obrigatório antes de DROP/RENAME.
+-- SQLite doc: "It is not possible to use ALTER TABLE to add or delete
+-- [foreign key constraints]" — com foreign_keys=ON, o DROP TABLE pode
+-- disparar cascades parciais ou falhar com FOREIGN KEY constraint failed
+-- em estados intermediários. Desativar antes do rebuild, verificar com
+-- foreign_key_check, reativar após COMMIT.
+PRAGMA foreign_keys=OFF;
+--> statement-breakpoint
 
 CREATE TABLE IF NOT EXISTS `attachment_refs_orphaned` (
 	`id` text PRIMARY KEY,
@@ -48,3 +57,7 @@ WHERE r.session_id IN (SELECT id FROM `sessions`);
 DROP TABLE `attachment_refs`;
 --> statement-breakpoint
 ALTER TABLE `attachment_refs_new` RENAME TO `attachment_refs`;
+--> statement-breakpoint
+PRAGMA foreign_key_check;
+--> statement-breakpoint
+PRAGMA foreign_keys=ON;

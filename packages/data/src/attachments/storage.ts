@@ -10,8 +10,9 @@
  */
 
 import { createHash } from 'node:crypto';
-import { mkdir, readFile, stat, unlink, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, stat, unlink } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
+import { writeAtomic } from '@g4os/kernel/fs';
 import { getAppPaths } from '@g4os/platform';
 
 const DIR_PREFIX_LENGTH = 2;
@@ -62,7 +63,13 @@ export class AttachmentStorage {
     }
 
     await mkdir(dirname(target), { recursive: true });
-    await writeFile(target, content);
+    // CR-32 F-CR32-2: writeAtomic (`tmp → fsync → rename → fsync(dir)`).
+    // Antes `writeFile` cru: crash mid-write deixava arquivo parcial no
+    // path do hash, e o `stat()` no próximo `store(sameContent)` retornava
+    // sucesso com tamanho errado — corrupção mascarada permanentemente.
+    // Content-addressed storage exige integridade pra honrar o contrato
+    // "filename = SHA-256 do conteúdo".
+    await writeAtomic(target, content);
     return { hash, size: content.length };
   }
 

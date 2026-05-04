@@ -51,6 +51,10 @@ export interface DbOptions {
 export class Db extends DisposableBase {
   private database: DatabaseSync | null = null;
   private _filename = '';
+  // F-CR36-7: cache de statements preparados por SQL literal. Evita re-parse
+  // do SQL em chamadas repetidas (ex.: search-as-you-type, 50+ prepares/s).
+  // Limpo no dispose() para não vazar StatementSync após fechar o DB.
+  private readonly stmtCache = new Map<string, StatementSync>();
 
   /** Caminho efetivo do DB aberto (ou `:memory:`). */
   get filename(): string {
@@ -70,7 +74,16 @@ export class Db extends DisposableBase {
 
   /** Abre o DB e aplica pragmas. */
   async open(options: DbOptions = {}): Promise<void> {
-    if (this.database) return;
+    // F-CR36-6: re-open silencioso mascarava bug de orquestração — caller
+    // que passasse filename diferente recebia DB apontando para o arquivo
+    // original sem qualquer sinal. Agora loga warn explícito.
+    if (this.database) {
+      log.warn(
+        { existingFilename: this._filename },
+        'open() chamado em DB já aberto — ignorando (usar nova instância para abrir arquivo diferente)',
+      );
+      return;
+    }
 
     const filename = await resolveFilename(options);
     this._filename = filename;
@@ -95,6 +108,23 @@ export class Db extends DisposableBase {
   /** Prepara statement reutilizável. Apenas para DB aberto. */
   prepare(sql: string): StatementSync {
     return this.raw.prepare(sql);
+  }
+
+  /**
+   * Prepara e cacheia statement por SQL literal.
+   *
+   * F-CR36-7: para hot-paths como search-as-you-type onde o mesmo SQL é
+   * executado 50+ vezes/segundo, `cachedPrepare` elimina o overhead de
+   * parsing. O cache é limpo no `dispose()` — nenhum `StatementSync`
+   * sobrevive ao fechamento do DB.
+   */
+  cachedPrepare(sql: string): StatementSync {
+    let stmt = this.stmtCache.get(sql);
+    if (!stmt) {
+      stmt = this.raw.prepare(sql);
+      this.stmtCache.set(sql, stmt);
+    }
+    return stmt;
   }
 
   /** Executa SQL multi-statement (DDL, bulk). */
@@ -146,6 +176,9 @@ export class Db extends DisposableBase {
   /** Fecha o DB. Idempotente. */
   close(): void {
     if (!this.database) return;
+    // F-CR36-7: limpa cache de statements antes de fechar — StatementSync
+    // não é válido após o DB fechar; manter referências seria undefined behavior.
+    this.stmtCache.clear();
     try {
       this.database.close();
     } catch (err) {

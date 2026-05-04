@@ -78,7 +78,11 @@ export async function branchSession(
 
   let copied = 0;
   for await (const event of deps.reader.readReplay(input.sourceId)) {
-    if (event.sequence > input.atSequence) break;
+    // F-CR36-11: `continue` em vez de `break` — se o reader retornar eventos
+    // fora de ordem (paralelismo, source heterogêneo), `break` pararia cedo
+    // e deixaria a branch incompleta sem sinal. `continue` filtra explicitamente,
+    // independente da garantia de ordering do reader.
+    if (event.sequence > input.atSequence) continue;
     const reEmitted = reEmitEventForBranch(event.payload, created.id, copied + 1);
     if (!reEmitted) continue;
     await deps.writer.append(created.id, reEmitted);

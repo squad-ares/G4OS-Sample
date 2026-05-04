@@ -28,8 +28,10 @@
  */
 
 import { createReadStream } from 'node:fs';
-import { appendFile, mkdir, open, readdir, rename, stat, unlink } from 'node:fs/promises';
+import { appendFile, mkdir, readdir, stat, unlink } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
+import { DisposableBase } from '@g4os/kernel/disposable';
+import { writeAtomic } from '@g4os/kernel/fs';
 import { createLogger } from '@g4os/kernel/logger';
 import { type SessionEvent, SessionEventSchema } from '@g4os/kernel/schemas';
 import { getAppPaths } from '@g4os/platform';
@@ -55,11 +57,25 @@ export interface ReadStats {
   skipped: number;
 }
 
-export class SessionEventStore {
+// F-CR36-12: DisposableBase — pattern obrigatório (ADR-0012) para classes que
+// tocam recursos. Hoje o store não mantém recursos abertos (sem WriteStream),
+// mas a base prepara para evoluções futuras (cache de dirfd, stream reutilizado)
+// sem refactor amplo. Também habilita F-CR36-10 (knownDirs sem leak).
+export class SessionEventStore extends DisposableBase {
   private readonly workspaceRoot: string;
+  // F-CR36-10: cache de diretórios já criados — evita syscall `mkdir` por evento.
+  // Em sessão com 1000 eventos, eram 1000 mkdirs desnecessários no hot-path.
+  // Limpo no dispose() para não vazar entre testes/instâncias.
+  private readonly knownDirs = new Set<string>();
 
   constructor(workspaceId: string, options: SessionEventStoreOptions = {}) {
+    super();
     this.workspaceRoot = options.workspaceRoot ?? getAppPaths().workspace(workspaceId);
+  }
+
+  override dispose(): void {
+    this.knownDirs.clear();
+    super.dispose();
   }
 
   /** Caminho do arquivo JSONL desta sessão. */
@@ -75,7 +91,13 @@ export class SessionEventStore {
     const validated = SessionEventSchema.parse(event);
     const line = `${JSON.stringify(validated)}\n`;
     const path = this.path(sessionId);
-    await mkdir(dirname(path), { recursive: true });
+    // F-CR36-10: mkdir apenas na primeira vez por sessão — evita N syscalls
+    // desnecessários no hot-path de append (1 append por evento).
+    const dir = dirname(path);
+    if (!this.knownDirs.has(dir)) {
+      await mkdir(dir, { recursive: true });
+      this.knownDirs.add(dir);
+    }
     await appendFile(path, line, 'utf8');
   }
 
@@ -168,6 +190,12 @@ export class SessionEventStore {
   /**
    * Total de eventos registrados (inclusive eventos passados).
    *
+   * F-CR36-8: ATENÇÃO — método caro: faz `JSON.parse + Zod.parse` por linha
+   * do JSONL. Em sessões de 100 MB pode demorar centenas de ms.
+   * Caller que precisa apenas do count atual de forma rápida deve usar
+   * `sessions.lastEventSequence` do SQLite (mantido em sync pelo reducer).
+   * Use este método apenas para diagnóstico/debug/repair.
+   *
    * Idem readAfter — warn se corrupção. Caller que precisar do
    * skipped count exato deve usar `read()` direto com `stats`.
    */
@@ -241,22 +269,18 @@ export class SessionEventStore {
       return removed;
     }
 
-    // CR-18 F-D3: padrão atômico completo `open+write+fsync+close+rename`.
-    // Antes: `writeFile(tmp) + rename` — sem fsync, em crash kernel-level
-    // (power loss, kill -9 PID 1) o conteúdo podia não estar no disco
-    // mesmo com rename atômico (ext4/APFS reordenam). Para um event log
-    // que é source-of-truth, fsync antes do rename é defesa contra perda
-    // silenciosa de eventos.
-    const tmp = `${path}.tmp`;
+    // CR-33 F-CR33-2: usa o `writeAtomic` canônico em `@g4os/kernel/fs`
+    // (`tmp → fsync(file) → rename → fsync(dir)`). Versão anterior fazia
+    // `open+write+fsync+close+rename` mas omitia o `fsync(dir)` final —
+    // entry de diretório do rename pode ficar em buffer (ext4 com `dir_index`,
+    // APFS) e em crash kernel-level após rename retornar mas antes do flush
+    // do dirent o filesystem reboota com a entry antiga apontando ao inode
+    // truncado. Para um event log source-of-truth (ADR-0010/0043), simetria
+    // com `writeAtomic` é defesa-em-profundidade. Bonus: `writeAtomic`
+    // gera nome de tmp único (PID + ts + random hex) — cobre o single-writer
+    // assumption se quebrar.
     const body = `${kept.map((e) => JSON.stringify(e)).join('\n')}\n`;
-    const fh = await open(tmp, 'w');
-    try {
-      await fh.writeFile(body, { encoding: 'utf8' });
-      await fh.sync();
-    } finally {
-      await fh.close();
-    }
-    await rename(tmp, path);
+    await writeAtomic(path, body);
     return removed;
   }
 
