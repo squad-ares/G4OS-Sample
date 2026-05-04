@@ -27,6 +27,7 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
+    "neverthrow": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
