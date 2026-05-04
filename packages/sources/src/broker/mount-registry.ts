@@ -30,6 +30,9 @@ export interface MountedSource {
   readonly slug: string;
   readonly source: ISource;
   readonly tools: readonly ToolDefinition[];
+  /** Referência ao disposer registrado no `_store` — usada por `unmount` para
+   *  deregistrar a source sem aguardar o `dispose()` geral do registry. */
+  readonly disposer: import('@g4os/kernel/disposable').IDisposable;
 }
 
 export interface MountRegistryDeps {
@@ -105,9 +108,12 @@ export class McpMountRegistry extends DisposableBase {
     try {
       await m.source.deactivate();
     } catch (e) {
-      log.warn({ slug, err: String(e) }, 'deactivate threw during unmount');
+      log.warn({ slug, err: String(e) }, 'deactivate threw durante unmount');
     }
-    m.source.dispose();
+    // ADR-0012: `deleteAndDispose` remove o disposer do _store E chama
+    // dispose() na source — evita o leak de disposers órfãos acumulando no
+    // _store proporcional ao número de unmounts em sessões longas.
+    this._store.deleteAndDispose(m.disposer);
   }
 
   override dispose(): void {
@@ -141,8 +147,15 @@ export class McpMountRegistry extends DisposableBase {
       log.warn({ slug: config.slug, err: String(e) }, 'factory.create threw');
       return null;
     }
-    // Registra dispose cedo — se activate/listTools falharem, ainda limpamos.
-    this._register(toDisposable(() => source.dispose()));
+    // CR-36 F-CR36-2: pre-register é defensivo contra throw uncaught em
+    // `source.activate()` / `source.listTools()` (SDKs que rejeitam em vez de
+    // retornar Result). Capturamos a referência para que os failure paths
+    // EXPLÍCITOS abaixo (timeout/isErr) possam deregistrar via
+    // `_store.deleteAndDispose(disp)`. Sem essa deregistração, sessões com
+    // sources flaky (binário inválido, env var ausente, MCP server caindo)
+    // acumulam um disposer por turn no `_store` da DisposableBase — só
+    // liberados quando o `McpMountRegistry.dispose()` roda em fim de sessão.
+    const disp = this._register(toDisposable(() => source.dispose()));
 
     const activateResult = await withTimeout(
       source.activate(),
@@ -159,6 +172,7 @@ export class McpMountRegistry extends DisposableBase {
       // mesmo que o handshake não tenha completado. Sem isso, MCP stdio
       // subprocesses ficam pendurados quando activate trava.
       await source.deactivate().catch(() => undefined);
+      this._store.deleteAndDispose(disp);
       return null;
     }
     if (activateResult.isErr()) {
@@ -166,6 +180,7 @@ export class McpMountRegistry extends DisposableBase {
       // Mesma simetria: activate retornou Err, mas pode ter parcialmente
       // alocado recursos antes — deactivate best-effort.
       await source.deactivate().catch(() => undefined);
+      this._store.deleteAndDispose(disp);
       return null;
     }
 
@@ -180,6 +195,7 @@ export class McpMountRegistry extends DisposableBase {
         'listTools timeout after activate',
       );
       await source.deactivate().catch(() => undefined);
+      this._store.deleteAndDispose(disp);
       return null;
     }
     if (toolsResult.isErr()) {
@@ -188,6 +204,7 @@ export class McpMountRegistry extends DisposableBase {
         'listTools failed after activate',
       );
       await source.deactivate().catch(() => undefined);
+      this._store.deleteAndDispose(disp);
       return null;
     }
 
@@ -195,6 +212,7 @@ export class McpMountRegistry extends DisposableBase {
       slug: config.slug,
       source,
       tools: toolsResult.value,
+      disposer: disp,
     };
     this.#mounted.set(config.slug, entry);
     return entry;

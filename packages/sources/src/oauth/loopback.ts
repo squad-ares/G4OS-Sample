@@ -77,18 +77,19 @@ export async function startLoopbackServer(
 
   // Tenta listen com retry quando porta já está em uso (TCP race
   // entre teardown anterior em FIN_WAIT2 e novo bind). Se `port: 0` (default),
-  // fallback escolhe portas aleatórias no range ephemeral; se port fixo,
-  // só uma tentativa é feita (caller pediu porta específica).
+  // usamos SEMPRE `port: 0` nas retentativas — o OS escolhe porta ephemeral
+  // disponível, evitando colisões que ocorreriam com ports aleatórios no mesmo
+  // range. Se port fixo, só uma tentativa (caller pediu porta específica).
+  // F-CR47-11: removido fallback random que podia colidir com a tentativa anterior.
   const MAX_LISTEN_ATTEMPTS = port === 0 ? 3 : 1;
   let lastErr: unknown;
   let bound = false;
   for (let attempt = 0; attempt < MAX_LISTEN_ATTEMPTS && !bound; attempt++) {
-    const tryPort = attempt === 0 ? port : 49152 + Math.floor(Math.random() * 16000);
     try {
       await new Promise<void>((resolve, reject) => {
         const onError = (err: unknown) => reject(err);
         server.once('error', onError);
-        server.listen(tryPort, '127.0.0.1', () => {
+        server.listen(port, '127.0.0.1', () => {
           server.removeListener('error', onError);
           resolve();
         });

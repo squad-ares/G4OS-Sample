@@ -65,8 +65,16 @@ export class McpHttpSource extends DisposableBase implements ISource {
       return err(SourceError.incompatible(this.slug, `http activation failed: ${e.message}`));
     }
 
-    client.onClose(() => this.statusSubject.next('disconnected'));
+    // ADR-0012: os callbacks abaixo podem disparar após `dispose()` (ex.: close
+    // do cliente durante `deactivate` que acontece no shutdown). Guards
+    // defensivos evitam emitir em subject já completado, o que geraria
+    // ObjectUnsubscribedError no RxJS e logs de erro enganosos.
+    client.onClose(() => {
+      if (this._disposed || this.statusSubject.closed) return;
+      this.statusSubject.next('disconnected');
+    });
     client.onError((e) => {
+      if (this._disposed || this.statusSubject.closed) return;
       if (isHttpAuthError(e)) this.statusSubject.next('needs_auth');
       else this.statusSubject.next('error');
     });

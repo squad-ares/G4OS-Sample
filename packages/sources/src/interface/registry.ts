@@ -1,8 +1,12 @@
+import { DisposableBase } from '@g4os/kernel/disposable';
 import { SourceError } from '@g4os/kernel/errors';
+import { createLogger } from '@g4os/kernel/logger';
 import { err, ok, type Result } from 'neverthrow';
 import type { ISource, SourceConfig, SourceFactory, SourceKind } from './source.ts';
 
-export class SourceRegistry {
+const log = createLogger('source-registry');
+
+export class SourceRegistry extends DisposableBase {
   private readonly factories = new Map<SourceKind, SourceFactory>();
   private readonly instances = new Map<string, ISource>();
 
@@ -57,10 +61,31 @@ export class SourceRegistry {
     return Array.from(this.instances.values());
   }
 
-  async disposeAll(): Promise<void> {
+  /** @deprecated Usar `dispose()` — mantido por compatibilidade com callers existentes. */
+  disposeAll(): Promise<void> {
+    this.dispose();
+    return Promise.resolve();
+  }
+
+  override dispose(): void {
+    // allSettled garante que falhas em deactivate individuais não abortam o loop
+    // — mantém registry consistente e loga erros sem re-throw.
     const slugs = Array.from(this.instances.keys());
-    await Promise.all(slugs.map((slug) => this.deactivate(slug)));
+    void Promise.allSettled(
+      slugs.map(async (slug) => {
+        const source = this.instances.get(slug);
+        if (!source) return;
+        try {
+          await source.deactivate();
+        } catch (e) {
+          log.warn({ slug, err: String(e) }, 'deactivate falhou durante dispose do registry');
+        }
+        source.dispose();
+        this.instances.delete(slug);
+      }),
+    );
     this.factories.clear();
+    super.dispose();
   }
 }
 

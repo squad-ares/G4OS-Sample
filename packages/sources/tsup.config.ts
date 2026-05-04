@@ -12,6 +12,7 @@ export default defineConfig({
     'src/planner/index.ts',
     'src/catalog/index.ts',
     'src/store/index.ts',
+    'src/broker/index.ts',
   ],
   format: ['esm', 'cjs'],
   dts: true,

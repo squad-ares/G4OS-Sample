@@ -31,6 +31,14 @@ const REJECT_DIRECTIVE_RE =
   /\b(?:don'?t\s+use|do\s+not\s+use|nao\s+use|não\s+use|nao\s+usar|não\s+usar|no|not)\s+([A-Za-z0-9][A-Za-z0-9 _-]{1,40})\b/gi;
 
 export class SourceIntentDetector {
+  /**
+   * Cache de RegExp por displayName. O detector é chamado no hot-path do
+   * TurnDispatcher — evita alocar N RegExp por mensagem em workspaces com
+   * muitos sources. WeakMap não é adequado aqui (chaves são strings); Map
+   * simples com strings como chave é correto e GC-safe por instância.
+   */
+  readonly #reCache = new Map<string, RegExp>();
+
   detect(message: string, context: IntentContext): SourceIntent {
     const explicit = unique(matchAll(message, EXPLICIT_RE));
     if (explicit.length > 0) {
@@ -106,11 +114,17 @@ export class SourceIntentDetector {
     // `"AI"` matcha em qualquer mensagem com "main", "rain", "trail". O
     // bound-test usa `\b` que respeita lookbehind/ahead em chars não-letra.
     // Escapamos o display name pra evitar interpretação de regex chars.
+    // RegExp é cached por displayName pois é estática por workspace — evita
+    // N allocs por turn em workspaces com muitos sources (F-CR47-10).
     for (const src of available) {
       const display = src.displayName.toLowerCase();
       if (display.length < 3) continue;
-      const escaped = display.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const re = new RegExp(`\\b${escaped}\\b`, 'i');
+      let re = this.#reCache.get(display);
+      if (!re) {
+        const escaped = display.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        re = new RegExp(`\\b${escaped}\\b`, 'i');
+        this.#reCache.set(display, re);
+      }
       if (re.test(lower)) {
         hits.add(src.slug);
       }

@@ -53,6 +53,15 @@ export async function performOAuth(
   const callback = await waiting;
   if (callback.isErr()) return err(callback.error);
 
+  // RFC 6749 §4.1.2.1: verificar `error` antes de `code`. IdPs retornam
+  // `error=access_denied&error_description=...` no redirect — sem este check
+  // o chamador vê "missing authorization code" em vez da razão real.
+  const providerError = callback.value.get('error');
+  if (providerError) {
+    const description = callback.value.get('error_description') ?? undefined;
+    return err(OAuthError.providerDenied(providerError, description));
+  }
+
   const code = callback.value.get('code');
   if (!code) return err(OAuthError.noCode());
 
@@ -139,6 +148,13 @@ export async function performOAuthLoopback(
           `loopback wait failed: ${cause instanceof Error ? cause.message : String(cause)}`,
         ),
       );
+    }
+    // RFC 6749 §4.1.2.1: mesma verificação do `performOAuth` — IdP pode
+    // redirecionar com `error=access_denied` para o loopback server.
+    const providerError = params.get('error');
+    if (providerError) {
+      const description = params.get('error_description') ?? undefined;
+      return err(OAuthError.providerDenied(providerError, description));
     }
     const code = params.get('code');
     if (!code) return err(OAuthError.noCode());
