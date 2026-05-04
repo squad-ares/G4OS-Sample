@@ -1,3 +1,4 @@
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import envPaths from 'env-paths';
 import { getAppName } from './platform-info.ts';
@@ -57,6 +58,14 @@ function assertSafeId(id: string, kind: 'workspace' | 'session'): string {
     throw new Error(`Invalid ${kind} id: contains unsafe characters or wrong length`);
   }
   return id;
+}
+
+/**
+ * Diretório temporário do sistema operacional (cross-platform).
+ * Usar em vez de `os.tmpdir()` diretamente (ADR-0013).
+ */
+export function getSystemTmpDir(): string {
+  return tmpdir();
 }
 
 export function getAppPaths(): AppPaths {

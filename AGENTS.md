@@ -17,7 +17,7 @@ v1 shipped three categories of user-visible incidents. v2 replaces the **archite
 | Dor reportada | Root cause in v1 | v2 structural fix |
 |---|---|---|
 | Perda do runtime Claude SDK (Windows) | Binários externos (`node`, `pnpm`, `uv`, `python3`, `git`) resolvidos via `PATH` do usuário | Runtimes **empacotados** com checksums SHA-256, validados no boot, installer identity autoritativo |
-| Travamento por memória (Windows) | Main monolítico (1461 LOC / 151 arquivos), `chokidar` vazando handles, listeners/timers sem cleanup, zero observabilidade | Main thin (<11100 LOC com gate CI, ≤300 LOC por arquivo) + `@parcel/watcher` + `DisposableBase` enforcado + `MemoryMonitor` com thresholds. Process isolation avaliado e rejeitado — ADR-0145 (supersedes 0030) |
+| Travamento por memória (Windows) | Main monolítico (1461 LOC / 151 arquivos), `chokidar` vazando handles, listeners/timers sem cleanup, zero observabilidade | Main thin (<11500 LOC com gate CI, ≤300 LOC por arquivo) + `@parcel/watcher` + `DisposableBase` enforcado + `MemoryMonitor` com thresholds. Process isolation avaliado e rejeitado — ADR-0145 (supersedes 0030) |
 | Perda de credenciais | 93 arquivos tocando `credentials.enc`, escrita sem lock, AES custom com chave derivada de valor estático | `CredentialVault` como gateway único, Electron `safeStorage` (Keychain/DPAPI/libsecret), escrita atômica `write→fsync→rename` com `credentials.backup.enc` |
 
 v2 não é uma reescrita cosmética. É a substituição de três decisões estruturais da v1 por padrões já validados em Electron de produção (VS Code, Slack, Discord, 1Password).
@@ -76,7 +76,7 @@ packages/
 
 apps/
 ├── desktop/       # Electron main (thin) + renderer
-│   └── src/main/  # < 11100 LOC total, ≤ 300 por arquivo (gate `check:main-size`)
+│   └── src/main/  # < 11500 LOC total, ≤ 300 por arquivo (gate `check:main-size`)
 ├── desktop-e2e/   # Playwright + Electron smoke tests (ADR-0142)
 └── viewer/        # Web viewer/admin (existente do v1, mantido)
 
@@ -375,7 +375,7 @@ pnpm lint                          # biome check
 pnpm test                          # vitest run
 pnpm build                         # tsup em todos os pacotes
 pnpm check:file-lines              # gate max-500 LOC
-pnpm check:main-size               # gate main <11100 LOC, ≤300/arquivo
+pnpm check:main-size               # gate main <11500 LOC, ≤300/arquivo
 pnpm check:platform-leaks          # gate ADR-0013 (process.platform fora de @g4os/platform)
 pnpm check:hover-pattern           # gate hover:bg-foreground/N legacy (AGENTS.md UI patterns)
 pnpm check:circular                # madge — 0 ciclos

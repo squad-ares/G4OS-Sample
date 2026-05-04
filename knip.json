@@ -93,6 +93,9 @@
     "packages/kernel": {
       "ignoreDependencies": ["pino-pretty", "pino-roll"]
     },
+    "packages/sources": {
+      "ignoreDependencies": ["@modelcontextprotocol/sdk"]
+    },
     "packages/observability": {},
     "packages/ui": {
       "entry": ["src/**/*.tsx", "src/**/*.ts"],

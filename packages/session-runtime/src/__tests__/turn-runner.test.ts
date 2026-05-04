@@ -72,7 +72,8 @@ describe('runAgentIteration', () => {
     });
     expect(result.isOk()).toBe(true);
     if (!result.isOk()) return;
-    expect(result.value.textChunks).toEqual(['hello', ' world']);
+    // batchTextDeltas(16ms) coalesce deltas síncronos numa única janela.
+    expect(result.value.textChunks.join('')).toBe('hello world');
     expect(result.value.doneReason).toBe('stop');
     expect(result.value.usage.input).toBe(10);
     expect(result.value.usage.output).toBe(5);

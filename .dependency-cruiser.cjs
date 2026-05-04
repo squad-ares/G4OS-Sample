@@ -111,12 +111,12 @@ module.exports = {
     {
       name: 'no-cross-feature-imports',
       comment:
-        'Features nao podem importar umas das outras. Exceção: `shell` é horizontal (layout/nav) e pode ser consumido por qualquer feature como pacote de UI compartilhado.',
+        'Features nao podem importar umas das outras. Exceções: `shell` é horizontal (layout/nav); `shared` é utilitário horizontal (helpers puros sem deps de feature, ex: formatRelativeMs).',
       severity: 'error',
       from: { path: '^packages/features/src/([^/]+)/' },
       to: {
         path: '^packages/features/src/',
-        pathNot: '^packages/features/src/($1|shell)(/|$)',
+        pathNot: '^packages/features/src/($1|shell|shared)(/|$)',
       },
     },
     {
