@@ -19,7 +19,7 @@ import { AppError, ErrorCode } from '@g4os/kernel/errors';
 import { createLogger } from '@g4os/kernel/logger';
 import { NewsFeedSchema, type NewsItem } from '@g4os/kernel/schemas';
 import { err, ok, type Result } from 'neverthrow';
-import { readRuntimeEnv } from '../runtime-env.ts';
+import { readBuildTimeConst } from '../runtime-env.ts';
 
 const DEFAULT_VIEWER_URL = 'https://g4oscloud.com';
 const NEWS_CACHE_TTL_MS = 5 * 60_000;
@@ -57,7 +57,7 @@ class NewsServiceImpl extends DisposableBase implements NewsService {
     super();
     this.baseUrl = (
       deps.viewerUrl ??
-      readRuntimeEnv('G4OS_VIEWER_URL') ??
+      readBuildTimeConst('__G4OS_VIEWER_URL__') ??
       DEFAULT_VIEWER_URL
     ).replace(/\/$/, '');
     this.fetchImpl = deps.fetchImpl ?? fetch;

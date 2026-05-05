@@ -56,6 +56,15 @@ function SessionPage() {
   // Date.now() no useMemo abaixo gere um valor novo a cada RAF tick,
   // propagando timestamp instável para os filhos da ghost message.
   const streamingStartedAtRef = useRef<number>(0);
+  // User message otimística — renderizada imediatamente em handleSend, antes
+  // do backend persistir e emitir `message.added`. Sem isso, `turn.started`
+  // pode chegar antes do refetch do messagesQuery e o ghost da IA aparece
+  // "acima" de onde a user msg vai entrar — flicker visual quando a user
+  // msg finalmente é renderizada e empurra o ghost para baixo.
+  const [pendingUserText, setPendingUserText] = useState<{
+    text: string;
+    createdAt: number;
+  } | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pendingTruncateAt, setPendingTruncateAt] = useState<number | null>(null);
   const [metadataOpen, setMetadataOpen] = useState(false);
@@ -72,6 +81,7 @@ function SessionPage() {
     resetStreamingText();
     setStreamingTurnId(null);
     setIsStreaming(false);
+    setPendingUserText(null);
   }, [sessionId, resetStreamingText]);
 
   const persistedMessages = useMemo(
@@ -80,11 +90,32 @@ function SessionPage() {
   );
 
   const chatMessages = useMemo<ReadonlyArray<ChatMessage>>(() => {
+    // Dedupe: se o backend já persistiu a user msg (refetch concluído antes
+    // do .then() limpar pendingUserText), não duplicamos visualmente.
+    const optimisticUser: ChatMessage | null =
+      pendingUserText &&
+      !persistedMessages.some(
+        (m) =>
+          m.role === 'user' &&
+          m.content.some((b) => b.type === 'text' && b.text === pendingUserText.text),
+      )
+        ? {
+            id: `__pending_user__${pendingUserText.createdAt}`,
+            role: 'user',
+            content: [{ type: 'text', text: pendingUserText.text }],
+            createdAt: pendingUserText.createdAt,
+          }
+        : null;
+
+    const baseMessages = optimisticUser
+      ? [...persistedMessages, optimisticUser]
+      : persistedMessages;
+
     // Mostra ghost assim que turn.started chega — sem esperar o primeiro
     // texto. AssistantMessage renderiza "thinking" dots quando content=[],
     // dando feedback imediato. Antes, !streamingText escondia o ghost até
     // o primeiro RAF tick (~16ms), criando flicker no início do turn.
-    if (!streamingTurnId) return persistedMessages;
+    if (!streamingTurnId) return baseMessages;
     const ghost: ChatMessage = {
       id: `__streaming__${streamingTurnId}`,
       role: 'assistant',
@@ -94,8 +125,8 @@ function SessionPage() {
       createdAt: streamingStartedAtRef.current,
       isStreaming: true,
     };
-    return [...persistedMessages, ghost];
-  }, [persistedMessages, streamingTurnId, streamingText]);
+    return [...baseMessages, ghost];
+  }, [persistedMessages, pendingUserText, streamingTurnId, streamingText]);
 
   // Persisted session events (message.added, tool.invoked, session.renamed, etc.)
   useEffect(() => {
@@ -114,6 +145,15 @@ function SessionPage() {
               void invalidateMessages(queryClient, sessionId).then(() => {
                 resetStreamingText();
                 setStreamingTurnId(null);
+              });
+            } else if (event.type === 'message.added' && event.message.role === 'user') {
+              // Mesma estratégia do ghost da IA: limpar `pendingUserText` só
+              // depois do refetch garante que o user message persistido já
+              // está em `persistedMessages` quando a versão otimística
+              // some. Sem isso, há um frame onde nem optimistic nem
+              // persisted aparecem.
+              void invalidateMessages(queryClient, sessionId).then(() => {
+                setPendingUserText(null);
               });
             } else {
               // CR-UX: invalidar sessions list para que a sidebar reflita
@@ -314,10 +354,14 @@ function SessionPage() {
         toast.error(t('chat.runtime.pendingNotice'));
         return;
       }
+      // Otimismo: a user msg aparece imediatamente na UI; backend persiste
+      // em paralelo. message.added (user) limpa o pending após refetch.
+      setPendingUserText({ text: payload.text, createdAt: Date.now() });
       setIsStreaming(true);
       void trpc.sessions.sendMessage
         .mutate({ id: sessionId, text: payload.text })
         .catch((err: unknown) => {
+          setPendingUserText(null);
           setIsStreaming(false);
           toast.error(formatSendError(err));
         });

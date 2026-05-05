@@ -32,6 +32,11 @@ function inferStreamingStatusKey(message: Message): 'thinking' | 'tool' | null {
   if (!last) return 'thinking';
   if (last.type === 'thinking') return 'thinking';
   if (last.type === 'tool_use') return 'tool';
+  // Ghost recém-criado em `turn.started` traz `[{ type: 'text', text: '' }]`
+  // — antes do primeiro chunk de texto chegar. Sem este branch, statusKey
+  // retornava null e a UI mostrava só o cursor pulsing num espaço vazio,
+  // sem feedback de "modelo pensando". Agora exibimos os dots + label.
+  if (last.type === 'text' && last.text.length === 0) return 'thinking';
   return null;
 }
 
@@ -88,11 +93,11 @@ export function AssistantMessage({ message, isStreaming, actions }: AssistantMes
           return null;
         })}
         {statusKey ? (
-          <div className="mt-1 flex items-center gap-2 text-[12px] text-muted-foreground">
-            <span className="flex gap-0.5" aria-hidden={true}>
-              <span className="h-1 w-1 animate-pulse rounded-full bg-muted-foreground/60 [animation-delay:0ms]" />
-              <span className="h-1 w-1 animate-pulse rounded-full bg-muted-foreground/60 [animation-delay:150ms]" />
-              <span className="h-1 w-1 animate-pulse rounded-full bg-muted-foreground/60 [animation-delay:300ms]" />
+          <div className="flex items-center gap-2 py-0.5 text-[13px] text-muted-foreground">
+            <span className="flex gap-1" aria-hidden={true}>
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-muted-foreground/80 [animation-delay:0ms]" />
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-muted-foreground/80 [animation-delay:200ms]" />
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-muted-foreground/80 [animation-delay:400ms]" />
             </span>
             <span>
               {statusKey === 'thinking' ? t('chat.streaming.thinking') : t('chat.streaming.tool')}
