@@ -50,6 +50,17 @@ const buildTimeDefines = {
   __G4OS_SENTRY_RELEASE__: JSON.stringify(
     mergedEnv['G4OS_SENTRY_RELEASE'] ?? mergedEnv['npm_package_version'] ?? '',
   ),
+  // Endpoint do backend gerenciado (transcription, etc.). Em dev local sem
+  // a var, os serviços dependentes degradam para "sem provider gerenciado".
+  __G4OS_MANAGED_API_BASE__: JSON.stringify(mergedEnv['G4OS_MANAGED_API_BASE'] ?? ''),
+  // URL base do viewer (feed de news, etc.). Fallback hard-coded usado quando
+  // a var não está presente (dev/staging sem override).
+  __G4OS_VIEWER_URL__: JSON.stringify(mergedEnv['G4OS_VIEWER_URL'] ?? ''),
+  // Distribution flavor lido por `platform-info.ts`. String literal key →
+  // esbuild pode substituir inline mesmo no bundle do pacote @g4os/platform.
+  'process.env.G4OS_DISTRIBUTION_FLAVOR': JSON.stringify(
+    mergedEnv['G4OS_DISTRIBUTION_FLAVOR'] ?? 'public',
+  ),
 };
 
 export default defineConfig({

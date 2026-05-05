@@ -23,7 +23,7 @@ import { ListenerLeakDetector, MemoryMonitor } from '@g4os/observability/memory'
 import { type G4Metrics, getMetrics } from '@g4os/observability/metrics';
 import { initTelemetry, type TelemetryHandle } from '@g4os/observability/sdk';
 import { initSentry, type SentryHandle } from '@g4os/observability/sentry';
-import { readRuntimeEnv } from '../runtime-env.ts';
+import { readBuildTimeConst, readRuntimeEnv } from '../runtime-env.ts';
 import { startMetricsScrapeServer } from './metrics-scrape-server.ts';
 import { probeServices, type ServicesStatusMap } from './services-prober.ts';
 
@@ -63,9 +63,10 @@ export async function createObservabilityRuntime(
   const otlpEndpoint = readRuntimeEnv('G4OS_OTEL_ENDPOINT');
   const sampleRatioRaw = readRuntimeEnv('G4OS_OTEL_SAMPLE_RATIO');
   const sampleRatio = sampleRatioRaw === undefined ? undefined : Number(sampleRatioRaw);
-  const sentryDsn = readRuntimeEnv('G4OS_SENTRY_DSN');
-  const sentryEnvironment = readRuntimeEnv('G4OS_SENTRY_ENVIRONMENT') ?? options.environment;
-  const sentryRelease = readRuntimeEnv('G4OS_SENTRY_RELEASE') ?? options.serviceVersion;
+  const sentryDsn = readBuildTimeConst('__G4OS_SENTRY_DSN__');
+  const sentryEnvironment =
+    readBuildTimeConst('__G4OS_SENTRY_ENVIRONMENT__') ?? options.environment;
+  const sentryRelease = readBuildTimeConst('__G4OS_SENTRY_RELEASE__') ?? options.serviceVersion;
   const memoryIntervalRaw = readRuntimeEnv('G4OS_MEMORY_INTERVAL_MS');
   const memoryIntervalMs = memoryIntervalRaw === undefined ? undefined : Number(memoryIntervalRaw);
 

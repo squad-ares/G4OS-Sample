@@ -19,7 +19,7 @@ import { DeepLinkHandler } from './deep-link-handler.ts';
 import { loadElectron } from './electron-runtime.ts';
 import { registerGlobalShortcuts } from './global-shortcuts.ts';
 import { initIpcServer } from './ipc-bootstrap.ts';
-import { readRuntimeEnv } from './runtime-env.ts';
+import { readBuildTimeConst, readRuntimeEnv } from './runtime-env.ts';
 import { startAttachmentsGcScheduler } from './services/attachments-gc-bootstrap.ts';
 import { createAuthRuntime } from './services/auth-runtime.ts';
 import { createBackupScheduler } from './services/backup-bootstrap.ts';
@@ -391,7 +391,7 @@ export async function bootstrapMain(options: BootstrapOptions = {}): Promise<voi
       const r = await credentialVault.get('auth.access-token');
       return r.isOk() ? r.value : null;
     },
-    managedEndpoint: readRuntimeEnv('G4OS_MANAGED_API_BASE') ?? '',
+    managedEndpoint: readBuildTimeConst('__G4OS_MANAGED_API_BASE__') ?? '',
   });
 
   const performWipe = createPerformWipe({

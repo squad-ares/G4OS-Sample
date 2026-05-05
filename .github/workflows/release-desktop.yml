@@ -76,6 +76,22 @@ jobs:
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
       SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
 
+      # Sentry — DSN/environment/release embutidos em build time via
+      # __G4OS_SENTRY_DSN__ etc. Sem essas vars, initSentry devolve NOOP.
+      G4OS_SENTRY_DSN: ${{ secrets.G4OS_SENTRY_DSN }}
+      G4OS_SENTRY_ENVIRONMENT: ${{ secrets.G4OS_SENTRY_ENVIRONMENT }}
+
+      # Backend / distribuição — embutidos em build time. Sem essas vars,
+      # TranscriptionService/NewsService degradam graciosamente.
+      G4OS_MANAGED_API_BASE: ${{ secrets.G4OS_MANAGED_API_BASE }}
+      G4OS_VIEWER_URL: ${{ secrets.G4OS_VIEWER_URL }}
+      G4OS_DISTRIBUTION_FLAVOR: ${{ secrets.G4OS_DISTRIBUTION_FLAVOR }}
+
+      # Scripts de empacotamento (bundle-runtimes + after-pack) —
+      # lidos via process.env nos scripts, não no app em si.
+      G4OS_RELEASE_CHANNEL: ${{ secrets.G4OS_RELEASE_CHANNEL }}
+      G4OS_APP_FLAVOR: ${{ secrets.G4OS_APP_FLAVOR }}
+
     steps:
       - uses: actions/checkout@v4
 
